@@ -442,7 +442,18 @@ public final class MainActivity extends Activity {
     private void updateAutomationStatus() {
         if (automationStatus == null) return;
         String state = lifecycleState;
-        automationStatus.setText("Automação: " + state + " · fila: " + pendingMessages.size());
+        boolean allTabsHaveProfiles = !tabs.isEmpty();
+        for (Tab tab : tabs) {
+            if (!tab.sessionIsolationSupported) {
+                allTabsHaveProfiles = false;
+                break;
+            }
+        }
+        String sessionStatus = tabs.isEmpty() ? "sessões: sem abas"
+                : allTabsHaveProfiles ? "perfis WebView separados atribuídos (teste real pendente)"
+                : "ATENÇÃO: há abas com perfil compartilhado; não use contas distintas nelas";
+        automationStatus.setText("Automação: " + state + " · fila: " + pendingMessages.size()
+                + " · " + sessionStatus);
     }
 
     private void queueMessage(int tabIndex, String message) {
@@ -522,7 +533,12 @@ public final class MainActivity extends Activity {
 
             Button tabButton = new Button(this);
             String title = tab.title.length() > 14 ? tab.title.substring(0, 14) + "…" : tab.title;
-            tabButton.setText((i == activeTab ? "● " : "") + title);
+            String profileLabel = tab.sessionIsolationSupported ? " · perfil" : " · compartilhado";
+            tabButton.setText((i == activeTab ? "● " : "") + title + profileLabel);
+            tabButton.setContentDescription("Aba " + (i + 1) + ", " +
+                    (tab.sessionIsolationSupported
+                            ? "perfil WebView separado atribuído; isolamento ainda requer teste no dispositivo"
+                            : "perfil padrão compartilhado; contas diferentes não estão isoladas"));
             tabButton.setTextSize(11);
             tabButton.setOnClickListener(v -> selectTab(index));
             item.addView(tabButton);
