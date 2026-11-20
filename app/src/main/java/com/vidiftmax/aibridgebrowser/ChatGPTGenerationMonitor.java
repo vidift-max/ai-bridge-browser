@@ -46,7 +46,7 @@ final class ChatGPTGenerationMonitor {
             "return visible(b)&&(t.includes('stop')||a.includes('stop generating')||" +
             "a.includes('stop streaming')||a==='stop'||title.includes('stop'));});" +
             "if(stop)return 'GENERATING';" +
-            "const composer=document.querySelector('textarea,[contenteditable=\\\"true\\\"]');" +
+            "const composer=document.querySelector('textarea,[contenteditable=true]');" +
             "return visible(composer)?'NOT_GENERATING':'UNKNOWN';" +
             "}catch(e){return 'UNKNOWN';}})();";
     }
