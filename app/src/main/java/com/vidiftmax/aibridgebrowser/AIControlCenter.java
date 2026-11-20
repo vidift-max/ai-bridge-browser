@@ -40,11 +40,15 @@ final class AIControlCenter {
                          String responseTail, String pendingMessage,
                          boolean reportConfirmed) {
         Panel panel = find(tabId, profileId);
+        if (panel != null && !panel.aiId.equals(aiId)) {
+            panels.remove(panel);
+            panel = null;
+        }
         if (panel == null) {
             if (!register(aiId, tabId, profileId)) return false;
             panel = find(tabId, profileId);
         }
-        if (panel == null || !panel.aiId.equals(aiId)) return false;
+        if (panel == null) return false;
         panel.responseState = parseResponseState(responseState);
         panel.contextState = parseContextState(contextState);
         panel.responseTail = responseTail == null ? "" : responseTail;
