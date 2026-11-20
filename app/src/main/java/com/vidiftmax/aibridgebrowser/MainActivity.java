@@ -61,10 +61,14 @@ public final class MainActivity extends Activity {
         boolean locked = true;
 
         Tab(WebView webView, String title) {
+            this(webView, title, UUID.randomUUID().toString(), "profile-" + UUID.randomUUID());
+        }
+
+        Tab(WebView webView, String title, String tabId, String profileId) {
             this.webView = webView;
             this.title = title;
-            this.tabId = UUID.randomUUID().toString();
-            this.profileId = "profile-" + UUID.randomUUID();
+            this.tabId = tabId;
+            this.profileId = profileId;
         }
     }
 
@@ -181,6 +185,10 @@ public final class MainActivity extends Activity {
     }
 
     private void addTab(String url, boolean select) {
+        addTab(url, select, null, null);
+    }
+
+    private void addTab(String url, boolean select, String restoredTabId, String restoredProfileId) {
         if (tabs.size() >= MAX_TABS) {
             Toast.makeText(this, "Limite inicial de " + MAX_TABS + " abas.", Toast.LENGTH_SHORT).show();
             return;
@@ -197,7 +205,9 @@ public final class MainActivity extends Activity {
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setSupportMultipleWindows(false);
 
-        Tab tab = new Tab(webView, "Nova aba");
+        Tab tab = new Tab(webView, "Nova aba",
+                restoredTabId == null ? UUID.randomUUID().toString() : restoredTabId,
+                restoredProfileId == null ? "profile-" + UUID.randomUUID() : restoredProfileId);
         tab.locked = true;
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -470,7 +480,9 @@ public final class MainActivity extends Activity {
         automationPaused = prefs.getBoolean("paused", false);
         restorePendingMessages();
         for (int i = 0; i < Math.min(count, MAX_TABS); i++) {
-            addTab(prefs.getString("url_" + i, HOME_URL), false);
+            addTab(prefs.getString("url_" + i, HOME_URL), false,
+                    prefs.getString("tab_id_" + i, null),
+                    prefs.getString("profile_id_" + i, null));
             Tab t = tabs.get(tabs.size() - 1);
             t.title = prefs.getString("title_" + i, "Nova aba");
             t.locked = prefs.getBoolean("locked_" + i, true);
