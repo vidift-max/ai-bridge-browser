@@ -80,9 +80,14 @@ public final class MainActivity extends Activity {
     }
 
     private static final class PendingMessage {
-        final int tabIndex;
+        final String tabId;
+        final String profileId;
         final String text;
-        PendingMessage(int tabIndex, String text) { this.tabIndex = tabIndex; this.text = text; }
+        PendingMessage(String tabId, String profileId, String text) {
+            this.tabId = tabId;
+            this.profileId = profileId;
+            this.text = text;
+        }
     }
 
     private static final class FrameHost extends LinearLayout {
