@@ -41,14 +41,14 @@ final class ChatGPTGenerationMonitor {
             "return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none';};" +
             "const buttons=Array.from(document.querySelectorAll('button'));" +
             "const stop=buttons.some(b=>{const a=(b.getAttribute('aria-label')||'').toLowerCase();" +
+            "const title=(b.getAttribute('title')||'').toLowerCase();" +
             "const t=(b.getAttribute('data-testid')||'').toLowerCase();" +
             "const icon=b.querySelector('svg');" +
-            "const hasSquare=!!(icon&&icon.querySelector('rect'));"+
+            "const hasSquare=!!(icon&&icon.querySelector('rect'));" +
             "const pathData=icon?Array.from(icon.querySelectorAll('path')).map(p=>p.getAttribute('d')||'').join(' '):'';" +
             "const squarePath=/M ?[0-9.]+ ?[0-9.]+ ?h ?[0-9.]+ ?v ?[0-9.]+ ?h ?-[0-9.]+ ?z/i.test(pathData);" +
-            "const stopLabel=a.includes('stop generating')||a.includes('stop streaming')||a==='stop';" +
-            "return visible(b)&&(t.includes('stop')||stopLabel||((hasSquare||squarePath)&&" +
-            "(b.getAttribute('data-state')==='open'||b.getAttribute('aria-label'))));});" +
+            "const stopLabel=a.includes('stop generating')||a.includes('stop streaming')||a==='stop'||title.includes('stop');" +
+            "return visible(b)&&(t.includes('stop')||(stopLabel&&(hasSquare||squarePath||a==='stop')));});" +
             "if(stop)return 'GENERATING';" +
             "const composer=document.querySelector('textarea,[contenteditable=\\\"true\\\"]');" +
             "return visible(composer)?'NOT_GENERATING':'UNKNOWN';" +
