@@ -6,14 +6,14 @@ Data: 2026-11-20
 |---|---|---|
 | 01 | Arquitetura e viabilidade Android | PASS condicional; áudio precisa de protótipo |
 | 02 | Estrutura do projeto Android | PASS — arquivos-base publicados |
-| 03 | Navegador e gerenciamento inicial de abas | PASS em código; não compilado/testado |
+| 03 | Navegador e gerenciamento inicial de abas | PASS em código; build Android debug compilado com sucesso no GitHub Actions (run 44684845434); sem teste físico |
 | 04 | Navegação para ChatGPT em WebView | PASS em código; login não testado |
 | 05 | Central de áudio | PARCIAL — indicador visual; sem motor de áudio |
 | 06 | Captura e distribuição | BLOCKED — requer protótipo MediaProjection e teste real |
 | 07 | Entrada de voz em outro chat | BLOCKED — não há API pública genérica de injeção de microfone |
 | 08 | Conferência entre duas IAs | BLOCKED — depende de transporte e entrada/saída comprovados |
 | 09 | Participantes e permissões | PARCIAL — regras documentadas; controles não implementados |
-| 10 | Validação final | BLOCKED — sem build, emulador ou teste físico |
+| 10 | Validação final | BLOCKED — sem emulador ou teste físico; build debug de nuvem aprovado |
 
 ## Commits principais
 
@@ -23,4 +23,4 @@ Data: 2026-11-20
 
 ## Conclusão
 
-As dez rodadas de planejamento e preparação de código foram executadas no repositório, mas isso não significa que o navegador esteja pronto para instalação. O projeto precisa de sincronização/compilação Android e validação física. O maior risco técnico permanece a comunicação de áudio bidirecional entre sessões Web independentes.
+As dez rodadas de planejamento e preparação de código foram executadas no repositório, mas isso não significa que o navegador esteja pronto para instalação. O build debug passou no GitHub Actions (run 44684845434); falta validação física no Galaxy Tab A7. O maior risco técnico permanece a comunicação de áudio bidirecional entre sessões Web independentes.
