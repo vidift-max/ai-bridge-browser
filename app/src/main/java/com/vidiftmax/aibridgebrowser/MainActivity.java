@@ -102,6 +102,13 @@ public final class MainActivity extends Activity {
         root.addView(frameHost, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
 
+        TextView audioStatus = new TextView(this);
+        audioStatus.setText("Central de áudio: estrutura visual inicial — captura e retransmissão ainda não habilitadas.");
+        audioStatus.setPadding(12, 12, 12, 12);
+        audioStatus.setGravity(Gravity.CENTER);
+        root.addView(audioStatus, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         setContentView(root);
     }
 
