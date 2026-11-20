@@ -40,10 +40,10 @@ Data: 2026-11-20
 | 14 | Recuperação após recriação | PARCIAL; URLs e aba ativa são restauradas, mas histórico/formulários não são preservados |
 | 15 | Segurança WebView | PASS em código; arquivos locais, conteúdo misto, janelas e permissões web bloqueados; TLS inválido cancelado |
 | 16 | Ciclo de vida | PASS em código; WebViews são destruídas ao fechar aba e encerrar Activity |
-| 17 | CI Android do código atualizado | PENDING; workflows para commits 57b34c1 e posteriores ainda em execução na última consulta |
+| 17 | CI Android do código atualizado | PASS — commit 57b34c15ae6fbd55b62a1fe1164b67dc091a805b compilado; GitHub Actions run 44685270966 SUCCESS |
 | 18 | Isolamento de sessões | BLOCKED; documentados caminhos possíveis, sem isolamento de contas implementado |
 | 19 | Protótipo de áudio | PASS documental; plano experimental criado; captura real não implementada |
-| 20 | Auditoria e relatório | PARCIAL; fontes e documentos verificados; aguarda CI do último código |
+| 20 | Auditoria e relatório | PARCIAL; fontes e documentos verificados; fontes e documentos verificados; código Android atualizado compilado com sucesso; sem teste físico |
 
 ## Arquivos adicionados neste ciclo
 
@@ -60,4 +60,4 @@ Data: 2026-11-20
 
 ## Conclusão do ciclo
 
-O navegador ganhou fechamento de abas, títulos dinâmicos, controles de navegação, validação de URL, restauração básica e reforço de segurança. O build de um commit intermediário de melhorias passou no GitHub Actions (run `44685213867`), mas a validação CI dos commits posteriores permanece pendente. Não houve instalação nem teste físico no tablet. Áudio bidirecional e isolamento de contas continuam BLOCKED.
+O navegador ganhou fechamento de abas, títulos dinâmicos, controles de navegação, validação de URL, restauração básica e reforço de segurança. O build de um commit intermediário de melhorias passou no GitHub Actions (run `44685213867`), mas o build do código Android atualizado passou no GitHub Actions (run 44685270966). Commits posteriores alteraram apenas documentação. Não houve instalação nem teste físico no tablet. Áudio bidirecional e isolamento de contas continuam BLOCKED.
