@@ -4,7 +4,7 @@ Navegador Android experimental com abas WebView e uma futura central de áudio p
 
 ## Estado atual
 
-O scaffold Android foi publicado na branch `v2-saas-alpha`. O navegador inicial permite criar até cinco abas WebView e navegar até o ChatGPT. O build Android debug passou na etapa de compilação do GitHub Actions (run `44684845434`). Foi adicionada uma indicação visual da central de áudio, mas **não existe captura ou retransmissão de áudio implementada**.
+O scaffold Android foi publicado na branch `v2-saas-alpha`. O navegador inicial permite criar até cinco abas WebView, alternar e fechar abas, exibir título/host, voltar/recarregar páginas, validar URLs e restaurar URLs após recriação da Activity. O build Android debug passou na etapa de compilação do GitHub Actions (run `44684845434`). Foi adicionada uma indicação visual da central de áudio, mas **não existe captura ou retransmissão de áudio implementada**.
 
 **Ainda não está pronto para instalação no tablet:** apesar do build debug validado na nuvem, não houve teste físico no Galaxy Tab A7 nem validação de áudio.
 
@@ -16,6 +16,13 @@ O scaffold Android foi publicado na branch `v2-saas-alpha`. O navegador inicial 
 - compileSdk 37 / targetSdk 35 / minSdk 29
 - Android WebView
 
+## Segurança implementada no protótipo
+
+- Bloqueio de esquemas que não sejam HTTP/HTTPS.
+- Certificados TLS inválidos são rejeitados.
+- Permissões de microfone/câmera negadas por padrão.
+- Abas podem ser fechadas individualmente.
+
 ## Limitações importantes
 
 - Abas distintas não significam contas isoladas: as WebViews compartilham o perfil padrão de cookies neste protótipo.
@@ -23,6 +30,10 @@ O scaffold Android foi publicado na branch `v2-saas-alpha`. O navegador inicial 
 - AudioPlaybackCapture exige consentimento MediaProjection e depende da política de captura do app de origem.
 - Não há API pública genérica para injetar um fluxo de áudio arbitrário como microfone de outro WebView.
 - A comunicação bidirecional entre duas IAs permanece BLOCKED até existir um protótipo comprovado em dispositivo real.
+
+## Ciclo de desenvolvimento
+
+O relatório e o roadmap das rodadas 1–20 estão em `docs/ROUND_REPORT.md` e `docs/ROADMAP_11_20.md`.
 
 ## Estrutura
 
