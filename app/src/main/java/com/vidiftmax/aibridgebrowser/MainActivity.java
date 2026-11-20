@@ -47,6 +47,11 @@ public final class MainActivity extends Activity {
     private final List<Tab> tabs = new ArrayList<>();
     private final BrowserState browserState = new BrowserState();
     private LinearLayout tabStrip;
+    private LinearLayout rootLayout;
+    private LinearLayout controlCenterView;
+    private EditText coordinatorInput;
+    private final AIControlCenter controlCenter = new AIControlCenter();
+    private boolean showingControlCenter = false;
     private FrameHost frameHost;
     private EditText addressBar;
     private TextView audioStatus;
@@ -119,6 +124,7 @@ public final class MainActivity extends Activity {
 
     private void buildChrome() {
         LinearLayout root = new LinearLayout(this);
+        rootLayout = root;
         root.setOrientation(LinearLayout.VERTICAL);
 
         LinearLayout controls = new LinearLayout(this);
@@ -148,6 +154,12 @@ public final class MainActivity extends Activity {
         go.setText("Ir");
         controls.addView(go);
         go.setOnClickListener(v -> navigateCurrent());
+
+        Button center = new Button(this);
+        center.setText("Central IA");
+        center.setContentDescription("Abrir Central de Controle das IAs");
+        controls.addView(center);
+        center.setOnClickListener(v -> toggleControlCenter());
 
         Button add = new Button(this);
         add.setText("+");
@@ -190,11 +202,87 @@ public final class MainActivity extends Activity {
         root.addView(tabScroller);
         root.addView(frameHost, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        buildControlCenterView();
+        root.addView(controlCenterView, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        controlCenterView.setVisibility(View.GONE);
         root.addView(pauseButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(automationStatus, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(audioStatus, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         setContentView(root);
+    }
+
+
+    private void buildControlCenterView() {
+        controlCenterView = new LinearLayout(this);
+        controlCenterView.setOrientation(LinearLayout.VERTICAL);
+        controlCenterView.setPadding(dp(12), dp(8), dp(12), dp(8));
+
+        TextView heading = new TextView(this);
+        heading.setText("CENTRAL DE CONTROLE · até 6 IAs");
+        heading.setTextSize(18);
+        heading.setPadding(0, dp(6), 0, dp(10));
+        controlCenterView.addView(heading);
+
+        for (int i = 1; i <= AIControlCenter.MAX_AI_TABS; i++) {
+            TextView panel = new TextView(this);
+            panel.setTag("ai_panel_" + i);
+            panel.setText("IA " + i + " · aguardando associação a uma aba");
+            panel.setTextSize(14);
+            panel.setPadding(dp(10), dp(10), dp(10), dp(10));
+            panel.setBackgroundColor(0xFF202124);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.bottomMargin = dp(5);
+            controlCenterView.addView(panel, lp);
+        }
+
+        TextView coordinatorHeading = new TextView(this);
+        coordinatorHeading.setText("GPT-6 · COORDENAÇÃO");
+        coordinatorHeading.setTextSize(16);
+        coordinatorHeading.setPadding(0, dp(10), 0, dp(5));
+        controlCenterView.addView(coordinatorHeading);
+
+        coordinatorInput = new EditText(this);
+        coordinatorInput.setHint("Caixa exclusiva de coordenação GPT-6");
+        coordinatorInput.setGravity(Gravity.TOP);
+        coordinatorInput.setMinLines(3);
+        coordinatorInput.setTextSize(14);
+        controlCenterView.addView(coordinatorInput, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(110)));
+
+        TextView note = new TextView(this);
+        note.setText("Painéis estruturais: monitoramento, distribuição de missões e comunicação automática serão conectados nas próximas etapas.");
+        note.setTextSize(12);
+        note.setPadding(0, dp(6), 0, 0);
+        controlCenterView.addView(note);
+        renderControlCenter();
+    }
+
+    private void toggleControlCenter() {
+        showingControlCenter = !showingControlCenter;
+        frameHost.setVisibility(showingControlCenter ? View.GONE : View.VISIBLE);
+        controlCenterView.setVisibility(showingControlCenter ? View.VISIBLE : View.GONE);
+        if (showingControlCenter) renderControlCenter();
+    }
+
+    private void renderControlCenter() {
+        if (controlCenterView == null) return;
+        List<AIControlCenter.Panel> panels = controlCenter.panels();
+        for (int i = 1; i <= AIControlCenter.MAX_AI_TABS; i++) {
+            View child = controlCenterView.findViewWithTag("ai_panel_" + i);
+            if (!(child instanceof TextView)) continue;
+            TextView row = (TextView) child;
+            if (i <= panels.size()) {
+                AIControlCenter.Panel panel = panels.get(i - 1);
+                row.setText("IA " + i + " · " + panel.aiId + "\\nResposta: " +
+                        panel.responseState + " · Contexto: " + panel.contextState +
+                        "\\nAba: " + panel.tabId.substring(0, Math.min(8, panel.tabId.length())));
+            } else {
+                row.setText("IA " + i + " · aguardando associação a uma aba");
+            }
+        }
     }
 
     private void addTab(String url, boolean select) {
@@ -281,8 +369,10 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         tabs.add(tab);
         browserState.addTab(tab.tabId);
+        controlCenter.register("AI-" + tab.tabId, tab.tabId, tab.profileId);
         webView.loadUrl(normalizeUrl(url));
         renderTabs();
+        renderControlCenter();
         persistTabs();
         if (select) selectTab(tabs.size() - 1);
         else webView.setVisibility(View.GONE);
@@ -447,6 +537,7 @@ public final class MainActivity extends Activity {
         }
         Tab removed = tabs.remove(index);
         browserState.removeTab(removed.tabId);
+        controlCenter.unregisterByTab(removed.tabId);
         removed.webView.stopLoading();
         frameHost.removeView(removed.webView);
         removed.webView.destroy();
