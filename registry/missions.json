@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "check_interval_seconds": 180,
+  "max_audio_participants": 5,
+  "coordinator": "GPT-6",
+  "participants": {}
+}
