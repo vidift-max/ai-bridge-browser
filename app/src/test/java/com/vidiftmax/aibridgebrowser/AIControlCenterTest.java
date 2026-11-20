@@ -43,4 +43,39 @@ public class AIControlCenterTest {
         assertTrue(center.unregisterByTab("tab-a"));
         assertEquals("AI-02", center.panels().get(0).aiId);
     }
+    @Test public void generationMonitorIsIndependentForEachPanel() {
+        AIControlCenter center = new AIControlCenter();
+        center.register("AI-01", "tab-a", "profile-a");
+        center.register("AI-02", "tab-b", "profile-b");
+        assertTrue(center.beginMessage("tab-a", "profile-a", "mission A"));
+        assertTrue(center.beginMessage("tab-b", "profile-b", "mission B"));
+
+        assertTrue(center.observeGeneration("tab-a", "profile-a",
+                ChatGPTGenerationMonitor.Observation.GENERATING));
+        assertEquals(AIControlCenter.ResponseState.RESPONDING,
+                center.panels().get(0).responseState);
+        assertEquals(AIControlCenter.ResponseState.SENDING,
+                center.panels().get(1).responseState);
+
+        assertTrue(center.observeGeneration("tab-a", "profile-a",
+                ChatGPTGenerationMonitor.Observation.NOT_GENERATING));
+        assertTrue(center.observeGeneration("tab-a", "profile-a",
+                ChatGPTGenerationMonitor.Observation.NOT_GENERATING));
+        assertEquals(AIControlCenter.ResponseState.RESPONSE_COMPLETE,
+                center.panels().get(0).responseState);
+        assertEquals(AIControlCenter.ResponseState.SENDING,
+                center.panels().get(1).responseState);
+    }
+
+    @Test public void unknownGenerationSignalNeverCompletesMission() {
+        AIControlCenter center = new AIControlCenter();
+        center.register("AI-01", "tab-a", "profile-a");
+        assertTrue(center.beginMessage("tab-a", "profile-a", "mission"));
+        assertTrue(center.observeGeneration("tab-a", "profile-a",
+                ChatGPTGenerationMonitor.Observation.NOT_GENERATING));
+        assertEquals(AIControlCenter.ResponseState.UNKNOWN,
+                center.panels().get(0).responseState);
+        assertFalse(center.confirmReport("tab-a", "profile-a"));
+    }
+
 }
