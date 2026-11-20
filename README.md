@@ -1,12 +1,12 @@
 # AI Bridge Browser
 
-Navegador Android experimental com abas WebView e uma futura central de áudio para conversas entre sessões de IA.
+Navegador Android experimental com até seis abas WebView e uma Central de Controle estrutural.
 
 ## Estado atual
 
-O scaffold Android foi publicado na branch `v2-saas-alpha`. O navegador inicial permite criar até cinco abas WebView, alternar e fechar abas, exibir título/host, voltar/recarregar páginas, validar URLs e restaurar URLs após recriação da Activity. O build Android debug passou na etapa de compilação do GitHub Actions (run `44684845434`). Foi adicionada uma indicação visual da central de áudio, mas **não existe captura ou retransmissão de áudio implementada**.
+A branch `v2-saas-alpha` contém um navegador Android com limite de seis abas, alternância, bloqueio/desbloqueio antes de fechar, título/host, navegação por endereço, voltar e recarregar. A Central de Controle apresenta até seis painéis estruturais e uma caixa local de coordenação GPT-6.
 
-**Ainda não está pronto para instalação no tablet:** apesar do build debug validado na nuvem, não houve teste físico no Galaxy Tab A7 nem validação de áudio.
+**O navegador ainda está em finalização.** Builds verdes não substituem testes em dispositivo. O Galaxy Tab A7 ainda não foi usado para validar o APK.
 
 ## Tecnologia
 
@@ -16,33 +16,34 @@ O scaffold Android foi publicado na branch `v2-saas-alpha`. O navegador inicial 
 - compileSdk 37 / targetSdk 35 / minSdk 29
 - Android WebView
 
-## Segurança implementada no protótipo
+## Segurança existente
 
-- Bloqueio de esquemas que não sejam HTTP/HTTPS.
+- Apenas URLs HTTP/HTTPS com host válido e sem userinfo.
 - Certificados TLS inválidos são rejeitados.
+- Acesso a arquivos/conteúdo local desativado.
+- Conteúdo misto bloqueado e Safe Browsing habilitado.
+- Popups/janelas múltiplas desativados.
 - Permissões de microfone/câmera negadas por padrão.
-- Abas podem ser fechadas individualmente.
 
 ## Limitações importantes
 
-- Abas distintas não significam contas isoladas: as WebViews compartilham o perfil padrão de cookies neste protótipo.
-- Permissões de microfone e câmera são negadas por padrão.
-- AudioPlaybackCapture exige consentimento MediaProjection e depende da política de captura do app de origem.
-- Não há API pública genérica para injetar um fluxo de áudio arbitrário como microfone de outro WebView.
-- A comunicação bidirecional entre duas IAs permanece BLOCKED até existir um protótipo comprovado em dispositivo real.
+- **Abas diferentes não garantem contas diferentes.** Na implementação de baseline, todas as WebViews usam o perfil padrão; os identificadores `profileId` eram apenas metadados.
+- A independência de sessões depende de suporte real do Android System WebView a perfis múltiplos e de validação no dispositivo.
+- Persistência atual não comprova restauração completa do histórico, formulários ou estado interno de cada página.
+- A caixa GPT-6 é local à interface; não está conectada a um serviço GPT-6.
+- Não existe envio automático de mensagens, controle remoto, integração externa ou ponte de áudio funcional.
 
-## Ciclo de desenvolvimento
+## Prioridade de desenvolvimento
 
-O relatório e o roadmap das rodadas 1–20 estão em `docs/ROUND_REPORT.md` e `docs/ROADMAP_11_20.md`.
+Concluir primeiro o navegador: perfis de sessão verdadeiros com verificação de suporte, navegação, recuperação, segurança, testes e preparação do APK. Controle remoto, API, salas multi-IA, integrações externas e áudio ficam para fases posteriores.
 
-## Estrutura
+## Documentação
 
-- `app/`: aplicativo Android.
+- `docs/BROWSER_FINALIZATION_AUDIT_01.md`: auditoria de partida desta missão.
+- `docs/BROWSER_TEST_MATRIX.md`: matriz de testes do navegador.
+- `docs/SESSION_ISOLATION.md`: decisão e requisitos de isolamento.
+- `docs/WEBVIEW_SECURITY.md`: baseline de segurança.
 - `docs/ARCHITECTURE.md`: arquitetura e limites.
-- `docs/AUDIO_BRIDGE.md`: viabilidade da ponte de áudio.
-- `docs/CONFERENCE_PROTOCOL.md`: regras planejadas da conferência.
-- `docs/VALIDATION_PLAN.md`: testes necessários.
-- `docs/ROUND_REPORT.md`: relatório das dez rodadas.
 
 ## Build
 
@@ -52,8 +53,8 @@ Com JDK 17, Android SDK API 37 e Gradle 9.6 instalados:
 gradle :app:assembleDebug
 ```
 
-Também foi configurado um workflow GitHub Actions para executar o build de debug em pushes e pull requests para `v2-saas-alpha`.
+O workflow GitHub Actions executa o build de debug em pushes e pull requests para `v2-saas-alpha`.
 
-## Plano de desenvolvimento
+## Prontidão
 
-As dez rodadas iniciais de planejamento e preparação estão registradas em `docs/ROUND_REPORT.md`. As próximas tarefas técnicas são: obter um build verde, testar as abas no Galaxy Tab A7, resolver isolamento real de sessões e prototipar captura/encaminhamento de áudio com consentimento explícito.
+O estado de cada recurso deve ser descrito como implementado, testado ou validado em dispositivo. Nenhum build de CI será tratado como prova de funcionamento no Galaxy Tab A7.
