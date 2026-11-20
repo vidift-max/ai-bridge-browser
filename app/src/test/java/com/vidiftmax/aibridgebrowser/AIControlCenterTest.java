@@ -94,4 +94,37 @@ public class AIControlCenterTest {
         assertEquals("line two\nline three", center.panels().get(0).responseTail);
     }
 
+    @Test public void restoresCompletedPanelIdentityAndEvidence() {
+        AIControlCenter center = new AIControlCenter();
+        assertTrue(center.restorePanel("AI-04", "tab-z", "profile-z",
+                "RESPONSE_COMPLETE", "CRITICAL", "last two lines", "",
+                true));
+        AIControlCenter.Panel panel = center.panels().get(0);
+        assertEquals("AI-04", panel.aiId);
+        assertEquals("last two lines", panel.responseTail);
+        assertEquals(AIControlCenter.ContextState.CRITICAL, panel.contextState);
+        assertTrue(panel.reportConfirmed);
+    }
+
+    @Test public void restoresInFlightPanelAsUnknownNotResponding() {
+        AIControlCenter center = new AIControlCenter();
+        assertTrue(center.restorePanel("AI-02", "tab-b", "profile-b",
+                "RESPONDING", "NORMAL", "partial tail", "mission still pending",
+                false));
+        AIControlCenter.Panel panel = center.panels().get(0);
+        assertEquals(AIControlCenter.ResponseState.UNKNOWN, panel.responseState);
+        assertEquals("mission still pending", panel.pendingMessage);
+        assertFalse(panel.reportConfirmed);
+    }
+
+    @Test public void restoresSavedPanelOrderAndIdentity() {
+        AIControlCenter center = new AIControlCenter();
+        center.register("AI-01", "tab-a", "profile-a");
+        center.register("AI-02", "tab-b", "profile-b");
+        assertTrue(center.restorePanel("AI-05", "tab-a", "profile-a",
+                "IDLE", "UNKNOWN", "", "", false));
+        assertEquals("AI-05", center.panels().get(0).aiId);
+        assertEquals("AI-02", center.panels().get(1).aiId);
+    }
+
 }
