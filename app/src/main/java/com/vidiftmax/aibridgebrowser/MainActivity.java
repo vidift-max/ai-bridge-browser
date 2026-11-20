@@ -24,6 +24,8 @@ import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -69,20 +71,19 @@ public final class MainActivity extends Activity {
         String title;
         final String tabId;
         final String profileId;
+        final boolean sessionIsolationSupported;
         boolean pageReady = false;
         boolean chatReady = false;
         boolean locked = true;
         String missionState = "WAITING_PAGE";
 
-        Tab(WebView webView, String title) {
-            this(webView, title, UUID.randomUUID().toString(), "profile-" + UUID.randomUUID());
-        }
-
-        Tab(WebView webView, String title, String tabId, String profileId) {
+        Tab(WebView webView, String title, String tabId, String profileId,
+            boolean sessionIsolationSupported) {
             this.webView = webView;
             this.title = title;
             this.tabId = tabId;
             this.profileId = profileId;
+            this.sessionIsolationSupported = sessionIsolationSupported;
         }
     }
 
@@ -321,7 +322,19 @@ public final class MainActivity extends Activity {
             return;
         }
 
+        String tabId = restoredTabId == null ? UUID.randomUUID().toString() : restoredTabId;
+        String profileId = restoredProfileId == null ? "profile-" + UUID.randomUUID() : restoredProfileId;
         WebView webView = new WebView(this);
+        boolean sessionIsolationSupported = false;
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+            try {
+                // Must be the first WebView operation, before settings, clients, or navigation.
+                WebViewCompat.setProfile(webView, profileId);
+                sessionIsolationSupported = true;
+            } catch (RuntimeException profileError) {
+                sessionIsolationSupported = false;
+            }
+        }
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -332,9 +345,7 @@ public final class MainActivity extends Activity {
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setSupportMultipleWindows(false);
 
-        Tab tab = new Tab(webView, "Nova aba",
-                restoredTabId == null ? UUID.randomUUID().toString() : restoredTabId,
-                restoredProfileId == null ? "profile-" + UUID.randomUUID() : restoredProfileId);
+        Tab tab = new Tab(webView, "Nova aba", tabId, profileId, sessionIsolationSupported);
         tab.locked = true;
         webView.setWebViewClient(new WebViewClient() {
             @Override
