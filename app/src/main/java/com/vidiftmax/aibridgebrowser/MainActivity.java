@@ -45,6 +45,7 @@ public final class MainActivity extends Activity {
     private static final String LIFECYCLE_RECOVERING = "RECOVERING";
 
     private final List<Tab> tabs = new ArrayList<>();
+    private final BrowserState browserState = new BrowserState();
     private LinearLayout tabStrip;
     private FrameHost frameHost;
     private EditText addressBar;
@@ -279,6 +280,7 @@ public final class MainActivity extends Activity {
         frameHost.addView(webView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         tabs.add(tab);
+        browserState.addTab(tab.tabId);
         webView.loadUrl(normalizeUrl(url));
         renderTabs();
         persistTabs();
@@ -294,6 +296,7 @@ public final class MainActivity extends Activity {
 
     private void setAutomationPaused(boolean paused) {
         automationPaused = paused;
+        browserState.setPaused(paused);
         lifecycleState = paused ? LIFECYCLE_PAUSED : LIFECYCLE_RUNNING;
         for (Tab tab : tabs) {
             if (paused) tab.missionState = "PAUSED";
@@ -427,6 +430,7 @@ public final class MainActivity extends Activity {
     private void selectTab(int index) {
         if (index < 0 || index >= tabs.size()) return;
         activeTab = index;
+        browserState.selectTab(index);
         for (int i = 0; i < tabs.size(); i++) {
             tabs.get(i).webView.setVisibility(i == index ? View.VISIBLE : View.GONE);
         }
@@ -442,6 +446,7 @@ public final class MainActivity extends Activity {
             return;
         }
         Tab removed = tabs.remove(index);
+        browserState.removeTab(removed.tabId);
         removed.webView.stopLoading();
         frameHost.removeView(removed.webView);
         removed.webView.destroy();
@@ -539,6 +544,7 @@ public final class MainActivity extends Activity {
         // Leaving the app pauses automation so queued actions cannot run while the user is using the tablet elsewhere.
         if (!isChangingConfigurations()) {
             automationPaused = true;
+            browserState.setPaused(true);
             lifecycleState = LIFECYCLE_RECOVERING;
             for (Tab tab : tabs) tab.missionState = "PAUSED";
         }
@@ -551,6 +557,7 @@ public final class MainActivity extends Activity {
         super.onStart();
         if (lifecycleState.equals(LIFECYCLE_RECOVERING)) {
             automationPaused = true;
+            browserState.setPaused(true);
             lifecycleState = LIFECYCLE_PAUSED;
             updateAutomationStatus();
         }
