@@ -4,9 +4,9 @@ Navegador Android experimental com abas WebView e uma futura central de áudio p
 
 ## Estado atual
 
-O scaffold Android foi publicado na branch `v2-saas-alpha`. O navegador inicial permite criar até cinco abas WebView e navegar até o ChatGPT. Foi adicionada uma indicação visual da central de áudio, mas **não existe captura ou retransmissão de áudio implementada**.
+O scaffold Android foi publicado na branch `v2-saas-alpha`. O navegador inicial permite criar até cinco abas WebView e navegar até o ChatGPT. O build Android debug passou na etapa de compilação do GitHub Actions (run `44684845434`). Foi adicionada uma indicação visual da central de áudio, mas **não existe captura ou retransmissão de áudio implementada**.
 
-**Ainda não está pronto para instalação:** o projeto não foi compilado nem testado em um dispositivo Android nesta execução.
+**Ainda não está pronto para instalação no tablet:** apesar do build debug validado na nuvem, não houve teste físico no Galaxy Tab A7 nem validação de áudio.
 
 ## Tecnologia
 
