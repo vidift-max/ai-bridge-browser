@@ -21,6 +21,8 @@ import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,22 +33,35 @@ public final class MainActivity extends Activity {
     private static final String HOME_URL = "https://chatgpt.com/";
     private static final String STATE_URLS = "tab_urls";
     private static final String STATE_ACTIVE = "active_tab";
+    private static final String STATE_PAUSED = "automation_paused";
 
     private final List<Tab> tabs = new ArrayList<>();
     private LinearLayout tabStrip;
     private FrameHost frameHost;
     private EditText addressBar;
     private TextView audioStatus;
+    private TextView automationStatus;
+    private Button pauseButton;
+    private boolean automationPaused = false;
+    private final Deque<PendingMessage> pendingMessages = new ArrayDeque<>();
     private int activeTab = -1;
 
     private static final class Tab {
         final WebView webView;
         String title;
+        boolean pageReady = false;
+        boolean chatReady = false;
 
         Tab(WebView webView, String title) {
             this.webView = webView;
             this.title = title;
         }
+    }
+
+    private static final class PendingMessage {
+        final int tabIndex;
+        final String text;
+        PendingMessage(int tabIndex, String text) { this.tabIndex = tabIndex; this.text = text; }
     }
 
     private static final class FrameHost extends LinearLayout {
@@ -60,6 +75,7 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         buildChrome();
+        if (savedInstanceState != null) automationPaused = savedInstanceState.getBoolean(STATE_PAUSED, false);
         if (savedInstanceState != null) {
             ArrayList<String> urls = savedInstanceState.getStringArrayList(STATE_URLS);
             if (urls != null && !urls.isEmpty()) {
@@ -126,16 +142,27 @@ public final class MainActivity extends Activity {
         tabScroller.addView(tabStrip);
 
         frameHost = new FrameHost(this);
+        automationStatus = new TextView(this);
+        automationStatus.setTextSize(12);
+        automationStatus.setPadding(dp(10), dp(6), dp(10), dp(6));
+        automationStatus.setGravity(Gravity.CENTER);
+        pauseButton = new Button(this);
+        pauseButton.setText(automationPaused ? "▶ Continuar automação" : "⏸ Pausar automação");
+        pauseButton.setOnClickListener(v -> setAutomationPaused(!automationPaused));
+
         audioStatus = new TextView(this);
         audioStatus.setText("Central de áudio: ainda sem captura ou retransmissão.");
         audioStatus.setTextSize(12);
         audioStatus.setPadding(dp(10), dp(10), dp(10), dp(10));
         audioStatus.setGravity(Gravity.CENTER);
+        updateAutomationStatus();
 
         root.addView(controls);
         root.addView(tabScroller);
         root.addView(frameHost, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        root.addView(pauseButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(automationStatus, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(audioStatus, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         setContentView(root);
@@ -167,7 +194,10 @@ public final class MainActivity extends Activity {
 
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                tab.pageReady = false;
+                tab.chatReady = false;
                 if (tabs.indexOf(tab) == activeTab) addressBar.setText(url);
+                updateAutomationStatus();
             }
 
             @Override
@@ -189,8 +219,11 @@ public final class MainActivity extends Activity {
                 String pageTitle = view.getTitle();
                 tab.title = (pageTitle == null || pageTitle.trim().isEmpty())
                         ? hostLabel(url) : pageTitle.trim();
+                tab.pageReady = true;
+                tab.chatReady = isChatHost(url);
                 renderTabs();
                 if (tabs.indexOf(tab) == activeTab) addressBar.setText(url);
+                deliverPendingMessages();
             }
         });
 
@@ -217,7 +250,7 @@ public final class MainActivity extends Activity {
         else webView.setVisibility(View.GONE);
     }
 
-    private boolean isAllowedWebUrl(String value) {
+    private boolean isChatHost(String url) {\n        Uri uri = Uri.parse(url);\n        String host = uri.getHost();\n        return host != null && (host.equalsIgnoreCase("chatgpt.com") || host.endsWith(".chatgpt.com"));\n    }\n\n    private void setAutomationPaused(boolean paused) {\n        automationPaused = paused;\n        if (pauseButton != null) {\n            pauseButton.setText(paused ? "▶ Continuar automação" : "⏸ Pausar automação");\n        }\n        updateAutomationStatus();\n        if (!paused) deliverPendingMessages();\n    }\n\n    private void updateAutomationStatus() {\n        if (automationStatus == null) return;\n        String state = automationPaused ? "PAUSED" : "RUNNING";\n        automationStatus.setText("Automação: " + state + " · fila: " + pendingMessages.size());\n    }\n\n    private void queueMessage(int tabIndex, String message) {\n        if (tabIndex < 0 || tabIndex >= tabs.size() || message == null || message.trim().isEmpty()) return;\n        pendingMessages.addLast(new PendingMessage(tabIndex, message));\n        updateAutomationStatus();\n        deliverPendingMessages();\n    }\n\n    private void deliverPendingMessages() {\n        if (automationPaused) return;\n        while (!pendingMessages.isEmpty()) {\n            PendingMessage item = pendingMessages.peekFirst();\n            if (item.tabIndex < 0 || item.tabIndex >= tabs.size()) {\n                pendingMessages.removeFirst();\n                continue;\n            }\n            Tab tab = tabs.get(item.tabIndex);\n            if (!tab.pageReady || !tab.chatReady) break;\n            // Safe boundary: DOM text injection and auto-submit are not implemented yet.\n            break;\n        }\n        updateAutomationStatus();\n    }\n\n    private boolean isAllowedWebUrl(String value) {
         Uri uri = Uri.parse(value);
         String scheme = uri.getScheme();
         return scheme != null &&
@@ -327,6 +360,7 @@ public final class MainActivity extends Activity {
         }
         outState.putStringArrayList(STATE_URLS, urls);
         outState.putInt(STATE_ACTIVE, Math.max(0, activeTab));
+        outState.putBoolean(STATE_PAUSED, automationPaused);
         super.onSaveInstanceState(outState);
     }
 
