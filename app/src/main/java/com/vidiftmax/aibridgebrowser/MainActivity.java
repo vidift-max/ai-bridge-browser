@@ -276,9 +276,22 @@ public final class MainActivity extends Activity {
             TextView row = (TextView) child;
             if (i <= panels.size()) {
                 AIControlCenter.Panel panel = panels.get(i - 1);
-                row.setText("IA " + i + " · " + panel.aiId + "\\nResposta: " +
+                Tab boundTab = findTab(panel.tabId, panel.profileId);
+                String tabTitle = boundTab == null ? "aba indisponível" : boundTab.title;
+                row.setText("IA " + i + " · " + panel.aiId + "\nResposta: " +
                         panel.responseState + " · Contexto: " + panel.contextState +
-                        "\\nAba: " + panel.tabId.substring(0, Math.min(8, panel.tabId.length())));
+                        "\n" + tabTitle + " · toque para abrir");
+                row.setContentDescription("Painel " + panel.aiId + ", estado " +
+                        panel.responseState + ". Toque para abrir a aba vinculada.");
+                row.setOnClickListener(v -> {
+                    int tabIndex = tabs.indexOf(boundTab);
+                    if (tabIndex >= 0) {
+                        showingControlCenter = false;
+                        controlCenterView.setVisibility(View.GONE);
+                        frameHost.setVisibility(View.VISIBLE);
+                        selectTab(tabIndex);
+                    }
+                });
             } else {
                 row.setText("IA " + i + " · aguardando associação a uma aba");
             }
@@ -369,7 +382,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         tabs.add(tab);
         browserState.addTab(tab.tabId);
-        controlCenter.register("AI-" + tab.tabId, tab.tabId, tab.profileId);
+        controlCenter.register("AI-" + String.format(Locale.ROOT, "%02d", tabs.size()), tab.tabId, tab.profileId);
         webView.loadUrl(normalizeUrl(url));
         renderTabs();
         renderControlCenter();
