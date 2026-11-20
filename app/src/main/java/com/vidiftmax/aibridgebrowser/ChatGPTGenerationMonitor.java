@@ -50,7 +50,7 @@ final class ChatGPTGenerationMonitor {
             "return visible(b)&&(t.includes('stop')||stopLabel||((hasSquare||squarePath)&&" +
             "(b.getAttribute('data-state')==='open'||b.getAttribute('aria-label'))));});" +
             "if(stop)return 'GENERATING';" +
-            "const composer=document.querySelector('textarea,[contenteditable="true"]');" +
+            "const composer=document.querySelector('textarea,[contenteditable=\\\"true\\\"]');" +
             "return visible(composer)?'NOT_GENERATING':'UNKNOWN';" +
             "}catch(e){return 'UNKNOWN';}})();";
     }
