@@ -17,6 +17,14 @@ final class CheckpointQueue {
             this.eventId = UUID.randomUUID().toString();
             this.checkpoint = checkpoint;
         }
+
+        Item(String eventId, RoundCheckpoint checkpoint, boolean acknowledged) {
+            if (eventId == null || eventId.trim().isEmpty()) throw new IllegalArgumentException("eventId");
+            if (checkpoint == null) throw new IllegalArgumentException("checkpoint");
+            this.eventId = eventId;
+            this.checkpoint = checkpoint;
+            this.acknowledged = acknowledged;
+        }
     }
 
     private final List<Item> items = new ArrayList<>();
@@ -33,6 +41,24 @@ final class CheckpointQueue {
             if (!item.acknowledged) result.add(item);
         }
         return Collections.unmodifiableList(result);
+    }
+
+    CheckpointQueueSnapshot snapshot() {
+        List<CheckpointQueueSnapshot.Entry> entries = new ArrayList<>();
+        for (Item item : items) {
+            entries.add(new CheckpointQueueSnapshot.Entry(
+                    item.eventId, item.checkpoint, item.acknowledged));
+        }
+        return new CheckpointQueueSnapshot(entries);
+    }
+
+    static CheckpointQueue restore(CheckpointQueueSnapshot snapshot) {
+        if (snapshot == null) throw new IllegalArgumentException("snapshot");
+        CheckpointQueue queue = new CheckpointQueue();
+        for (CheckpointQueueSnapshot.Entry entry : snapshot.entries) {
+            queue.items.add(new Item(entry.eventId, entry.checkpoint, entry.acknowledged));
+        }
+        return queue;
     }
 
     boolean acknowledge(String eventId) {
