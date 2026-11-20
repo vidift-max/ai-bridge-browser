@@ -35,6 +35,41 @@ final class AIControlCenter {
         return true;
     }
 
+    boolean restorePanel(String aiId, String tabId, String profileId,
+                         String responseState, String contextState,
+                         String responseTail, String pendingMessage,
+                         boolean reportConfirmed) {
+        Panel panel = find(tabId, profileId);
+        if (panel == null) {
+            if (!register(aiId, tabId, profileId)) return false;
+            panel = find(tabId, profileId);
+        }
+        if (panel == null || !panel.aiId.equals(aiId)) return false;
+        panel.responseState = parseResponseState(responseState);
+        panel.contextState = parseContextState(contextState);
+        panel.responseTail = responseTail == null ? "" : responseTail;
+        panel.pendingMessage = pendingMessage == null ? "" : pendingMessage;
+        panel.reportConfirmed = reportConfirmed &&
+                panel.responseState == ResponseState.RESPONSE_COMPLETE;
+        // A process restart invalidates an in-flight observation sequence.
+        if (panel.responseState == ResponseState.SENDING ||
+                panel.responseState == ResponseState.RESPONDING) {
+            panel.responseState = ResponseState.UNKNOWN;
+            panel.generationMonitor = new ChatGPTGenerationMonitor();
+        }
+        return true;
+    }
+
+    private static ResponseState parseResponseState(String value) {
+        try { return ResponseState.valueOf(value); }
+        catch (RuntimeException ignored) { return ResponseState.UNKNOWN; }
+    }
+
+    private static ContextState parseContextState(String value) {
+        try { return ContextState.valueOf(value); }
+        catch (RuntimeException ignored) { return ContextState.UNKNOWN; }
+    }
+
     boolean unregisterByTab(String tabId) {
         Panel panel = findByTab(tabId);
         return panel != null && panels.remove(panel);
