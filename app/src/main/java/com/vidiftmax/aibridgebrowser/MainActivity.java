@@ -29,6 +29,7 @@ import java.util.Deque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 public final class MainActivity extends Activity {
     private static final int MAX_TABS = 5;
@@ -53,6 +54,8 @@ public final class MainActivity extends Activity {
     private static final class Tab {
         final WebView webView;
         String title;
+        final String tabId;
+        final String profileId;
         boolean pageReady = false;
         boolean chatReady = false;
         boolean locked = true;
@@ -60,6 +63,8 @@ public final class MainActivity extends Activity {
         Tab(WebView webView, String title) {
             this.webView = webView;
             this.title = title;
+            this.tabId = UUID.randomUUID().toString();
+            this.profileId = "profile-" + UUID.randomUUID();
         }
     }
 
@@ -259,8 +264,52 @@ public final class MainActivity extends Activity {
         else webView.setVisibility(View.GONE);
     }
 
-    private boolean isChatHost(String url) {\n        Uri uri = Uri.parse(url);\n        String host = uri.getHost();\n        return host != null && (host.equalsIgnoreCase("chatgpt.com") || host.endsWith(".chatgpt.com"));\n    }\n\n    private void setAutomationPaused(boolean paused) {\n        automationPaused = paused;\n        if (pauseButton != null) {\n            pauseButton.setText(paused ? "▶ Continuar automação" : "⏸ Pausar automação");\n        }\n        updateAutomationStatus();\n        persistTabs();
-        if (!paused) deliverPendingMessages();\n    }\n\n    private void updateAutomationStatus() {\n        if (automationStatus == null) return;\n        String state = automationPaused ? "PAUSED" : "RUNNING";\n        automationStatus.setText("Automação: " + state + " · fila: " + pendingMessages.size());\n    }\n\n    private void queueMessage(int tabIndex, String message) {\n        if (tabIndex < 0 || tabIndex >= tabs.size() || message == null || message.trim().isEmpty()) return;\n        pendingMessages.addLast(new PendingMessage(tabIndex, message));\n        updateAutomationStatus();\n        deliverPendingMessages();\n    }\n\n    private void deliverPendingMessages() {\n        if (automationPaused) return;\n        while (!pendingMessages.isEmpty()) {\n            PendingMessage item = pendingMessages.peekFirst();\n            if (item.tabIndex < 0 || item.tabIndex >= tabs.size()) {\n                pendingMessages.removeFirst();\n                continue;\n            }\n            Tab tab = tabs.get(item.tabIndex);\n            if (!tab.pageReady || !tab.chatReady) break;\n            // Safe boundary: DOM text injection and auto-submit are not implemented yet.\n            break;\n        }\n        updateAutomationStatus();\n    }\n\n    private boolean isAllowedWebUrl(String value) {
+    private boolean isChatHost(String url) {
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost();
+        return host != null && (host.equalsIgnoreCase("chatgpt.com") || host.endsWith(".chatgpt.com"));
+    }
+
+    private void setAutomationPaused(boolean paused) {
+        automationPaused = paused;
+        if (pauseButton != null) {
+            pauseButton.setText(paused ? "▶ Continuar automação" : "⏸ Pausar automação");
+        }
+        updateAutomationStatus();
+        persistTabs();
+        if (!paused) deliverPendingMessages();
+    }
+
+    private void updateAutomationStatus() {
+        if (automationStatus == null) return;
+        String state = automationPaused ? "PAUSED" : "RUNNING";
+        automationStatus.setText("Automação: " + state + " · fila: " + pendingMessages.size());
+    }
+
+    private void queueMessage(int tabIndex, String message) {
+        if (tabIndex < 0 || tabIndex >= tabs.size() || message == null || message.trim().isEmpty()) return;
+        pendingMessages.addLast(new PendingMessage(tabIndex, message));
+        updateAutomationStatus();
+        deliverPendingMessages();
+    }
+
+    private void deliverPendingMessages() {
+        if (automationPaused) return;
+        while (!pendingMessages.isEmpty()) {
+            PendingMessage item = pendingMessages.peekFirst();
+            if (item.tabIndex < 0 || item.tabIndex >= tabs.size()) {
+                pendingMessages.removeFirst();
+                continue;
+            }
+            Tab tab = tabs.get(item.tabIndex);
+            if (!tab.pageReady || !tab.chatReady) break;
+            // Safe boundary: DOM text injection and auto-submit are not implemented yet.
+            break;
+        }
+        updateAutomationStatus();
+    }
+
+    private boolean isAllowedWebUrl(String value) {
         Uri uri = Uri.parse(value);
         String scheme = uri.getScheme();
         return scheme != null &&
@@ -392,6 +441,8 @@ public final class MainActivity extends Activity {
             String url = t.webView.getUrl();
             e.putString("url_" + i, url == null ? HOME_URL : url);
             e.putString("title_" + i, t.title == null ? "Nova aba" : t.title);
+            e.putString("tab_id_" + i, t.tabId);
+            e.putString("profile_id_" + i, t.profileId);
             e.putBoolean("locked_" + i, t.locked);
         }
         e.apply();
