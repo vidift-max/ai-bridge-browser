@@ -22,6 +22,7 @@ final class BrowserState {
     }
 
     void addTab(String tabId) {
+        if (tabId == null || tabId.trim().isEmpty() || tabIds.contains(tabId)) return;
         tabIds.add(tabId);
         activeIndex = tabIds.size() - 1;
     }
