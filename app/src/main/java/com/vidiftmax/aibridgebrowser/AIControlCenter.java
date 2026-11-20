@@ -78,6 +78,13 @@ final class AIControlCenter {
         panel.responseState = ResponseState.RESPONSE_COMPLETE; return true;
     }
 
+    boolean captureCompletedResponseTail(String tabId, String profileId, String responseText) {
+        Panel panel = find(tabId, profileId);
+        if (panel == null || panel.responseState != ResponseState.RESPONSE_COMPLETE) return false;
+        panel.responseTail = lastTwoLines(responseText);
+        return true;
+    }
+
     boolean setContextState(String tabId, String profileId, ContextState state) {
         Panel panel = find(tabId, profileId);
         if (panel == null || state == null) return false;
