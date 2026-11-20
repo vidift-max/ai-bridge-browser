@@ -78,4 +78,20 @@ public class AIControlCenterTest {
         assertFalse(center.confirmReport("tab-a", "profile-a"));
     }
 
+    @Test public void capturesResponseTailOnlyAfterObservedCompletion() {
+        AIControlCenter center = new AIControlCenter();
+        center.register("AI-01", "tab-a", "profile-a");
+        assertTrue(center.beginMessage("tab-a", "profile-a", "mission"));
+        assertFalse(center.captureCompletedResponseTail("tab-a", "profile-a", "early"));
+        center.observeGeneration("tab-a", "profile-a",
+                ChatGPTGenerationMonitor.Observation.GENERATING);
+        center.observeGeneration("tab-a", "profile-a",
+                ChatGPTGenerationMonitor.Observation.NOT_GENERATING);
+        center.observeGeneration("tab-a", "profile-a",
+                ChatGPTGenerationMonitor.Observation.NOT_GENERATING);
+        assertTrue(center.captureCompletedResponseTail("tab-a", "profile-a",
+                "line one\nline two\nline three"));
+        assertEquals("line two\nline three", center.panels().get(0).responseTail);
+    }
+
 }
