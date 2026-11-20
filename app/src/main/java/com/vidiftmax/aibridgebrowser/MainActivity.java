@@ -11,6 +11,8 @@ import android.view.inputmethod.EditorInfo;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
+import android.webkit.SslErrorHandler;
+import android.net.http.SslError;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
@@ -85,6 +87,18 @@ public final class MainActivity extends Activity {
         addressBar.setImeOptions(EditorInfo.IME_ACTION_GO);
         controls.addView(addressBar, new LinearLayout.LayoutParams(0, dp(46), 1));
 
+        Button back = new Button(this);
+        back.setText("←");
+        back.setContentDescription("Voltar");
+        controls.addView(back);
+        back.setOnClickListener(v -> navigateBack());
+
+        Button refresh = new Button(this);
+        refresh.setText("↻");
+        refresh.setContentDescription("Recarregar");
+        controls.addView(refresh);
+        refresh.setOnClickListener(v -> reloadCurrent());
+
         Button go = new Button(this);
         go.setText("Ir");
         controls.addView(go);
@@ -157,6 +171,20 @@ public final class MainActivity extends Activity {
             }
 
             @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                handler.cancel();
+                audioStatus.setText("Navegação bloqueada: certificado TLS inválido.");
+            }
+
+            @Override
+            public void onReceivedError(WebView view, android.webkit.WebResourceRequest request,
+                                        android.webkit.WebResourceError error) {
+                if (request.isForMainFrame()) {
+                    audioStatus.setText("Falha ao carregar a página. Verifique a conexão e tente novamente.");
+                }
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 String pageTitle = view.getTitle();
                 tab.title = (pageTitle == null || pageTitle.trim().isEmpty())
@@ -210,10 +238,25 @@ public final class MainActivity extends Activity {
         return host == null ? "Aba" : host.toLowerCase(Locale.ROOT).replaceFirst("^www\\.", "");
     }
 
+    private WebView currentWebView() {
+        return activeTab >= 0 && activeTab < tabs.size() ? tabs.get(activeTab).webView : null;
+    }
+
     private void navigateCurrent() {
-        if (activeTab < 0 || activeTab >= tabs.size()) return;
+        WebView current = currentWebView();
+        if (current == null) return;
         String url = normalizeUrl(addressBar.getText().toString());
-        tabs.get(activeTab).webView.loadUrl(url);
+        current.loadUrl(url);
+    }
+
+    private void navigateBack() {
+        WebView current = currentWebView();
+        if (current != null && current.canGoBack()) current.goBack();
+    }
+
+    private void reloadCurrent() {
+        WebView current = currentWebView();
+        if (current != null) current.reload();
     }
 
     private void renderTabs() {
