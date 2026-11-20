@@ -146,6 +146,12 @@ public final class MainActivity extends Activity {
         controls.addView(back);
         back.setOnClickListener(v -> navigateBack());
 
+        Button forward = new Button(this);
+        forward.setText("→");
+        forward.setContentDescription("Avançar");
+        controls.addView(forward);
+        forward.setOnClickListener(v -> navigateForward());
+
         Button refresh = new Button(this);
         refresh.setText("↻");
         refresh.setContentDescription("Recarregar");
@@ -516,6 +522,11 @@ public final class MainActivity extends Activity {
     private void navigateBack() {
         WebView current = currentWebView();
         if (current != null && current.canGoBack()) current.goBack();
+    }
+
+    private void navigateForward() {
+        WebView current = currentWebView();
+        if (current != null && current.canGoForward()) current.goForward();
     }
 
     private void reloadCurrent() {
