@@ -393,6 +393,13 @@ public final class MainActivity extends Activity {
                 if (tabs.indexOf(tab) == activeTab) addressBar.setText(url);
                 deliverPendingMessages();
             }
+
+            @Override
+            public boolean onRenderProcessGone(WebView view,
+                    android.webkit.RenderProcessGoneDetail detail) {
+                discardCrashedTab(tab);
+                return true;
+            }
         });
 
         // Camera/microphone access is deliberately denied until a user-consent flow is implemented.
@@ -592,6 +599,30 @@ public final class MainActivity extends Activity {
         String url = tabs.get(index).webView.getUrl();
         addressBar.setText(url == null ? "" : url);
         renderTabs();
+    }
+
+    private void discardCrashedTab(Tab crashedTab) {
+        int index = tabs.indexOf(crashedTab);
+        if (index < 0) return;
+        String failedUrl = crashedTab.webView.getUrl();
+        tabs.remove(index);
+        browserState.removeTab(crashedTab.tabId);
+        controlCenter.unregisterByTab(crashedTab.tabId);
+        frameHost.removeView(crashedTab.webView);
+        crashedTab.webView.destroy();
+        audioStatus.setText("Uma aba foi encerrada porque o processo de renderização do WebView falhou."
+                + (failedUrl == null ? "" : " Endereço: " + hostLabel(failedUrl)));
+        if (tabs.isEmpty()) {
+            activeTab = -1;
+            addTab(HOME_URL, true);
+        } else {
+            int next = activeTab;
+            if (index < activeTab) next--;
+            else if (index == activeTab) next = Math.min(index, tabs.size() - 1);
+            selectTab(Math.max(0, next));
+            renderControlCenter();
+            persistTabs();
+        }
     }
 
     private void closeTab(int index) {
