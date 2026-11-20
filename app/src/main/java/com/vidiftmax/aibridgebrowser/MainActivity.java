@@ -1,6 +1,7 @@
 package com.vidiftmax.aibridgebrowser;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.net.Uri;
 import android.view.Gravity;
@@ -392,7 +393,12 @@ public final class MainActivity extends Activity {
             close.setTextSize(12);
             close.setMinWidth(dp(36));
             close.setContentDescription("Fechar aba " + (index + 1));
-            close.setOnClickListener(v -> closeTab(index));
+            close.setOnClickListener(v -> new AlertDialog.Builder(this)
+                    .setTitle("Fechar aba?")
+                    .setMessage("A aba foi desbloqueada. Deseja realmente fechá-la?")
+                    .setNegativeButton("Cancelar", null)
+                    .setPositiveButton("Fechar", (dialog, which) -> closeTab(index))
+                    .show());
             close.setEnabled(!tab.locked);
             item.addView(close);
             tabStrip.addView(item);
