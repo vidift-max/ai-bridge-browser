@@ -39,6 +39,10 @@ public final class MainActivity extends Activity {
     private static final String STATE_ACTIVE = "active_tab";
     private static final String STATE_PAUSED = "automation_paused";
     private static final String PREFS = "ai_bridge_tabs_v1";
+    private static final String LIFECYCLE_STATE = "lifecycle_state";
+    private static final String LIFECYCLE_RUNNING = "RUNNING";
+    private static final String LIFECYCLE_PAUSED = "PAUSED";
+    private static final String LIFECYCLE_RECOVERING = "RECOVERING";
 
     private final List<Tab> tabs = new ArrayList<>();
     private LinearLayout tabStrip;
@@ -48,6 +52,7 @@ public final class MainActivity extends Activity {
     private TextView automationStatus;
     private Button pauseButton;
     private boolean automationPaused = false;
+    private String lifecycleState = LIFECYCLE_RUNNING;
     private SharedPreferences prefs;
     private final Deque<PendingMessage> pendingMessages = new ArrayDeque<>();
     private int activeTab = -1;
@@ -60,6 +65,7 @@ public final class MainActivity extends Activity {
         boolean pageReady = false;
         boolean chatReady = false;
         boolean locked = true;
+        String missionState = "WAITING_PAGE";
 
         Tab(WebView webView, String title) {
             this(webView, title, UUID.randomUUID().toString(), "profile-" + UUID.randomUUID());
@@ -282,7 +288,7 @@ public final class MainActivity extends Activity {
     }
 
     private void setAutomationPaused(boolean paused) {
-        automationPaused = paused;
+        automationPaused = paused;\n        lifecycleState = paused ? LIFECYCLE_PAUSED : LIFECYCLE_RUNNING;\n        for (Tab tab : tabs) {\n            if (paused) tab.missionState = "PAUSED";\n            else if (tab.pageReady && tab.chatReady) tab.missionState = "READY";\n            else tab.missionState = "WAITING_PAGE";\n        }
         if (pauseButton != null) {
             pauseButton.setText(paused ? "▶ Continuar automação" : "⏸ Pausar automação");
         }
@@ -293,7 +299,7 @@ public final class MainActivity extends Activity {
 
     private void updateAutomationStatus() {
         if (automationStatus == null) return;
-        String state = automationPaused ? "PAUSED" : "RUNNING";
+        String state = lifecycleState;
         automationStatus.setText("Automação: " + state + " · fila: " + pendingMessages.size());
     }
 
@@ -449,7 +455,7 @@ public final class MainActivity extends Activity {
         int qi = 0;
         for (PendingMessage pm : pendingMessages) {
             e.putInt("queue_tab_" + qi, pm.tabIndex);
-            e.putString("queue_text_" + qi, Base64.encodeToString(pm.text.getBytes(java.nio.charset.StandardCharsets.UTF_8), Base64.NO_WRAP));
+            e.putString("queue_tab_id_" + qi, pm.tabId);\n            e.putString("queue_profile_id_" + qi, pm.profileId);\n            e.putString("queue_text_" + qi, Base64.encodeToString(pm.text.getBytes(java.nio.charset.StandardCharsets.UTF_8), Base64.NO_WRAP));
             qi++;
         }
         for (int i = 0; i < tabs.size(); i++) {
@@ -459,7 +465,7 @@ public final class MainActivity extends Activity {
             e.putString("title_" + i, t.title == null ? "Nova aba" : t.title);
             e.putString("tab_id_" + i, t.tabId);
             e.putString("profile_id_" + i, t.profileId);
-            e.putBoolean("locked_" + i, t.locked);
+            e.putBoolean("locked_" + i, t.locked);\n            e.putString("mission_state_" + i, t.missionState);
         }
         e.apply();
     }
@@ -473,7 +479,7 @@ public final class MainActivity extends Activity {
             if (tab >= 0 && encoded != null) {
                 try {
                     String message = new String(Base64.decode(encoded, Base64.NO_WRAP), java.nio.charset.StandardCharsets.UTF_8);
-                    pendingMessages.addLast(new PendingMessage(tab, message));
+                    pendingMessages.addLast(new PendingMessage(tabId, profileId, message));
                 } catch (IllegalArgumentException ignored) { }
             }
         }
@@ -491,7 +497,7 @@ public final class MainActivity extends Activity {
                     prefs.getString("profile_id_" + i, null));
             Tab t = tabs.get(tabs.size() - 1);
             t.title = prefs.getString("title_" + i, "Nova aba");
-            t.locked = prefs.getBoolean("locked_" + i, true);
+            t.locked = prefs.getBoolean("locked_" + i, true);\n            t.missionState = prefs.getString("mission_state_" + i, "WAITING_PAGE");
         }
         if (tabs.isEmpty()) return false;
         int requested = prefs.getInt("active", 0);
@@ -505,7 +511,7 @@ public final class MainActivity extends Activity {
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
+    @Override\n    protected void onStop() {\n        // Leaving the app pauses automation so queued actions cannot run while the user is using the tablet elsewhere.\n        if (!isChangingConfigurations()) {\n            automationPaused = true;\n            lifecycleState = LIFECYCLE_RECOVERING;\n            for (Tab tab : tabs) tab.missionState = "PAUSED";\n        }\n        persistTabs();\n        super.onStop();\n    }\n\n    @Override\n    protected void onStart() {\n        super.onStart();\n        if (lifecycleState.equals(LIFECYCLE_RECOVERING)) {\n            automationPaused = true;\n            lifecycleState = LIFECYCLE_PAUSED;\n            updateAutomationStatus();\n        }\n    }\n\n    @Override\n    protected void onSaveInstanceState(Bundle outState) {
         ArrayList<String> urls = new ArrayList<>();
         for (Tab tab : tabs) {
             String url = tab.webView.getUrl();
