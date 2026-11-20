@@ -52,6 +52,7 @@ public final class MainActivity extends Activity {
     private EditText coordinatorInput;
     private final AIControlCenter controlCenter = new AIControlCenter();
     private boolean showingControlCenter = false;
+    private boolean restoringDurableState = false;
     private FrameHost frameHost;
     private EditText addressBar;
     private TextView audioStatus;
@@ -589,7 +590,7 @@ public final class MainActivity extends Activity {
     }
 
     private void persistTabs() {
-        if (prefs == null) return;
+        if (prefs == null || restoringDurableState) return;
         SharedPreferences.Editor e = prefs.edit();
         e.putInt("count", tabs.size());
         e.putInt("active", Math.max(0, activeTab));
@@ -665,6 +666,7 @@ public final class MainActivity extends Activity {
         int count = prefs.getInt("count", 0);
         if (count <= 0) return false;
         automationPaused = prefs.getBoolean("paused", false);
+        restoringDurableState = true;
         restorePendingMessages();
         for (int i = 0; i < Math.min(count, MAX_TABS); i++) {
             addTab(prefs.getString("url_" + i, HOME_URL), false,
@@ -690,10 +692,13 @@ public final class MainActivity extends Activity {
                     tail, pending, prefs.getBoolean(key + "report_confirmed", false));
         }
         coordinatorInput.setText(decodePreference(prefs.getString("coordinator_draft", "")));
-        if (tabs.isEmpty()) return false;
+        if (tabs.isEmpty()) { restoringDurableState = false; return false; }
         int requested = prefs.getInt("active", 0);
         selectTab(Math.max(0, Math.min(requested, tabs.size() - 1)));
         renderTabs();
+        restoringDurableState = false;
+        persistTabs();
+        renderControlCenter();
         return true;
     }
 
