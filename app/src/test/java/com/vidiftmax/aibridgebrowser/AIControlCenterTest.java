@@ -127,4 +127,17 @@ public class AIControlCenterTest {
         assertEquals("AI-02", center.panels().get(1).aiId);
     }
 
+    @Test public void rebuildsPersistedPanelIdsWithoutTemporaryIdCollisions() {
+        AIControlCenter center = new AIControlCenter();
+        center.register("AI-01", "tab-a", "profile-a");
+        center.register("AI-02", "tab-b", "profile-b");
+        center.clear();
+        assertTrue(center.restorePanel("AI-02", "tab-a", "profile-a",
+                "IDLE", "UNKNOWN", "", "", false));
+        assertTrue(center.restorePanel("AI-01", "tab-b", "profile-b",
+                "IDLE", "UNKNOWN", "", "", false));
+        assertEquals("AI-02", center.panels().get(0).aiId);
+        assertEquals("AI-01", center.panels().get(1).aiId);
+    }
+
 }
