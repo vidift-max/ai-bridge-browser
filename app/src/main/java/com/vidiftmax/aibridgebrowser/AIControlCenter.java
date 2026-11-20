@@ -7,7 +7,7 @@ import java.util.List;
 /** Dynamic control-center registry for up to six independently bound AI tabs. */
 final class AIControlCenter {
     static final int MAX_AI_TABS = 6;
-    enum ResponseState { IDLE, SENDING, RESPONDING, RESPONSE_COMPLETE, ERROR }
+    enum ResponseState { IDLE, SENDING, UNKNOWN, RESPONDING, RESPONSE_COMPLETE, ERROR }
     enum ContextState { UNKNOWN, NORMAL, CRITICAL, FULL, NEW_CHAT_REQUIRED, NEW_CHAT_LOADING }
 
     static final class Panel {
@@ -19,6 +19,7 @@ final class AIControlCenter {
         ResponseState responseState = ResponseState.IDLE;
         ContextState contextState = ContextState.UNKNOWN;
         boolean reportConfirmed;
+        ChatGPTGenerationMonitor generationMonitor = new ChatGPTGenerationMonitor();
         Panel(String aiId, String tabId, String profileId) {
             this.aiId = aiId; this.tabId = tabId; this.profileId = profileId;
         }
@@ -44,6 +45,23 @@ final class AIControlCenter {
         if (panel == null || blank(message)) return false;
         panel.responseTail = ""; panel.pendingMessage = message;
         panel.responseState = ResponseState.SENDING; panel.reportConfirmed = false;
+        panel.generationMonitor = new ChatGPTGenerationMonitor();
+        return true;
+    }
+
+    boolean observeGeneration(String tabId, String profileId,
+                              ChatGPTGenerationMonitor.Observation observation) {
+        Panel panel = find(tabId, profileId);
+        if (panel == null || observation == null) return false;
+        ChatGPTGenerationMonitor.State state = panel.generationMonitor.observe(observation);
+        if (state == ChatGPTGenerationMonitor.State.RESPONDING) {
+            panel.responseState = ResponseState.RESPONDING;
+        } else if (state == ChatGPTGenerationMonitor.State.RESPONSE_COMPLETE) {
+            panel.responseState = ResponseState.RESPONSE_COMPLETE;
+            panel.pendingMessage = "";
+        } else if (state == ChatGPTGenerationMonitor.State.UNKNOWN) {
+            panel.responseState = ResponseState.UNKNOWN;
+        }
         return true;
     }
 
