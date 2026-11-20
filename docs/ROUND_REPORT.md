@@ -61,3 +61,33 @@ Data: 2026-11-20
 ## Conclusão do ciclo
 
 O navegador ganhou fechamento de abas, títulos dinâmicos, controles de navegação, validação de URL, restauração básica e reforço de segurança. O build de um commit intermediário de melhorias passou no GitHub Actions (run `44685213867`), mas o build do código Android atualizado passou no GitHub Actions (run 44685270966). Commits posteriores alteraram apenas documentação. Não houve instalação nem teste físico no tablet. Áudio bidirecional e isolamento de contas continuam BLOCKED.
+
+
+# Relatório das rodadas 21–30
+
+Data: 2026-11-20
+
+| Rodada | Entrega | Estado |
+|---|---|---|
+| 21 | Revisão da arquitetura para controle remoto contínuo | PASS documental; GPT-6 definido como coordenador e navegador como executor autorizado |
+| 22 | Modelo de Mission Loop | PASS; estados e fluxo missão → relatório → próxima missão documentados |
+| 23 | Registro estruturado de missões | PASS; `registry/missions.json` criado como contrato inicial |
+| 24 | Fila de mensagens por aba | PASS em código; mensagens podem ficar pendentes enquanto a página não estiver pronta |
+| 25 | Estado de carregamento da aba | PASS em código; página e host ChatGPT são rastreados antes da entrega |
+| 26 | Pausar/continuar automação | PASS em código; botão PAUSE/RESUME e estado da Activity implementados |
+| 27 | Regra de escala de áudio | PASS documental; máximo de 5 participantes contando GPT-6; acima disso operação por mensagens |
+| 28 | Continuidade e recuperação | PASS documental; espera por carregamento e estados de recuperação definidos; envio DOM ainda pendente |
+| 29 | Isolamento de contas | BLOCKED; ainda depende de perfis WebView separados e teste reproduzível no Android 12 |
+| 30 | Auditoria + CI | EM VALIDAÇÃO; build do novo código foi disparado no GitHub Actions; sem teste físico |
+
+## Entregas do ciclo 21–30
+
+- `docs/MISSION_LOOP.md`
+- `registry/missions.json`
+- `docs/PAUSE_RESUME.md`
+- `docs/REMOTE_CONTROL.md`
+- Estado de automação e fila de mensagens preparados em `MainActivity.java`.
+
+## Limites explícitos
+
+A fila não injeta texto no DOM nem clica em enviar ainda. Essa barreira é intencional: a automação real do ChatGPT só deve ser marcada PASS após implementação e teste reproduzível. O áudio bidirecional e o isolamento de contas continuam sem prova física.
