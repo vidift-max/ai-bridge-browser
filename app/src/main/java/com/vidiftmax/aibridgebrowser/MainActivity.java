@@ -359,6 +359,7 @@ public final class MainActivity extends Activity {
                 tab.pageReady = true;
                 tab.chatReady = isChatHost(url);
                 renderTabs();
+                renderControlCenter();
                 if (tabs.indexOf(tab) == activeTab) addressBar.setText(url);
                 deliverPendingMessages();
             }
@@ -564,6 +565,7 @@ public final class MainActivity extends Activity {
         if (index < activeTab) next--;
         else if (index == activeTab) next = Math.min(index, tabs.size() - 1);
         selectTab(Math.max(0, next));
+        renderControlCenter();
         persistTabs();
     }
 
