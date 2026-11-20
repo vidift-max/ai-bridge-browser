@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import android.view.KeyEvent;
 import android.view.inputmethod.EditorInfo;
 import android.content.SharedPreferences;
+import android.util.Base64;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -379,6 +380,13 @@ public final class MainActivity extends Activity {
         e.putInt("count", tabs.size());
         e.putInt("active", Math.max(0, activeTab));
         e.putBoolean("paused", automationPaused);
+        e.putInt("queue_count", pendingMessages.size());
+        int qi = 0;
+        for (PendingMessage pm : pendingMessages) {
+            e.putInt("queue_tab_" + qi, pm.tabIndex);
+            e.putString("queue_text_" + qi, Base64.encodeToString(pm.text.getBytes(java.nio.charset.StandardCharsets.UTF_8), Base64.NO_WRAP));
+            qi++;
+        }
         for (int i = 0; i < tabs.size(); i++) {
             Tab t = tabs.get(i);
             String url = t.webView.getUrl();
@@ -389,11 +397,27 @@ public final class MainActivity extends Activity {
         e.apply();
     }
 
+    private void restorePendingMessages() {
+        pendingMessages.clear();
+        int count = prefs.getInt("queue_count", 0);
+        for (int i = 0; i < count; i++) {
+            int tab = prefs.getInt("queue_tab_" + i, -1);
+            String encoded = prefs.getString("queue_text_" + i, null);
+            if (tab >= 0 && encoded != null) {
+                try {
+                    String message = new String(Base64.decode(encoded, Base64.NO_WRAP), java.nio.charset.StandardCharsets.UTF_8);
+                    pendingMessages.addLast(new PendingMessage(tab, message));
+                } catch (IllegalArgumentException ignored) { }
+            }
+        }
+    }
+
     private boolean restoreDurableTabs() {
         if (prefs == null) return false;
         int count = prefs.getInt("count", 0);
         if (count <= 0) return false;
         automationPaused = prefs.getBoolean("paused", false);
+        restorePendingMessages();
         for (int i = 0; i < Math.min(count, MAX_TABS); i++) {
             addTab(prefs.getString("url_" + i, HOME_URL), false);
             Tab t = tabs.get(tabs.size() - 1);
