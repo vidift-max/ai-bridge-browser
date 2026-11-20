@@ -1,28 +1,48 @@
 # AI Bridge Browser
 
-Projeto de navegador Android com múltiplas abas e uma central de áudio para facilitar conversas por voz entre sessões independentes de IA.
+Navegador Android experimental com abas WebView e uma futura central de áudio para conversas entre sessões de IA.
 
-## Estado
+## Estado atual
 
-Projeto em fase inicial de arquitetura e prototipagem. Nenhuma captura ou encaminhamento de áudio foi validado ainda.
+O scaffold Android foi publicado na branch `v2-saas-alpha`. O navegador inicial permite criar até cinco abas WebView e navegar até o ChatGPT. Foi adicionada uma indicação visual da central de áudio, mas **não existe captura ou retransmissão de áudio implementada**.
 
-## Escopo inicial
+**Ainda não está pronto para instalação:** o projeto não foi compilado nem testado em um dispositivo Android nesta execução.
 
-- Aplicativo Android independente.
-- Navegador baseado em WebView com abas independentes.
-- Começar com duas sessões do ChatGPT.
-- Central de áudio experimental, sujeita às permissões e restrições do Android.
-- Nenhuma instalação ou alteração no dispositivo sem autorização explícita.
+## Tecnologia
 
-## Plano de trabalho
+- Java 17
+- Android Gradle Plugin 9.5.0
+- Gradle 9.6.0
+- compileSdk 37 / targetSdk 35 / minSdk 29
+- Android WebView
 
-1. Arquitetura e viabilidade técnica.
-2. Estrutura Android e WebView.
-3. Navegador e gerenciamento de abas.
-4. Sessões independentes.
-5. Central de áudio.
-6. Captura e distribuição de áudio.
-7. Entrada de voz nos chats.
-8. Conferência entre duas IAs.
-9. Participantes e permissões.
-10. Testes e relatório de validação.
+## Limitações importantes
+
+- Abas distintas não significam contas isoladas: as WebViews compartilham o perfil padrão de cookies neste protótipo.
+- Permissões de microfone e câmera são negadas por padrão.
+- AudioPlaybackCapture exige consentimento MediaProjection e depende da política de captura do app de origem.
+- Não há API pública genérica para injetar um fluxo de áudio arbitrário como microfone de outro WebView.
+- A comunicação bidirecional entre duas IAs permanece BLOCKED até existir um protótipo comprovado em dispositivo real.
+
+## Estrutura
+
+- `app/`: aplicativo Android.
+- `docs/ARCHITECTURE.md`: arquitetura e limites.
+- `docs/AUDIO_BRIDGE.md`: viabilidade da ponte de áudio.
+- `docs/CONFERENCE_PROTOCOL.md`: regras planejadas da conferência.
+- `docs/VALIDATION_PLAN.md`: testes necessários.
+- `docs/ROUND_REPORT.md`: relatório das dez rodadas.
+
+## Build
+
+Com JDK 17, Android SDK API 37 e Gradle 9.6 instalados:
+
+```bash
+gradle :app:assembleDebug
+```
+
+Também foi configurado um workflow GitHub Actions para executar o build de debug em pushes e pull requests para `v2-saas-alpha`.
+
+## Plano de desenvolvimento
+
+As dez rodadas iniciais de planejamento e preparação estão registradas em `docs/ROUND_REPORT.md`. As próximas tarefas técnicas são: obter um build verde, testar as abas no Galaxy Tab A7, resolver isolamento real de sessões e prototipar captura/encaminhamento de áudio com consentimento explícito.
