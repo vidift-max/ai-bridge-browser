@@ -677,7 +677,15 @@ public final class MainActivity extends Activity {
             t.locked = prefs.getBoolean("locked_" + i, true);
             t.missionState = prefs.getString("mission_state_" + i, "WAITING_PAGE");
         }
+        controlCenter.clear();
         int panelCount = Math.min(prefs.getInt("ai_panel_count", 0), AIControlCenter.MAX_AI_TABS);
+        if (panelCount == 0) {
+            for (int i = 0; i < tabs.size(); i++) {
+                Tab tab = tabs.get(i);
+                controlCenter.register("AI-" + String.format(Locale.ROOT, "%02d", i + 1),
+                        tab.tabId, tab.profileId);
+            }
+        }
         for (int i = 0; i < panelCount; i++) {
             String key = "ai_panel_" + i + "_";
             String aiId = prefs.getString(key + "ai_id", null);
