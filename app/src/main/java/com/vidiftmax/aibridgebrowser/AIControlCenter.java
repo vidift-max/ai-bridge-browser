@@ -27,6 +27,7 @@ final class AIControlCenter {
 
     private final List<Panel> panels = new ArrayList<>();
     List<Panel> panels() { return Collections.unmodifiableList(panels); }
+    void clear() { panels.clear(); }
 
     boolean register(String aiId, String tabId, String profileId) {
         if (blank(aiId) || blank(tabId) || blank(profileId)) return false;
