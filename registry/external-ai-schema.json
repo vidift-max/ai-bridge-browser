@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "presence_states": ["ONLINE","WAITING","AWAY","DISCONNECTED","RATE_LIMITED","EXIT_REQUESTED","RECOVERING"],
+  "policy": {
+    "credentials_in_git": false,
+    "provider_limits_must_be_respected": true,
+    "unrestricted_repository_write": false,
+    "dom_automation_enabled": false
+  }
+}
