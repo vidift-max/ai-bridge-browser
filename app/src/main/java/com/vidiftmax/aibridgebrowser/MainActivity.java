@@ -316,8 +316,11 @@ public final class MainActivity extends Activity {
 
     private void queueMessage(int tabIndex, String message) {
         if (tabIndex < 0 || tabIndex >= tabs.size() || message == null || message.trim().isEmpty()) return;
-        pendingMessages.addLast(new PendingMessage(tabIndex, message));
+        Tab tab = tabs.get(tabIndex);
+        pendingMessages.addLast(new PendingMessage(tab.tabId, tab.profileId, message));
+        tab.missionState = "MESSAGE_QUEUED";
         updateAutomationStatus();
+        persistTabs();
         deliverPendingMessages();
     }
 
@@ -325,11 +328,10 @@ public final class MainActivity extends Activity {
         if (automationPaused) return;
         while (!pendingMessages.isEmpty()) {
             PendingMessage item = pendingMessages.peekFirst();
-            if (item.tabIndex < 0 || item.tabIndex >= tabs.size()) {
-                pendingMessages.removeFirst();
-                continue;
+            Tab tab = findTab(item.tabId, item.profileId);
+            if (tab == null) {
+                break;
             }
-            Tab tab = tabs.get(item.tabIndex);
             if (!tab.pageReady || !tab.chatReady) break;
             // Safe boundary: DOM text injection and auto-submit are not implemented yet.
             break;
@@ -456,6 +458,13 @@ public final class MainActivity extends Activity {
         persistTabs();
     }
 
+    private Tab findTab(String tabId, String profileId) {
+        for (Tab tab : tabs) {
+            if (tab.tabId.equals(tabId) && tab.profileId.equals(profileId)) return tab;
+        }
+        return null;
+    }
+
     private void persistTabs() {
         if (prefs == null) return;
         SharedPreferences.Editor e = prefs.edit();
@@ -487,6 +496,8 @@ public final class MainActivity extends Activity {
         pendingMessages.clear();
         int count = prefs.getInt("queue_count", 0);
         for (int i = 0; i < count; i++) {
+            String tabId = prefs.getString("queue_tab_id_" + i, null);
+            String profileId = prefs.getString("queue_profile_id_" + i, null);
             String encoded = prefs.getString("queue_text_" + i, null);
             if (tabId != null && profileId != null && encoded != null) {
                 try {
