@@ -33,7 +33,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 public final class MainActivity extends Activity {
-    private static final int MAX_TABS = 5;
+    private static final int MAX_TABS = 6;
     private static final String HOME_URL = "https://chatgpt.com/";
     private static final String STATE_URLS = "tab_urls";
     private static final String STATE_ACTIVE = "active_tab";
