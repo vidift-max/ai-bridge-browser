@@ -214,6 +214,18 @@ public final class MainActivity extends Activity {
     }
 
 
+    private String nextAiId() {
+        for (int i = 1; i <= AIControlCenter.MAX_AI_TABS; i++) {
+            String candidate = "AI-" + String.format(Locale.ROOT, "%02d", i);
+            boolean used = false;
+            for (AIControlCenter.Panel panel : controlCenter.panels()) {
+                if (candidate.equals(panel.aiId)) { used = true; break; }
+            }
+            if (!used) return candidate;
+        }
+        return "AI-" + UUID.randomUUID();
+    }
+
     private void buildControlCenterView() {
         controlCenterView = new LinearLayout(this);
         controlCenterView.setOrientation(LinearLayout.VERTICAL);
@@ -383,7 +395,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         tabs.add(tab);
         browserState.addTab(tab.tabId);
-        controlCenter.register("AI-" + String.format(Locale.ROOT, "%02d", tabs.size()), tab.tabId, tab.profileId);
+        controlCenter.register(nextAiId(), tab.tabId, tab.profileId);
         webView.loadUrl(normalizeUrl(url));
         renderTabs();
         renderControlCenter();
@@ -582,6 +594,25 @@ public final class MainActivity extends Activity {
         e.putInt("count", tabs.size());
         e.putInt("active", Math.max(0, activeTab));
         e.putBoolean("paused", automationPaused);
+        e.putString("coordinator_draft", Base64.encodeToString(
+                coordinatorInput.getText().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                Base64.NO_WRAP));
+        List<AIControlCenter.Panel> savedPanels = controlCenter.panels();
+        e.putInt("ai_panel_count", savedPanels.size());
+        for (int i = 0; i < savedPanels.size(); i++) {
+            AIControlCenter.Panel panel = savedPanels.get(i);
+            String key = "ai_panel_" + i + "_";
+            e.putString(key + "ai_id", panel.aiId);
+            e.putString(key + "tab_id", panel.tabId);
+            e.putString(key + "profile_id", panel.profileId);
+            e.putString(key + "response_state", panel.responseState.name());
+            e.putString(key + "context_state", panel.contextState.name());
+            e.putString(key + "response_tail", Base64.encodeToString(
+                    panel.responseTail.getBytes(java.nio.charset.StandardCharsets.UTF_8), Base64.NO_WRAP));
+            e.putString(key + "pending_message", Base64.encodeToString(
+                    panel.pendingMessage.getBytes(java.nio.charset.StandardCharsets.UTF_8), Base64.NO_WRAP));
+            e.putBoolean(key + "report_confirmed", panel.reportConfirmed);
+        }
         e.putInt("queue_count", pendingMessages.size());
         int qi = 0;
         for (PendingMessage pm : pendingMessages) {
@@ -601,6 +632,16 @@ public final class MainActivity extends Activity {
             e.putString("mission_state_" + i, t.missionState);
         }
         e.apply();
+    }
+
+    private String decodePreference(String encoded) {
+        if (encoded == null || encoded.isEmpty()) return "";
+        try {
+            return new String(Base64.decode(encoded, Base64.NO_WRAP),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException ignored) {
+            return "";
+        }
     }
 
     private void restorePendingMessages() {
@@ -634,6 +675,21 @@ public final class MainActivity extends Activity {
             t.locked = prefs.getBoolean("locked_" + i, true);
             t.missionState = prefs.getString("mission_state_" + i, "WAITING_PAGE");
         }
+        int panelCount = Math.min(prefs.getInt("ai_panel_count", 0), AIControlCenter.MAX_AI_TABS);
+        for (int i = 0; i < panelCount; i++) {
+            String key = "ai_panel_" + i + "_";
+            String aiId = prefs.getString(key + "ai_id", null);
+            String tabId = prefs.getString(key + "tab_id", null);
+            String profileId = prefs.getString(key + "profile_id", null);
+            if (aiId == null || tabId == null || profileId == null) continue;
+            String tail = decodePreference(prefs.getString(key + "response_tail", ""));
+            String pending = decodePreference(prefs.getString(key + "pending_message", ""));
+            controlCenter.restorePanel(aiId, tabId, profileId,
+                    prefs.getString(key + "response_state", "UNKNOWN"),
+                    prefs.getString(key + "context_state", "UNKNOWN"),
+                    tail, pending, prefs.getBoolean(key + "report_confirmed", false));
+        }
+        coordinatorInput.setText(decodePreference(prefs.getString("coordinator_draft", "")));
         if (tabs.isEmpty()) return false;
         int requested = prefs.getInt("active", 0);
         selectTab(Math.max(0, Math.min(requested, tabs.size() - 1)));
