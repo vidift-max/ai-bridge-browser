@@ -91,3 +91,17 @@ Data: 2026-11-20
 ## Limites explícitos
 
 A fila não injeta texto no DOM nem clica em enviar ainda. Essa barreira é intencional: a automação real do ChatGPT só deve ser marcada PASS após implementação e teste reproduzível. O áudio bidirecional e o isolamento de contas continuam sem prova física.
+
+
+## Rounds 31-40 — Protected Tabs, Durable Restore & Queue Recovery
+
+- Implemented protected-tab lock state; new tabs default to locked.
+- Blocked close for locked tabs; unlocked tabs require an explicit confirmation dialog before closing.
+- Added durable SharedPreferences snapshot for tab URLs, active tab, lock state, automation pause state, and pending message queue.
+- Added stable tab/profile identifiers persisted across process recreation. These identifiers are metadata only and do NOT prove cookie/storage isolation.
+- Restored pending messages after restart and kept delivery gated on page/chat readiness.
+- Repaired the automation source after CI exposed escaped newline literals.
+- CI run 24 initially FAILED on the malformed source; subsequent repair commits were pushed and require a fresh CI result.
+- Physical tablet installation remains unperformed.
+- DOM message injection/submission remains NOT IMPLEMENTED.
+- Real per-account WebView session isolation remains BLOCKED pending a reproducible Android WebView/Profile test.
