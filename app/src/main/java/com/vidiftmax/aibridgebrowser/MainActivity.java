@@ -2,6 +2,7 @@ package com.vidiftmax.aibridgebrowser;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,25 +22,28 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public final class MainActivity extends Activity {
     private static final int MAX_TABS = 5;
     private static final String HOME_URL = "https://chatgpt.com/";
+    private static final String STATE_URLS = "tab_urls";
+    private static final String STATE_ACTIVE = "active_tab";
 
     private final List<Tab> tabs = new ArrayList<>();
-    private LinearLayout root;
     private LinearLayout tabStrip;
     private FrameHost frameHost;
     private EditText addressBar;
+    private TextView audioStatus;
     private int activeTab = -1;
 
     private static final class Tab {
         final WebView webView;
-        final String label;
+        String title;
 
-        Tab(WebView webView, String label) {
+        Tab(WebView webView, String title) {
             this.webView = webView;
-            this.label = label;
+            this.title = title;
         }
     }
 
@@ -54,32 +58,43 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         buildChrome();
-        addTab(HOME_URL);
+        if (savedInstanceState != null) {
+            ArrayList<String> urls = savedInstanceState.getStringArrayList(STATE_URLS);
+            if (urls != null && !urls.isEmpty()) {
+                for (String url : urls) addTab(url, false);
+                int requested = savedInstanceState.getInt(STATE_ACTIVE, 0);
+                selectTab(Math.max(0, Math.min(requested, tabs.size() - 1)));
+                return;
+            }
+        }
+        addTab(HOME_URL, true);
     }
 
     private void buildChrome() {
-        root = new LinearLayout(this);
+        LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
 
         LinearLayout controls = new LinearLayout(this);
         controls.setGravity(Gravity.CENTER_VERTICAL);
-        controls.setPadding(8, 8, 8, 8);
+        controls.setPadding(dp(6), dp(4), dp(6), dp(4));
 
         addressBar = new EditText(this);
         addressBar.setSingleLine(true);
-        addressBar.setHint("Digite um endereço HTTPS");
+        addressBar.setTextSize(14);
+        addressBar.setHint("Endereço HTTPS");
         addressBar.setImeOptions(EditorInfo.IME_ACTION_GO);
-        controls.addView(addressBar, new LinearLayout.LayoutParams(0, dp(48), 1));
+        controls.addView(addressBar, new LinearLayout.LayoutParams(0, dp(46), 1));
 
         Button go = new Button(this);
-        go.setText("Abrir");
+        go.setText("Ir");
         controls.addView(go);
         go.setOnClickListener(v -> navigateCurrent());
 
         Button add = new Button(this);
         add.setText("+");
+        add.setContentDescription("Nova aba");
         controls.addView(add);
-        add.setOnClickListener(v -> addTab(HOME_URL));
+        add.setOnClickListener(v -> addTab(HOME_URL, true));
 
         addressBar.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO ||
@@ -97,22 +112,22 @@ public final class MainActivity extends Activity {
         tabScroller.addView(tabStrip);
 
         frameHost = new FrameHost(this);
+        audioStatus = new TextView(this);
+        audioStatus.setText("Central de áudio: ainda sem captura ou retransmissão.");
+        audioStatus.setTextSize(12);
+        audioStatus.setPadding(dp(10), dp(10), dp(10), dp(10));
+        audioStatus.setGravity(Gravity.CENTER);
+
         root.addView(controls);
         root.addView(tabScroller);
         root.addView(frameHost, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
-
-        TextView audioStatus = new TextView(this);
-        audioStatus.setText("Central de áudio: estrutura visual inicial — captura e retransmissão ainda não habilitadas.");
-        audioStatus.setPadding(12, 12, 12, 12);
-        audioStatus.setGravity(Gravity.CENTER);
         root.addView(audioStatus, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
         setContentView(root);
     }
 
-    private void addTab(String url) {
+    private void addTab(String url, boolean select) {
         if (tabs.size() >= MAX_TABS) {
             Toast.makeText(this, "Limite inicial de " + MAX_TABS + " abas.", Toast.LENGTH_SHORT).show();
             return;
@@ -126,36 +141,73 @@ public final class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setSafeBrowsingEnabled(true);
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        settings.setSupportMultipleWindows(false);
 
+        Tab tab = new Tab(webView, "Nova aba");
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                String scheme = request.getUrl().getScheme();
-                return !("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme));
+                return !isAllowedWebUrl(request.getUrl().toString());
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                if (tabs.indexOf(tab) == activeTab) addressBar.setText(url);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                String pageTitle = view.getTitle();
+                tab.title = (pageTitle == null || pageTitle.trim().isEmpty())
+                        ? hostLabel(url) : pageTitle.trim();
+                renderTabs();
+                if (tabs.indexOf(tab) == activeTab) addressBar.setText(url);
             }
         });
-        // Microphone/camera permissions remain denied until an explicit permission flow is implemented.
+
+        // Camera/microphone access is deliberately denied until a user-consent flow is implemented.
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(android.webkit.PermissionRequest request) {
                 request.deny();
             }
+
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog,
+                                          boolean isUserGesture, android.os.Message resultMsg) {
+                return false;
+            }
         });
 
         frameHost.addView(webView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        tabs.add(new Tab(webView, "Aba " + tabs.size()));
+        tabs.add(tab);
         webView.loadUrl(normalizeUrl(url));
         renderTabs();
-        selectTab(tabs.size() - 1);
+        if (select) selectTab(tabs.size() - 1);
+        else webView.setVisibility(View.GONE);
+    }
+
+    private boolean isAllowedWebUrl(String value) {
+        Uri uri = Uri.parse(value);
+        String scheme = uri.getScheme();
+        return scheme != null &&
+                ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) &&
+                uri.getHost() != null && uri.getUserInfo() == null;
     }
 
     private String normalizeUrl(String value) {
-        String trimmed = value == null ? "" : value.trim();
-        if (trimmed.isEmpty()) return HOME_URL;
-        if (!trimmed.contains("://")) trimmed = "https://" + trimmed;
-        if (!trimmed.startsWith("https://") && !trimmed.startsWith("http://")) return HOME_URL;
-        return trimmed;
+        String candidate = value == null ? "" : value.trim();
+        if (candidate.isEmpty()) return HOME_URL;
+        if (!candidate.contains("://")) candidate = "https://" + candidate;
+        return isAllowedWebUrl(candidate) ? candidate : HOME_URL;
+    }
+
+    private String hostLabel(String value) {
+        Uri uri = Uri.parse(value);
+        String host = uri.getHost();
+        return host == null ? "Aba" : host.toLowerCase(Locale.ROOT).replaceFirst("^www\\.", "");
     }
 
     private void navigateCurrent() {
@@ -168,10 +220,25 @@ public final class MainActivity extends Activity {
         tabStrip.removeAllViews();
         for (int i = 0; i < tabs.size(); i++) {
             final int index = i;
+            Tab tab = tabs.get(i);
+            LinearLayout item = new LinearLayout(this);
+            item.setGravity(Gravity.CENTER_VERTICAL);
+
             Button tabButton = new Button(this);
-            tabButton.setText((i == activeTab ? "● " : "") + "Aba " + (i + 1));
+            String title = tab.title.length() > 14 ? tab.title.substring(0, 14) + "…" : tab.title;
+            tabButton.setText((i == activeTab ? "● " : "") + title);
+            tabButton.setTextSize(11);
             tabButton.setOnClickListener(v -> selectTab(index));
-            tabStrip.addView(tabButton);
+            item.addView(tabButton);
+
+            Button close = new Button(this);
+            close.setText("×");
+            close.setTextSize(12);
+            close.setMinWidth(dp(36));
+            close.setContentDescription("Fechar aba " + (index + 1));
+            close.setOnClickListener(v -> closeTab(index));
+            item.addView(close);
+            tabStrip.addView(item);
         }
     }
 
@@ -181,8 +248,27 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < tabs.size(); i++) {
             tabs.get(i).webView.setVisibility(i == index ? View.VISIBLE : View.GONE);
         }
-        addressBar.setText(tabs.get(index).webView.getUrl());
+        String url = tabs.get(index).webView.getUrl();
+        addressBar.setText(url == null ? "" : url);
         renderTabs();
+    }
+
+    private void closeTab(int index) {
+        if (index < 0 || index >= tabs.size()) return;
+        Tab removed = tabs.remove(index);
+        removed.webView.stopLoading();
+        frameHost.removeView(removed.webView);
+        removed.webView.destroy();
+
+        if (tabs.isEmpty()) {
+            activeTab = -1;
+            addTab(HOME_URL, true);
+            return;
+        }
+        int next = activeTab;
+        if (index < activeTab) next--;
+        else if (index == activeTab) next = Math.min(index, tabs.size() - 1);
+        selectTab(Math.max(0, next));
     }
 
     private int dp(int value) {
@@ -190,8 +276,20 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        ArrayList<String> urls = new ArrayList<>();
+        for (Tab tab : tabs) {
+            String url = tab.webView.getUrl();
+            urls.add(url == null ? HOME_URL : url);
+        }
+        outState.putStringArrayList(STATE_URLS, urls);
+        outState.putInt(STATE_ACTIVE, Math.max(0, activeTab));
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
     public void onBackPressed() {
-        if (activeTab >= 0) {
+        if (activeTab >= 0 && activeTab < tabs.size()) {
             WebView current = tabs.get(activeTab).webView;
             if (current.canGoBack()) {
                 current.goBack();
