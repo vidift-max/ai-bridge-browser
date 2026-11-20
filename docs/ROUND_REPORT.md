@@ -105,3 +105,30 @@ A fila não injeta texto no DOM nem clica em enviar ainda. Essa barreira é inte
 - Physical tablet installation remains unperformed.
 - DOM message injection/submission remains NOT IMPLEMENTED.
 - Real per-account WebView session isolation remains BLOCKED pending a reproducible Android WebView/Profile test.
+
+
+## Rounds 41-50 — Identity-bound Queue, Mission State & Lifecycle Recovery
+
+| Rodada | Entrega | Estado |
+|---|---|---|
+| 41 | Fila vinculada a `tabId + profileId` | PASS em código; deixa de depender do índice da aba |
+| 42 | Estado de missão por aba | PASS em código; `WAITING_PAGE`, `READY`, `MESSAGE_QUEUED` e `PAUSED` persistidos |
+| 43 | Prontidão separada do estado persistido | PASS em código; restauração não marca `pageReady/chatReady` como verdadeiros |
+| 44 | Lifecycle de recuperação | PASS em código; saída do app pausa automação e marca `RECOVERING` |
+| 45 | Retorno ao app | PASS em código; `RECOVERING` volta como `PAUSED` e exige RESUME explícito |
+| 46 | Persistência do estado de lifecycle | PASS em código; estado salvo junto com abas e fila |
+| 47 | Proteção contra aba reordenada/fechada | PASS em código; fila procura identidade estável em runtime |
+| 48 | Auditoria da barreira de envio | PASS; DOM injection/auto-submit continuam deliberadamente não implementados |
+| 49 | Auditoria de sessão | BLOCKED; `profileId` continua sendo metadado, sem isolamento real de cookies/storage |
+| 50 | Auditoria do ciclo | PASS em código / aguardando CI; sem instalação física |
+
+### Commit do ciclo
+
+- `b8052ce3c7b3b76ab21938fe40d8bd304f86aa64` — fila por identidade estável, estados de missão e recuperação de lifecycle.
+
+### Limites mantidos
+
+- Nenhuma mensagem é automaticamente digitada ou enviada no ChatGPT ainda.
+- Nenhuma conta é considerada isolada apenas porque possui `profileId`.
+- Ao sair do aplicativo, a automação é pausada para evitar ações em segundo plano; o usuário precisa usar RESUME para continuar.
+- Instalação e teste físico no Galaxy Tab A7 continuam pendentes.
