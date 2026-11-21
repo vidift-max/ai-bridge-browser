@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from server.backup import validate_restore_candidate
@@ -116,6 +117,42 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                 db.execute("UPDATE messages SET recipient_ai_ids=?", (sqlite3.Binary(b"AI-B"),))
             self.assertEqual(validate_restore_candidate(str(path)),
                              (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+
+    def test_validation_uses_one_sqlite_connection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with patch("server.backup.sqlite3.connect", wraps=sqlite3.connect) as connect:
+                self.assertEqual(validate_restore_candidate(str(path)),
+                                 (True, "RESTORE_CANDIDATE_VALIDATED"))
+                self.assertEqual(connect.call_count, 1)
+
+    def test_validation_keeps_one_snapshot_during_concurrent_wal_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as setup:
+                setup.execute("PRAGMA journal_mode=WAL")
+            import server.recovery as recovery
+            original = recovery._verify_sqlite_recovery_connection
+            changed = []
+
+            def integrity_then_concurrent_write(connection):
+                result = original(connection)
+                if not changed:
+                    with sqlite3.connect(path) as writer:
+                        writer.execute("UPDATE messages SET sender_ai_id='AI-X'")
+                    changed.append(True)
+                return result
+
+            with patch("server.recovery._verify_sqlite_recovery_connection",
+                       side_effect=integrity_then_concurrent_write):
+                self.assertEqual(validate_restore_candidate(str(path)),
+                                 (True, "RESTORE_CANDIDATE_VALIDATED"))
+            self.assertTrue(changed)
+            self.assertEqual(
+                recovery.verify_messenger_data_consistency(str(path)),
+                (False, "RESTORE_DATA_MESSAGE_INVALID"),
+            )
 
 if __name__ == "__main__":
     unittest.main()
