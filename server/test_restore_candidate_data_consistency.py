@@ -340,5 +340,40 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                 connect.assert_not_called()
 
 
+    def test_symlinked_parent_directory_is_rejected_without_opening_sqlite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target_directory = root / "real-candidates"
+            target_directory.mkdir()
+            target = self._candidate(target_directory)
+            linked_directory = root / "linked-candidates"
+            try:
+                linked_directory.symlink_to(target_directory, target_is_directory=True)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"directory symlink creation unavailable: {error}")
+            candidate_via_link = linked_directory / target.name
+            with patch("server.backup.sqlite3.connect") as connect:
+                self.assertEqual(validate_restore_candidate(str(candidate_via_link)),
+                                 (False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"))
+                connect.assert_not_called()
+
+    def test_symlink_in_intermediate_parent_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            real_parent = root / "real" / "nested"
+            real_parent.mkdir(parents=True)
+            candidate = self._candidate(real_parent)
+            link_parent = root / "alias"
+            try:
+                link_parent.symlink_to(root / "real", target_is_directory=True)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"directory symlink creation unavailable: {error}")
+            aliased_candidate = link_parent / "nested" / candidate.name
+            with patch("server.backup.sqlite3.connect") as connect:
+                self.assertEqual(validate_restore_candidate(str(aliased_candidate)),
+                                 (False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"))
+                connect.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
