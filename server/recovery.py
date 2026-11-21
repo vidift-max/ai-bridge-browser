@@ -48,14 +48,33 @@ def verify_messenger_schema(path: str) -> tuple[bool, str]:
                 if not expected.issubset(actual):
                     return False, "RESTORE_SCHEMA_UNSUPPORTED"
             index_row = connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='index' "
+                "SELECT sql FROM sqlite_master WHERE type='index' "
                 "AND name='idx_messages_conversation_sequence'"
             ).fetchone()
-            if not index_row:
+            if not index_row or not index_row[0] or "CREATE UNIQUE INDEX" not in index_row[0].upper():
+                return False, "RESTORE_SCHEMA_UNSUPPORTED"
+            index_columns = [row[2] for row in connection.execute(
+                "PRAGMA index_info(idx_messages_conversation_sequence)"
+            )]
+            if index_columns != ["conversation_id", "sequence"]:
                 return False, "RESTORE_SCHEMA_UNSUPPORTED"
     except (OSError, sqlite3.Error, ValueError):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     return True, "RESTORE_SCHEMA_COMPATIBLE"
+
+def _parse_identifier_list(value, *, allow_empty: bool = False):
+    """Parse comma-delimited IDs without silently dropping malformed entries."""
+    if not isinstance(value, str):
+        return None
+    if value == "" and allow_empty:
+        return []
+    parts = value.split(",")
+    if any(not item or item != item.strip() for item in parts):
+        return None
+    if len(parts) != len(set(parts)):
+        return None
+    return parts
+
 
 def verify_messenger_data_consistency(path: str) -> tuple[bool, str]:
     """Check persisted Messenger references in read-only mode; never repair data."""
@@ -69,8 +88,8 @@ def verify_messenger_data_consistency(path: str) -> tuple[bool, str]:
             for row in connection.execute(
                 "SELECT conversation_id, member_ai_ids FROM conversations"
             ):
-                members = [item for item in row["member_ai_ids"].split(",") if item]
-                if not row["conversation_id"] or len(members) != len(set(members)):
+                members = _parse_identifier_list(row["member_ai_ids"])
+                if not row["conversation_id"] or not members:
                     return False, "RESTORE_DATA_CONVERSATION_INVALID"
                 conversations[row["conversation_id"]] = set(members)
 
@@ -81,8 +100,8 @@ def verify_messenger_data_consistency(path: str) -> tuple[bool, str]:
             ):
                 message_id = row["message_id"]
                 members = conversations.get(row["conversation_id"])
-                recipients = [item for item in row["recipient_ai_ids"].split(",") if item]
-                if (not message_id or message_id in messages or members is None
+                recipients = _parse_identifier_list(row["recipient_ai_ids"], allow_empty=True)
+                if (not message_id or message_id in messages or members is None or recipients is None
                         or not row["sender_ai_id"] or row["sender_ai_id"] not in members
                         or not row["client_request_id"] or not isinstance(row["sequence"], int)
                         or row["sequence"] <= 0
@@ -106,6 +125,6 @@ def verify_messenger_data_consistency(path: str) -> tuple[bool, str]:
                 target = messages.get(row["message_id"])
                 if target is None or row["ai_id"] not in target[3]:
                     return False, "RESTORE_DATA_ACKNOWLEDGEMENT_INVALID"
-    except (OSError, sqlite3.Error, ValueError, TypeError):
+    except (OSError, sqlite3.Error, ValueError, TypeError, AttributeError):
         return False, "RESTORE_DATA_UNREADABLE"
     return True, "RESTORE_DATA_CONSISTENT"
