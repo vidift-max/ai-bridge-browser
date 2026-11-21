@@ -89,3 +89,10 @@ The validator does not reject symlinks in parent directories, does not distingui
 The validator now checks the candidate leaf and each existing lexical parent component for symbolic links before opening SQLite. Tests cover a symlinked immediate parent and a symlinked intermediate parent, and verify that neither path reaches sqlite3.connect. Ordinary non-symlink candidate paths remain covered by the existing success tests.
 
 This is a path-component screening check, not an atomic file-handle identity guarantee. It does not establish resistance to concurrent replacement after the check, hard-link aliasing, junction/reparse-point behavior on every Windows version, mount-point aliases, or filesystem tampering. Platform-specific behavior must be separately tested before claiming broader coverage. Keep the candidate tree operator-controlled and quiescent.
+
+
+## Mission 32 — hard-link alias characterization
+
+A regression test creates a hard-link alias to a valid candidate where the filesystem supports hard links. The alias is currently accepted by `validate_restore_candidate`, and read-only validation leaves the bytes visible through both names unchanged. This is characterization of current behavior, not a hard-link defense or uniqueness guarantee.
+
+A hard link is another directory entry for the same underlying file; path-level symlink screening does not distinguish it from an ordinary regular file. Operators must keep candidate directories and their contents under controlled filesystem permissions and must not infer that a candidate path uniquely identifies an independently stored artifact. The validator does not reject multi-link files, establish provenance, or protect against concurrent replacement/tampering. Filesystems that do not permit hard-link creation may skip the platform-dependent regression test.
