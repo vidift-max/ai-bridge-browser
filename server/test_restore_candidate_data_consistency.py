@@ -393,6 +393,7 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
 
 
     def test_validation_reads_committed_wal_data_without_removing_sidecars(self):
+        # Keep the writer open so committed frames remain in the live WAL during validation.
         with tempfile.TemporaryDirectory() as directory:
             path = self._candidate(directory)
             writer = sqlite3.connect(path)
