@@ -103,3 +103,8 @@ Mission 27 final verification marker: require Backend Test and Android Build suc
 Mission 27 final CI gate: combined candidate validation now shares one read-only SQLite connection and explicit pinned read transaction across integrity, schema, and data checks. Regression tests cover single-connection use and a concurrent WAL commit. PASS requires fresh Backend Test and Android Build success on this exact resulting HEAD; CI does not imply live restore, deployment, or physical-device verification.
 
 Mission 27 final verification after diagnostic correction: phase-specific exceptions now retain integrity, schema, and data diagnostic codes while all checks share one read-only pinned transaction. Require Backend Test and Android Build SUCCESS on the exact same final HEAD.
+
+
+## Mission 28 — journal mode and resource lifecycle verification
+
+Restore-candidate validation is covered for file-backed SQLite DELETE, TRUNCATE, PERSIST, and WAL journal modes. Tests also verify deterministic closure of the read-only connection after success, schema failure, and unreadable-database failure. These are repository CI tests for the configured SQLite runtime, not universal compatibility certification. The validator does not change journal mode, perform a checkpoint, repair the candidate, or promote it.
