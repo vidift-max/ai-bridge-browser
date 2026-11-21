@@ -81,7 +81,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except RateLimitExceeded as exc:
                 self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
-                self._json(401 if str(exc)=="authentication_required" else 403,{"error":str(exc)})
+                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             except (KeyError,TypeError,ValueError,json.JSONDecodeError) as exc:
                 self._json(400,{"error":"invalid_request"})
             return
