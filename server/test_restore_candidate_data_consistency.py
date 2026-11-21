@@ -229,5 +229,24 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                 connections[0].execute("SELECT 1")
 
 
+    def test_validation_preserves_candidate_file_bytes(self):
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            before = hashlib.sha256(path.read_bytes()).hexdigest()
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (True, "RESTORE_CANDIDATE_VALIDATED"))
+            after = hashlib.sha256(path.read_bytes()).hexdigest()
+            self.assertEqual(after, before)
+
+    def test_directory_candidate_is_rejected_without_opening_sqlite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("server.backup.sqlite3.connect") as connect:
+                self.assertEqual(validate_restore_candidate(directory),
+                                 (False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"))
+                connect.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
