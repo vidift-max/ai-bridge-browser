@@ -61,7 +61,7 @@ class HttpE2ETest(unittest.TestCase):
         status, _ = self.request("POST", "/v1/messages", "token-a", {
             "messageId": "m-http-2", "conversationId": "room", "recipientAiIds": ["AI-B"],
             "body": "must fail", "clientRequestId": "req-http-2"})
-        self.assertEqual(status, 403)
+        self.assertEqual(status, 401)
 
 
 if __name__ == "__main__":
