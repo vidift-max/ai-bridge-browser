@@ -68,6 +68,19 @@ public final class MessengerActivity extends Activity {
         page.addView(directoryScroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(132)));
 
+        Button addParticipant = new Button(this);
+        addParticipant.setText("＋ Adicionar perfil local de IA");
+        addParticipant.setAllCaps(false);
+        addParticipant.setOnClickListener(v -> createParticipant());
+        page.addView(addParticipant);
+        page.addView(text("PARTICIPANTES · CADASTROS LOCAIS, NÃO CONECTADOS", 12, ACCENT, true));
+        ScrollView participantScroll = new ScrollView(this);
+        participantList = new LinearLayout(this);
+        participantList.setOrientation(LinearLayout.VERTICAL);
+        participantScroll.addView(participantList);
+        page.addView(participantScroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(112)));
+
         selectedTitle = text("", 16, TEXT, true);
         selectedTitle.setPadding(0, dp(8), 0, dp(4));
         page.addView(selectedTitle);
@@ -103,6 +116,7 @@ public final class MessengerActivity extends Activity {
         page.addView(clear);
         setContentView(page);
         renderConversations();
+        renderParticipants();
         renderMessages();
     }
 
