@@ -17,3 +17,10 @@ Scope:
 - no production deployment.
 
 Secrets are supplied by runtime configuration and are never committed.
+
+
+## Hosting readiness
+
+Mission 08 adds a runtime configuration boundary plus `/healthz` and `/readyz` endpoints and a non-deployed Render blueprint. The blueprint is preparation only; no service has been deployed.
+
+The backend remains in-memory and experimental. A restart loses messages and idempotency state.
