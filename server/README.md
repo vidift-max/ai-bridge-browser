@@ -34,3 +34,8 @@ Authorization/audit hardening was completed in Mission 14. The server test workf
 ## Mission 16 verification marker
 
 Transport reliability hardening was implemented through Mission 16 Round 10. This marker intentionally touches the server workflow path so the final reliability HEAD receives a fresh Backend Test gate. PASS remains contingent on Backend Test and Android Build succeeding on this exact resulting HEAD.
+
+
+## Mission 18 final verification marker
+
+Mission 18 completed the staging deployment contract preparation. This server-path marker intentionally triggers the Backend Test workflow so Mission 18 can receive the required same-HEAD Backend Test + Android Build verification. No deployment is implied.
