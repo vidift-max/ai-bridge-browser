@@ -35,3 +35,15 @@ After candidate creation, call `validate_restore_candidate(candidate_path)` or `
 
 A successful result (`RESTORE_CANDIDATE_VALIDATED`) means only that SQLite integrity and the currently supported schema contract passed. It does not prove business-data correctness, provenance, authorization, or successful application startup. Unsupported or future schemas are rejected without migration or modification.
 
+
+
+## Mission 24 — read-only data consistency
+
+After schema compatibility passes, `validate_restore_candidate(candidate_path)` also checks persisted relationships without changing the candidate:
+- each message references an existing conversation;
+- sender and recipients are members of that conversation;
+- sequence values are positive (the schema's unique index enforces per-conversation uniqueness);
+- each idempotency row references a message with the same sender and client request ID;
+- each acknowledgement references an existing message and a member of its conversation.
+
+A failure returns `RESTORE_CANDIDATE_DATA_INCONSISTENT`. The diagnostic deliberately does not disclose paths, message bodies, or database values. These checks are limited to the fields represented by the current schema; they do not prove delivery history, semantic correctness, identity authenticity, or business authorization. No automatic repair, migration, deletion, or promotion is performed.
