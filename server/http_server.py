@@ -12,6 +12,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     backend=None
     authenticator=None
     rate_limiter=SlidingWindowRateLimiter()
+    operational=None
 
     def _auth(self):
         return bearer_token(self.headers)
@@ -36,6 +37,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
 
     def _audit(self, identity, event_type, subject, **metadata):
         self.authenticator.audit_log.record(event_type, subject, ai_id=identity.principal.ai_id, metadata=metadata, correlation_id=identity.correlation_id)
+        if self.operational is not None:
+            self.operational.record(event_type, correlation_id=identity.correlation_id, principal=identity.principal.ai_id, metadata=metadata)
 
     def _permission_error(self, exc):
         return {"error": "authentication_required" if str(exc) == "authentication_required" else "forbidden"}
@@ -61,6 +64,11 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 RuntimeConfig.storage_path()
                 RuntimeConfig.request_timeout_seconds()
                 RuntimeConfig.retry_limit()
+                if self.operational is not None:
+                    storage_ok, _ = self.operational.check_storage(RuntimeConfig.storage_path())
+                    if not storage_ok:
+                        self._json(503,{"status":"not_ready","error":"storage_unavailable_or_invalid"})
+                        return
                 self._json(200,{"status":"ready"})
             except RuntimeError:
                 self._json(503,{"status":"not_ready","error":"runtime_configuration_invalid"})
@@ -127,5 +135,7 @@ def serve(host="127.0.0.1",port=8080):
     backend=MessengerBackend(tokens,{"default":set(tokens.values())},store,authenticator=authenticator)
     MessengerHandler.backend=backend
     MessengerHandler.authenticator=authenticator
+    from server.operational_runtime import OperationalRuntime
+    MessengerHandler.operational=OperationalRuntime()
     try: HTTPServer((host,port),MessengerHandler).serve_forever()
     finally: backend.close()
