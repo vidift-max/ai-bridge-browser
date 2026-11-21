@@ -96,3 +96,12 @@ This is a path-component screening check, not an atomic file-handle identity gua
 A regression test creates a hard-link alias to a valid candidate where the filesystem supports hard links. The alias is currently accepted by `validate_restore_candidate`, and read-only validation leaves the bytes visible through both names unchanged. This is characterization of current behavior, not a hard-link defense or uniqueness guarantee.
 
 A hard link is another directory entry for the same underlying file; path-level symlink screening does not distinguish it from an ordinary regular file. Operators must keep candidate directories and their contents under controlled filesystem permissions and must not infer that a candidate path uniquely identifies an independently stored artifact. The validator does not reject multi-link files, establish provenance, or protect against concurrent replacement/tampering. Filesystems that do not permit hard-link creation may skip the platform-dependent regression test.
+
+
+## Mission 33 — SQLite WAL, SHM, and rollback-journal sidecars
+
+SQLite databases in WAL mode may have companion `-wal` and `-shm` files while connections are active. The validator opens the main database through SQLite in read-only URI mode; it does not manually copy, remove, checkpoint, or rename sidecars. A WAL-mode regression test keeps a writer connection open with a committed frame in the WAL, validates the candidate, and checks that the sidecars remain present and the committed value remains readable. This is a test of the current local SQLite runtime, not a guarantee for every filesystem or concurrent-writer arrangement.
+
+A PERSIST-mode test confirms that an existing SQLite rollback-journal sidecar is not removed or modified by validation in the tested runtime. The online backup API test confirms that a backup made while a source WAL writer remains open includes a committed WAL frame in the resulting standalone backup. These behaviors are scoped to the tested SQLite build and fixture.
+
+Operators must treat the main database and its SQLite-managed sidecars as one live storage set while connections are active. Do not manually copy only the main `.sqlite` file from an active WAL database, and do not manually delete `-wal`, `-shm`, or `-journal` files. Use SQLite's online backup API for snapshots. A successful validator result does not certify external sidecar provenance, arbitrary filesystem behavior, crash recovery on every platform, or safe handling while an uncontrolled writer is active.
