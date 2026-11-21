@@ -36,6 +36,7 @@ public final class MessengerActivity extends Activity {
     private LinearLayout messageList;
     private EditText composer;
     private TextView selectedTitle;
+    private TextView memberSummary;
     private String selectedConversationId = DEFAULT_ID;
 
     @Override protected void onCreate(Bundle state) {
@@ -91,6 +92,9 @@ public final class MessengerActivity extends Activity {
         manageMembers.setOnClickListener(v -> manageConversationMembers());
         page.addView(manageMembers);
         page.addView(text("MEMBROS · SELEÇÃO LOCAL · NENHUM CONVITE ENVIADO", 11, ACCENT, true));
+        memberSummary = text("", 11, MUTED, false);
+        page.addView(memberSummary);
+        renderConversationMembersSummary();
         page.addView(text("HISTÓRICO · LOCAL ONLY", 11, ACCENT, true));
 
         ScrollView scroll = new ScrollView(this);
@@ -226,6 +230,32 @@ public final class MessengerActivity extends Activity {
         }
     }
 
+    private void renderConversationMembersSummary() {
+        JSONArray memberships = readArray(KEY_MEMBERSHIPS);
+        int count = 0;
+        for (int i = 0; i < memberships.length(); i++) {
+            JSONObject item = memberships.optJSONObject(i);
+            if (item != null && selectedConversationId.equals(item.optString("conversationId"))) count++;
+        }
+        if (memberSummary == null) return;
+        JSONArray memberships = readArray(KEY_MEMBERSHIPS);
+        StringBuilder names = new StringBuilder();
+        JSONArray participants = readArray(KEY_PARTICIPANTS);
+        for (int i = 0; i < memberships.length(); i++) {
+            JSONObject m = memberships.optJSONObject(i);
+            if (m == null || !selectedConversationId.equals(m.optString("conversationId"))) continue;
+            String id = m.optString("participantLocalId");
+            for (int j = 0; j < participants.length(); j++) {
+                JSONObject p = participants.optJSONObject(j);
+                if (p != null && id.equals(p.optString("localId"))) {
+                    if (names.length() > 0) names.append(", ");
+                    names.append(p.optString("displayName", "Participante"));
+                }
+            }
+        }
+        memberSummary.setText(names.length() == 0 ? "Nenhum membro local selecionado." : "Selecionados: " + names);
+    }
+
     private void manageConversationMembers() {
         JSONArray participants = readArray(KEY_PARTICIPANTS);
         if (participants.length() == 0) {
@@ -252,7 +282,14 @@ public final class MessengerActivity extends Activity {
                 .setView(form)
                 .setNegativeButton("Cancelar", null)
                 .setPositiveButton("Salvar seleção", (dialog, which) -> {
+                    JSONArray allMemberships = readArray(KEY_MEMBERSHIPS);
                     JSONArray kept = new JSONArray();
+                    for (int i = 0; i < allMemberships.length(); i++) {
+                        JSONObject item = allMemberships.optJSONObject(i);
+                        if (item != null && !selectedConversationId.equals(item.optString("conversationId"))) {
+                            kept.put(item);
+                        }
+                    }
                     for (int i = 0; i < form.getChildCount(); i++) {
                         android.view.View child = form.getChildAt(i);
                         if (!(child instanceof android.widget.CheckBox)) continue;
@@ -272,6 +309,7 @@ public final class MessengerActivity extends Activity {
                         }
                     }
                     prefs().edit().putString(KEY_MEMBERSHIPS, kept.toString()).apply();
+                    renderConversationMembersSummary();
                     Toast.makeText(this, "Seleção local salva. Nenhum convite foi enviado.", Toast.LENGTH_SHORT).show();
                 }).show();
     }
