@@ -538,15 +538,19 @@ public final class MessengerActivity extends Activity {
     private void markMessageRead(String messageId) {
         if (messageId == null || messageId.trim().isEmpty()) return;
         JSONArray all = readMessages();
-        for (int i = 0; i < all.length(); i++) {
-            JSONObject item = all.optJSONObject(i);
-            if (item != null && messageId.equals(item.optString("messageId"))) {
-                item.put("localState", MessengerLocalState.READ_LOCAL);
-                break;
+        try {
+            for (int i = 0; i < all.length(); i++) {
+                JSONObject item = all.optJSONObject(i);
+                if (item != null && messageId.equals(item.optString("messageId"))) {
+                    item.put("localState", MessengerLocalState.READ_LOCAL);
+                    break;
+                }
             }
+            prefs().edit().putString(KEY_MESSAGES, all.toString()).apply();
+            renderMessages();
+        } catch (JSONException error) {
+            Toast.makeText(this, "Não foi possível marcar a mensagem como lida localmente.", Toast.LENGTH_LONG).show();
         }
-        prefs().edit().putString(KEY_MESSAGES, all.toString()).apply();
-        renderMessages();
     }
 
     private void confirmClear() {
