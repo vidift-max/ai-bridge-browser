@@ -57,3 +57,15 @@ def create_restore_candidate(backup_path: str, candidate_path: str) -> tuple[boo
             pass
         return False, "RESTORE_CANDIDATE_FAILED"
 
+def validate_restore_candidate(candidate_path: str) -> tuple[bool, str]:
+    """Check SQLite integrity and Messenger schema without modifying the candidate."""
+    ok, _ = verify_sqlite_recovery(candidate_path)
+    if not ok:
+        return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
+    from server.recovery import verify_messenger_schema
+
+    schema_ok, _ = verify_messenger_schema(candidate_path)
+    if not schema_ok:
+        return False, "RESTORE_CANDIDATE_SCHEMA_UNSUPPORTED"
+    return True, "RESTORE_CANDIDATE_VALIDATED"
+
