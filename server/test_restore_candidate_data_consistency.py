@@ -314,5 +314,31 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                 connections[0].execute("SELECT 1")
 
 
+    def test_symlink_candidate_is_rejected_without_opening_sqlite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = self._candidate(directory)
+            link = Path(directory) / "candidate-link.sqlite"
+            try:
+                link.symlink_to(target)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"symlink creation unavailable: {error}")
+            with patch("server.backup.sqlite3.connect") as connect:
+                self.assertEqual(validate_restore_candidate(str(link)),
+                                 (False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"))
+                connect.assert_not_called()
+
+    def test_dangling_symlink_candidate_is_rejected_without_opening_sqlite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            link = Path(directory) / "dangling-candidate.sqlite"
+            try:
+                link.symlink_to(Path(directory) / "missing-target.sqlite")
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"symlink creation unavailable: {error}")
+            with patch("server.backup.sqlite3.connect") as connect:
+                self.assertEqual(validate_restore_candidate(str(link)),
+                                 (False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"))
+                connect.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
