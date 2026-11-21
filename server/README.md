@@ -101,3 +101,5 @@ Mission 27 refactors restore-candidate validation to open one SQLite read-only c
 Mission 27 final verification marker: require Backend Test and Android Build success on the exact same final HEAD. No live restore, promotion, deployment, or physical-device verification is included.
 
 Mission 27 final CI gate: combined candidate validation now shares one read-only SQLite connection and explicit pinned read transaction across integrity, schema, and data checks. Regression tests cover single-connection use and a concurrent WAL commit. PASS requires fresh Backend Test and Android Build success on this exact resulting HEAD; CI does not imply live restore, deployment, or physical-device verification.
+
+Mission 27 final verification after diagnostic correction: phase-specific exceptions now retain integrity, schema, and data diagnostic codes while all checks share one read-only pinned transaction. Require Backend Test and Android Build SUCCESS on the exact same final HEAD.
