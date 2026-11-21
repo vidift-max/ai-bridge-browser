@@ -59,8 +59,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
             try:
                 principal=self._principal()
                 payload=self._read_json()
-                if payload.get("senderAiId") not in (None,principal.ai_id):
-                    raise PermissionError("authorization_denied")
+                claimed_sender = payload.get("senderAiId", "")
+                self.backend.assert_authenticated_sender(self._auth(), claimed_sender)
                 msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"])
                 self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id})
             except PermissionError as exc:
