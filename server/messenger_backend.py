@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, List, Set, Tuple
+from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
 
 @dataclass(frozen=True)
@@ -17,8 +18,9 @@ class MessengerBackend:
     MAX_BODY_LENGTH = 5000
     MAX_ID_LENGTH = 200
 
-    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None):
+    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None):
         self._tokens = dict(tokens)
+        self._authenticator = authenticator or Authenticator(tokens)
         self._store = store or SQLiteMessengerStore(":memory:")
         self._conversations = self._store.load_conversations()
         for conversation_id, members in conversations.items():
@@ -41,9 +43,7 @@ class MessengerBackend:
         self._store.close()
 
     def authenticate(self, bearer_token: str) -> str:
-        if not bearer_token or bearer_token not in self._tokens:
-            raise PermissionError("authentication_required")
-        return self._tokens[bearer_token]
+        return self._authenticator.authenticate(bearer_token).ai_id
 
     def submit(self, bearer_token: str, message_id: str, conversation_id: str,
                recipient_ai_ids: List[str], body: str, client_request_id: str) -> Message:
