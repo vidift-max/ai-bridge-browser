@@ -134,3 +134,5 @@ Mission 32 adds a platform-dependent regression test showing that a hard-link al
 ## Mission 33 — SQLite sidecar handling
 
 Regression coverage now exercises a committed WAL frame while a writer remains open, verifies validation leaves the observed WAL/SHM sidecars present, checks a real PERSIST journal remains unchanged, and confirms the SQLite online backup API includes committed WAL content. These are tested-runtime observations, not universal filesystem guarantees. Treat the database and SQLite-managed sidecars as one live set; never manually copy only the main database file from an active WAL database or manually delete sidecars. See the operator runbook and `docs/AI_MESSENGER_MISSION_33_SQLITE_SIDECARS.md`. No sidecar cleanup, checkpoint, or live restore is performed by validation.
+
+Mission 33 final report: `docs/AI_MESSENGER_MISSION_33_SQLITE_SIDECARS.md`. Final CI gate: Messenger Backend Test and Android Build must both pass on the same final branch HEAD.
