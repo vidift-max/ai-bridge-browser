@@ -13,6 +13,8 @@ class Message:
     acknowledged_by: Set[str]
 
 class MessengerBackend:
+    MAX_BODY_LENGTH = 5000
+    MAX_ID_LENGTH = 200
     """Small in-memory backend; authentication is delegated to opaque token lookup."""
     def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]]):
         self._tokens = dict(tokens)
@@ -33,7 +35,9 @@ class MessengerBackend:
         members = self._conversations.get(conversation_id)
         if not members or sender not in members or not recipient_ids or not set(recipient_ids).issubset(members):
             raise PermissionError("authorization_denied")
-        if not message_id or not body or not client_request_id:
+        if (not message_id or not body or not client_request_id or
+                len(message_id) > self.MAX_ID_LENGTH or len(conversation_id) > self.MAX_ID_LENGTH or
+                len(client_request_id) > self.MAX_ID_LENGTH or len(body) > self.MAX_BODY_LENGTH):
             raise ValueError("invalid_message")
         if message_id in self._messages and not self._idempotency.get((sender, client_request_id)):
             raise ValueError("message_id_conflict")
