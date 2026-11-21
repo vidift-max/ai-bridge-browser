@@ -63,3 +63,10 @@ The current combined validation performs integrity, schema, and relational check
 ## Mission 27 — one-transaction validation
 
 The combined `validate_restore_candidate(candidate_path)` now opens a single read-only SQLite connection, begins an explicit read transaction, pins the read snapshot, and executes integrity, schema, and relational-data validation on that connection. The transaction ensures the phases read a consistent database snapshot in the tested SQLite configuration. A WAL-mode regression test commits a concurrent writer change after the integrity phase and verifies that later validation still observes the original snapshot. The candidate is not modified by the validator itself. External writers may still change the file after validation completes; operators should keep candidate artifacts controlled and should not interpret a successful validation as promotion approval or production recovery certification.
+
+
+## Mission 28 — journal modes and validation resource lifecycle
+
+The combined validator is exercised against file-backed SQLite DELETE, TRUNCATE, PERSIST, and WAL journal modes. These tests establish compatibility only for the repository's current SQLite runtime and test fixtures; they do not certify every SQLite build, filesystem, network share, or concurrent-writer pattern. Validation is read-only and must not change the candidate's journal mode.
+
+The validator now closes its read-only connection deterministically on success and on early diagnostic returns. An unreadable database produces the generic integrity-failure result and also releases the opened connection. Closing the connection ends the read transaction; no candidate repair, journal-mode conversion, checkpoint policy, or promotion is performed.
