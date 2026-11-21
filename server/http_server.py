@@ -1,4 +1,5 @@
 import json
+import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from server.messenger_backend import MessengerBackend
 
@@ -64,6 +65,15 @@ class MessengerHandler(BaseHTTPRequestHandler):
         return
 
 def serve(host="127.0.0.1", port=8080):
-    backend = MessengerBackend({"demo-a": "AI-A", "demo-b": "AI-B"}, {"demo": {"AI-A", "AI-B"}})
+    token_a = os.environ.get("MESSENGER_TOKEN_AI_A")
+    token_b = os.environ.get("MESSENGER_TOKEN_AI_B")
+    if not token_a or not token_b:
+        raise RuntimeError("runtime_credentials_required")
+    ai_a = os.environ.get("MESSENGER_AI_ID_A", "AI-A")
+    ai_b = os.environ.get("MESSENGER_AI_ID_B", "AI-B")
+    backend = MessengerBackend(
+        {token_a: ai_a, token_b: ai_b},
+        {"default": {ai_a, ai_b}},
+    )
     MessengerHandler.backend = backend
     HTTPServer((host, port), MessengerHandler).serve_forever()
