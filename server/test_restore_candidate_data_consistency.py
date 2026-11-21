@@ -272,5 +272,26 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                 ).fetchone())
 
 
+    def test_missing_candidate_is_rejected_without_opening_sqlite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "missing.sqlite"
+            with patch("server.backup.sqlite3.connect") as connect:
+                self.assertEqual(validate_restore_candidate(str(missing)),
+                                 (False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"))
+                connect.assert_not_called()
+
+    def test_candidate_path_with_uri_special_characters_is_supported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "candidate #1 ? copy.sqlite"
+            store = SQLiteMessengerStore(str(path))
+            store.save_conversation("room-1", ["AI-A", "AI-B"])
+            store.save_message_with_idempotency(
+                ("m-1", "room-1", "AI-A", ("AI-B",), "hello", "req-1", 1)
+            )
+            store.close()
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (True, "RESTORE_CANDIDATE_VALIDATED"))
+
+
 if __name__ == "__main__":
     unittest.main()
