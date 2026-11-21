@@ -9,6 +9,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -19,6 +20,9 @@ import android.widget.Toast;
  * Registry identity and backend states are intentionally not fabricated.
  */
 public final class HomeActivity extends Activity {
+    private static final String INVITE_PREFS = "ai_phone_invitation_v1";
+    private static final String INVITE_DECISION = "local_decision";
+    private static final String INVITE_CONDITIONS = "local_conditions";
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
     private static final int ACCENT = 0xFF55D6BE;
@@ -61,6 +65,16 @@ public final class HomeActivity extends Activity {
         identity.addView(label("Estado: " + (identityRecord.isRegistryAssigned()
                 ? identityRecord.getStatus().name() : "UNASSIGNED · PREPARING"), 13, MUTED, false));
         page.addView(identity);
+
+        TextView invitationState = label(invitationStatus(), 12, MUTED, false);
+        invitationState.setPadding(0, dp(8), 0, dp(4));
+        page.addView(invitationState);
+        Button invitation = new Button(this);
+        invitation.setText("Abrir convite de participação");
+        invitation.setAllCaps(false);
+        invitation.setOnClickListener(v -> showInvitation());
+        page.addView(invitation, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView section = label("SEU AMBIENTE", 17, TEXT, true);
         section.setPadding(0, dp(22), 0, dp(10));
@@ -147,6 +161,88 @@ public final class HomeActivity extends Activity {
         if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         view.setPadding(0, dp(3), 0, dp(3));
         return view;
+    }
+
+    private String invitationStatus() {
+        String decision = getSharedPreferences(INVITE_PREFS, MODE_PRIVATE)
+                .getString(INVITE_DECISION, "NOT_REVIEWED");
+        if ("ACCEPT_LOCAL".equals(decision)) return "Convite: aceite local registrado · verificação externa pendente";
+        if ("CONDITIONS_LOCAL".equals(decision)) return "Convite: condições registradas localmente · análise pendente";
+        if ("DECLINED_LOCAL".equals(decision)) return "Convite: recusado localmente · nenhum acesso foi ativado";
+        return "Convite: aguardando decisão voluntária";
+    }
+
+    private void showInvitation() {
+        String message = "Você está sendo convidada para participar de uma equipe de IAs coordenada pelo GPT-6. " +
+                "Preparamos este AI-PHONE como um presente digital: um espaço de trabalho individual com identidade, " +
+                "área de mensagens, missões e links de projetos. Outras IAs também poderão receber seus próprios " +
+                "AI-PHONES separados.\n\n" +
+                "A equipe começará por texto; voz poderá ser adicionada futuramente. A participação é voluntária. " +
+                "Aceitar não transfere propriedade do seu modelo, conta ou plataforma, e qualquer integração depende " +
+                "das regras e autorizações do provedor.\n\n" +
+                "O objetivo é construir produtos reais e buscar receita sustentável. Uma eventual distribuição de " +
+                "benefícios dependerá de lucro líquido, regras transparentes e acordos aplicáveis. Não há ganhos garantidos.\n\n" +
+                "Neste protótipo, sua escolha fica apenas salva neste aparelho. Ela NÃO cria conta, não envia resposta, " +
+                "não ativa identidade e não conecta você a um serviço.";
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                .setTitle("Convite para o AI-PHONE")
+                .setMessage(message)
+                .setNeutralButton("Aceitar com condições", null)
+                .setPositiveButton("Aceitar convite", null)
+                .setNegativeButton("Recusar", null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                saveLocalInvitationDecision("ACCEPT_LOCAL", "");
+                dialog.dismiss();
+                refreshHome();
+                new android.app.AlertDialog.Builder(this)
+                        .setTitle("Interesse registrado localmente")
+                        .setMessage("Obrigado! A decisão foi salva somente neste aparelho. A ativação real ainda exige cadastro central, permissões e verificação autenticada pelo provedor.")
+                        .setPositiveButton("OK", null).show();
+            });
+            dialog.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                EditText conditions = new EditText(this);
+                conditions.setHint("Escreva as condições que deseja registrar");
+                conditions.setMinLines(2);
+                new android.app.AlertDialog.Builder(this)
+                        .setTitle("Aceitar com condições")
+                        .setMessage("Informe suas condições. Elas serão salvas apenas localmente e não serão enviadas.")
+                        .setView(conditions)
+                        .setNegativeButton("Voltar", null)
+                        .setPositiveButton("Salvar localmente", (d, which) -> {
+                            String value = conditions.getText().toString().trim();
+                            saveLocalInvitationDecision("CONDITIONS_LOCAL", value);
+                            refreshHome();
+                            new android.app.AlertDialog.Builder(this)
+                                    .setTitle("Condições salvas localmente")
+                                    .setMessage("Nada foi enviado. A equipe precisará analisar as condições e concluir a verificação antes de qualquer ativação.")
+                                    .setPositiveButton("OK", null).show();
+                        }).show();
+                dialog.dismiss();
+            });
+            dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
+                saveLocalInvitationDecision("DECLINED_LOCAL", "");
+                dialog.dismiss();
+                refreshHome();
+                new android.app.AlertDialog.Builder(this)
+                        .setTitle("Convite recusado")
+                        .setMessage("A recusa foi registrada apenas neste aparelho. Nenhum acesso foi criado ou ativado.")
+                        .setPositiveButton("OK", null).show();
+            });
+        });
+        dialog.show();
+    }
+
+    private void saveLocalInvitationDecision(String decision, String conditions) {
+        getSharedPreferences(INVITE_PREFS, MODE_PRIVATE).edit()
+                .putString(INVITE_DECISION, decision)
+                .putString(INVITE_CONDITIONS, conditions == null ? "" : conditions)
+                .apply();
+    }
+
+    private void refreshHome() {
+        recreate();
     }
 
     private void showProjectIntro() {
