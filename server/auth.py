@@ -35,5 +35,8 @@ class Authenticator:
         self._registry.rotate(old_bearer_token, new_bearer_token)
         self.audit_log.record("CREDENTIAL_ROTATED", "credential")
 
+    def credential_generation(self, bearer_token: str) -> int:
+        return self._registry.generation(bearer_token)
+
     def credential_status(self, bearer_token: str) -> str:
         return self._registry.status(bearer_token)
