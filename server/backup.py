@@ -62,10 +62,13 @@ def validate_restore_candidate(candidate_path: str) -> tuple[bool, str]:
     ok, _ = verify_sqlite_recovery(candidate_path)
     if not ok:
         return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
-    from server.recovery import verify_messenger_schema
+    from server.recovery import verify_messenger_schema, verify_messenger_data_consistency
 
     schema_ok, _ = verify_messenger_schema(candidate_path)
     if not schema_ok:
         return False, "RESTORE_CANDIDATE_SCHEMA_UNSUPPORTED"
+    data_ok, _ = verify_messenger_data_consistency(candidate_path)
+    if not data_ok:
+        return False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"
     return True, "RESTORE_CANDIDATE_VALIDATED"
 
