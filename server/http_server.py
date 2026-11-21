@@ -4,10 +4,12 @@ from server.auth import Authenticator
 from server.messenger_backend import MessengerBackend
 from server.runtime_config import RuntimeConfig
 from server.sqlite_store import SQLiteMessengerStore
+from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
 
 class MessengerHandler(BaseHTTPRequestHandler):
     backend=None
     authenticator=None
+    rate_limiter=SlidingWindowRateLimiter()
 
     def _auth(self):
         header=self.headers.get("Authorization","")
@@ -58,11 +60,14 @@ class MessengerHandler(BaseHTTPRequestHandler):
         if self.path=="/v1/messages":
             try:
                 principal=self._principal()
+                self.rate_limiter.allow(principal.ai_id)
                 payload=self._read_json()
                 claimed_sender = payload.get("senderAiId", "")
                 self.backend.assert_authenticated_sender(self._auth(), claimed_sender)
                 msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"])
                 self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id})
+            except RateLimitExceeded as exc:
+                self._json(429,{"error":str(exc)})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,{"error":str(exc)})
             except (KeyError,TypeError,ValueError,json.JSONDecodeError) as exc:
