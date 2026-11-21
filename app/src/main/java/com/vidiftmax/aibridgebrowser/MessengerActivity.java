@@ -382,7 +382,9 @@ public final class MessengerActivity extends Activity {
                         prefs().edit().putString(KEY_CONVERSATIONS, items.toString()).apply();
                         selectedConversationId = conversation.getConversationId();
                         renderConversations();
+                        renderConversationMembersSummary();
                         renderMessages();
+                        renderTransportSummary();
                     } catch (IllegalArgumentException | JSONException error) {
                         Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
                     }
@@ -442,6 +444,7 @@ public final class MessengerActivity extends Activity {
             item.put("body", message.getBody());
             item.put("createdAtEpochMs", message.getCreatedAtEpochMs());
             item.put("status", MessengerMessage.STATUS_LOCAL_ONLY);
+            item.put("localState", MessengerLocalState.SAVED_LOCAL);
             messages.put(item);
             prefs().edit().putString(KEY_MESSAGES, messages.toString()).apply();
             MessengerTransportRecord transport = new MessengerTransportRecord(
@@ -511,7 +514,15 @@ public final class MessengerActivity extends Activity {
             long time = item.optLong("createdAtEpochMs", 0);
             String stamp = time > 0 ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
                     .format(new Date(time)) : "horário indisponível";
-            bubble.addView(text(stamp + " · LOCAL ONLY", 11, ACCENT, true));
+            String localState = item.optString("localState", MessengerLocalState.SAVED_LOCAL);
+            bubble.addView(text(stamp + " · LOCAL ONLY · " + localState, 11, ACCENT, true));
+            if (MessengerLocalState.SAVED_LOCAL.equals(localState)) {
+                Button read = new Button(this);
+                read.setText("Marcar como lida localmente");
+                read.setAllCaps(false);
+                read.setOnClickListener(v -> markMessageRead(item.optString("messageId", "")));
+                bubble.addView(read);
+            }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.bottomMargin = dp(9);
@@ -522,6 +533,20 @@ public final class MessengerActivity extends Activity {
             empty.setPadding(0, dp(18), 0, dp(18));
             messageList.addView(empty);
         }
+    }
+
+    private void markMessageRead(String messageId) {
+        if (messageId == null || messageId.trim().isEmpty()) return;
+        JSONArray all = readMessages();
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject item = all.optJSONObject(i);
+            if (item != null && messageId.equals(item.optString("messageId"))) {
+                item.put("localState", MessengerLocalState.READ_LOCAL);
+                break;
+            }
+        }
+        prefs().edit().putString(KEY_MESSAGES, all.toString()).apply();
+        renderMessages();
     }
 
     private void confirmClear() {
@@ -538,7 +563,17 @@ public final class MessengerActivity extends Activity {
                             kept.put(item);
                     }
                     prefs().edit().putString(KEY_MESSAGES, kept.toString()).apply();
+                    JSONArray transport = readArray(KEY_TRANSPORT_RECORDS);
+                    JSONArray keptTransport = new JSONArray();
+                    for (int i = 0; i < transport.length(); i++) {
+                        JSONObject item = transport.optJSONObject(i);
+                        if (item != null && !selectedConversationId.equals(item.optString("conversationId"))) {
+                            keptTransport.put(item);
+                        }
+                    }
+                    prefs().edit().putString(KEY_TRANSPORT_RECORDS, keptTransport.toString()).apply();
                     renderMessages();
+                    renderTransportSummary();
                 }).show();
     }
 
