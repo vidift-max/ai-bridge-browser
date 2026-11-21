@@ -1,30 +1,30 @@
 import json
-import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from server.auth import Authenticator
 from server.messenger_backend import MessengerBackend
 from server.runtime_config import RuntimeConfig
 from server.sqlite_store import SQLiteMessengerStore
 
 class MessengerHandler(BaseHTTPRequestHandler):
-    backend = None
-
-    @staticmethod
-    def _permission_status(exc):
-        return 401 if str(exc) == "authentication_required" else 403
+    backend=None
+    authenticator=None
 
     def _auth(self):
-        header = self.headers.get("Authorization", "")
+        header=self.headers.get("Authorization","")
         return header[7:] if header.startswith("Bearer ") else ""
 
+    def _principal(self):
+        return self.authenticator.authenticate(self._auth())
+
     def _read_json(self):
-        if self.headers.get("Content-Type", "").split(";")[0].lower() != "application/json":
+        if self.headers.get("Content-Type","").split(";")[0].lower()!="application/json":
             raise ValueError("content_type_required")
-        length = int(self.headers.get("Content-Length", "0"))
-        if length < 1 or length > 10000:
+        length=int(self.headers.get("Content-Length","0"))
+        if length<1 or length>10000:
             raise ValueError("invalid_content_length")
         return json.loads(self.rfile.read(length))
 
-    def _json(self, status, payload):
+    def _json(self,status,payload):
         data=json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type","application/json")
@@ -33,59 +33,58 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        if self.path == "/healthz":
-            self._json(200, {"status":"ok","service":"ai-messenger-experimental"})
-            return
-        if self.path == "/readyz":
+        if self.path=="/healthz":
+            self._json(200,{"status":"ok","service":"ai-messenger-experimental"}); return
+        if self.path=="/readyz":
             try:
-                RuntimeConfig.require("MESSENGER_TOKEN_AI_A")
-                RuntimeConfig.require("MESSENGER_TOKEN_AI_B")
-                self._json(200, {"status":"ready"})
+                RuntimeConfig.require("MESSENGER_TOKEN_AI_A"); RuntimeConfig.require("MESSENGER_TOKEN_AI_B")
+                RuntimeConfig.require("MESSENGER_AI_ID_A"); RuntimeConfig.require("MESSENGER_AI_ID_B")
+                self._json(200,{"status":"ready"})
             except RuntimeError as exc:
-                self._json(503, {"status":"not_ready","error":str(exc)})
+                self._json(503,{"status":"not_ready","error":str(exc)})
             return
         parts=self.path.split("/")
         if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages":
             try:
+                principal=self._principal()
                 messages=self.backend.pending(self._auth(),parts[3])
-                self._json(200,{"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
+                self._json(200,{"principalAiId":principal.ai_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
             except PermissionError as exc:
-                self._json(self._permission_status(exc),{"error":str(exc)})
+                self._json(401 if str(exc)=="authentication_required" else 403,{"error":str(exc)})
             return
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
         if self.path=="/v1/messages":
             try:
+                principal=self._principal()
                 payload=self._read_json()
+                if payload.get("senderAiId") not in (None,principal.ai_id):
+                    raise PermissionError("authorization_denied")
                 msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"])
-                self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED"})
+                self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id})
             except PermissionError as exc:
-                self._json(self._permission_status(exc),{"error":str(exc)})
+                self._json(401 if str(exc)=="authentication_required" else 403,{"error":str(exc)})
             except (KeyError,TypeError,ValueError,json.JSONDecodeError) as exc:
                 self._json(400,{"error":str(exc)})
             return
         if self.path.startswith("/v1/messages/") and self.path.endswith("/ack"):
             try:
+                principal=self._principal()
                 msg=self.backend.acknowledge(self._auth(),self.path[len("/v1/messages/"):-len("/ack")])
-                self._json(200,{"messageId":msg.message_id,"state":"ACKNOWLEDGED"})
+                self._json(200,{"messageId":msg.message_id,"state":"ACKNOWLEDGED","principalAiId":principal.ai_id})
             except PermissionError as exc:
-                self._json(self._permission_status(exc),{"error":str(exc)})
+                self._json(401 if str(exc)=="authentication_required" else 403,{"error":str(exc)})
             return
         self._json(404,{"error":"not_found"})
 
-    def log_message(self,*_args):
-        return
+    def log_message(self,*_args): return
 
 def serve(host="127.0.0.1",port=8080):
-    token_a=RuntimeConfig.require("MESSENGER_TOKEN_AI_A")
-    token_b=RuntimeConfig.require("MESSENGER_TOKEN_AI_B")
-    ai_a=RuntimeConfig.optional("MESSENGER_AI_ID_A","AI-A")
-    ai_b=RuntimeConfig.optional("MESSENGER_AI_ID_B","AI-B")
+    tokens=RuntimeConfig.auth_tokens()
     store=SQLiteMessengerStore(RuntimeConfig.storage_path())
-    backend=MessengerBackend({token_a:ai_a,token_b:ai_b},{"default":{ai_a,ai_b}},store)
+    backend=MessengerBackend(tokens,{"default":set(tokens.values())},store)
     MessengerHandler.backend=backend
-    try:
-        HTTPServer((host,port),MessengerHandler).serve_forever()
-    finally:
-        backend.close()
+    MessengerHandler.authenticator=Authenticator(tokens)
+    try: HTTPServer((host,port),MessengerHandler).serve_forever()
+    finally: backend.close()
