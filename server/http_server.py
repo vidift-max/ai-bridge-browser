@@ -82,9 +82,10 @@ class MessengerHandler(BaseHTTPRequestHandler):
 
 def serve(host="127.0.0.1",port=8080):
     tokens=RuntimeConfig.auth_tokens()
+    authenticator=Authenticator(tokens)
     store=SQLiteMessengerStore(RuntimeConfig.storage_path())
-    backend=MessengerBackend(tokens,{"default":set(tokens.values())},store)
+    backend=MessengerBackend(tokens,{"default":set(tokens.values())},store,authenticator=authenticator)
     MessengerHandler.backend=backend
-    MessengerHandler.authenticator=Authenticator(tokens)
+    MessengerHandler.authenticator=authenticator
     try: HTTPServer((host,port),MessengerHandler).serve_forever()
     finally: backend.close()
