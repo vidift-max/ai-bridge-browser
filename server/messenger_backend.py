@@ -90,8 +90,7 @@ class MessengerBackend:
             raise ValueError("idempotency_conflict")
         sequence = self._next_sequence.get(conversation_id, 0) + 1
         message = Message(message_id, conversation_id, sender, recipient_ids, body, client_request_id, sequence, set())
-        self._store.save_message((message.message_id,message.conversation_id,message.sender_ai_id,message.recipient_ai_ids,message.body,message.client_request_id,message.sequence))
-        self._store.save_idempotency(sender, client_request_id, message_id)
+        self._store.save_message_with_idempotency((message.message_id,message.conversation_id,message.sender_ai_id,message.recipient_ai_ids,message.body,message.client_request_id,message.sequence))
         self._messages[message_id] = message
         self._idempotency[key] = message_id
         self._next_sequence[conversation_id] = sequence
