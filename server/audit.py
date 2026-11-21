@@ -15,6 +15,16 @@ class AuditEvent:
     metadata: Dict[str, str]
 
 
+class AuditEventType:
+    AUTHENTICATED = "AUTHENTICATED"
+    CREDENTIAL_REVOKED = "CREDENTIAL_REVOKED"
+    CREDENTIAL_EXPIRED = "CREDENTIAL_EXPIRED"
+    CREDENTIAL_ROTATED = "CREDENTIAL_ROTATED"
+    MESSAGE_SUBMITTED = "MESSAGE_SUBMITTED"
+    MESSAGE_READ = "MESSAGE_READ"
+    MESSAGE_ACKNOWLEDGED = "MESSAGE_ACKNOWLEDGED"
+
+
 class AuditLog:
     """Experimental in-memory audit sink; bearer/session secrets are rejected."""
 
