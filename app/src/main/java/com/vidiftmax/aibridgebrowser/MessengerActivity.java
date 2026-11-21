@@ -231,12 +231,6 @@ public final class MessengerActivity extends Activity {
     }
 
     private void renderConversationMembersSummary() {
-        JSONArray memberships = readArray(KEY_MEMBERSHIPS);
-        int count = 0;
-        for (int i = 0; i < memberships.length(); i++) {
-            JSONObject item = memberships.optJSONObject(i);
-            if (item != null && selectedConversationId.equals(item.optString("conversationId"))) count++;
-        }
         if (memberSummary == null) return;
         JSONArray memberships = readArray(KEY_MEMBERSHIPS);
         StringBuilder names = new StringBuilder();
@@ -369,6 +363,7 @@ public final class MessengerActivity extends Activity {
             choice.setOnClickListener(v -> {
                 selectedConversationId = id;
                 renderConversations();
+                renderConversationMembersSummary();
                 renderMessages();
             });
             conversationList.addView(choice, new LinearLayout.LayoutParams(
