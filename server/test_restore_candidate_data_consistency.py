@@ -209,5 +209,25 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                     )
 
 
+    def test_unreadable_candidate_returns_integrity_failure_and_closes_connection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "not-a-database.sqlite"
+            path.write_text("not a sqlite database")
+            connections = []
+            real_connect = sqlite3.connect
+
+            def tracked_connect(*args, **kwargs):
+                connection = real_connect(*args, **kwargs)
+                connections.append(connection)
+                return connection
+
+            with patch("server.backup.sqlite3.connect", side_effect=tracked_connect):
+                self.assertEqual(validate_restore_candidate(str(path)),
+                                 (False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"))
+            self.assertEqual(len(connections), 1)
+            with self.assertRaises(sqlite3.ProgrammingError):
+                connections[0].execute("SELECT 1")
+
+
 if __name__ == "__main__":
     unittest.main()
