@@ -64,3 +64,10 @@ Mission 22 final verification marker: isolated restore-candidate creation from a
 Mission 23 adds read-only validation of the Messenger schema contract (version 1, required tables/columns, and the unique conversation/sequence index). The combined candidate validator checks SQLite integrity and schema compatibility without running migrations or modifying the candidate. The operational runtime records a redacted validation event. Schema compatibility does not establish business-data correctness or authorize promotion.
 
 Mission 23 final verification marker: read-only Messenger schema compatibility validation for isolated restore candidates, combined with SQLite integrity checks and redacted operational audit. PASS requires Backend Test and Android Build on this exact HEAD. No migration, candidate promotion, or active database modification is performed.
+
+
+## Mission 24 — Restore candidate data consistency
+
+Mission 24 extends candidate validation with read-only relational checks: every message must reference an existing conversation, its sender and recipients must be conversation members, sequence values must be positive, idempotency rows must point to the matching sender/request message, and acknowledgements must reference an existing message and a conversation member. Invalid candidates are rejected with a stable generic diagnostic. No repair, migration, deletion, or promotion occurs.
+
+Mission 24 final verification marker: read-only Messenger data consistency validation, malformed-reference tests, and redacted operational audit. PASS requires Backend Test and Android Build on this exact final HEAD. No live restore, deployment, or physical-device test is implied.
