@@ -26,12 +26,16 @@ class SessionRegistry:
         self._sessions = {}
         self._next_generation = {}
 
-    def create(self, session_id: str, ai_id: str, expires_at: Optional[datetime] = None) -> SessionRecord:
+    def create(self, session_id: str, ai_id: str, expires_at: Optional[datetime] = None, credential_generation: int = 1) -> SessionRecord:
         if not session_id or not ai_id:
             raise ValueError("session_identity_required")
         if session_id in self._sessions:
             raise ValueError("session_already_exists")
-        generation = self._next_generation.get(ai_id, 1)
+        if credential_generation < 1:
+            raise ValueError("credential_generation_invalid")
+        generation = self._next_generation.get(ai_id, credential_generation)
+        if generation < credential_generation:
+            generation = credential_generation
         record = SessionRecord(session_id, ai_id, "ACTIVE", expires_at, generation)
         self._sessions[session_id] = record
         self._next_generation[ai_id] = generation
@@ -46,6 +50,12 @@ class SessionRegistry:
             if status == "EXPIRED":
                 self._sessions[session_id] = SessionRecord(record.session_id, record.ai_id, "EXPIRED", record.expires_at, record.credential_generation)
             raise PermissionError("session_not_active")
+        return record
+
+    def authenticate_bound(self, session_id: str, credential_generation: int, now: Optional[datetime] = None) -> SessionRecord:
+        record = self.authenticate(session_id, now)
+        if credential_generation != record.credential_generation:
+            raise PermissionError("credential_generation_mismatch")
         return record
 
     def revoke(self, session_id: str) -> None:
