@@ -5,6 +5,10 @@ from server.messenger_backend import MessengerBackend
 class MessengerHandler(BaseHTTPRequestHandler):
     backend = None
 
+    @staticmethod
+    def _permission_status(exc):
+        return 401 if str(exc) == "authentication_required" else 403
+
     def _auth(self):
         header = self.headers.get("Authorization", "")
         return header[7:] if header.startswith("Bearer ") else ""
@@ -24,7 +28,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 messages = self.backend.pending(self._auth(), parts[3])
                 self._json(200, {"messages": [{"messageId": m.message_id, "conversationId": m.conversation_id, "senderAiId": m.sender_ai_id, "sequence": m.sequence, "body": m.body} for m in messages]})
             except PermissionError as exc:
-                self._json(403, {"error": str(exc)})
+                self._json(self._permission_status(exc), {"error": str(exc)})
             return
         self._json(404, {"error": "not_found"})
 
