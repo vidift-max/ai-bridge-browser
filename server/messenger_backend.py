@@ -34,6 +34,8 @@ class MessengerBackend:
             raise PermissionError("authorization_denied")
         if not message_id or not body or not client_request_id:
             raise ValueError("invalid_message")
+        if message_id in self._messages and not self._idempotency.get((sender, client_request_id)):
+            raise ValueError("message_id_conflict")
         key = (sender, client_request_id)
         existing_id = self._idempotency.get(key)
         if existing_id:
