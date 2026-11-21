@@ -54,3 +54,8 @@ A failure returns `RESTORE_CANDIDATE_DATA_INCONSISTENT`. The diagnostic delibera
 Schema validation requires `idx_messages_conversation_sequence` to be a UNIQUE index over exactly `(conversation_id, sequence)` in that order. Merely reusing the index name is insufficient.
 
 The data validator rejects empty conversation membership, malformed comma-delimited ID lists (including empty segments, duplicate IDs, and whitespace-padded IDs), and non-text ID-list storage. It does not trim, repair, or normalize malformed values. Empty recipient lists remain allowed by the current persistence representation. Failures return generic stable diagnostics; raw database values and paths are not included in operational events.
+
+
+## Mission 26 — snapshot consistency limitation
+
+The current combined validation performs integrity, schema, and relational checks through separate read-only connections. Do not treat the combined result as an atomic snapshot if another process may modify the candidate concurrently. Keep candidate files quiescent during validation. A future implementation must use one read-only connection and one explicit read transaction for all phases, with concurrency and immutability tests. Until then, snapshot consistency is not established.
