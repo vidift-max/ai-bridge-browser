@@ -83,3 +83,9 @@ These tests establish behavior for the tested local filesystem/runtime only. The
 The combined validator rejects a candidate path whose final path component is a symbolic link, including a dangling symbolic link, before opening SQLite. Regression tests verify both cases are rejected without calling sqlite3.connect. This narrows accidental redirection through a symlink at the candidate leaf; it is not an atomic filesystem identity guarantee.
 
 The validator does not reject symlinks in parent directories, does not distinguish hard links from ordinary files, and does not prevent a path from being replaced between the symlink check and SQLite open. Filesystem race resistance would require platform-specific handle-based opening and identity checks, which are not implemented or claimed. Keep candidate directories operator-controlled and quiescent. No candidate is modified, promoted, or deleted by this validation change.
+
+## Mission 31 — symlinked parent path rejection
+
+The validator now checks the candidate leaf and each existing lexical parent component for symbolic links before opening SQLite. Tests cover a symlinked immediate parent and a symlinked intermediate parent, and verify that neither path reaches sqlite3.connect. Ordinary non-symlink candidate paths remain covered by the existing success tests.
+
+This is a path-component screening check, not an atomic file-handle identity guarantee. It does not establish resistance to concurrent replacement after the check, hard-link aliasing, junction/reparse-point behavior on every Windows version, mount-point aliases, or filesystem tampering. Platform-specific behavior must be separately tested before claiming broader coverage. Keep the candidate tree operator-controlled and quiescent.
