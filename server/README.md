@@ -130,3 +130,7 @@ Mission 31 detailed report: `docs/AI_MESSENGER_MISSION_31_PARENT_SYMLINK_BOUNDAR
 ## Mission 32 — hard-link alias characterization
 
 Mission 32 adds a platform-dependent regression test showing that a hard-link alias to a valid restore candidate is currently accepted by the read-only validator and that validation leaves the bytes unchanged through both names. This documents current behavior; it does not reject hard links, prove unique file identity, or establish provenance. See `docs/AI_MESSENGER_MISSION_32_HARDLINK_ALIAS_CHARACTERIZATION.md` and the operator runbook. PASS requires Messenger Backend Test and Android Build on the same final HEAD. No live restore, promotion, deployment, or filesystem race resistance is implied.
+
+## Mission 33 — SQLite sidecar handling
+
+Regression coverage now exercises a committed WAL frame while a writer remains open, verifies validation leaves the observed WAL/SHM sidecars present, checks a real PERSIST journal remains unchanged, and confirms the SQLite online backup API includes committed WAL content. These are tested-runtime observations, not universal filesystem guarantees. Treat the database and SQLite-managed sidecars as one live set; never manually copy only the main database file from an active WAL database or manually delete sidecars. See the operator runbook and `docs/AI_MESSENGER_MISSION_33_SQLITE_SIDECARS.md`. No sidecar cleanup, checkpoint, or live restore is performed by validation.
