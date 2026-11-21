@@ -9,7 +9,7 @@ class LifecycleEdgeCaseTests(unittest.TestCase):
     def test_credential_is_expired_at_exact_boundary(self):
         now = datetime(2026, 11, 21, 22, 30, tzinfo=timezone.utc)
         registry = CredentialRegistry({"token-a": "ai-a"}, {"token-a": now})
-        self.assertEqual(registry.status("token-a"), "EXPIRED")
+        self.assertEqual(registry._records["token-a"].effective_status(now), "EXPIRED")
         with self.assertRaises(PermissionError):
             registry.authenticate("token-a", now)
 
@@ -23,7 +23,7 @@ class LifecycleEdgeCaseTests(unittest.TestCase):
         now = datetime(2026, 11, 21, 22, 30, tzinfo=timezone.utc)
         registry = SessionRegistry()
         registry.create("session-a", "ai-a", now)
-        self.assertEqual(registry.status("session-a"), "EXPIRED")
+        self.assertEqual(registry._sessions["session-a"].effective_status(now), "EXPIRED")
         with self.assertRaises(PermissionError):
             registry.authenticate("session-a", now)
 
