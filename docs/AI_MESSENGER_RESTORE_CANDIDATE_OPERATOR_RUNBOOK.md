@@ -70,3 +70,10 @@ The combined `validate_restore_candidate(candidate_path)` now opens a single rea
 The combined validator is exercised against file-backed SQLite DELETE, TRUNCATE, PERSIST, and WAL journal modes. These tests establish compatibility only for the repository's current SQLite runtime and test fixtures; they do not certify every SQLite build, filesystem, network share, or concurrent-writer pattern. Validation is read-only and must not change the candidate's journal mode.
 
 The validator now closes its read-only connection deterministically on success and on early diagnostic returns. An unreadable database produces the generic integrity-failure result and also releases the opened connection. Closing the connection ends the read transaction; no candidate repair, journal-mode conversion, checkpoint policy, or promotion is performed.
+
+
+## Mission 29 — candidate immutability and input boundary
+
+The combined validator accepts only an existing regular file and opens it using SQLite URI read-only mode. Missing paths and directory paths are rejected before opening a SQLite connection. Regression tests verify that a deliberate write attempt through the validation connection is rejected, the candidate's SHA-256 file bytes remain unchanged after successful validation, and paths containing spaces, `#`, and `?` are correctly encoded as file URIs.
+
+These tests establish behavior for the tested local filesystem/runtime only. They do not establish immutability against a separate process with write access, filesystem-level tampering, symlink race resistance, or provenance of the candidate.
