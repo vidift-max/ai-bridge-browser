@@ -58,6 +58,12 @@ class CredentialRegistry:
         self._records[old_token] = CredentialRecord(old.token, old.ai_id, "ROTATED", old.expires_at, old.generation)
         self._records[new_token] = CredentialRecord(new_token, old.ai_id, "ACTIVE", None, old.generation + 1)
 
+    def generation(self, token: str) -> int:
+        record = self._records.get(token)
+        if record is None:
+            raise PermissionError("authentication_required")
+        return record.generation
+
     def status(self, token: str, now: Optional[datetime] = None) -> str:
         record = self._records.get(token)
         return "UNKNOWN" if record is None else record.effective_status(now)
