@@ -74,7 +74,7 @@ class HttpE2ETest(unittest.TestCase):
 
         status, data = self.request("GET", "/v1/conversations/room/messages", "bad-token")
         self.assertEqual(status, 401)
-        self.assertEqual(data["error"], "forbidden")
+        self.assertEqual(data["error"], "authentication_required")
 
     def test_http_correlation_id_is_returned_and_audited(self):
         status, data = self.request("POST", "/v1/messages", "token-a", {
