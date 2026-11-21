@@ -74,3 +74,10 @@ Mission 24 final verification marker: read-only Messenger data consistency valid
 
 
 Mission 24 final verification marker: restore-candidate integrity, schema, and Messenger relationship validation all use read-only SQLite access. The data checks cover message/conversation membership, idempotency references, acknowledgements, and positive sequence values. PASS requires Backend Test and Android Build on this exact final HEAD; no repair, migration, live restore, deployment, or physical-device test is implied.
+
+
+## Mission 25 — Restore validation edge-case hardening
+
+Mission 25 strengthens the read-only candidate gates. Schema compatibility now verifies that the required conversation/sequence index is unique and has exactly the expected ordered columns. Data validation parses comma-delimited identifiers strictly: malformed empty segments, duplicate values, whitespace-padded values, and non-text storage are rejected rather than silently normalized or dropped. Empty conversation membership is rejected; an empty recipient list remains representable. Unexpected malformed storage returns a safe generic failure. These checks do not change the candidate.
+
+Mission 25 final verification marker: exact unique-index definition checks, strict identifier-list parsing, malformed-value regression tests, and same-HEAD Backend Test + Android Build. No repair, migration, promotion, deployment, or physical-device verification is implied.
