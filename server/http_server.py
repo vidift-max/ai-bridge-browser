@@ -26,6 +26,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
             raise ValueError("invalid_content_length")
         return json.loads(self.rfile.read(length))
 
+    def _permission_error(self, exc):
+        return {"error": "authentication_required" if str(exc) == "authentication_required" else "forbidden"}
+
     def _json(self,status,payload):
         data=json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -54,7 +57,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 messages=self.backend.pending(self._auth(),parts[3])
                 self._json(200,{"principalAiId":principal.ai_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
             except PermissionError as exc:
-                self._json(401 if str(exc)=="authentication_required" else 403,{"error":str(exc)})
+                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             return
         self._json(404,{"error":"not_found"})
 
@@ -71,11 +74,11 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"])
                 self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"correlationId":identity.correlation_id})
             except RateLimitExceeded as exc:
-                self._json(429,{"error":str(exc)})
+                self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,{"error":str(exc)})
             except (KeyError,TypeError,ValueError,json.JSONDecodeError) as exc:
-                self._json(400,{"error":str(exc)})
+                self._json(400,{"error":"invalid_request"})
             return
         if self.path.startswith("/v1/messages/") and self.path.endswith("/ack"):
             try:
