@@ -113,3 +113,9 @@ Restore-candidate validation is covered for file-backed SQLite DELETE, TRUNCATE,
 ## Mission 29 — candidate immutability and input-boundary tests
 
 Read-only validation now has regression coverage for unchanged candidate SHA-256 bytes, rejected SQL write attempts on the validation connection, missing and directory inputs rejected before connection, and file paths containing URI-special characters. The checks do not establish protection from external writers, filesystem tampering, symlink races, or backup provenance. No candidate mutation, repair, promotion, or deployment is performed.
+
+## Mission 30 — restore candidate filesystem boundary
+
+The restore-candidate validator rejects a symbolic link in the final candidate path component before opening SQLite. Tests cover valid-target and dangling symlinks and assert that SQLite is not opened. This is a narrow input-boundary check only: parent-directory symlinks, hard links, concurrent path replacement, filesystem tampering, and provenance remain outside the guarantee. Candidate directories must remain operator-controlled. No live restore, promotion, deletion, or deployment is performed.
+
+Mission 30 final verification marker: require Messenger Backend Test and Android Build SUCCESS on the exact same final branch HEAD. CI validates repository workflows only; it does not certify filesystem race resistance or physical-device behavior.
