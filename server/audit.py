@@ -16,7 +16,9 @@ class AuditEvent:
 
 
 class AuditLog:
-    """Experimental in-memory audit sink; secrets are never recorded."""
+    """Experimental in-memory audit sink; bearer/session secrets are rejected."""
+
+    _SECRET_KEYS = {"token", "bearer", "authorization", "session_token", "credential", "password"}
 
     def __init__(self):
         self._events: List[AuditEvent] = []
@@ -25,6 +27,11 @@ class AuditLog:
                metadata: Optional[Dict[str, str]] = None,
                now: Optional[datetime] = None,
                correlation_id: Optional[str] = None) -> AuditEvent:
+        safe_metadata = {}
+        for key, value in dict(metadata or {}).items():
+            if key.lower() in self._SECRET_KEYS or "token" in key.lower() or "authorization" in key.lower():
+                continue
+            safe_metadata[key] = value
         event = AuditEvent(
             event_id=str(uuid4()),
             correlation_id=correlation_id or str(uuid4()),
@@ -32,7 +39,7 @@ class AuditLog:
             ai_id=ai_id,
             subject=subject,
             timestamp=now or datetime.now(timezone.utc),
-            metadata=dict(metadata or {}),
+            metadata=safe_metadata,
         )
         self._events.append(event)
         return event
