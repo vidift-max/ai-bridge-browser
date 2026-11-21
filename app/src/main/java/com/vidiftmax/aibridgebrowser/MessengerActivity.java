@@ -24,6 +24,7 @@ public final class MessengerActivity extends Activity {
     private static final String KEY_MESSAGES = "local_messages";
     private static final String KEY_CONVERSATIONS = "local_conversations";
     private static final String KEY_PARTICIPANTS = "local_participants";
+    private static final String KEY_MEMBERSHIPS = "local_memberships";
     private static final String DEFAULT_ID = "LOCAL-DEMO";
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
@@ -84,6 +85,12 @@ public final class MessengerActivity extends Activity {
         selectedTitle = text("", 16, TEXT, true);
         selectedTitle.setPadding(0, dp(8), 0, dp(4));
         page.addView(selectedTitle);
+        Button manageMembers = new Button(this);
+        manageMembers.setText("Participantes desta conversa");
+        manageMembers.setAllCaps(false);
+        manageMembers.setOnClickListener(v -> manageConversationMembers());
+        page.addView(manageMembers);
+        page.addView(text("MEMBROS · SELEÇÃO LOCAL · NENHUM CONVITE ENVIADO", 11, ACCENT, true));
         page.addView(text("HISTÓRICO · LOCAL ONLY", 11, ACCENT, true));
 
         ScrollView scroll = new ScrollView(this);
@@ -217,6 +224,65 @@ public final class MessengerActivity extends Activity {
             case "REVOKED": return "REVOGADO NO REGISTRO";
             default: return "PERFIL LOCAL · NÃO CONECTADO";
         }
+    }
+
+    private void manageConversationMembers() {
+        JSONArray participants = readArray(KEY_PARTICIPANTS);
+        if (participants.length() == 0) {
+            Toast.makeText(this, "Cadastre um perfil local de IA primeiro.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        JSONArray memberships = readArray(KEY_MEMBERSHIPS);
+        for (int i = 0; i < participants.length(); i++) {
+            JSONObject p = participants.optJSONObject(i);
+            if (p == null) continue;
+            String localId = p.optString("localId", "");
+            String name = p.optString("displayName", "Participante");
+            android.widget.CheckBox box = new android.widget.CheckBox(this);
+            box.setText(name + " · " + p.optString("provider", "provedor"));
+            box.setTag(localId);
+            box.setChecked(hasMembership(memberships, localId));
+            form.addView(box);
+        }
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Membros da conversa")
+                .setMessage("Seleciona perfis locais apenas. Nenhuma IA será convidada ou conectada.")
+                .setView(form)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Salvar seleção", (dialog, which) -> {
+                    JSONArray kept = new JSONArray();
+                    for (int i = 0; i < form.getChildCount(); i++) {
+                        android.view.View child = form.getChildAt(i);
+                        if (!(child instanceof android.widget.CheckBox)) continue;
+                        android.widget.CheckBox box = (android.widget.CheckBox) child;
+                        if (box.isChecked()) {
+                            try {
+                                MessengerMembership membership = new MessengerMembership(
+                                        selectedConversationId, String.valueOf(box.getTag()));
+                                JSONObject item = new JSONObject();
+                                item.put("conversationId", membership.getConversationId());
+                                item.put("participantLocalId", membership.getParticipantLocalId());
+                                item.put("state", membership.getState().name());
+                                kept.put(item);
+                            } catch (IllegalArgumentException | JSONException error) {
+                                Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                            }
+                        }
+                    }
+                    prefs().edit().putString(KEY_MEMBERSHIPS, kept.toString()).apply();
+                    Toast.makeText(this, "Seleção local salva. Nenhum convite foi enviado.", Toast.LENGTH_SHORT).show();
+                }).show();
+    }
+
+    private boolean hasMembership(JSONArray memberships, String localId) {
+        for (int i = 0; i < memberships.length(); i++) {
+            JSONObject item = memberships.optJSONObject(i);
+            if (item != null && selectedConversationId.equals(item.optString("conversationId"))
+                    && localId.equals(item.optString("participantLocalId"))) return true;
+        }
+        return false;
     }
 
     private void createConversation() {
