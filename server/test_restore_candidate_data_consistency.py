@@ -248,5 +248,29 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                 connect.assert_not_called()
 
 
+    def test_validation_connection_rejects_write_attempts(self):
+        import server.recovery as recovery
+        original = recovery._verify_sqlite_recovery_connection
+        write_attempts = []
+
+        def assert_read_only(connection):
+            with self.assertRaises(sqlite3.OperationalError):
+                connection.execute("CREATE TABLE forbidden_validation_write (id INTEGER)")
+            write_attempts.append(True)
+            return original(connection)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with patch("server.recovery._verify_sqlite_recovery_connection",
+                       side_effect=assert_read_only):
+                self.assertEqual(validate_restore_candidate(str(path)),
+                                 (True, "RESTORE_CANDIDATE_VALIDATED"))
+            self.assertEqual(write_attempts, [True])
+            with sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True) as db:
+                self.assertIsNone(db.execute(
+                    "SELECT name FROM sqlite_schema WHERE name='forbidden_validation_write'"
+                ).fetchone())
+
+
 if __name__ == "__main__":
     unittest.main()
