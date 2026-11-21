@@ -417,11 +417,15 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
             finally:
                 writer.close()
 
-    def test_validation_does_not_remove_existing_rollback_journal(self):
+    def test_validation_preserves_persist_journal_sidecar(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self._candidate(directory)
+            with sqlite3.connect(path) as setup:
+                self.assertEqual(setup.execute("PRAGMA journal_mode=PERSIST").fetchone()[0].lower(),
+                                 "persist")
+                setup.execute("UPDATE messages SET body='persist-mode'")
             journal_path = Path(str(path) + "-journal")
-            journal_path.write_bytes(b"operator-controlled-test-artifact")
+            self.assertTrue(journal_path.exists())
             before = journal_path.read_bytes()
             self.assertEqual(validate_restore_candidate(str(path)),
                              (True, "RESTORE_CANDIDATE_VALIDATED"))
