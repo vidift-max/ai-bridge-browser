@@ -25,3 +25,35 @@ def create_sqlite_backup(source_path: str, destination_path: str) -> tuple[bool,
         return True, "BACKUP_CREATED"
     except (OSError, sqlite3.Error):
         return False, "BACKUP_FAILED"
+
+def create_restore_candidate(backup_path: str, candidate_path: str) -> tuple[bool, str]:
+    """Copy a verified backup to a new candidate path; never activate or overwrite."""
+    backup = Path(backup_path)
+    candidate = Path(candidate_path)
+    if not backup.is_file():
+        return False, "RESTORE_BACKUP_UNAVAILABLE"
+    try:
+        if backup.resolve() == candidate.resolve():
+            return False, "RESTORE_CANDIDATE_CONFLICT"
+        if candidate.exists():
+            return False, "RESTORE_CANDIDATE_EXISTS"
+        source_ok, _ = verify_sqlite_recovery(str(backup))
+        if not source_ok:
+            return False, "RESTORE_BACKUP_INVALID"
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(str(backup)) as source_db:
+            with sqlite3.connect(str(candidate)) as candidate_db:
+                source_db.backup(candidate_db)
+        candidate_ok, _ = verify_sqlite_recovery(str(candidate))
+        if not candidate_ok:
+            candidate.unlink(missing_ok=True)
+            return False, "RESTORE_CANDIDATE_INVALID"
+        return True, "RESTORE_CANDIDATE_CREATED"
+    except (OSError, sqlite3.Error):
+        try:
+            if candidate.is_file():
+                candidate.unlink()
+        except OSError:
+            pass
+        return False, "RESTORE_CANDIDATE_FAILED"
+
