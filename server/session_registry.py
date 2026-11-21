@@ -29,6 +29,8 @@ class SessionRegistry:
     def create(self, session_id: str, ai_id: str, expires_at: Optional[datetime] = None) -> SessionRecord:
         if not session_id or not ai_id:
             raise ValueError("session_identity_required")
+        if session_id in self._sessions:
+            raise ValueError("session_already_exists")
         generation = self._next_generation.get(ai_id, 1)
         record = SessionRecord(session_id, ai_id, "ACTIVE", expires_at, generation)
         self._sessions[session_id] = record
@@ -58,6 +60,8 @@ class SessionRegistry:
             raise KeyError("session_unknown")
         if old.effective_status() != "ACTIVE":
             raise PermissionError("session_not_active")
+        if new_session_id in self._sessions:
+            raise ValueError("session_already_exists")
         self._sessions[old_session_id] = SessionRecord(old.session_id, old.ai_id, "ROTATED", old.expires_at, old.credential_generation)
         generation = old.credential_generation + 1
         record = SessionRecord(new_session_id, old.ai_id, "ACTIVE", expires_at, generation)
