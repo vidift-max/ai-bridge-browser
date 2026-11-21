@@ -126,3 +126,7 @@ Restore-candidate validation screens the candidate leaf and lexical parent compo
 
 The check is not atomic and does not prevent concurrent path replacement, hard-link aliasing, all Windows junction/reparse-point cases, mount-point aliases, or filesystem tampering. Do not treat it as filesystem identity certification. Mission 31 PASS requires Messenger Backend Test and Android Build SUCCESS on the same final HEAD.
 Mission 31 detailed report: `docs/AI_MESSENGER_MISSION_31_PARENT_SYMLINK_BOUNDARY.md` records the path-component screening, regression matrix, platform skips, and explicit filesystem-race limitations.
+
+## Mission 32 — hard-link alias characterization
+
+Mission 32 adds a platform-dependent regression test showing that a hard-link alias to a valid restore candidate is currently accepted by the read-only validator and that validation leaves the bytes unchanged through both names. This documents current behavior; it does not reject hard links, prove unique file identity, or establish provenance. See `docs/AI_MESSENGER_MISSION_32_HARDLINK_ALIAS_CHARACTERIZATION.md` and the operator runbook. PASS requires Messenger Backend Test and Android Build on the same final HEAD. No live restore, promotion, deployment, or filesystem race resistance is implied.
