@@ -1,4 +1,5 @@
 import json
+from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from server.auth import Authenticator
 from server.messenger_backend import MessengerBackend
@@ -51,15 +52,21 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except RuntimeError as exc:
                 self._json(503,{"status":"not_ready","error":str(exc)})
             return
-        parts=self.path.split("/")
+        parsed = urlsplit(self.path)
+        parts=parsed.path.split("/")
         if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages":
             try:
                 identity=self._principal()
                 principal=identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
-                messages=self.backend.pending(self._auth(),parts[3])
+                query=parse_qs(parsed.query)
+                after_sequence=int(query.get("after", ["0"])[0])
+                limit=int(query.get("limit", ["50"])[0])
+                messages=self.backend.pending(self._auth(),parts[3],after_sequence=after_sequence,limit=limit)
                 self._audit(identity, "MESSAGE_READ", parts[3], count=str(len(messages)))
                 self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
+            except (ValueError, TypeError) as exc:
+                self._json(400,{"error":"invalid_cursor"})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             return
