@@ -38,6 +38,10 @@ class AuditLog:
                now: Optional[datetime] = None,
                correlation_id: Optional[str] = None) -> AuditEvent:
         safe_metadata = {}
+        safe_subject = str(subject)
+        lowered_subject = safe_subject.lower()
+        if "token" in lowered_subject or "authorization" in lowered_subject or "bearer" in lowered_subject:
+            safe_subject = "[redacted]"
         for key, value in dict(metadata or {}).items():
             if key.lower() in self._SECRET_KEYS or "token" in key.lower() or "authorization" in key.lower():
                 continue
@@ -47,7 +51,7 @@ class AuditLog:
             correlation_id=correlation_id or str(uuid4()),
             event_type=event_type,
             ai_id=ai_id,
-            subject=subject,
+            subject=safe_subject,
             timestamp=now or datetime.now(timezone.utc),
             metadata=safe_metadata,
         )
