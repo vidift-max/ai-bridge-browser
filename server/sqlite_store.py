@@ -68,6 +68,22 @@ class SQLiteMessengerStore:
         rows = self._connection.execute("SELECT conversation_id, member_ai_ids FROM conversations").fetchall()
         return {r["conversation_id"]: set(filter(None, r["member_ai_ids"].split(","))) for r in rows}
 
+    def save_message_with_idempotency(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int]):
+        self._connection.execute("BEGIN")
+        try:
+            self._connection.execute(
+                "INSERT INTO messages(message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence) VALUES(?,?,?,?,?,?,?)",
+                (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6]),
+            )
+            self._connection.execute(
+                "INSERT INTO idempotency(sender_ai_id,client_request_id,message_id) VALUES(?,?,?)",
+                (message[2],message[5],message[0]),
+            )
+            self._connection.commit()
+        except Exception:
+            self._connection.rollback()
+            raise
+
     def save_message(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int]):
         self._connection.execute(
             "INSERT INTO messages(message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence) VALUES(?,?,?,?,?,?,?)",
