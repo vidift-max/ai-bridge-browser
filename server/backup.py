@@ -77,15 +77,24 @@ def validate_restore_candidate(candidate_path: str) -> tuple[bool, str]:
             # Pin the read snapshot before any validation phase.
             connection.execute("SELECT count(*) FROM sqlite_schema").fetchone()
 
-            integrity_ok, _ = _verify_sqlite_recovery_connection(connection)
+            try:
+                integrity_ok, _ = _verify_sqlite_recovery_connection(connection)
+            except sqlite3.Error:
+                return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
             if not integrity_ok:
                 return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
 
-            schema_ok, _ = _verify_messenger_schema_connection(connection)
+            try:
+                schema_ok, _ = _verify_messenger_schema_connection(connection)
+            except (sqlite3.Error, ValueError, TypeError):
+                return False, "RESTORE_CANDIDATE_SCHEMA_UNSUPPORTED"
             if not schema_ok:
                 return False, "RESTORE_CANDIDATE_SCHEMA_UNSUPPORTED"
 
-            data_ok, _ = _verify_messenger_data_connection(connection)
+            try:
+                data_ok, _ = _verify_messenger_data_connection(connection)
+            except (sqlite3.Error, ValueError, TypeError, AttributeError):
+                return False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"
             if not data_ok:
                 return False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"
         return True, "RESTORE_CANDIDATE_VALIDATED"
