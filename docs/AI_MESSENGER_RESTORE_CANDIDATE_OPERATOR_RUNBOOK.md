@@ -77,3 +77,9 @@ The validator now closes its read-only connection deterministically on success a
 The combined validator accepts only an existing regular file and opens it using SQLite URI read-only mode. Missing paths and directory paths are rejected before opening a SQLite connection. Regression tests verify that a deliberate write attempt through the validation connection is rejected, the candidate's SHA-256 file bytes remain unchanged after successful validation, and paths containing spaces, `#`, and `?` are correctly encoded as file URIs.
 
 These tests establish behavior for the tested local filesystem/runtime only. They do not establish immutability against a separate process with write access, filesystem-level tampering, symlink race resistance, or provenance of the candidate.
+
+## Mission 30 — candidate leaf symlink boundary
+
+The combined validator rejects a candidate path whose final path component is a symbolic link, including a dangling symbolic link, before opening SQLite. Regression tests verify both cases are rejected without calling sqlite3.connect. This narrows accidental redirection through a symlink at the candidate leaf; it is not an atomic filesystem identity guarantee.
+
+The validator does not reject symlinks in parent directories, does not distinguish hard links from ordinary files, and does not prevent a path from being replaced between the symlink check and SQLite open. Filesystem race resistance would require platform-specific handle-based opening and identity checks, which are not implemented or claimed. Keep candidate directories operator-controlled and quiescent. No candidate is modified, promoted, or deleted by this validation change.
