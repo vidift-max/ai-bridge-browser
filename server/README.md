@@ -50,3 +50,10 @@ Mission 20 final verification gate: operational runtime integration, bounded sec
 
 
 Mission 21 final verification gate: manual non-overwriting SQLite online backup, independent integrity verification, source-preservation tests, and safe operational event integration. PASS requires backend and Android workflows on the same final HEAD. No cloud backup, encryption, automated retention, restore-over-live, or deployment is implied.
+
+## Mission 22 — Controlled restore candidate
+
+Mission 22 adds an operator-triggered `create_restore_candidate` operation. It validates a source backup, copies it to a distinct new path with SQLite's online backup API, validates the candidate, and records a redacted operational event. Existing destinations and source/destination collisions are refused. The operation never promotes or writes to the active database.
+
+SQLite integrity verification is not schema compatibility or business-data validation. Any use of a candidate requires separate human review and a separately authorized promotion procedure with a rollback plan. No live restore, deployment, cloud backup, or physical-device verification is included.
+
