@@ -26,6 +26,7 @@ public final class MessengerActivity extends Activity {
     private static final String KEY_PARTICIPANTS = "local_participants";
     private static final String KEY_MEMBERSHIPS = "local_memberships";
     private static final String KEY_INVITATIONS = "local_invitation_drafts";
+    private static final String KEY_TRANSPORT_RECORDS = "local_transport_records";
     private static final String DEFAULT_ID = "LOCAL-DEMO";
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
@@ -38,6 +39,7 @@ public final class MessengerActivity extends Activity {
     private EditText composer;
     private TextView selectedTitle;
     private TextView memberSummary;
+    private TextView transportSummary;
     private String selectedConversationId = DEFAULT_ID;
 
     @Override protected void onCreate(Bundle state) {
@@ -95,7 +97,10 @@ public final class MessengerActivity extends Activity {
         page.addView(text("MEMBROS · SELEÇÃO LOCAL · NENHUM CONVITE ENVIADO", 11, ACCENT, true));
         memberSummary = text("", 11, MUTED, false);
         page.addView(memberSummary);
+        transportSummary = text("", 11, MUTED, false);
+        page.addView(transportSummary);
         renderConversationMembersSummary();
+        renderTransportSummary();
         page.addView(text("HISTÓRICO · LOCAL ONLY", 11, ACCENT, true));
 
         ScrollView scroll = new ScrollView(this);
@@ -402,6 +407,7 @@ public final class MessengerActivity extends Activity {
                 renderConversations();
                 renderConversationMembersSummary();
                 renderMessages();
+                renderTransportSummary();
             });
             conversationList.addView(choice, new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -438,8 +444,24 @@ public final class MessengerActivity extends Activity {
             item.put("status", MessengerMessage.STATUS_LOCAL_ONLY);
             messages.put(item);
             prefs().edit().putString(KEY_MESSAGES, messages.toString()).apply();
+            MessengerTransportRecord transport = new MessengerTransportRecord(
+                    message.getMessageId(), selectedConversationId,
+                    MessengerTransportRecord.DIRECTION_OUTBOX, "LOCAL-SELF",
+                    System.currentTimeMillis());
+            JSONArray transportRecords = readArray(KEY_TRANSPORT_RECORDS);
+            JSONObject transportItem = new JSONObject();
+            transportItem.put("recordId", transport.getRecordId());
+            transportItem.put("messageId", transport.getMessageId());
+            transportItem.put("conversationId", transport.getConversationId());
+            transportItem.put("direction", transport.getDirection());
+            transportItem.put("participantLocalId", transport.getParticipantLocalId());
+            transportItem.put("createdAtEpochMs", transport.getCreatedAtEpochMs());
+            transportItem.put("status", transport.getStatus());
+            transportRecords.put(transportItem);
+            prefs().edit().putString(KEY_TRANSPORT_RECORDS, transportRecords.toString()).apply();
             composer.setText("");
             renderMessages();
+            renderTransportSummary();
         } catch (JSONException error) {
             Toast.makeText(this, "Não foi possível salvar a mensagem local.", Toast.LENGTH_LONG).show();
         }
@@ -452,6 +474,22 @@ public final class MessengerActivity extends Activity {
         String raw = prefs().getString(key, "[]");
         try { return new JSONArray(raw); }
         catch (JSONException invalid) { return new JSONArray(); }
+    }
+
+    private void renderTransportSummary() {
+        if (transportSummary == null) return;
+        JSONArray records = readArray(KEY_TRANSPORT_RECORDS);
+        int outbox = 0;
+        int inbox = 0;
+        for (int i = 0; i < records.length(); i++) {
+            JSONObject item = records.optJSONObject(i);
+            if (item == null || !selectedConversationId.equals(item.optString("conversationId"))) continue;
+            if (MessengerTransportRecord.DIRECTION_OUTBOX.equals(item.optString("direction"))) outbox++;
+            if (MessengerTransportRecord.DIRECTION_INBOX.equals(item.optString("direction"))) inbox++;
+        }
+        transportSummary.setText(
+                "CAIXAS LOCAIS · saída: " + outbox + " · entrada: " + inbox +
+                " · LOCAL ONLY · nenhum registro comprova entrega remota");
     }
 
     private void renderMessages() {
