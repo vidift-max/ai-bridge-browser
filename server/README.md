@@ -29,3 +29,8 @@ The backend remains in-memory and experimental. A restart loses messages and ide
 ## Mission 14 verification marker
 
 Authorization/audit hardening was completed in Mission 14. The server test workflow is expected to validate the final branch HEAD; this remains an experimental, non-public backend.
+
+
+## Mission 16 verification marker
+
+Transport reliability hardening was implemented through Mission 16 Round 10. This marker intentionally touches the server workflow path so the final reliability HEAD receives a fresh Backend Test gate. PASS remains contingent on Backend Test and Android Build succeeding on this exact resulting HEAD.
