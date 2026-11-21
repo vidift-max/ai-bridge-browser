@@ -19,12 +19,13 @@ def create_sqlite_backup(source_path: str, destination_path: str) -> tuple[bool,
         with sqlite3.connect(str(source)) as source_db:
             with sqlite3.connect(str(destination)) as backup_db:
                 source_db.backup(backup_db)
-        ok, code = verify_sqlite_recovery(str(destination))
+        ok, _ = verify_sqlite_recovery(str(destination))
         if not ok:
             return False, "BACKUP_INTEGRITY_FAILED"
         return True, "BACKUP_CREATED"
     except (OSError, sqlite3.Error):
         return False, "BACKUP_FAILED"
+
 
 def create_restore_candidate(backup_path: str, candidate_path: str) -> tuple[bool, str]:
     """Copy a verified backup to a new candidate path; never activate or overwrite."""
@@ -57,18 +58,36 @@ def create_restore_candidate(backup_path: str, candidate_path: str) -> tuple[boo
             pass
         return False, "RESTORE_CANDIDATE_FAILED"
 
+
 def validate_restore_candidate(candidate_path: str) -> tuple[bool, str]:
-    """Check SQLite integrity and Messenger schema without modifying the candidate."""
-    ok, _ = verify_sqlite_recovery(candidate_path)
-    if not ok:
+    """Validate integrity, schema, and data through one read-only snapshot."""
+    from server.recovery import (
+        _verify_messenger_data_connection,
+        _verify_messenger_schema_connection,
+        _verify_sqlite_recovery_connection,
+    )
+
+    candidate = Path(candidate_path)
+    if not candidate.is_file():
         return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
-    from server.recovery import verify_messenger_schema, verify_messenger_data_consistency
+    try:
+        uri = f"{candidate.resolve().as_uri()}?mode=ro"
+        with sqlite3.connect(uri, uri=True) as connection:
+            connection.execute("BEGIN")
+            # Pin the read snapshot before any validation phase.
+            connection.execute("SELECT count(*) FROM sqlite_schema").fetchone()
 
-    schema_ok, _ = verify_messenger_schema(candidate_path)
-    if not schema_ok:
-        return False, "RESTORE_CANDIDATE_SCHEMA_UNSUPPORTED"
-    data_ok, _ = verify_messenger_data_consistency(candidate_path)
-    if not data_ok:
-        return False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"
-    return True, "RESTORE_CANDIDATE_VALIDATED"
+            integrity_ok, _ = _verify_sqlite_recovery_connection(connection)
+            if not integrity_ok:
+                return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
 
+            schema_ok, _ = _verify_messenger_schema_connection(connection)
+            if not schema_ok:
+                return False, "RESTORE_CANDIDATE_SCHEMA_UNSUPPORTED"
+
+            data_ok, _ = _verify_messenger_data_connection(connection)
+            if not data_ok:
+                return False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"
+        return True, "RESTORE_CANDIDATE_VALIDATED"
+    except (OSError, sqlite3.Error, ValueError, TypeError, AttributeError):
+        return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
