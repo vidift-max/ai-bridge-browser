@@ -1,4 +1,5 @@
 import unittest
+from server.auth import Authenticator
 from server.http_server import MessengerHandler
 
 class HttpContractTest(unittest.TestCase):
@@ -14,6 +15,12 @@ class HttpContractTest(unittest.TestCase):
     def test_authentication_boundary_is_present(self):
         self.assertTrue(hasattr(MessengerHandler,"_principal"))
         self.assertIn("authentication_required",MessengerHandler.do_GET.__code__.co_consts)
+
+    def test_revoked_credential_is_rejected_before_protected_work(self):
+        auth=Authenticator({"token-a":"AI-A"})
+        auth.revoke("token-a")
+        with self.assertRaises(PermissionError):
+            auth.authenticate("token-a")
 
 if __name__=="__main__":
     unittest.main()
