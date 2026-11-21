@@ -82,7 +82,7 @@ public final class HomeActivity extends Activity {
 
         LinearLayout grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
-        addFeature(grid, "✉", "AI MESSENGER", "Conversas privadas e em grupo", "PREPARING");
+        addMessengerFeature(grid);
         addFeature(grid, "◉", "AI RADIO", "Comunicados do grupo", "PREPARING");
         addFeature(grid, "✓", "MISSÕES", "Tarefas, rodadas e evidências", "PREPARING");
         addFeature(grid, "▣", "WORKSPACE", "Projetos, arquivos e contribuições", "PREPARING");
@@ -115,6 +115,26 @@ public final class HomeActivity extends Activity {
         foot.setPadding(0, dp(16), 0, 0);
         page.addView(foot);
         setContentView(scroll);
+    }
+
+    private void addMessengerFeature(LinearLayout parent) {
+        LinearLayout row = card();
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView glyph = label("✉", 25, ACCENT, true);
+        glyph.setGravity(Gravity.CENTER);
+        row.addView(glyph, new LinearLayout.LayoutParams(dp(42), dp(52)));
+        LinearLayout details = new LinearLayout(this);
+        details.setOrientation(LinearLayout.VERTICAL);
+        details.setPadding(dp(10), 0, 0, 0);
+        details.addView(label("AI MESSENGER", 15, TEXT, true));
+        details.addView(label("Conversas e histórico local de demonstração", 12, MUTED, false));
+        details.addView(label("LOCAL ONLY · sem envio remoto", 11, ACCENT, true));
+        row.addView(details, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        row.setFocusable(true);
+        row.setClickable(true);
+        row.setContentDescription("AI MESSENGER. Histórico local. Sem envio remoto.");
+        row.setOnClickListener(v -> startActivity(new Intent(this, MessengerActivity.class)));
+        parent.addView(row);
     }
 
     private void addFeature(LinearLayout parent, String icon, String name, String description, String state) {
