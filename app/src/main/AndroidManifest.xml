@@ -16,6 +16,9 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".MessengerActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false" />
