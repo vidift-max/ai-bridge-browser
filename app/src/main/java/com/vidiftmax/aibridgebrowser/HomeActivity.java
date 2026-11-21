@@ -48,13 +48,18 @@ public final class HomeActivity extends Activity {
         subtitle.setPadding(0, dp(2), 0, dp(18));
         page.addView(subtitle);
 
+        AiPhoneIdentity identityRecord = AiPhoneIdentity.unassigned();
         LinearLayout identity = card();
         TextView identityTitle = label("IDENTIDADE DO DISPOSITIVO", 12, ACCENT, true);
         identity.addView(identityTitle);
-        identity.addView(label("Participante: ainda não associado", 17, TEXT, true));
-        identity.addView(label("Número AI-PHONE: aguardando registro", 14, MUTED, false));
-        identity.addView(label("Número de série: não provisionado", 14, MUTED, false));
-        identity.addView(label("Estado: PREPARING · ambiente em construção", 13, MUTED, false));
+        identity.addView(label("Participante: " + identityRecord.getDisplayName(), 17, TEXT, true));
+        identity.addView(label("AI_ID: aguardando autenticação", 14, MUTED, false));
+        identity.addView(label("Número AI-PHONE: " +
+                (identityRecord.isRegistryAssigned() ? identityRecord.getDisplayNumber() : "aguardando registro"), 14, MUTED, false));
+        identity.addView(label("Número de série: " +
+                (identityRecord.isRegistryAssigned() ? identityRecord.getSerial() : "não provisionado"), 14, MUTED, false));
+        identity.addView(label("Estado: " + (identityRecord.isRegistryAssigned()
+                ? identityRecord.getStatus().name() : "UNASSIGNED · PREPARING"), 13, MUTED, false));
         page.addView(identity);
 
         TextView section = label("SEU AMBIENTE", 17, TEXT, true);
