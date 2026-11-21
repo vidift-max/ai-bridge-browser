@@ -58,3 +58,8 @@ Mission 22 adds an operator-triggered `create_restore_candidate` operation. It v
 SQLite integrity verification is not schema compatibility or business-data validation. Any use of a candidate requires separate human review and a separately authorized promotion procedure with a rollback plan. No live restore, deployment, cloud backup, or physical-device verification is included.
 
 Mission 22 final verification marker: isolated restore-candidate creation from a pre-verified SQLite backup, candidate integrity check, no-overwrite destination policy, source preservation, redacted operational event, and explicit human approval boundary. PASS requires Backend Test and Android Build on this exact final HEAD; live database promotion is excluded.
+
+## Mission 23 — Restore candidate schema compatibility
+
+Mission 23 adds read-only validation of the Messenger schema contract (version 1, required tables/columns, and the unique conversation/sequence index). The combined candidate validator checks SQLite integrity and schema compatibility without running migrations or modifying the candidate. The operational runtime records a redacted validation event. Schema compatibility does not establish business-data correctness or authorize promotion.
+
