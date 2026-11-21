@@ -5,6 +5,7 @@ from server.messenger_backend import MessengerBackend
 from server.runtime_config import RuntimeConfig
 from server.sqlite_store import SQLiteMessengerStore
 from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
+from server.request_context import authenticate_request, bearer_token
 
 class MessengerHandler(BaseHTTPRequestHandler):
     backend=None
@@ -12,11 +13,10 @@ class MessengerHandler(BaseHTTPRequestHandler):
     rate_limiter=SlidingWindowRateLimiter()
 
     def _auth(self):
-        header=self.headers.get("Authorization","")
-        return header[7:] if header.startswith("Bearer ") else ""
+        return bearer_token(self.headers)
 
     def _principal(self):
-        return self.authenticator.authenticate(self._auth())
+        return authenticate_request(self.authenticator, self.headers)
 
     def _read_json(self):
         if self.headers.get("Content-Type","").split(";")[0].lower()!="application/json":
@@ -48,7 +48,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
         parts=self.path.split("/")
         if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages":
             try:
-                principal=self._principal()
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
                 messages=self.backend.pending(self._auth(),parts[3])
                 self._json(200,{"principalAiId":principal.ai_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
             except PermissionError as exc:
@@ -59,13 +61,15 @@ class MessengerHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path=="/v1/messages":
             try:
-                principal=self._principal()
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
                 self.rate_limiter.allow(principal.ai_id)
                 payload=self._read_json()
                 claimed_sender = payload.get("senderAiId", "")
                 self.backend.assert_authenticated_sender(self._auth(), claimed_sender)
                 msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"])
-                self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id})
+                self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"correlationId":identity.correlation_id})
             except RateLimitExceeded as exc:
                 self._json(429,{"error":str(exc)})
             except PermissionError as exc:
@@ -75,9 +79,11 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         if self.path.startswith("/v1/messages/") and self.path.endswith("/ack"):
             try:
-                principal=self._principal()
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
                 msg=self.backend.acknowledge(self._auth(),self.path[len("/v1/messages/"):-len("/ack")])
-                self._json(200,{"messageId":msg.message_id,"state":"ACKNOWLEDGED","principalAiId":principal.ai_id})
+                self._json(200,{"messageId":msg.message_id,"state":"ACKNOWLEDGED","principalAiId":principal.ai_id,"correlationId":identity.correlation_id})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,{"error":str(exc)})
             return
