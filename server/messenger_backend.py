@@ -51,6 +51,12 @@ class MessengerBackend:
             raise PermissionError("sender_identity_mismatch")
         return authenticated_ai_id
 
+    def assert_authenticated_principal(self, bearer_token: str, principal) -> str:
+        current = self._authenticator.authenticate(bearer_token)
+        if current.ai_id != principal.ai_id or current.credential_generation != principal.credential_generation:
+            raise PermissionError("stale_authenticated_principal")
+        return current.ai_id
+
     def authorize_member(self, ai_id: str, conversation_id: str) -> None:
         members = self._conversations.get(conversation_id)
         if not members or ai_id not in members:
