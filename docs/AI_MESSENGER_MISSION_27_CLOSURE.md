@@ -15,7 +15,7 @@ Implement combined restore-candidate validation over one SQLite read-only connec
 No candidate is written, repaired, migrated, deleted, or promoted by validation. No active database restore or deployment was performed.
 
 ## Verification
-Implementation is complete; final status is pending fresh Backend Test and Android Build workflows on the exact same final HEAD.
+Implementation and regression tests are complete. Initial Backend Test runs exposed two legacy expectations for phase-specific diagnostics; the validator was corrected to map SQLite/schema/data exceptions to their stable phase-specific result codes. Final status remains pending fresh Backend Test and Android Build workflows on the exact same final HEAD.
 
 ## Limits
 The test demonstrates snapshot consistency for the exercised SQLite WAL scenario. It does not certify all filesystem/journal modes, application recovery, provenance, identity authenticity, business correctness, production operations, or authorization to promote a candidate.
