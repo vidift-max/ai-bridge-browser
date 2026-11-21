@@ -20,14 +20,12 @@ class CredentialRecord:
 
 
 class CredentialRegistry:
-    """Experimental runtime-only credential lifecycle registry.
+    """Experimental runtime-only credential lifecycle registry."""
 
-    Tokens are supplied by the runtime environment and are not persisted here.
-    """
-
-    def __init__(self, token_to_ai_id: Dict[str, str]):
+    def __init__(self, token_to_ai_id: Dict[str, str], token_expiry: Optional[Dict[str, datetime]] = None):
+        expiry = token_expiry or {}
         self._records = {
-            token: CredentialRecord(token=token, ai_id=ai_id)
+            token: CredentialRecord(token=token, ai_id=ai_id, expires_at=expiry.get(token))
             for token, ai_id in token_to_ai_id.items()
         }
 
