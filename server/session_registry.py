@@ -79,6 +79,6 @@ class SessionRegistry:
         self._next_generation[old.ai_id] = generation
         return record
 
-    def status(self, session_id: str) -> str:
+    def status(self, session_id: str, now: Optional[datetime] = None) -> str:
         record = self._sessions.get(session_id)
-        return "UNKNOWN" if record is None else record.effective_status()
+        return "UNKNOWN" if record is None else record.effective_status(now)
