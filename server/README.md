@@ -119,3 +119,9 @@ Read-only validation now has regression coverage for unchanged candidate SHA-256
 The restore-candidate validator rejects a symbolic link in the final candidate path component before opening SQLite. Tests cover valid-target and dangling symlinks and assert that SQLite is not opened. This is a narrow input-boundary check only: parent-directory symlinks, hard links, concurrent path replacement, filesystem tampering, and provenance remain outside the guarantee. Candidate directories must remain operator-controlled. No live restore, promotion, deletion, or deployment is performed.
 
 Mission 30 final verification marker: require Messenger Backend Test and Android Build SUCCESS on the exact same final branch HEAD. CI validates repository workflows only; it does not certify filesystem race resistance or physical-device behavior.
+
+## Mission 31 — symlinked parent path boundary
+
+Restore-candidate validation screens the candidate leaf and lexical parent components for symbolic links before opening SQLite. Regression tests cover both an immediate parent symlink and an intermediate parent symlink, asserting rejection before sqlite3.connect. Existing ordinary-path success coverage remains in place.
+
+The check is not atomic and does not prevent concurrent path replacement, hard-link aliasing, all Windows junction/reparse-point cases, mount-point aliases, or filesystem tampering. Do not treat it as filesystem identity certification. Mission 31 PASS requires Messenger Backend Test and Android Build SUCCESS on the same final HEAD.
