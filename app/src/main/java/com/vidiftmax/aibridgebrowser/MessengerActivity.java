@@ -4,8 +4,6 @@ import android.app.Activity;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
@@ -24,35 +22,56 @@ import java.util.Date;
 public final class MessengerActivity extends Activity {
     private static final String PREFS = "ai_messenger_local_v1";
     private static final String KEY_MESSAGES = "local_messages";
-    private static final String CONVERSATION_ID = "LOCAL-DEMO";
+    private static final String KEY_CONVERSATIONS = "local_conversations";
+    private static final String DEFAULT_ID = "LOCAL-DEMO";
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
     private static final int TEXT = 0xFFF4F7FB;
     private static final int MUTED = 0xFFB5C2D1;
     private static final int ACCENT = 0xFF55D6BE;
+    private LinearLayout conversationList;
     private LinearLayout messageList;
     private EditText composer;
-    private TextView status;
+    private TextView selectedTitle;
+    private String selectedConversationId = DEFAULT_ID;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
+        ensureDefaultConversation();
+
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(dp(16), dp(14), dp(16), dp(12));
         page.setBackgroundColor(BG);
 
-        TextView title = text("AI MESSENGER", 25, TEXT, true);
-        page.addView(title);
-        TextView subtitle = text("Conversa local de demonstração · sem destinatário conectado", 13, MUTED, false);
-        page.addView(subtitle);
-        status = text("LOCAL ONLY — mensagens ficam somente neste aparelho.", 12, ACCENT, true);
-        status.setPadding(0, dp(8), 0, dp(8));
-        page.addView(status);
+        page.addView(text("AI MESSENGER", 25, TEXT, true));
+        page.addView(text("Conversas locais · sem participantes remotos conectados", 13, MUTED, false));
+        page.addView(text("LOCAL ONLY — nada é enviado pela internet.", 12, ACCENT, true));
+
+        Button create = new Button(this);
+        create.setText("＋ Nova conversa local");
+        create.setAllCaps(false);
+        create.setOnClickListener(v -> createConversation());
+        page.addView(create);
+
+        ScrollView directoryScroll = new ScrollView(this);
+        directoryScroll.setFillViewport(false);
+        directoryScroll.setHorizontalScrollBarEnabled(false);
+        conversationList = new LinearLayout(this);
+        conversationList.setOrientation(LinearLayout.VERTICAL);
+        directoryScroll.addView(conversationList);
+        page.addView(text("CONVERSAS DESTE APARELHO", 12, ACCENT, true));
+        page.addView(directoryScroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(132)));
+
+        selectedTitle = text("", 16, TEXT, true);
+        selectedTitle.setPadding(0, dp(8), 0, dp(4));
+        page.addView(selectedTitle);
+        page.addView(text("HISTÓRICO · LOCAL ONLY", 11, ACCENT, true));
 
         ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(false);
         messageList = new LinearLayout(this);
         messageList.setOrientation(LinearLayout.VERTICAL);
         messageList.setPadding(0, dp(6), 0, dp(10));
@@ -69,19 +88,100 @@ public final class MessengerActivity extends Activity {
         composer.setMinLines(1);
         composer.setMaxLines(4);
         entry.addView(composer, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        Button send = new Button(this);
-        send.setText("Salvar");
-        send.setAllCaps(false);
-        send.setOnClickListener(v -> saveLocalMessage());
-        entry.addView(send);
+        Button save = new Button(this);
+        save.setText("Salvar");
+        save.setAllCaps(false);
+        save.setOnClickListener(v -> saveLocalMessage());
+        entry.addView(save);
         page.addView(entry);
         Button clear = new Button(this);
-        clear.setText("Apagar histórico local");
+        clear.setText("Apagar mensagens desta conversa");
         clear.setAllCaps(false);
         clear.setOnClickListener(v -> confirmClear());
         page.addView(clear);
         setContentView(page);
+        renderConversations();
         renderMessages();
+    }
+
+    private void ensureDefaultConversation() {
+        JSONArray items = readConversations();
+        if (items.length() == 0) {
+            try {
+                JSONObject item = new JSONObject();
+                item.put("conversationId", DEFAULT_ID);
+                item.put("title", "Rascunho local");
+                item.put("createdAtEpochMs", System.currentTimeMillis());
+                item.put("kind", MessengerConversation.KIND_LOCAL_SANDBOX);
+                item.put("status", MessengerConversation.STATUS_LOCAL_ONLY);
+                items.put(item);
+                prefs().edit().putString(KEY_CONVERSATIONS, items.toString()).apply();
+            } catch (JSONException ignored) { }
+        }
+    }
+
+    private void createConversation() {
+        EditText input = new EditText(this);
+        input.setHint("Ex.: Planejamento do projeto");
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Criar conversa local")
+                .setMessage("Cria apenas uma pasta de conversa neste aparelho. Nenhuma IA ou participante será convidado.")
+                .setView(input)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Criar", (dialog, which) -> {
+                    try {
+                        MessengerConversation conversation = new MessengerConversation(
+                                input.getText().toString(), System.currentTimeMillis());
+                        JSONArray items = readConversations();
+                        JSONObject item = new JSONObject();
+                        item.put("conversationId", conversation.getConversationId());
+                        item.put("title", conversation.getTitle());
+                        item.put("createdAtEpochMs", conversation.getCreatedAtEpochMs());
+                        item.put("kind", conversation.getKind());
+                        item.put("status", conversation.getStatus());
+                        items.put(item);
+                        prefs().edit().putString(KEY_CONVERSATIONS, items.toString()).apply();
+                        selectedConversationId = conversation.getConversationId();
+                        renderConversations();
+                        renderMessages();
+                    } catch (IllegalArgumentException | JSONException error) {
+                        Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                }).show();
+    }
+
+    private void renderConversations() {
+        conversationList.removeAllViews();
+        JSONArray items = readConversations();
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.optJSONObject(i);
+            if (item == null) continue;
+            String id = item.optString("conversationId", "");
+            String title = item.optString("title", "Conversa local");
+            Button choice = new Button(this);
+            choice.setAllCaps(false);
+            choice.setText((id.equals(selectedConversationId) ? "● " : "○ ") +
+                    title + "  ·  LOCAL ONLY");
+            choice.setContentDescription("Abrir conversa local " + title);
+            choice.setOnClickListener(v -> {
+                selectedConversationId = id;
+                renderConversations();
+                renderMessages();
+            });
+            conversationList.addView(choice, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        selectedTitle.setText("Conversa: " + selectedConversationTitle());
+    }
+
+    private String selectedConversationTitle() {
+        JSONArray items = readConversations();
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.optJSONObject(i);
+            if (item != null && selectedConversationId.equals(item.optString("conversationId")))
+                return item.optString("title", "Conversa local");
+        }
+        return "Conversa local";
     }
 
     private void saveLocalMessage() {
@@ -92,7 +192,7 @@ public final class MessengerActivity extends Activity {
         }
         try {
             MessengerMessage message = new MessengerMessage(
-                    CONVERSATION_ID, "Este dispositivo", body, System.currentTimeMillis());
+                    selectedConversationId, "Este dispositivo", body, System.currentTimeMillis());
             JSONArray messages = readMessages();
             JSONObject item = new JSONObject();
             item.put("messageId", message.getMessageId());
@@ -102,8 +202,7 @@ public final class MessengerActivity extends Activity {
             item.put("createdAtEpochMs", message.getCreatedAtEpochMs());
             item.put("status", MessengerMessage.STATUS_LOCAL_ONLY);
             messages.put(item);
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                    .putString(KEY_MESSAGES, messages.toString()).apply();
+            prefs().edit().putString(KEY_MESSAGES, messages.toString()).apply();
             composer.setText("");
             renderMessages();
         } catch (JSONException error) {
@@ -111,8 +210,11 @@ public final class MessengerActivity extends Activity {
         }
     }
 
-    private JSONArray readMessages() {
-        String raw = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_MESSAGES, "[]");
+    private JSONArray readMessages() { return readArray(KEY_MESSAGES); }
+    private JSONArray readConversations() { return readArray(KEY_CONVERSATIONS); }
+
+    private JSONArray readArray(String key) {
+        String raw = prefs().getString(key, "[]");
         try { return new JSONArray(raw); }
         catch (JSONException invalid) { return new JSONArray(); }
     }
@@ -120,15 +222,11 @@ public final class MessengerActivity extends Activity {
     private void renderMessages() {
         messageList.removeAllViews();
         JSONArray messages = readMessages();
-        if (messages.length() == 0) {
-            TextView empty = text("Nenhuma mensagem salva. Escreva abaixo para criar um registro LOCAL ONLY.", 14, MUTED, false);
-            empty.setPadding(0, dp(18), 0, dp(18));
-            messageList.addView(empty);
-            return;
-        }
+        int visible = 0;
         for (int i = 0; i < messages.length(); i++) {
             JSONObject item = messages.optJSONObject(i);
-            if (item == null) continue;
+            if (item == null || !selectedConversationId.equals(item.optString("conversationId"))) continue;
+            visible++;
             LinearLayout bubble = new LinearLayout(this);
             bubble.setOrientation(LinearLayout.VERTICAL);
             bubble.setPadding(dp(13), dp(10), dp(13), dp(10));
@@ -136,8 +234,7 @@ public final class MessengerActivity extends Activity {
             shape.setColor(SURFACE);
             shape.setCornerRadius(dp(14));
             bubble.setBackground(shape);
-            TextView body = text(item.optString("body", ""), 15, TEXT, false);
-            bubble.addView(body);
+            bubble.addView(text(item.optString("body", ""), 15, TEXT, false));
             long time = item.optLong("createdAtEpochMs", 0);
             String stamp = time > 0 ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
                     .format(new Date(time)) : "horário indisponível";
@@ -147,17 +244,33 @@ public final class MessengerActivity extends Activity {
             lp.bottomMargin = dp(9);
             messageList.addView(bubble, lp);
         }
+        if (visible == 0) {
+            TextView empty = text("Esta conversa ainda não tem mensagens locais.", 14, MUTED, false);
+            empty.setPadding(0, dp(18), 0, dp(18));
+            messageList.addView(empty);
+        }
     }
 
     private void confirmClear() {
         new android.app.AlertDialog.Builder(this)
-                .setTitle("Apagar histórico local?")
-                .setMessage("Isso remove as mensagens salvas somente neste aparelho. Nenhuma mensagem remota será afetada.")
+                .setTitle("Apagar mensagens desta conversa?")
+                .setMessage("Somente as mensagens locais desta conversa serão removidas. As outras conversas permanecem.")
                 .setNegativeButton("Cancelar", null)
                 .setPositiveButton("Apagar", (dialog, which) -> {
-                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(KEY_MESSAGES).apply();
+                    JSONArray all = readMessages();
+                    JSONArray kept = new JSONArray();
+                    for (int i = 0; i < all.length(); i++) {
+                        JSONObject item = all.optJSONObject(i);
+                        if (item != null && !selectedConversationId.equals(item.optString("conversationId")))
+                            kept.put(item);
+                    }
+                    prefs().edit().putString(KEY_MESSAGES, kept.toString()).apply();
                     renderMessages();
                 }).show();
+    }
+
+    private android.content.SharedPreferences prefs() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE);
     }
 
     private TextView text(String value, int size, int color, boolean bold) {
