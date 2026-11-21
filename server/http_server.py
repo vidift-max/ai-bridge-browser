@@ -2,6 +2,7 @@ import json
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from server.messenger_backend import MessengerBackend
+from server.runtime_config import RuntimeConfig
 
 class MessengerHandler(BaseHTTPRequestHandler):
     backend = None
@@ -31,6 +32,17 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
+        if self.path == "/healthz":
+            self._json(200, {"status": "ok", "service": "ai-messenger-experimental"})
+            return
+        if self.path == "/readyz":
+            try:
+                RuntimeConfig.require("MESSENGER_TOKEN_AI_A")
+                RuntimeConfig.require("MESSENGER_TOKEN_AI_B")
+                self._json(200, {"status": "ready"})
+            except RuntimeError as exc:
+                self._json(503, {"status": "not_ready", "error": str(exc)})
+            return
         parts = self.path.split("/")
         if len(parts) == 5 and parts[1:3] == ["v1", "conversations"] and parts[4] == "messages":
             try:
