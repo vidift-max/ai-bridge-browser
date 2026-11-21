@@ -13,6 +13,14 @@ class MessengerHandler(BaseHTTPRequestHandler):
         header = self.headers.get("Authorization", "")
         return header[7:] if header.startswith("Bearer ") else ""
 
+    def _read_json(self):
+        if self.headers.get("Content-Type", "").split(";")[0].lower() != "application/json":
+            raise ValueError("content_type_required")
+        length = int(self.headers.get("Content-Length", "0"))
+        if length < 1 or length > 10000:
+            raise ValueError("invalid_content_length")
+        return json.loads(self.rfile.read(length))
+
     def _json(self, status, payload):
         data = json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -35,13 +43,12 @@ class MessengerHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/v1/messages":
             try:
-                length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(length) or b"{}")
+                payload = self._read_json()
                 msg = self.backend.submit(self._auth(), payload["messageId"], payload["conversationId"], payload["recipientAiIds"], payload["body"], payload["clientRequestId"])
                 self._json(200, {"messageId": msg.message_id, "sequence": msg.sequence, "state": "QUEUED"})
             except PermissionError as exc:
                 self._json(403, {"error": str(exc)})
-            except (KeyError, ValueError, json.JSONDecodeError) as exc:
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 self._json(400, {"error": str(exc)})
             return
         if self.path.startswith("/v1/messages/") and self.path.endswith("/ack"):
