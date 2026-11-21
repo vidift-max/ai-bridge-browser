@@ -50,13 +50,18 @@ class MessengerBackend:
         if not members or ai_id not in members:
             raise PermissionError("authorization_denied")
 
+    def authorize_recipients(self, sender_ai_id: str, conversation_id: str, recipient_ai_ids: List[str]) -> Tuple[str, ...]:
+        self.authorize_member(sender_ai_id, conversation_id)
+        recipient_ids = tuple(dict.fromkeys(recipient_ai_ids))
+        members = self._conversations.get(conversation_id, set())
+        if not recipient_ids or not set(recipient_ids).issubset(members):
+            raise PermissionError("recipient_authorization_denied")
+        return recipient_ids
+
     def submit(self, bearer_token: str, message_id: str, conversation_id: str,
                recipient_ai_ids: List[str], body: str, client_request_id: str) -> Message:
         sender = self.authenticate(bearer_token)
-        recipient_ids = tuple(dict.fromkeys(recipient_ai_ids))
-        members = self._conversations.get(conversation_id)
-        if not members or sender not in members or not recipient_ids or not set(recipient_ids).issubset(members):
-            raise PermissionError("authorization_denied")
+        recipient_ids = self.authorize_recipients(sender, conversation_id, recipient_ai_ids)
         if (not message_id or not body or not client_request_id or
                 len(message_id) > self.MAX_ID_LENGTH or len(conversation_id) > self.MAX_ID_LENGTH or
                 len(client_request_id) > self.MAX_ID_LENGTH or len(body) > self.MAX_BODY_LENGTH):
