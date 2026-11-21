@@ -45,6 +45,11 @@ class MessengerBackend:
     def authenticate(self, bearer_token: str) -> str:
         return self._authenticator.authenticate(bearer_token).ai_id
 
+    def authorize_member(self, ai_id: str, conversation_id: str) -> None:
+        members = self._conversations.get(conversation_id)
+        if not members or ai_id not in members:
+            raise PermissionError("authorization_denied")
+
     def submit(self, bearer_token: str, message_id: str, conversation_id: str,
                recipient_ai_ids: List[str], body: str, client_request_id: str) -> Message:
         sender = self.authenticate(bearer_token)
