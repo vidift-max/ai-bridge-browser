@@ -12,7 +12,7 @@ def verify_sqlite_recovery(path: str) -> tuple[bool, str]:
     if not db_path.is_file():
         return False, "STORAGE_UNAVAILABLE"
     try:
-        with sqlite3.connect(str(db_path)) as connection:
+        with sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True) as connection:
             row = connection.execute("PRAGMA integrity_check").fetchone()
     except (OSError, sqlite3.Error):
         return False, "STORAGE_INTEGRITY"
