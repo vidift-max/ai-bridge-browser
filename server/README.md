@@ -91,3 +91,5 @@ Mission 25 final verification marker: read-only restore validation now verifies 
 Mission 26 traced the combined restore-candidate validation path and documented a time-of-check/time-of-use gap: integrity, schema, and relational checks currently use separate read-only connections. The combined result is not proven to describe one SQLite snapshot. The safe status is BLOCKED until connection-scoped validators and a single explicit read transaction are implemented and tested. See `docs/AI_MESSENGER_MISSION_26_SNAPSHOT_CONSISTENCY.md`. This investigation does not modify candidates, promote backups, or establish production recovery readiness.
 
 Mission 26 investigation verification marker: Backend Test and Android Build must both pass on the exact final HEAD; CI success verifies repository workflows only, not snapshot consistency.
+
+Mission 26 final HEAD gate: require fresh Backend Test and Android Build success on the same SHA; the documented snapshot-consistency limitation remains BLOCKED until implemented and tested.
