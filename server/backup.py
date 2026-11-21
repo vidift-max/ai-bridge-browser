@@ -69,9 +69,11 @@ def validate_restore_candidate(candidate_path: str) -> tuple[bool, str]:
     )
 
     candidate = Path(candidate_path)
-    # Reject a symlink at the candidate leaf before resolving/opening it.
+    # Reject symlinks in the candidate path before resolving/opening it.
     # This is a boundary check, not a defense against concurrent filesystem races.
-    if candidate.is_symlink() or not candidate.is_file():
+    if any(part.is_symlink() for part in (candidate, *candidate.parents)):
+        return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
+    if not candidate.is_file():
         return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
     try:
         uri = f"{candidate.resolve().as_uri()}?mode=ro"
