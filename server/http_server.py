@@ -22,10 +22,17 @@ class MessengerHandler(BaseHTTPRequestHandler):
     def _read_json(self):
         if self.headers.get("Content-Type","").split(";")[0].lower()!="application/json":
             raise ValueError("content_type_required")
-        length=int(self.headers.get("Content-Length","0"))
+        raw_length=self.headers.get("Content-Length","")
+        try:
+            length=int(raw_length)
+        except (TypeError, ValueError):
+            raise ValueError("invalid_content_length")
         if length<1 or length>10000:
             raise ValueError("invalid_content_length")
-        return json.loads(self.rfile.read(length))
+        payload=json.loads(self.rfile.read(length))
+        if not isinstance(payload, dict):
+            raise ValueError("json_object_required")
+        return payload
 
     def _audit(self, identity, event_type, subject, **metadata):
         self.authenticator.audit_log.record(event_type, subject, ai_id=identity.principal.ai_id, metadata=metadata, correlation_id=identity.correlation_id)
