@@ -51,5 +51,17 @@ class OperationalRuntime:
         )
         return ok, code
 
+    def validate_restore_candidate(self, candidate_path: str, *, correlation_id=None):
+        from server.backup import validate_restore_candidate
+
+        ok, code = validate_restore_candidate(candidate_path)
+        self.record(
+            "STORAGE_RESTORE_CANDIDATE_VALIDATION",
+            correlation_id=correlation_id,
+            outcome="ok" if ok else "error",
+            diagnostic_code=None if ok else code,
+        )
+        return ok, code
+
     def snapshot(self):
         return self.events.snapshot()
