@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -373,6 +374,22 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                 self.assertEqual(validate_restore_candidate(str(aliased_candidate)),
                                  (False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"))
                 connect.assert_not_called()
+
+
+    def test_hard_link_alias_is_currently_accepted_and_remains_unchanged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = self._candidate(directory)
+            alias = Path(directory) / "candidate-hardlink.sqlite"
+            try:
+                os.link(candidate, alias)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"hard-link creation unavailable: {error}")
+            self.assertTrue(os.path.samefile(candidate, alias))
+            before = candidate.read_bytes()
+            self.assertEqual(validate_restore_candidate(str(alias)),
+                             (True, "RESTORE_CANDIDATE_VALIDATED"))
+            self.assertEqual(candidate.read_bytes(), before)
+            self.assertEqual(alias.read_bytes(), before)
 
 
 if __name__ == "__main__":
