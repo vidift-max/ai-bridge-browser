@@ -392,5 +392,42 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
             self.assertEqual(alias.read_bytes(), before)
 
 
+    def test_validation_reads_committed_wal_data_without_removing_sidecars(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            writer = sqlite3.connect(path)
+            try:
+                self.assertEqual(writer.execute("PRAGMA journal_mode=WAL").fetchone()[0].lower(), "wal")
+                writer.execute("UPDATE messages SET body='committed-in-wal'")
+                writer.commit()
+                wal_path = Path(str(path) + "-wal")
+                shm_path = Path(str(path) + "-shm")
+                self.assertTrue(wal_path.exists())
+                self.assertTrue(shm_path.exists())
+                wal_before = wal_path.read_bytes()
+                self.assertEqual(validate_restore_candidate(str(path)),
+                                 (True, "RESTORE_CANDIDATE_VALIDATED"))
+                self.assertTrue(wal_path.exists())
+                self.assertTrue(shm_path.exists())
+                self.assertEqual(wal_path.read_bytes(), wal_before)
+                self.assertEqual(
+                    writer.execute("SELECT body FROM messages WHERE message_id='m-1'").fetchone()[0],
+                    "committed-in-wal",
+                )
+            finally:
+                writer.close()
+
+    def test_validation_does_not_remove_existing_rollback_journal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            journal_path = Path(str(path) + "-journal")
+            journal_path.write_bytes(b"operator-controlled-test-artifact")
+            before = journal_path.read_bytes()
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (True, "RESTORE_CANDIDATE_VALIDATED"))
+            self.assertTrue(journal_path.exists())
+            self.assertEqual(journal_path.read_bytes(), before)
+
+
 if __name__ == "__main__":
     unittest.main()
