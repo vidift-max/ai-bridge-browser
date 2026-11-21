@@ -1,4 +1,5 @@
 """Operator-triggered, non-overwriting SQLite snapshot primitive."""
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 
@@ -72,7 +73,7 @@ def validate_restore_candidate(candidate_path: str) -> tuple[bool, str]:
         return False, "RESTORE_CANDIDATE_INTEGRITY_FAILED"
     try:
         uri = f"{candidate.resolve().as_uri()}?mode=ro"
-        with sqlite3.connect(uri, uri=True) as connection:
+        with closing(sqlite3.connect(uri, uri=True)) as connection:
             connection.execute("BEGIN")
             # Pin the read snapshot before any validation phase.
             connection.execute("SELECT count(*) FROM sqlite_schema").fetchone()
