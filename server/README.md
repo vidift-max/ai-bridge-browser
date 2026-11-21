@@ -125,3 +125,4 @@ Mission 30 final verification marker: require Messenger Backend Test and Android
 Restore-candidate validation screens the candidate leaf and lexical parent components for symbolic links before opening SQLite. Regression tests cover both an immediate parent symlink and an intermediate parent symlink, asserting rejection before sqlite3.connect. Existing ordinary-path success coverage remains in place.
 
 The check is not atomic and does not prevent concurrent path replacement, hard-link aliasing, all Windows junction/reparse-point cases, mount-point aliases, or filesystem tampering. Do not treat it as filesystem identity certification. Mission 31 PASS requires Messenger Backend Test and Android Build SUCCESS on the same final HEAD.
+Mission 31 detailed report: `docs/AI_MESSENGER_MISSION_31_PARENT_SYMLINK_BOUNDARY.md` records the path-component screening, regression matrix, platform skips, and explicit filesystem-race limitations.
