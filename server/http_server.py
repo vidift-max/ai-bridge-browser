@@ -26,6 +26,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
             raise ValueError("invalid_content_length")
         return json.loads(self.rfile.read(length))
 
+    def _audit(self, identity, event_type, subject, **metadata):
+        self.authenticator.audit_log.record(event_type, subject, ai_id=identity.principal.ai_id, metadata=metadata, correlation_id=identity.correlation_id)
+
     def _permission_error(self, exc):
         return {"error": "authentication_required" if str(exc) == "authentication_required" else "forbidden"}
 
@@ -55,7 +58,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 principal=identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 messages=self.backend.pending(self._auth(),parts[3])
-                self._json(200,{"principalAiId":principal.ai_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
+                self._audit(identity, "MESSAGE_READ", parts[3], count=str(len(messages)))
+                self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             return
@@ -72,6 +76,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 claimed_sender = payload.get("senderAiId", "")
                 self.backend.assert_authenticated_sender(self._auth(), claimed_sender)
                 msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"])
+                self._audit(identity, "MESSAGE_SUBMITTED", msg.message_id, sequence=str(msg.sequence))
                 self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"correlationId":identity.correlation_id})
             except RateLimitExceeded as exc:
                 self._json(429,{"error":"rate_limit_exceeded"})
@@ -86,6 +91,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 principal=identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 msg=self.backend.acknowledge(self._auth(),self.path[len("/v1/messages/"):-len("/ack")])
+                self._audit(identity, "MESSAGE_ACKNOWLEDGED", msg.message_id)
                 self._json(200,{"messageId":msg.message_id,"state":"ACKNOWLEDGED","principalAiId":principal.ai_id,"correlationId":identity.correlation_id})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,{"error":str(exc)})
