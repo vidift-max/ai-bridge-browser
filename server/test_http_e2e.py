@@ -29,10 +29,12 @@ class HttpE2ETest(unittest.TestCase):
         self.server.shutdown(); self.server.server_close(); self.thread.join(timeout=2)
         self.backend.close()
 
-    def request(self, method, path, token, payload=None):
+    def request(self, method, path, token, payload=None, correlation_id=None):
         conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
         body = None
         headers = {"Authorization": "Bearer " + token}
+        if correlation_id:
+            headers["X-Correlation-Id"] = correlation_id
         if payload is not None:
             body = json.dumps(payload)
             headers["Content-Type"] = "application/json"
@@ -62,6 +64,26 @@ class HttpE2ETest(unittest.TestCase):
             "messageId": "m-http-2", "conversationId": "room", "recipientAiIds": ["AI-B"],
             "body": "must fail", "clientRequestId": "req-http-2"})
         self.assertEqual(status, 401)
+
+    def test_http_sender_spoof_and_error_sanitization(self):
+        status, data = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "m-spoof", "conversationId": "room", "recipientAiIds": ["AI-B"],
+            "senderAiId": "AI-B", "body": "spoof", "clientRequestId": "req-spoof"})
+        self.assertEqual(status, 403)
+        self.assertEqual(data["error"], "forbidden")
+
+        status, data = self.request("GET", "/v1/conversations/room/messages", "bad-token")
+        self.assertEqual(status, 401)
+        self.assertEqual(data["error"], "forbidden")
+
+    def test_http_correlation_id_is_returned_and_audited(self):
+        status, data = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "m-corr", "conversationId": "room", "recipientAiIds": ["AI-B"],
+            "body": "correlated", "clientRequestId": "req-corr"}, correlation_id="corr-15")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["correlationId"], "corr-15")
+        events = self.auth.audit_log.events()
+        self.assertTrue(any(e.correlation_id == "corr-15" and e.event_type == "MESSAGE_SUBMITTED" for e in events))
 
 
 if __name__ == "__main__":
