@@ -44,6 +44,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
         data=json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type","application/json")
+        self.send_header("Cache-Control","no-store")
         self.send_header("Content-Length",str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -77,7 +78,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 messages=self.backend.pending(self._auth(),parts[3],after_sequence=after_sequence,limit=limit)
                 self._audit(identity, "MESSAGE_READ", parts[3], count=str(len(messages)))
                 self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
-            except (ValueError, TypeError) as exc:
+            except (ValueError, TypeError):
                 self._json(400,{"error":"invalid_cursor"})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
