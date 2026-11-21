@@ -5,6 +5,7 @@ on:
     branches: [v2-saas-alpha]
     paths:
       - 'server/**'
+      - 'render.yaml'
       - '.github/workflows/server-test.yml'
       - 'docs/AI_MESSENGER_MISSION_06_**'
   pull_request:
