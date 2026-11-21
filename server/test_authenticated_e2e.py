@@ -13,7 +13,7 @@ class AuthenticatedE2ETest(unittest.TestCase):
             tokens = {"token-a": "AI-A", "token-b": "AI-B"}
             auth = Authenticator(tokens)
             store = SQLiteMessengerStore(path)
-            backend = MessengerBackend(tokens, {"room": {"AI-A", "AI-B"}}, store)
+            backend = MessengerBackend(tokens, {"room": {"AI-A", "AI-B"}}, store, authenticator=auth)
 
             self.assertEqual(auth.authenticate("token-a").ai_id, "AI-A")
             message = backend.submit("token-a", "m-1", "room", ["AI-B"], "hello", "req-1")
@@ -29,8 +29,8 @@ class AuthenticatedE2ETest(unittest.TestCase):
     def test_revoked_sender_cannot_submit(self):
         tokens = {"token-a": "AI-A", "token-b": "AI-B"}
         auth = Authenticator(tokens)
+        backend = MessengerBackend(tokens, {"room": {"AI-A", "AI-B"}}, authenticator=auth)
         auth.revoke("token-a")
-        backend = MessengerBackend(tokens, {"room": {"AI-A", "AI-B"}})
         with self.assertRaises(PermissionError):
             auth.authenticate("token-a")
         with self.assertRaises(PermissionError):
