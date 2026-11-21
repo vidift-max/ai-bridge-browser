@@ -293,5 +293,26 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                              (True, "RESTORE_CANDIDATE_VALIDATED"))
 
 
+    def test_validation_closes_connection_after_data_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE messages SET sender_ai_id='AI-X'")
+            connections = []
+            real_connect = sqlite3.connect
+
+            def tracked_connect(*args, **kwargs):
+                connection = real_connect(*args, **kwargs)
+                connections.append(connection)
+                return connection
+
+            with patch("server.backup.sqlite3.connect", side_effect=tracked_connect):
+                self.assertEqual(validate_restore_candidate(str(path)),
+                                 (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+            self.assertEqual(len(connections), 1)
+            with self.assertRaises(sqlite3.ProgrammingError):
+                connections[0].execute("SELECT 1")
+
+
 if __name__ == "__main__":
     unittest.main()
