@@ -59,3 +59,7 @@ The data validator rejects empty conversation membership, malformed comma-delimi
 ## Mission 26 — snapshot consistency limitation
 
 The current combined validation performs integrity, schema, and relational checks through separate read-only connections. Do not treat the combined result as an atomic snapshot if another process may modify the candidate concurrently. Keep candidate files quiescent during validation. A future implementation must use one read-only connection and one explicit read transaction for all phases, with concurrency and immutability tests. Until then, snapshot consistency is not established.
+
+## Mission 27 — one-transaction validation
+
+The combined `validate_restore_candidate(candidate_path)` now opens a single read-only SQLite connection, begins an explicit read transaction, pins the read snapshot, and executes integrity, schema, and relational-data validation on that connection. The transaction ensures the phases read a consistent database snapshot in the tested SQLite configuration. A WAL-mode regression test commits a concurrent writer change after the integrity phase and verifies that later validation still observes the original snapshot. The candidate is not modified by the validator itself. External writers may still change the file after validation completes; operators should keep candidate artifacts controlled and should not interpret a successful validation as promotion approval or production recovery certification.
