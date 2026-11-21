@@ -154,5 +154,60 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                 (False, "RESTORE_DATA_MESSAGE_INVALID"),
             )
 
+
+    def test_validation_closes_connection_after_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            connections = []
+            real_connect = sqlite3.connect
+
+            def tracked_connect(*args, **kwargs):
+                connection = real_connect(*args, **kwargs)
+                connections.append(connection)
+                return connection
+
+            with patch("server.backup.sqlite3.connect", side_effect=tracked_connect):
+                self.assertEqual(validate_restore_candidate(str(path)),
+                                 (True, "RESTORE_CANDIDATE_VALIDATED"))
+            self.assertEqual(len(connections), 1)
+            with self.assertRaises(sqlite3.ProgrammingError):
+                connections[0].execute("SELECT 1")
+
+    def test_validation_closes_connection_after_schema_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("DROP TABLE acknowledgements")
+            connections = []
+            real_connect = sqlite3.connect
+
+            def tracked_connect(*args, **kwargs):
+                connection = real_connect(*args, **kwargs)
+                connections.append(connection)
+                return connection
+
+            with patch("server.backup.sqlite3.connect", side_effect=tracked_connect):
+                self.assertEqual(validate_restore_candidate(str(path)),
+                                 (False, "RESTORE_CANDIDATE_SCHEMA_UNSUPPORTED"))
+            self.assertEqual(len(connections), 1)
+            with self.assertRaises(sqlite3.ProgrammingError):
+                connections[0].execute("SELECT 1")
+
+    def test_validation_supports_file_backed_journal_modes(self):
+        for journal_mode in ("DELETE", "TRUNCATE", "PERSIST", "WAL"):
+            with self.subTest(journal_mode=journal_mode):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = self._candidate(directory)
+                    with sqlite3.connect(path) as db:
+                        actual = db.execute(
+                            f"PRAGMA journal_mode={journal_mode}"
+                        ).fetchone()[0].upper()
+                    self.assertEqual(actual, journal_mode)
+                    self.assertEqual(
+                        validate_restore_candidate(str(path)),
+                        (True, "RESTORE_CANDIDATE_VALIDATED"),
+                    )
+
+
 if __name__ == "__main__":
     unittest.main()
