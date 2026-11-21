@@ -108,3 +108,8 @@ Mission 27 final verification after diagnostic correction: phase-specific except
 ## Mission 28 — journal mode and resource lifecycle verification
 
 Restore-candidate validation is covered for file-backed SQLite DELETE, TRUNCATE, PERSIST, and WAL journal modes. Tests also verify deterministic closure of the read-only connection after success, schema failure, and unreadable-database failure. These are repository CI tests for the configured SQLite runtime, not universal compatibility certification. The validator does not change journal mode, perform a checkpoint, repair the candidate, or promote it.
+
+
+## Mission 29 — candidate immutability and input-boundary tests
+
+Read-only validation now has regression coverage for unchanged candidate SHA-256 bytes, rejected SQL write attempts on the validation connection, missing and directory inputs rejected before connection, and file paths containing URI-special characters. The checks do not establish protection from external writers, filesystem tampering, symlink races, or backup provenance. No candidate mutation, repair, promotion, or deployment is performed.
