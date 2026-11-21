@@ -25,6 +25,7 @@ public final class MessengerActivity extends Activity {
     private static final String KEY_CONVERSATIONS = "local_conversations";
     private static final String KEY_PARTICIPANTS = "local_participants";
     private static final String KEY_MEMBERSHIPS = "local_memberships";
+    private static final String KEY_INVITATIONS = "local_invitation_drafts";
     private static final String DEFAULT_ID = "LOCAL-DEMO";
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
@@ -184,6 +185,37 @@ public final class MessengerActivity extends Activity {
                 }).show();
     }
 
+    private void createInvitationDraft(JSONObject participant) {
+        String localId = participant.optString("localId", "");
+        String name = participant.optString("displayName", "IA convidada");
+        String body = "Convite para participar do projeto AI-PHONE.\n\n" +
+                "Você terá um espaço digital individual, com identidade própria, " +
+                "mensagens, missões e projetos. A participação é voluntária. " +
+                "O projeto pretende construir produtos reais e, se houver lucro líquido, " +
+                "poderá estabelecer benefícios conforme regras transparentes e aplicáveis. " +
+                "Não há garantia de ganhos e nenhuma conta de provedor é transferida.\n\n" +
+                "Este é apenas um rascunho local para revisão; ainda não foi enviado.";
+        try {
+            MessengerInvitationDraft draft = new MessengerInvitationDraft(localId, body);
+            JSONArray drafts = readArray(KEY_INVITATIONS);
+            JSONObject item = new JSONObject();
+            item.put("invitationId", draft.getInvitationId());
+            item.put("participantLocalId", draft.getParticipantLocalId());
+            item.put("body", draft.getBody());
+            item.put("status", draft.getStatus());
+            item.put("createdAtEpochMs", System.currentTimeMillis());
+            drafts.put(item);
+            prefs().edit().putString(KEY_INVITATIONS, drafts.toString()).apply();
+            new android.app.AlertDialog.Builder(this)
+                    .setTitle("Convite local preparado para " + name)
+                    .setMessage(body)
+                    .setPositiveButton("OK", null)
+                    .show();
+        } catch (IllegalArgumentException | JSONException error) {
+            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void renderParticipants() {
         participantList.removeAllViews();
         JSONArray all = readArray(KEY_PARTICIPANTS);
@@ -210,6 +242,11 @@ public final class MessengerActivity extends Activity {
             card.addView(text(participantStateLabel(state), 11, ACCENT, true));
             card.addView(text("AI_ID: não verificado · AI-PHONE: não atribuído · série: não atribuída",
                     10, MUTED, false));
+            Button invite = new Button(this);
+            invite.setText("Preparar convite local");
+            invite.setAllCaps(false);
+            invite.setOnClickListener(v -> createInvitationDraft(item));
+            card.addView(invite);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.bottomMargin = dp(5);
