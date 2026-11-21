@@ -47,3 +47,10 @@ After schema compatibility passes, `validate_restore_candidate(candidate_path)` 
 - each acknowledgement references an existing message and a member of its conversation.
 
 A failure returns `RESTORE_CANDIDATE_DATA_INCONSISTENT`. The diagnostic deliberately does not disclose paths, message bodies, or database values. These checks are limited to the fields represented by the current schema; they do not prove delivery history, semantic correctness, identity authenticity, or business authorization. No automatic repair, migration, deletion, or promotion is performed.
+
+
+## Mission 25 — malformed data and index definitions
+
+Schema validation requires `idx_messages_conversation_sequence` to be a UNIQUE index over exactly `(conversation_id, sequence)` in that order. Merely reusing the index name is insufficient.
+
+The data validator rejects empty conversation membership, malformed comma-delimited ID lists (including empty segments, duplicate IDs, and whitespace-padded IDs), and non-text ID-list storage. It does not trim, repair, or normalize malformed values. Empty recipient lists remain allowed by the current persistence representation. Failures return generic stable diagnostics; raw database values and paths are not included in operational events.
