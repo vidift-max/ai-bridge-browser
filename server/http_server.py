@@ -53,11 +53,16 @@ class MessengerHandler(BaseHTTPRequestHandler):
             self._json(200,{"status":"ok","service":"ai-messenger-experimental"}); return
         if self.path=="/readyz":
             try:
-                RuntimeConfig.require("MESSENGER_TOKEN_AI_A"); RuntimeConfig.require("MESSENGER_TOKEN_AI_B")
-                RuntimeConfig.require("MESSENGER_AI_ID_A"); RuntimeConfig.require("MESSENGER_AI_ID_B")
+                RuntimeConfig.require("MESSENGER_TOKEN_AI_A")
+                RuntimeConfig.require("MESSENGER_TOKEN_AI_B")
+                RuntimeConfig.require("MESSENGER_AI_ID_A")
+                RuntimeConfig.require("MESSENGER_AI_ID_B")
+                RuntimeConfig.storage_path()
+                RuntimeConfig.request_timeout_seconds()
+                RuntimeConfig.retry_limit()
                 self._json(200,{"status":"ready"})
-            except RuntimeError as exc:
-                self._json(503,{"status":"not_ready","error":str(exc)})
+            except RuntimeError:
+                self._json(503,{"status":"not_ready","error":"runtime_configuration_invalid"})
             return
         parsed = urlsplit(self.path)
         parts=parsed.path.split("/")
@@ -92,11 +97,11 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"])
                 self._audit(identity, "MESSAGE_SUBMITTED", msg.message_id, sequence=str(msg.sequence))
                 self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"correlationId":identity.correlation_id})
-            except RateLimitExceeded as exc:
+            except RateLimitExceeded:
                 self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
-            except (KeyError,TypeError,ValueError,json.JSONDecodeError) as exc:
+            except (KeyError,TypeError,ValueError,json.JSONDecodeError):
                 self._json(400,{"error":"invalid_request"})
             return
         if self.path.startswith("/v1/messages/") and self.path.endswith("/ack"):
