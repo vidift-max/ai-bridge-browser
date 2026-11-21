@@ -29,3 +29,9 @@ A successful candidate is not approved for production. An operator must independ
 - Do not interpret SQLite integrity success as proof of correct business data or schema compatibility.
 - This code does not promote, swap, activate, repair, or restore over a live database.
 - Keep candidate files under the organization's access controls and retention policy.
+
+## Mission 23 — schema compatibility check
+After candidate creation, call `validate_restore_candidate(candidate_path)` or `OperationalRuntime.validate_restore_candidate(..., correlation_id=...)`. This performs SQLite integrity validation and then checks the Messenger schema in read-only mode. It expects schema version 1, the required Messenger tables/columns, and the conversation/sequence unique index.
+
+A successful result (`RESTORE_CANDIDATE_VALIDATED`) means only that SQLite integrity and the currently supported schema contract passed. It does not prove business-data correctness, provenance, authorization, or successful application startup. Unsupported or future schemas are rejected without migration or modification.
+
