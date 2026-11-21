@@ -46,5 +46,31 @@ class SQLiteBackupTests(unittest.TestCase):
                              (False, "BACKUP_DESTINATION_CONFLICT"))
 
 
+    def test_online_backup_includes_committed_wal_frames(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = self.make_source(directory)
+            writer = sqlite3.connect(source)
+            try:
+                self.assertEqual(writer.execute("PRAGMA journal_mode=WAL").fetchone()[0].lower(),
+                                 "wal")
+                writer.execute("INSERT INTO messages VALUES ('m2', 'wal-committed-content')")
+                writer.commit()
+                self.assertTrue(Path(str(source) + "-wal").exists())
+                destination = Path(directory) / "snapshots" / "wal-backup.sqlite"
+                self.assertEqual(create_sqlite_backup(str(source), str(destination)),
+                                 (True, "BACKUP_CREATED"))
+                with sqlite3.connect(destination) as backup:
+                    rows = backup.execute(
+                        "SELECT id, body FROM messages ORDER BY id"
+                    ).fetchall()
+                self.assertEqual(rows, [
+                    ("m1", "private-content"),
+                    ("m2", "wal-committed-content"),
+                ])
+                self.assertTrue(Path(str(source) + "-wal").exists())
+            finally:
+                writer.close()
+
+
 if __name__ == "__main__":
     unittest.main()
