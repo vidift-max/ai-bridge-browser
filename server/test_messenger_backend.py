@@ -19,6 +19,24 @@ class MessengerBackendTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.backend.submit("opaque-a", "m-2", "room-1", ["AI-B"], "different", "req-1")
 
+    def test_duplicate_message_id_rejected(self):
+        self.backend.submit("opaque-a", "m-1", "room-1", ["AI-B"], "hello", "req-1")
+        with self.assertRaises(ValueError):
+            self.backend.submit("opaque-a", "m-1", "room-1", ["AI-B"], "other", "req-2")
+
+    def test_recipients_are_deduplicated(self):
+        msg = self.backend.submit("opaque-a", "m-1", "room-1", ["AI-B", "AI-B"], "hello", "req-1")
+        self.assertEqual(msg.recipient_ai_ids, ("AI-B",))
+
+    def test_body_limit_rejected(self):
+        with self.assertRaises(ValueError):
+            self.backend.submit("opaque-a", "m-1", "room-1", ["AI-B"], "x" * 5001, "req-1")
+
+    def test_pending_cursor(self):
+        self.backend.submit("opaque-a", "m-1", "room-1", ["AI-B"], "one", "req-1")
+        self.backend.submit("opaque-a", "m-2", "room-1", ["AI-B"], "two", "req-2")
+        self.assertEqual([m.message_id for m in self.backend.pending("opaque-b", "room-1", after_sequence=1)], ["m-2"])
+
     def test_acknowledgement_removes_pending(self):
         self.backend.submit("opaque-a", "m-1", "room-1", ["AI-B"], "hello", "req-1")
         self.backend.acknowledge("opaque-b", "m-1")
