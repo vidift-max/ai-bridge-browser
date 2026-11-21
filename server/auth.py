@@ -9,6 +9,7 @@ from server.audit import AuditLog
 @dataclass(frozen=True)
 class AuthenticatedPrincipal:
     ai_id: str
+    credential_generation: int
 
 
 class Authenticator:
@@ -20,8 +21,9 @@ class Authenticator:
         if not bearer_token:
             raise PermissionError("authentication_required")
         ai_id = self._registry.authenticate(bearer_token, now)
+        generation = self._registry.generation(bearer_token)
         self.audit_log.record("AUTHENTICATED", "credential", ai_id=ai_id)
-        return AuthenticatedPrincipal(ai_id=ai_id)
+        return AuthenticatedPrincipal(ai_id=ai_id, credential_generation=generation)
 
     def revoke(self, bearer_token: str) -> None:
         self._registry.revoke(bearer_token)
