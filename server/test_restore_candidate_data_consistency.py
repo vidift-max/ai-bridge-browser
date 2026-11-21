@@ -1,0 +1,89 @@
+import sqlite3
+import tempfile
+import unittest
+from pathlib import Path
+
+from server.backup import validate_restore_candidate
+from server.sqlite_store import SQLiteMessengerStore
+
+
+class RestoreCandidateDataConsistencyTests(unittest.TestCase):
+    def _candidate(self, directory):
+        path = Path(directory) / "candidate.sqlite"
+        store = SQLiteMessengerStore(str(path))
+        store.save_conversation("room-1", ["AI-A", "AI-B"])
+        store.save_message_with_idempotency(
+            ("m-1", "room-1", "AI-A", ("AI-B",), "hello", "req-1", 1)
+        )
+        store.save_ack("m-1", "AI-B")
+        store.close()
+        return path
+
+    def test_consistent_candidate_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (True, "RESTORE_CANDIDATE_VALIDATED"))
+
+    def test_orphan_conversation_reference_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE messages SET conversation_id='missing-room'")
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_sender_outside_conversation_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE messages SET sender_ai_id='AI-X'")
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_recipient_outside_conversation_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE messages SET recipient_ai_ids='AI-X'")
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_orphan_or_mismatched_idempotency_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE idempotency SET message_id='missing-message'")
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_acknowledgement_for_non_member_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE acknowledgements SET ai_id='AI-X'")
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_non_positive_sequence_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE messages SET sequence=0")
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_validation_does_not_modify_candidate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                before = db.execute("SELECT * FROM messages").fetchall()
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (True, "RESTORE_CANDIDATE_VALIDATED"))
+            with sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True) as db:
+                after = db.execute("SELECT * FROM messages").fetchall()
+            self.assertEqual(after, before)
+
+
+if __name__ == "__main__":
+    unittest.main()
