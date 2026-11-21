@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, List, Set, Tuple
+from server.sqlite_store import SQLiteMessengerStore
 
 @dataclass(frozen=True)
 class Message:
@@ -15,13 +16,29 @@ class Message:
 class MessengerBackend:
     MAX_BODY_LENGTH = 5000
     MAX_ID_LENGTH = 200
-    """Small in-memory backend; authentication is delegated to opaque token lookup."""
-    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]]):
+
+    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None):
         self._tokens = dict(tokens)
-        self._conversations = {k: set(v) for k, v in conversations.items()}
+        self._store = store or SQLiteMessengerStore(":memory:")
+        self._conversations = self._store.load_conversations()
+        for conversation_id, members in conversations.items():
+            self._conversations.setdefault(conversation_id, set(members))
+            self._store.save_conversation(conversation_id, sorted(members))
         self._messages: Dict[str, Message] = {}
         self._idempotency: Dict[Tuple[str, str], str] = {}
         self._next_sequence: Dict[str, int] = {}
+        acknowledgements = self._store.load_acknowledgements()
+        for row in self._store.load_messages():
+            ack = acknowledgements.get(row["message_id"], set())
+            recipients = tuple(filter(None, row["recipient_ai_ids"].split(",")))
+            msg = Message(row["message_id"], row["conversation_id"], row["sender_ai_id"], recipients,
+                          row["body"], row["client_request_id"], row["sequence"], set(ack))
+            self._messages[msg.message_id] = msg
+            self._idempotency[(msg.sender_ai_id, msg.client_request_id)] = msg.message_id
+            self._next_sequence[msg.conversation_id] = max(self._next_sequence.get(msg.conversation_id,0), msg.sequence)
+
+    def close(self):
+        self._store.close()
 
     def authenticate(self, bearer_token: str) -> str:
         if not bearer_token or bearer_token not in self._tokens:
@@ -51,6 +68,8 @@ class MessengerBackend:
             raise ValueError("idempotency_conflict")
         sequence = self._next_sequence.get(conversation_id, 0) + 1
         message = Message(message_id, conversation_id, sender, recipient_ids, body, client_request_id, sequence, set())
+        self._store.save_message((message.message_id,message.conversation_id,message.sender_ai_id,message.recipient_ai_ids,message.body,message.client_request_id,message.sequence))
+        self._store.save_idempotency(sender, client_request_id, message_id)
         self._messages[message_id] = message
         self._idempotency[key] = message_id
         self._next_sequence[conversation_id] = sequence
@@ -72,4 +91,5 @@ class MessengerBackend:
         if message is None or ai_id not in message.recipient_ai_ids:
             raise PermissionError("authorization_denied")
         message.acknowledged_by.add(ai_id)
+        self._store.save_ack(message_id, ai_id)
         return message
