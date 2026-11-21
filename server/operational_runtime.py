@@ -39,5 +39,17 @@ class OperationalRuntime:
         )
         return ok, code
 
+    def create_restore_candidate(self, backup_path: str, candidate_path: str, *, correlation_id=None):
+        from server.backup import create_restore_candidate
+
+        ok, code = create_restore_candidate(backup_path, candidate_path)
+        self.record(
+            "STORAGE_RESTORE_CANDIDATE",
+            correlation_id=correlation_id,
+            outcome="ok" if ok else "error",
+            diagnostic_code=None if ok else code,
+        )
+        return ok, code
+
     def snapshot(self):
         return self.events.snapshot()
