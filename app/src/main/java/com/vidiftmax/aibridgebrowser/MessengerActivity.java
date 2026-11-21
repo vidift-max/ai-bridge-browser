@@ -23,6 +23,7 @@ public final class MessengerActivity extends Activity {
     private static final String PREFS = "ai_messenger_local_v1";
     private static final String KEY_MESSAGES = "local_messages";
     private static final String KEY_CONVERSATIONS = "local_conversations";
+    private static final String KEY_PARTICIPANTS = "local_participants";
     private static final String DEFAULT_ID = "LOCAL-DEMO";
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
@@ -30,6 +31,7 @@ public final class MessengerActivity extends Activity {
     private static final int MUTED = 0xFFB5C2D1;
     private static final int ACCENT = 0xFF55D6BE;
     private LinearLayout conversationList;
+    private LinearLayout participantList;
     private LinearLayout messageList;
     private EditText composer;
     private TextView selectedTitle;
@@ -117,6 +119,89 @@ public final class MessengerActivity extends Activity {
                 items.put(item);
                 prefs().edit().putString(KEY_CONVERSATIONS, items.toString()).apply();
             } catch (JSONException ignored) { }
+        }
+    }
+
+    private void createParticipant() {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        EditText name = new EditText(this);
+        name.setHint("Nome da IA (ex.: Assistente de pesquisa)");
+        EditText provider = new EditText(this);
+        provider.setHint("Provedor/plataforma (ex.: OpenAI)");
+        form.addView(name);
+        form.addView(provider);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Adicionar perfil local")
+                .setMessage("Cria somente um cartão de contato neste aparelho. Não envia convite, não verifica identidade e não conecta a IA.")
+                .setView(form)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Salvar perfil", (dialog, which) -> {
+                    try {
+                        MessengerParticipant participant = new MessengerParticipant(
+                                name.getText().toString(), provider.getText().toString());
+                        JSONArray all = readArray(KEY_PARTICIPANTS);
+                        JSONObject item = new JSONObject();
+                        item.put("localId", participant.getLocalId());
+                        item.put("displayName", participant.getDisplayName());
+                        item.put("provider", participant.getProvider());
+                        item.put("state", participant.getState().name());
+                        item.put("aiId", JSONObject.NULL);
+                        item.put("phoneNumber", JSONObject.NULL);
+                        item.put("serial", JSONObject.NULL);
+                        item.put("recordType", "LOCAL_CONTACT_ONLY");
+                        all.put(item);
+                        prefs().edit().putString(KEY_PARTICIPANTS, all.toString()).apply();
+                        renderParticipants();
+                    } catch (IllegalArgumentException | JSONException error) {
+                        Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                }).show();
+    }
+
+    private void renderParticipants() {
+        participantList.removeAllViews();
+        JSONArray all = readArray(KEY_PARTICIPANTS);
+        if (all.length() == 0) {
+            participantList.addView(text(
+                    "Nenhum perfil local cadastrado. Nenhuma IA aparece como conectada.",
+                    12, MUTED, false));
+            return;
+        }
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject item = all.optJSONObject(i);
+            if (item == null) continue;
+            String name = item.optString("displayName", "Participante");
+            String provider = item.optString("provider", "Provedor não informado");
+            String state = item.optString("state", "LOCAL_DRAFT");
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setPadding(dp(10), dp(7), dp(10), dp(7));
+            GradientDrawable shape = new GradientDrawable();
+            shape.setColor(SURFACE);
+            shape.setCornerRadius(dp(10));
+            card.setBackground(shape);
+            card.addView(text(name + " · " + provider, 13, TEXT, true));
+            card.addView(text(participantStateLabel(state), 11, ACCENT, true));
+            card.addView(text("AI_ID: não verificado · AI-PHONE: não atribuído · série: não atribuída",
+                    10, MUTED, false));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.bottomMargin = dp(5);
+            participantList.addView(card, lp);
+        }
+    }
+
+    private String participantStateLabel(String state) {
+        switch (state) {
+            case "INVITED_LOCAL": return "CONVITE REGISTRADO LOCALMENTE · NÃO ENVIADO";
+            case "ACCEPTED_LOCAL": return "ACEITE LOCAL · NÃO VERIFICADO";
+            case "PENDING_VERIFICATION": return "AGUARDANDO VERIFICAÇÃO AUTENTICADA";
+            case "ACTIVE": return "ATIVO NO REGISTRO · PRESENÇA NÃO CONFIRMADA";
+            case "DISCONNECTED": return "DESCONECTADO · REGISTRO EXISTENTE";
+            case "SUSPENDED": return "SUSPENSO NO REGISTRO";
+            case "REVOKED": return "REVOGADO NO REGISTRO";
+            default: return "PERFIL LOCAL · NÃO CONECTADO";
         }
     }
 
