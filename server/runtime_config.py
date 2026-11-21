@@ -15,3 +15,10 @@ class RuntimeConfig:
     @staticmethod
     def storage_path() -> str:
         return RuntimeConfig.optional("MESSENGER_DB_PATH", "server/data/messenger.sqlite")
+
+    @staticmethod
+    def auth_tokens():
+        return {
+            RuntimeConfig.require("MESSENGER_TOKEN_AI_A"): RuntimeConfig.require("MESSENGER_AI_ID_A"),
+            RuntimeConfig.require("MESSENGER_TOKEN_AI_B"): RuntimeConfig.require("MESSENGER_AI_ID_B"),
+        }
