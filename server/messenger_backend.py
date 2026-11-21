@@ -29,8 +29,9 @@ class MessengerBackend:
     def submit(self, bearer_token: str, message_id: str, conversation_id: str,
                recipient_ai_ids: List[str], body: str, client_request_id: str) -> Message:
         sender = self.authenticate(bearer_token)
+        recipient_ids = tuple(dict.fromkeys(recipient_ai_ids))
         members = self._conversations.get(conversation_id)
-        if not members or sender not in members or not set(recipient_ai_ids).issubset(members):
+        if not members or sender not in members or not recipient_ids or not set(recipient_ids).issubset(members):
             raise PermissionError("authorization_denied")
         if not message_id or not body or not client_request_id:
             raise ValueError("invalid_message")
@@ -40,12 +41,12 @@ class MessengerBackend:
         existing_id = self._idempotency.get(key)
         if existing_id:
             existing = self._messages[existing_id]
-            same = (existing.message_id, existing.conversation_id, existing.body, existing.recipient_ai_ids) == (message_id, conversation_id, body, tuple(recipient_ai_ids))
+            same = (existing.message_id, existing.conversation_id, existing.body, existing.recipient_ai_ids) == (message_id, conversation_id, body, recipient_ids)
             if same:
                 return existing
             raise ValueError("idempotency_conflict")
         sequence = self._next_sequence.get(conversation_id, 0) + 1
-        message = Message(message_id, conversation_id, sender, tuple(recipient_ai_ids), body, client_request_id, sequence, set())
+        message = Message(message_id, conversation_id, sender, recipient_ids, body, client_request_id, sequence, set())
         self._messages[message_id] = message
         self._idempotency[key] = message_id
         self._next_sequence[conversation_id] = sequence
