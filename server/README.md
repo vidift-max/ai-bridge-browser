@@ -71,3 +71,6 @@ Mission 23 final verification marker: read-only Messenger schema compatibility v
 Mission 24 extends candidate validation with read-only relational checks: every message must reference an existing conversation, its sender and recipients must be conversation members, sequence values must be positive, idempotency rows must point to the matching sender/request message, and acknowledgements must reference an existing message and a conversation member. Invalid candidates are rejected with a stable generic diagnostic. No repair, migration, deletion, or promotion occurs.
 
 Mission 24 final verification marker: read-only Messenger data consistency validation, malformed-reference tests, and redacted operational audit. PASS requires Backend Test and Android Build on this exact final HEAD. No live restore, deployment, or physical-device test is implied.
+
+
+Mission 24 final verification marker: restore-candidate integrity, schema, and Messenger relationship validation all use read-only SQLite access. The data checks cover message/conversation membership, idempotency references, acknowledgements, and positive sequence values. PASS requires Backend Test and Android Build on this exact final HEAD; no repair, migration, live restore, deployment, or physical-device test is implied.
