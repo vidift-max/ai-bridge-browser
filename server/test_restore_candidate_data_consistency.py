@@ -85,5 +85,37 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
             self.assertEqual(after, before)
 
 
+    def test_empty_member_list_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE conversations SET member_ai_ids=''")
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_malformed_recipient_delimiters_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE messages SET recipient_ai_ids='AI-B,,AI-A'")
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_whitespace_padded_identifier_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE conversations SET member_ai_ids='AI-A, AI-B'")
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_non_text_identifier_storage_is_rejected_safely(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute("UPDATE messages SET recipient_ai_ids=?", (sqlite3.Binary(b"AI-B"),))
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
 if __name__ == "__main__":
     unittest.main()
