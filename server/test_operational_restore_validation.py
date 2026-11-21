@@ -36,5 +36,24 @@ class OperationalRestoreValidationTests(unittest.TestCase):
                              "RESTORE_CANDIDATE_SCHEMA_UNSUPPORTED")
 
 
+    def test_inconsistent_data_records_safe_failure_without_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "candidate.sqlite"
+            store = SQLiteMessengerStore(str(candidate))
+            store.save_conversation("room-1", ["AI-A", "AI-B"])
+            store.save_message(("m-1", "room-1", "AI-A", ("AI-B",), "secret-body", "req-1", 1))
+            store.close()
+            with sqlite3.connect(candidate) as connection:
+                connection.execute("UPDATE messages SET conversation_id='orphan-room'")
+            runtime = OperationalRuntime()
+            self.assertEqual(runtime.validate_restore_candidate(
+                str(candidate), correlation_id="data-check-1"),
+                (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+            event = runtime.snapshot()[0]
+            self.assertEqual(event.event_type, "STORAGE_RESTORE_CANDIDATE_VALIDATION")
+            self.assertEqual(event.diagnostic_code, "RESTORE_CANDIDATE_DATA_INCONSISTENT")
+            self.assertNotIn(str(candidate), repr(event))
+            self.assertNotIn("secret-body", repr(event))
+
 if __name__ == "__main__":
     unittest.main()
