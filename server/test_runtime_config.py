@@ -1,5 +1,6 @@
 import os
 import unittest
+
 from server.runtime_config import RuntimeConfig
 
 class RuntimeConfigTest(unittest.TestCase):
@@ -18,6 +19,40 @@ class RuntimeConfigTest(unittest.TestCase):
         os.environ.pop("TEST_RUNTIME_MISSING", None)
         with self.assertRaises(RuntimeError):
             RuntimeConfig.require("TEST_RUNTIME_MISSING")
+
+    def test_defaults_are_bounded(self):
+        self.assertEqual(RuntimeConfig.request_timeout_seconds(), 10)
+        self.assertEqual(RuntimeConfig.retry_limit(), 2)
+
+    def test_timeout_rejects_invalid_values(self):
+        os.environ["MESSENGER_REQUEST_TIMEOUT_SECONDS"] = "0"
+        with self.assertRaisesRegex(RuntimeError, "invalid_runtime_config"):
+            RuntimeConfig.request_timeout_seconds()
+
+    def test_retry_rejects_invalid_values(self):
+        os.environ["MESSENGER_RETRY_LIMIT"] = "6"
+        with self.assertRaisesRegex(RuntimeError, "invalid_runtime_config"):
+            RuntimeConfig.retry_limit()
+
+    def test_storage_path_rejects_surrounding_whitespace(self):
+        os.environ["MESSENGER_DB_PATH"] = " server/data/messenger.sqlite"
+        with self.assertRaisesRegex(RuntimeError, "invalid_runtime_config"):
+            RuntimeConfig.storage_path()
+
+    def test_auth_tokens_require_all_identity_pairs(self):
+        keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B", "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B"]
+        old = {key: os.environ.get(key) for key in keys}
+        for key in keys:
+            os.environ.pop(key, None)
+        try:
+            with self.assertRaisesRegex(RuntimeError, "missing_runtime_config"):
+                RuntimeConfig.auth_tokens()
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
 
 if __name__ == "__main__":
     unittest.main()
