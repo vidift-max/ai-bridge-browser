@@ -93,3 +93,9 @@ Mission 26 traced the combined restore-candidate validation path and documented 
 Mission 26 investigation verification marker: Backend Test and Android Build must both pass on the exact final HEAD; CI success verifies repository workflows only, not snapshot consistency.
 
 Mission 26 final HEAD gate: require fresh Backend Test and Android Build success on the same SHA; the documented snapshot-consistency limitation remains BLOCKED until implemented and tested.
+
+## Mission 27 — single-snapshot restore validation
+
+Mission 27 refactors restore-candidate validation to open one SQLite read-only connection, explicitly begin a read transaction, pin the read snapshot, and run integrity, schema, and relational-data checks through connection-scoped validators. Regression coverage asserts a single connection and exercises a concurrent WAL writer commit between validation phases; the validator must return a result from its original snapshot. Public standalone validators remain available. This is local SQLite behavior under the tested WAL scenario, not a production recovery certification or authorization to promote a candidate.
+
+Mission 27 final verification marker: require Backend Test and Android Build success on the exact same final HEAD. No live restore, promotion, deployment, or physical-device verification is included.
