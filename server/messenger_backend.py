@@ -107,7 +107,10 @@ class MessengerBackend:
                recipient_ai_ids: List[str], body: str, client_request_id: str) -> Message:
         sender = self.authenticate(bearer_token)
         recipient_ids = self.authorize_recipients(sender, conversation_id, recipient_ai_ids)
-        if (not message_id or not body or not client_request_id or
+        if (not isinstance(message_id, str) or not message_id.strip() or
+                not isinstance(conversation_id, str) or not conversation_id.strip() or
+                not isinstance(body, str) or not body.strip() or
+                not isinstance(client_request_id, str) or not client_request_id.strip() or
                 len(message_id) > self.MAX_ID_LENGTH or len(conversation_id) > self.MAX_ID_LENGTH or
                 len(client_request_id) > self.MAX_ID_LENGTH or len(body) > self.MAX_BODY_LENGTH):
             raise ValueError("invalid_message")
