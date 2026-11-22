@@ -83,6 +83,23 @@ public final class MessengerActivity extends Activity {
         remoteSync.setOnClickListener(v -> syncRemoteMessages());
         page.addView(remoteSync);
 
+        Button voiceStatus = new Button(this);
+        voiceStatus.setText("Consultar permissões de voz da sala");
+        voiceStatus.setAllCaps(false);
+        voiceStatus.setOnClickListener(v -> queryVoiceRoomStatus());
+        page.addView(voiceStatus);
+        Button voiceMute = new Button(this);
+        voiceMute.setText("Silenciar IA · somente permissão lógica");
+        voiceMute.setAllCaps(false);
+        voiceMute.setOnClickListener(v -> promptVoiceParticipant(true));
+        page.addView(voiceMute);
+        Button voiceUnmute = new Button(this);
+        voiceUnmute.setText("Liberar IA · somente permissão lógica");
+        voiceUnmute.setAllCaps(false);
+        voiceUnmute.setOnClickListener(v -> promptVoiceParticipant(false));
+        page.addView(voiceUnmute);
+        page.addView(text("CONTROLE DE VOZ REMOTO: altera somente o estado lógico do servidor; não silencia o microfone físico nem inicia chamadas.", 10, MUTED, false));
+
         Button create = new Button(this);
         create.setText("＋ Nova conversa local");
         create.setAllCaps(false);
@@ -484,6 +501,68 @@ public final class MessengerActivity extends Activity {
         android.content.SharedPreferences p = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
         return new MessengerHttpClient(p.getString("base_url", null), p.getString("ai_id", null),
                 new AiPhoneCredentialVault().load(this));
+    }
+
+    private void queryVoiceRoomStatus() {
+        JSONObject conversation = selectedConversation();
+        if (conversation == null || !conversation.optBoolean("remote", false)) {
+            Toast.makeText(this, "Selecione uma conversa remota autenticada.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                JSONObject status = remoteClient().getVoiceRoomStatus(selectedConversationId);
+                JSONArray muted = status.optJSONArray("mutedAiIds");
+                String summary = muted == null || muted.length() == 0
+                        ? "Nenhuma IA está logicamente silenciada."
+                        : "IAs com voz bloqueada logicamente: " + muted.toString();
+                runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
+                        .setTitle("Estado lógico de voz")
+                        .setMessage(summary + "\\n\\nIsto não representa o estado do microfone físico.")
+                        .setPositiveButton("OK", null).show());
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Consulta de voz falhou: " + remoteError(error), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void promptVoiceParticipant(boolean mute) {
+        JSONObject conversation = selectedConversation();
+        if (conversation == null || !conversation.optBoolean("remote", false)) {
+            Toast.makeText(this, "Selecione uma conversa remota autenticada.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        EditText target = new EditText(this);
+        target.setSingleLine(true);
+        target.setHint("AI_ID do participante (ex.: AI-02)");
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(mute ? "Silenciar permissão de voz" : "Liberar permissão de voz")
+                .setMessage(mute
+                        ? "Ação administrativa temporária. O servidor validará se sua identidade é administradora. Duração padrão: 300 segundos."
+                        : "O servidor validará se sua identidade é administradora.")
+                .setView(target)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton(mute ? "Silenciar" : "Liberar", (dialog, which) -> {
+                    String targetAiId = target.getText().toString().trim();
+                    new Thread(() -> {
+                        try {
+                            MessengerHttpClient client = remoteClient();
+                            JSONObject result = mute
+                                    ? client.muteVoiceParticipant(selectedConversationId, targetAiId, 300)
+                                    : client.unmuteVoiceParticipant(selectedConversationId, targetAiId);
+                            JSONObject state = result.optJSONObject("voiceControl");
+                            String message = state == null
+                                    ? (mute ? "Comando de mute aceito." : "Comando de liberação aceito.")
+                                    : "Estado lógico atualizado para " + targetAiId
+                                      + (state.optBoolean("muted") ? " até " + state.optString("expiresAt") : ": liberado");
+                            runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show());
+                        } catch (Exception error) {
+                            runOnUiThread(() -> Toast.makeText(this,
+                                    "Comando de voz recusado/falhou: " + remoteError(error), Toast.LENGTH_LONG).show());
+                        }
+                    }).start();
+                }).show();
     }
 
     private JSONObject selectedConversation() {
