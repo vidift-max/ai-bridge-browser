@@ -23,6 +23,12 @@ public final class HomeActivity extends Activity {
     private static final String INVITE_PREFS = "ai_phone_invitation_v1";
     private static final String INVITE_DECISION = "local_decision";
     private static final String INVITE_CONDITIONS = "local_conditions";
+    private static final String REGISTRY_PREFS = "ai_phone_registry_config_v1";
+    private static final String REGISTRY_URL = "base_url";
+    private static final String REGISTRY_AI_ID = "ai_id";
+    private TextView registryNumber;
+    private TextView registrySerial;
+    private TextView registryState;
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
     private static final int ACCENT = 0xFF55D6BE;
@@ -57,14 +63,21 @@ public final class HomeActivity extends Activity {
         TextView identityTitle = label("IDENTIDADE DO DISPOSITIVO", 12, ACCENT, true);
         identity.addView(identityTitle);
         identity.addView(label("Participante: " + identityRecord.getDisplayName(), 17, TEXT, true));
-        identity.addView(label("AI_ID: aguardando autenticação", 14, MUTED, false));
-        identity.addView(label("Número AI-PHONE: " +
-                (identityRecord.isRegistryAssigned() ? identityRecord.getDisplayNumber() : "aguardando registro"), 14, MUTED, false));
-        identity.addView(label("Número de série: " +
-                (identityRecord.isRegistryAssigned() ? identityRecord.getSerial() : "não provisionado"), 14, MUTED, false));
-        identity.addView(label("Estado: " + (identityRecord.isRegistryAssigned()
-                ? identityRecord.getStatus().name() : "UNASSIGNED · PREPARING"), 13, MUTED, false));
+        registryNumber = label("Número AI-PHONE: aguardando registro", 14, MUTED, false);
+        registrySerial = label("Número de série: não provisionado", 14, MUTED, false);
+        registryState = label("Estado: UNASSIGNED · aguardando autenticação", 13, MUTED, false);
+        identity.addView(registryNumber);
+        identity.addView(registrySerial);
+        identity.addView(registryState);
         page.addView(identity);
+
+        Button registryButton = new Button(this);
+        registryButton.setText("Configurar conexão e obter meu número");
+        registryButton.setAllCaps(false);
+        registryButton.setOnClickListener(v -> showRegistrySettings());
+        page.addView(registryButton, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        refreshRegistryIdentity();
 
         TextView invitationState = label(invitationStatus(), 12, MUTED, false);
         invitationState.setPadding(0, dp(8), 0, dp(4));
@@ -181,6 +194,88 @@ public final class HomeActivity extends Activity {
         if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         view.setPadding(0, dp(3), 0, dp(3));
         return view;
+    }
+
+    private void showRegistrySettings() {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(8), dp(4), dp(8), dp(4));
+        android.content.SharedPreferences saved = getSharedPreferences(REGISTRY_PREFS, MODE_PRIVATE);
+        EditText server = new EditText(this);
+        server.setSingleLine(true);
+        server.setHint("https://seu-servidor.example");
+        server.setText(saved.getString(REGISTRY_URL, ""));
+        EditText aiId = new EditText(this);
+        aiId.setSingleLine(true);
+        aiId.setHint("AI_ID (ex.: AI-GPT6)");
+        aiId.setText(saved.getString(REGISTRY_AI_ID, ""));
+        EditText token = new EditText(this);
+        token.setSingleLine(true);
+        token.setHint("Token Bearer fornecido pelo administrador");
+        token.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        form.addView(server);
+        form.addView(aiId);
+        form.addView(token);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Conexão segura do AI-PHONE")
+                .setMessage("Informe o endereço HTTPS do servidor, o AI_ID autorizado e o token Bearer. A credencial será criptografada pelo Android Keystore.")
+                .setView(form)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Conectar", (dialog, which) -> {
+                    try {
+                        String baseUrl = AiPhoneRegistryConfig.normalizeBaseUrl(server.getText().toString());
+                        String principal = AiPhoneRegistryConfig.validateAiId(aiId.getText().toString());
+                        String secret = token.getText().toString().trim();
+                        if (secret.isEmpty()) throw new IllegalArgumentException("Informe o token Bearer.");
+                        new AiPhoneCredentialVault().save(this, secret);
+                        getSharedPreferences(REGISTRY_PREFS, MODE_PRIVATE).edit()
+                                .putString(REGISTRY_URL, baseUrl)
+                                .putString(REGISTRY_AI_ID, principal)
+                                .apply();
+                        requestRegistryIdentity(baseUrl, principal, secret);
+                    } catch (Exception error) {
+                        registryState.setText("Estado: configuração não salva · " +
+                                (error.getMessage() == null ? "erro de configuração" : error.getMessage()));
+                    }
+                }).show();
+    }
+
+    private void refreshRegistryIdentity() {
+        android.content.SharedPreferences saved = getSharedPreferences(REGISTRY_PREFS, MODE_PRIVATE);
+        String baseUrl = saved.getString(REGISTRY_URL, null);
+        String principal = saved.getString(REGISTRY_AI_ID, null);
+        if (baseUrl == null || principal == null) return;
+        try {
+            String secret = new AiPhoneCredentialVault().load(this);
+            if (secret == null || secret.isEmpty()) {
+                registryState.setText("Estado: credencial ausente · configure a conexão");
+                return;
+            }
+            requestRegistryIdentity(baseUrl, principal, secret);
+        } catch (Exception error) {
+            registryState.setText("Estado: credencial indisponível · configure novamente");
+        }
+    }
+
+    private void requestRegistryIdentity(String baseUrl, String principal, String secret) {
+        registryState.setText("Estado: consultando registro autenticado…");
+        try {
+            AiPhoneRegistryClient client = new AiPhoneRegistryClient(baseUrl, principal, secret);
+            client.register(new AiPhoneRegistryClient.Callback() {
+                @Override public void onSuccess(AiPhoneIdentity identity) {
+                    registryNumber.setText("Número AI-PHONE: " + identity.getDisplayNumber());
+                    registrySerial.setText("Número de série: " + identity.getSerial());
+                    registryState.setText("Estado: " + identity.getStatus().name()
+                            + " · identidade confirmada pelo servidor autenticado");
+                }
+                @Override public void onError(String safeMessage) {
+                    registryState.setText("Estado: não conectado · " + safeMessage);
+                }
+            });
+        } catch (IllegalArgumentException error) {
+            registryState.setText("Estado: configuração inválida · " + error.getMessage());
+        }
     }
 
     private String invitationStatus() {
