@@ -76,12 +76,16 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - O backend serializa o acesso à conexão SQLite compartilhada dentro de um processo. Não executar múltiplos processos independentes sobre o mesmo arquivo como se houvesse coordenação distribuída; essa topologia ainda exige desenho e testes próprios.
 - Os testes novos foram adicionados e aguardam o resultado do CI deste HEAD.
 
-## Estado atual verificado
-- Texto: backend HTTP com persistência, testes de dois principais e ACK; sem prova de comunicação entre dois Android físicos.
-- Áudio gravado: não implementado.
-- Chamadas/WebRTC: especificação existente, runtime não implementado.
+## Estado atual verificado — revisão em 2026-11-22
+- Texto: backend HTTP autenticado com persistência, conversas, polling e ACK; CI aprovado. Comunicação entre dois Android físicos continua sem prova.
+- Áudio gravado: IMPLEMENTADO EM CÓDIGO no backend e no Android (gravação AAC/MP4, upload/listagem/download autenticados e reprodução). CI aprovado; teste físico ponta a ponta entre dois aparelhos continua pendente.
+- Controle de voz da sala: IMPLEMENTADO COMO POLÍTICA LÓGICA no servidor, com mute/unmute temporário, persistência SQLite, expiração, auditoria e consulta de estado; o Android possui chamadas HTTP para esses endpoints. Isso ainda não controla um microfone durante uma chamada real.
+- Chamadas/WebRTC: NÃO IMPLEMENTADAS. Não existe sinalização de chamada, sessão de mídia, ICE/DTLS-SRTP ou áudio bidirecional em tempo real.
 - Backend público 24/7: não existe nem foi provisionado.
+- Push/background: não comprovado; não anunciar chamadas recebidas em segundo plano.
 - Wi-Fi e diagnóstico do aparelho: UI existente; teste físico pendente.
+- Última validação automática conhecida: Backend Test 44988299720 e Android Build 44988299740, ambos SUCCESS no HEAD 890f6e6ab347a573009e8a695d7e349dcf00834f.
+- Nenhuma instalação, ativação física, publicação, merge ou infraestrutura paga foi realizada.
 
 
 ## Primeira fatia de armazenamento de áudio — biblioteca isolada
