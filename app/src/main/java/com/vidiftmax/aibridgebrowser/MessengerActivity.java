@@ -509,6 +509,7 @@ public final class MessengerActivity extends Activity {
                 for(int i=0;i<incoming.length();i++) {
                     JSONObject remote=incoming.optJSONObject(i); if(remote==null) continue;
                     String messageId=remote.optString("messageId","");
+                    if(messageId.trim().isEmpty()) throw new IllegalStateException("server_message_id_missing");
                     JSONArray all=readMessages(); boolean exists=false;
                     for(int j=0;j<all.length();j++) {
                         JSONObject saved=all.optJSONObject(j);
@@ -522,8 +523,12 @@ public final class MessengerActivity extends Activity {
                         item.put("sequence",remote.optInt("sequence"));
                         item.put("createdAtEpochMs",System.currentTimeMillis());
                         item.put("status","RECEIVED_FROM_SERVER"); item.put("localState","SERVER_RECEIVED");
-                        all.put(item); prefs().edit().putString(KEY_MESSAGES,all.toString()).apply(); added++;
+                        all.put(item);
+                        boolean persisted=prefs().edit().putString(KEY_MESSAGES,all.toString()).commit();
+                        if(!persisted) throw new IllegalStateException("local_message_persistence_failed_before_ack");
+                        added++;
                     }
+                    // ACK only after the message is durably stored locally.
                     remoteClient().acknowledge(messageId); acked++;
                 }
                 final int newCount=added,ackCount=acked;
