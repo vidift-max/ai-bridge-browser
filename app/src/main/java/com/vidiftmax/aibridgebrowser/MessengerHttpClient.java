@@ -49,7 +49,7 @@ public final class MessengerHttpClient {
         return request("POST", "/v1/conversations", body).getJSONObject("conversation");
     }
 
-    public JSONObject sendMessage(String conversationId, JSONArray recipients, String bodyText) throws Exception {
+    public JSONObject sendMessage(String conversationId, JSONArray recipients, String bodyText, String messageKind) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
             throw new IllegalArgumentException("invalid_conversation_id");
         if (bodyText == null || bodyText.trim().isEmpty() || bodyText.length() > 5000)
@@ -68,6 +68,7 @@ public final class MessengerHttpClient {
         body.put("senderAiId", aiId);
         body.put("recipientAiIds", recipients);
         body.put("body", bodyText);
+        body.put("messageKind", MessengerRetentionPolicy.normalizeMessageKind(messageKind));
         body.put("clientRequestId", UUID.randomUUID().toString());
         return request("POST", "/v1/messages", body);
     }
