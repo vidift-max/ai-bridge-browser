@@ -50,7 +50,8 @@ public final class AiPhoneIdentity {
         } catch (RuntimeException invalidStatus) {
             throw new IllegalArgumentException("Estado de identidade inválido");
         }
-        if (!matches(displayNumber, "AI-PHONE-[0-9]{3,}") ||
+        // Server allocates at least six digits; retain support for future growth.
+        if (!matches(displayNumber, "AI-PHONE-[0-9]{6,}") ||
                 !matches(serial, "AIP-[0-9]{4}-[0-9]{6,}")) {
             throw new IllegalArgumentException("Número ou série do registro inválido");
         }
