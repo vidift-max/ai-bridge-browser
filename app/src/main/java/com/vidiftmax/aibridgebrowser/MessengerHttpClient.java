@@ -82,6 +82,84 @@ public final class MessengerHttpClient {
         return request("POST", "/v1/messages/" + encodePath(messageId) + "/ack", new JSONObject());
     }
 
+    public JSONObject uploadAudio(String messageId, java.io.File audioFile) throws Exception {
+        if (messageId == null || messageId.trim().isEmpty()) throw new IllegalArgumentException("message_id_required");
+        if (audioFile == null || !audioFile.isFile() || audioFile.length() <= 0 || audioFile.length() > 5L * 1024L * 1024L)
+            throw new IllegalArgumentException("invalid_audio_file");
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(baseUrl + "/v1/messages/" + encodePath(messageId) + "/audio").openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(15000);
+            connection.setDoOutput(true);
+            connection.setFixedLengthStreamingMode(audioFile.length());
+            connection.setRequestProperty("Authorization", "Bearer " + token);
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("Content-Type", "audio/mp4");
+            try (InputStream in = new java.io.FileInputStream(audioFile); OutputStream out = connection.getOutputStream()) {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+            }
+            return readJsonResponse(connection);
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    public java.io.File downloadAudio(String messageId, String objectId, java.io.File destination) throws Exception {
+        if (messageId == null || messageId.trim().isEmpty() || objectId == null || objectId.trim().isEmpty())
+            throw new IllegalArgumentException("audio_reference_required");
+        if (destination == null) throw new IllegalArgumentException("destination_required");
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(baseUrl + "/v1/messages/" + encodePath(messageId) + "/audio/" + encodePath(objectId)).openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(15000);
+            connection.setRequestProperty("Authorization", "Bearer " + token);
+            connection.setRequestProperty("Accept", "application/octet-stream");
+            int status = connection.getResponseCode();
+            if (status < 200 || status >= 300) throw httpError(connection, status);
+            java.io.File parent = destination.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs()) throw new java.io.IOException("audio_destination_unavailable");
+            try (InputStream in = connection.getInputStream(); java.io.FileOutputStream out = new java.io.FileOutputStream(destination)) {
+                byte[] buffer = new byte[8192];
+                long total = 0;
+                int count;
+                while ((count = in.read(buffer)) != -1) {
+                    total += count;
+                    if (total > 5L * 1024L * 1024L) throw new java.io.IOException("audio_download_too_large");
+                    out.write(buffer, 0, count);
+                }
+            }
+            return destination;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private JSONObject readJsonResponse(HttpURLConnection connection) throws Exception {
+        int status = connection.getResponseCode();
+        InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+        String response = stream == null ? "{}" : readBounded(stream);
+        if (status < 200 || status >= 300) {
+            String code = "http_" + status;
+            try { code = new JSONObject(response).optString("error", code); } catch (Exception ignored) { }
+            throw new MessengerHttpException(status, code);
+        }
+        return new JSONObject(response);
+    }
+
+    private Exception httpError(HttpURLConnection connection, int status) throws Exception {
+        InputStream stream = connection.getErrorStream();
+        String response = stream == null ? "{}" : readBounded(stream);
+        String code = "http_" + status;
+        try { code = new JSONObject(response).optString("error", code); } catch (Exception ignored) { }
+        return new MessengerHttpException(status, code);
+    }
+
     public String getAiId() { return aiId; }
 
     private JSONObject request(String method, String path, JSONObject payload) throws Exception {
