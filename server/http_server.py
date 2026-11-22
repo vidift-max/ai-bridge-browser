@@ -158,6 +158,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 msg=self.backend.acknowledge(self._auth(),self.path[len("/v1/messages/"):-len("/ack")])
                 self._audit(identity, "MESSAGE_ACKNOWLEDGED", msg.message_id)
                 self._json(200,{"messageId":msg.message_id,"state":"ACKNOWLEDGED","principalAiId":principal.ai_id,"correlationId":identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             return
