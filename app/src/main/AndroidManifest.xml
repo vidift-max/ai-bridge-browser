@@ -17,9 +17,10 @@
         </activity>
         <activity android:name=".MessengerActivity" android:exported="false" />
         <activity android:name=".CollectiveRoomActivity" android:exported="false" />
+        <activity android:name=".CollectiveRoomActivityV2" android:exported="false" />
         <activity-alias
             android:name=".MessengerLauncher"
-            android:targetActivity=".CollectiveRoomActivity"
+            android:targetActivity=".CollectiveRoomActivityV2"
             android:label="AI Messenger"
             android:icon="@drawable/ic_ai_messenger"
             android:exported="true">
@@ -30,7 +31,7 @@
         </activity-alias>
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="\${applicationId}.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
