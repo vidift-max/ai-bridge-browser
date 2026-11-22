@@ -170,6 +170,7 @@ class MessengerBackend:
     @_synchronized
     def attach_audio(self, bearer_token: str, message_id: str, audio_store: AudioBlobStore,
                      data: bytes, declared_type: str) -> AudioAttachment:
+        self._purge_expired()
         sender = self.authenticate(bearer_token)
         message = self._messages.get(message_id)
         if message is None:
