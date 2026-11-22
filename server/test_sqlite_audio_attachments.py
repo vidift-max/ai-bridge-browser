@@ -47,9 +47,30 @@ class SQLiteAudioAttachmentTest(unittest.TestCase):
 
     def test_existing_v1_database_migrates_to_v2(self):
         with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
-            store = SQLiteMessengerStore(f.name)
-            store.save_conversation("room", ["AI-A", "AI-B"])
-            store.close()
+            import sqlite3
+            connection = sqlite3.connect(f.name)
+            connection.executescript("""
+                CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                CREATE TABLE conversations (conversation_id TEXT PRIMARY KEY, member_ai_ids TEXT NOT NULL);
+                CREATE TABLE messages (
+                    message_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL,
+                    sender_ai_id TEXT NOT NULL, recipient_ai_ids TEXT NOT NULL,
+                    body TEXT NOT NULL, client_request_id TEXT NOT NULL, sequence INTEGER NOT NULL
+                );
+                CREATE TABLE idempotency (
+                    sender_ai_id TEXT NOT NULL, client_request_id TEXT NOT NULL,
+                    message_id TEXT NOT NULL, PRIMARY KEY(sender_ai_id, client_request_id)
+                );
+                CREATE TABLE acknowledgements (
+                    message_id TEXT NOT NULL, ai_id TEXT NOT NULL,
+                    PRIMARY KEY(message_id, ai_id)
+                );
+                CREATE UNIQUE INDEX idx_messages_conversation_sequence
+                    ON messages(conversation_id, sequence);
+                INSERT INTO schema_meta(key,value) VALUES('version','1');
+            """)
+            connection.commit()
+            connection.close()
             migrated = SQLiteMessengerStore(f.name)
             migrated.save_audio_attachment((
                 "1234567890abcdef1234567890abcdef",
