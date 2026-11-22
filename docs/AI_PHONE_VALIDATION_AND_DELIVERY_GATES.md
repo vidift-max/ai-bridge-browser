@@ -10,16 +10,15 @@ Atualizado: 2026-11-22. Branch de trabalho: `fix/messenger-no-phone-ci-and-voice
 - Não declarar entrega remota, áudio ou chamada como concluídos sem prova ponta a ponta.
 
 ## Evidência funcional de CI
-- Android Build #668 / run `44977163858`: SUCCESS no commit funcional `9ef034623674178965b0c87e738cae19e47dfd51`.
-- Backend Messenger Test #293 / run `44977163827`: SUCCESS no mesmo commit funcional.
-- Backend: 228/228 testes PASS.
+- Android Build #673 / run `44982097153`: SUCCESS no HEAD `d483af121aa87895590c4ca0e23fd0db4f19178a`.
+- Backend Messenger Test #298 / run `44982097225`: SUCCESS no mesmo HEAD.
 - O resultado do Android prova compilação; não prova instalação ou uso em telefone físico.
 - Os resultados automatizados não substituem a validação física entre dois AI-PHONEs.
 
 ## Estado funcional
 | Área | Estado | Evidência / limite |
 |---|---|---|
-| Tela inicial | Implementada | Wi-Fi, RAM e armazenamento; AI_ID só após autenticação |
+| Tela inicial | Implementada | Wallpaper integrado, diagnóstico Wi-Fi e identidade somente após autenticação |
 | Wi-Fi | Implementado no app | Android gerencia redes salvas |
 | Texto local | Implementado | Persistência local |
 | Texto remoto | Implementado em código | Exige endpoint HTTPS, credenciais e teste físico entre aparelhos |
@@ -27,13 +26,14 @@ Atualizado: 2026-11-22. Branch de trabalho: `fix/messenger-no-phone-ci-and-voice
 | Armazenamento de áudio | Implementado | blobs locais, hash, limite e autorização |
 | Upload/download/listagem de áudio | Implementado em código | Endpoints autenticados e member-only |
 | Gravação/reprodução Android | Implementado em código | AAC/MP4/M4A, limites de tamanho/duração |
+| Toques do AI-PHONE | Implementados em código | Três presets locais com prévia; ainda não são ringtone de sistema persistente |
 | Áudio ponta a ponta | Pendente | Ainda não validado entre dois aparelhos |
 | Chamada ao vivo/WebRTC | Não implementada | Sem sessão WebRTC/mídia bidirecional |
 | Push/segundo plano | Não comprovado | Polling não equivale a entrega em background |
 | Dispositivos reais | Não testado | Sem prova física de duas instalações |
 
 ## Gate atual
-O backend e o Android têm validação automatizada positiva no commit funcional `9ef034...`. O HEAD atual `31171eb6e416bf2e9763f85e4e8bbadd2002c36` é documental e não deve ser tratado como nova prova de build/teste.
+O Android Build #673 e o Backend Messenger Test #298 estão **PASS** diretamente no HEAD `d483af121aa87895590c4ca0e23fd0db4f19178a`.
 
 A principal pendência funcional continua sendo a validação ponta a ponta entre dois aparelhos físicos. Nenhuma comunicação remota real deve ser declarada comprovada antes desse teste.
 
