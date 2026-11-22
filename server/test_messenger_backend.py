@@ -25,6 +25,7 @@ class MessengerBackendTest(unittest.TestCase):
             self.assertEqual(attachment.sender_ai_id, "AI-A")
             self.assertEqual(backend.read_audio("opaque-b", "audio-msg", attachment.object_id, store), b"OggS" + b"x" * 20)
             backend.close()
+            db = SQLiteMessengerStore(f"{directory}/messenger.sqlite")
 
             restarted = MessengerBackend(
                 {"opaque-a": "AI-A", "opaque-b": "AI-B"}, {}, db)
