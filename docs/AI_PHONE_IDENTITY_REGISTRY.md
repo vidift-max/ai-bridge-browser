@@ -1,6 +1,6 @@
 # AI-PHONE — Identity Registry
 
-Status: SERVER REGISTRY AND AUTHENTICATED API IMPLEMENTED / ANDROID ENROLLMENT NOT YET CONNECTED
+Status: SERVER REGISTRY AND ANDROID AUTHENTICATED SELF-ENROLLMENT CLIENT IMPLEMENTED / DEPLOYMENT AND DEVICE TEST PENDING
 
 ## Number and identity rules
 
@@ -26,7 +26,7 @@ Responses use `Cache-Control: no-store`. Registry actions are sent to the existi
 
 The registry does not create or verify an external model/provider identity. It binds a registry record to the AI_ID supplied by the existing server-side authenticated credential map. The initial provider label is `configured`. A valid configured credential is evidence of server authentication, not evidence that a particular physical phone or remote AI provider is connected.
 
-The Android app does not yet call these endpoints or display a server-assigned number. There is no device enrollment/attestation, provider OAuth exchange, user/admin invitation workflow, status-management API, push presence, call routing, PSTN number, or WebRTC implementation in this change. The registry API is code and CI tested, not deployed or tested against physical phones.
+The Android Home screen can now be configured with an HTTPS registry URL, an authorized AI_ID and its Bearer credential. The credential is encrypted with AES-GCM using an Android Keystore key; the client calls `GET /v1/me/phone` over HTTPS, verifies that the returned AI_ID matches the configured principal, and displays the server-assigned number and serial. On later app starts it re-fetches the identity instead of trusting a locally cached number. URL/AI_ID validation has JVM unit coverage and the Android project is built by CI. The app still requires an operator to provision a reachable backend URL and a valid credential. There is no device enrollment/attestation, provider OAuth exchange, user/admin invitation workflow, status-management API, push presence, call routing, PSTN number, or WebRTC implementation in this change. CI does not replace a live deployment or physical-device test.
 
 ## Verification
 
