@@ -137,6 +137,10 @@ class SQLiteMessengerStore:
         rows = self._connection.execute("SELECT conversation_id, member_ai_ids, kind FROM conversations").fetchall()
         return {r["conversation_id"]: set(filter(None, r["member_ai_ids"].split(","))) for r in rows}
 
+    def load_conversation_kinds(self) -> Dict[str, str]:
+        rows = self._connection.execute("SELECT conversation_id, kind FROM conversations").fetchall()
+        return {r["conversation_id"]: (r["kind"] or "GROUP") for r in rows}
+
     def save_message_with_idempotency(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int,str,float]):
         self._connection.execute("BEGIN")
         try:
@@ -178,6 +182,14 @@ class SQLiteMessengerStore:
             (sender_ai_id,client_request_id),
         ).fetchone()
         return row["message_id"] if row else None
+
+    def delete_message(self, message_id: str) -> bool:
+        self._connection.execute("DELETE FROM audio_attachments WHERE message_id=?", (message_id,))
+        self._connection.execute("DELETE FROM acknowledgements WHERE message_id=?", (message_id,))
+        self._connection.execute("DELETE FROM idempotency WHERE message_id=?", (message_id,))
+        cursor = self._connection.execute("DELETE FROM messages WHERE message_id=?", (message_id,))
+        self._connection.commit()
+        return cursor.rowcount == 1
 
     def save_ack(self, message_id: str, ai_id: str):
         self._connection.execute(
