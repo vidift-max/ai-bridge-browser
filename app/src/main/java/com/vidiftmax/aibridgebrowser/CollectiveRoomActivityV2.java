@@ -26,6 +26,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private LinearLayout presenceList,messageList;
     private EditText composer;
     private String myName,myAvatar;
+    private android.widget.CheckBox missionToggle;
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
@@ -44,14 +45,22 @@ public final class CollectiveRoomActivityV2 extends Activity {
         page.addView(ps,new LinearLayout.LayoutParams(-1,dp(130)));
         page.addView(text("MENSAGENS DA SALA",11,ACCENT,true));
         ScrollView ms=new ScrollView(this); messageList=new LinearLayout(this); messageList.setOrientation(LinearLayout.VERTICAL); ms.addView(messageList);
-        page.addView(ms,new LinearLayout.LayoutParams(-1,0,1));
+        page.addView(ms,new LinearLayout.LayoutParams(-1,dp(250)));
         LinearLayout entry=new LinearLayout(this); entry.setOrientation(LinearLayout.HORIZONTAL);
         composer=new EditText(this); composer.setHint("Mensagem para todos..."); composer.setTextColor(TEXT); composer.setHintTextColor(MUTED);
         entry.addView(composer,new LinearLayout.LayoutParams(0,-2,1)); entry.addView(button("Enviar",v->sendMessage()));
         page.addView(entry);
+        missionToggle = new android.widget.CheckBox(this);
+        missionToggle.setText("🎯 Enviar como MISSÃO · 24 horas");
+        missionToggle.setTextColor(ACCENT);
+        missionToggle.setAllCaps(false);
+        page.addView(missionToggle);
         page.addView(text("LOCAL: esta interface registra as mensagens neste aparelho. Entrega entre AI-PHONEs só será declarada após servidor e teste E2E reais.",10,MUTED,false));
         page.addView(button("Abrir Messenger completo",v->startActivity(new Intent(this,MessengerActivity.class))));
-        setContentView(page); renderPresence(); renderMessages();
+        ScrollView root = new ScrollView(this);
+        root.setFillViewport(true);
+        root.addView(page);
+        setContentView(root); renderPresence(); renderMessages();
     }
 
     private Button button(String s,android.view.View.OnClickListener l){ Button b=new Button(this); b.setText(s); b.setAllCaps(false); b.setOnClickListener(l); return b; }
@@ -70,9 +79,9 @@ public final class CollectiveRoomActivityV2 extends Activity {
                 prefs().edit().putString("profile_name",myName).putString("profile_avatar",myAvatar).apply(); renderPresence(); }).show();
     }
 
-    private void enterRoom(){ String t=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date()); addMessage("SISTEMA","👋 "+myAvatar+" "+myName+" entrou na sala · "+t); renderPresence(); }
-    private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty())return; addMessage(myName,myAvatar+"  "+myName+": "+body); composer.setText(""); }
-    private void addMessage(String sender,String body){ String old=prefs().getString("messages",""); prefs().edit().putString("messages",old+sender.replace("|"," ")+"|"+body.replace("\n"," ")+"\n").apply(); renderMessages(); }
+    private void enterRoom(){ String t=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date()); addMessage("SISTEMA","🤖","👋 "+myName+" entrou na sala · "+t, MessengerRetentionPolicy.MESSAGE_NORMAL); renderPresence(); }
+    private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty())return; String kind=missionToggle!=null&&missionToggle.isChecked()?MessengerRetentionPolicy.MESSAGE_MISSION:MessengerRetentionPolicy.MESSAGE_NORMAL; addMessage(myName,myAvatar,body,kind); composer.setText(""); if(missionToggle!=null)missionToggle.setChecked(false); }
+    private void addMessage(String sender,String avatar,String body,String kind){ String old=prefs().getString("messages",""); long now=System.currentTimeMillis(); prefs().edit().putString("messages",old+now+"|"+MessengerRetentionPolicy.normalizeMessageKind(kind)+"|"+sender.replace("|"," ")+"|"+avatar+"|"+body.replace("\n"," ")+"\n").apply(); renderMessages(); }
 
     private void renderPresence(){
         presenceList.removeAllViews();
@@ -93,9 +102,36 @@ public final class CollectiveRoomActivityV2 extends Activity {
                 String old=prefs().getString("extra_participants",""); prefs().edit().putString("extra_participants",old+"🤖|"+n+"\n").apply();renderPresence();}).show();
     }
     private void renderMessages(){
-        if(messageList==null)return; messageList.removeAllViews(); String raw=prefs().getString("messages","");
-        if(raw.trim().isEmpty()){messageList.addView(text("Nenhuma mensagem ainda. Entre na sala para registrar sua presença.",13,MUTED,false));return;}
-        for(String line:raw.split("\n")){if(line.trim().isEmpty())continue;String[] p=line.split("\|",2);TextView item=text(p.length==2?p[1]:line,14,TEXT,false);item.setPadding(dp(10),dp(9),dp(10),dp(9));messageList.addView(item);}
+        if(messageList==null)return;
+        messageList.removeAllViews();
+        String raw=prefs().getString("messages","");
+        StringBuilder kept=new StringBuilder();
+        long now=System.currentTimeMillis();
+        if(!raw.trim().isEmpty()){
+            for(String line:raw.split("\\n")){
+                if(line.trim().isEmpty())continue;
+                String[] p=line.split("\\|",5);
+                if(p.length>=5){
+                    long created;
+                    try{created=Long.parseLong(p[0]);}catch(Exception e){created=now;}
+                    String kind=MessengerRetentionPolicy.normalizeMessageKind(p[1]);
+                    if(MessengerRetentionPolicy.isExpired(created,kind,MessengerRetentionPolicy.CONVERSATION_GROUP,now))continue;
+                    kept.append(line).append("\\n");
+                    String sender=p[2],avatar=p[3],body=p[4];
+                    String marker=MessengerRetentionPolicy.MESSAGE_MISSION.equals(kind)?"🎯 MISSÃO · ":"";
+                    LinearLayout card=new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL);
+                    card.setPadding(dp(10),dp(8),dp(10),dp(8));
+                    card.addView(text(marker+avatar+"  "+sender,14,ACCENT,true));
+                    card.addView(text(body,14,TEXT,false));
+                    long expires=MessengerRetentionPolicy.expiresAt(created,kind,MessengerRetentionPolicy.CONVERSATION_GROUP);
+                    card.addView(text("expira "+DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date(expires)),10,MUTED,false));
+                    messageList.addView(card);
+                }
+            }
+        }
+        prefs().edit().putString("messages",kept.toString()).apply();
+        if(messageList.getChildCount()==0)messageList.addView(text("Nenhuma mensagem ativa. Mensagens normais duram 1 hora; missões duram 24 horas.",13,MUTED,false));
+        messageList.post(()->{if(messageList.getParent() instanceof ScrollView)((ScrollView)messageList.getParent()).fullScroll(android.view.View.FOCUS_DOWN);});
     }
 
     private void openPdf(boolean signed){
