@@ -110,7 +110,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         if(!raw.trim().isEmpty()){
             for(String line:raw.split("\\n")){
                 if(line.trim().isEmpty())continue;
-                String[] p=line.split("\\\|",5);
+                String[] p=line.split("\\|",5);
                 if(p.length>=5){
                     long created;
                     try{created=Long.parseLong(p[0]);}catch(Exception e){created=now;}
