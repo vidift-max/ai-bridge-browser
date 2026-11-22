@@ -423,5 +423,46 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(response.status, 400)
         self.assertEqual(data["error"], "invalid_request")
 
+    def test_http_rejects_non_json_content_type(self):
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        conn.request("POST", "/v1/messages", body=b"{}", headers={
+            "Authorization": "Bearer token-a", "Content-Type": "text/plain"})
+        response = conn.getresponse()
+        data = json.loads(response.read().decode("utf-8"))
+        conn.close()
+        self.assertEqual(response.status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
+    def test_http_rejects_malformed_json(self):
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        conn.request("POST", "/v1/messages", body=b"{broken", headers={
+            "Authorization": "Bearer token-a", "Content-Type": "application/json"})
+        response = conn.getresponse()
+        data = json.loads(response.read().decode("utf-8"))
+        conn.close()
+        self.assertEqual(response.status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
+    def test_http_rejects_oversized_request_body_before_reading_payload(self):
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        conn.putrequest("POST", "/v1/messages")
+        conn.putheader("Authorization", "Bearer token-a")
+        conn.putheader("Content-Type", "application/json")
+        conn.putheader("Content-Length", "10001")
+        conn.endheaders()
+        response = conn.getresponse()
+        data = json.loads(response.read().decode("utf-8"))
+        conn.close()
+        self.assertEqual(response.status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
+    def test_http_rejects_invalid_poll_cursors(self):
+        for query in ("after=-1", "limit=101", "after=not-a-number"):
+            with self.subTest(query=query):
+                status, data = self.request(
+                    "GET", "/v1/conversations/room/messages?" + query, "token-b")
+                self.assertEqual(status, 400)
+                self.assertEqual(data["error"], "invalid_cursor")
+
 if __name__ == "__main__":
     unittest.main()
