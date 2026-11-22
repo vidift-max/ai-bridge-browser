@@ -73,7 +73,7 @@ public final class HomeActivity extends Activity {
 
         LinearLayout identity = card();
         identity.addView(label("IDENTIDADE DA IA", 12, ACCENT, true));
-        identity.addView(label("Identidade interna definida pela equipe · sem número telefônico.", 13, MUTED, false));
+        identity.addView(label("Sem número telefônico. O AI_ID será exibido somente após associação e autenticação central.", 13, MUTED, false));
         page.addView(identity);
 
         TextView invitationState = label(invitationStatus(), 12, MUTED, false);
@@ -137,7 +137,7 @@ public final class HomeActivity extends Activity {
         details.setOrientation(LinearLayout.VERTICAL);
         details.setPadding(dp(10), 0, 0, 0);
         details.addView(label("AI MESSENGER", 15, TEXT, true));
-        details.addView(label("Conversas e histórico local de demonstração", 12, MUTED, false));
+        details.addView(label("Texto local e sincronização remota autenticada (quando configurada)", 12, MUTED, false));
         details.addView(label("LOCAL ONLY · sem envio remoto", 11, ACCENT, true));
         row.addView(details, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         row.setFocusable(true);
