@@ -123,7 +123,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                 or target[1] != row["client_request_id"] or key in idempotency_keys):
             return False, "RESTORE_DATA_IDEMPOTENCY_INVALID"
         idempotency_keys.add(key)
-    expected_idempotency = {(sender, request_id) for sender, request_id, _, _ in messages.values()}
+    expected_idempotency = {(sender, request_id) for sender, request_id, _, _, _ in messages.values()}
     if idempotency_keys != expected_idempotency:
         return False, "RESTORE_DATA_IDEMPOTENCY_INVALID"
 
