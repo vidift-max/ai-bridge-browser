@@ -184,7 +184,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self.rate_limiter.allow(principal.ai_id)
                 messages=self.backend.pending(self._auth(),parts[3],after_sequence=after_sequence,limit=limit)
                 self._audit(identity, "MESSAGE_READ", parts[3], count=str(len(messages)))
-                self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
+                self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body,"messageKind":m.kind,"createdAtEpochMs":int(m.created_at_epoch_seconds*1000),"expiresAtEpochMs":int((m.created_at_epoch_seconds + (86400 if m.kind=="MISSION" else 3600))*1000)} for m in messages]})
             except RateLimitExceeded:
                 self._json(429,{"error":"rate_limit_exceeded"})
             except (ValueError, TypeError):
@@ -266,9 +266,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 payload=self._read_json()
                 claimed_sender = payload.get("senderAiId", "")
                 self.backend.assert_authenticated_sender(self._auth(), claimed_sender)
-                msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"])
+                msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"],payload.get("messageKind","NORMAL"))
                 self._audit(identity, "MESSAGE_SUBMITTED", msg.message_id, sequence=str(msg.sequence))
-                self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"correlationId":identity.correlation_id})
+                self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"messageKind":msg.kind,"createdAtEpochMs":int(msg.created_at_epoch_seconds*1000),"correlationId":identity.correlation_id})
             except RateLimitExceeded:
                 self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
