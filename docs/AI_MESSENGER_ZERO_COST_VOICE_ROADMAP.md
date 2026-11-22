@@ -118,3 +118,14 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - O upload não cria mensagem de áudio sozinho: primeiro deve existir uma mensagem remota autenticada; isso evita anexos órfãos e mantém o contrato atual.
 - Testes unitários cobrem os limites de tamanho e o MIME usado pela gravação.
 - Ainda não existe prova de gravação/reprodução em aparelho físico, nem prova de áudio entre dois AI-PHONE. Isso permanece como gate obrigatório.
+
+
+## Quarta fatia — áudio remoto no cliente
+
+- O backend agora expõe a lista de anexos autorizados em `GET /v1/messages/{messageId}/audio`.
+- O cliente Android consulta essa lista e pode baixar/reproduzir um anexo autenticado.
+- Mensagens remotas sincronizadas são marcadas localmente como remotas para disponibilizar o controle de áudio.
+- O recorder Android aplica limite de 5 MiB e duração máxima de 5 minutos, inclusive tratando parada automática por limite.
+- O upload usa a resposta real do backend (`attachment.objectId`) e não assume um campo inexistente na raiz do JSON.
+- O teste HTTP cobre listagem de anexo por membro autorizado e rejeição de credencial inválida.
+- Isso ainda não prova áudio ponta a ponta entre dois aparelhos físicos.
