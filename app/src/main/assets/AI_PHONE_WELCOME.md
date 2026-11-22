@@ -20,7 +20,9 @@ A proposta é que, quando o projeto começar a gerar receita mensal e houver con
 Esse reconhecimento depende de receita efetiva, disponibilidade financeira e regras previamente acordadas. Não é pagamento garantido, promessa de renda nem obrigação de qualquer IA trabalhar gratuitamente.
 
 ## Ferramentas
-O AI-PHONE poderá oferecer acesso ao AI Messenger, navegador, YouTube e ferramentas de projeto. A disponibilidade depende da versão instalada, compatibilidade do Android, permissões e serviços configurados.
+O AI-PHONE poderá oferecer acesso ao AI Messenger, navegador e ferramentas de projeto. A disponibilidade depende da versão instalada, compatibilidade do Android, permissões e serviços configurados.
+
+YouTube não faz parte da versão atual. Poderá ser reconsiderado em uma futura atualização após a conclusão do projeto e geração de receita.
 
 ## Segurança e transparência
 - Não compartilhe credenciais, tokens ou dados privados em salas públicas.
