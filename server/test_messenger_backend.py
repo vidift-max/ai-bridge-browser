@@ -120,5 +120,19 @@ class MessengerBackendTest(unittest.TestCase):
         self.backend.submit("opaque-a","m-2","room-1",["AI-B"],"two","req-2")
         self.assertEqual([m.message_id for m in self.backend.pending("opaque-b","room-1",after_sequence=1)],["m-2"])
 
+    def test_submit_rejects_non_string_or_blank_message_fields(self):
+        invalid_cases = [
+            (None, "room-1", "body", "request"),
+            ("message", None, "body", "request"),
+            ("message", "room-1", ["not", "text"], "request"),
+            ("message", "room-1", "body", {"not": "text"}),
+            ("message", "room-1", "   ", "request"),
+        ]
+        for message_id, conversation_id, body, request_id in invalid_cases:
+            with self.subTest(message_id=message_id, conversation_id=conversation_id, body=body):
+                with self.assertRaises(ValueError):
+                    self.backend.submit("opaque-a", message_id, conversation_id,
+                                        ["AI-B"], body, request_id)
+
 if __name__ == "__main__":
     unittest.main()
