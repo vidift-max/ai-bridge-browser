@@ -111,7 +111,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                 or any(item not in members for item in recipients)):
             return False, "RESTORE_DATA_MESSAGE_INVALID"
         messages[message_id] = (row["sender_ai_id"], row["client_request_id"],
-                                row["conversation_id"], members)
+                                row["conversation_id"], members, set(recipients))
 
     idempotency_keys = set()
     for row in connection.execute(
@@ -129,7 +129,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
 
     for row in connection.execute("SELECT message_id, ai_id FROM acknowledgements"):
         target = messages.get(row["message_id"])
-        if target is None or row["ai_id"] not in target[3]:
+        if target is None or row["ai_id"] not in target[4]:
             return False, "RESTORE_DATA_ACKNOWLEDGEMENT_INVALID"
     return True, "RESTORE_DATA_CONSISTENT"
 
