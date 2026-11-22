@@ -1,5 +1,7 @@
+import tempfile
 import unittest
 
+from server.sqlite_store import SQLiteMessengerStore
 from server.voice_room_control import VoiceRoomControl
 
 
@@ -47,6 +49,39 @@ class VoiceRoomControlTest(unittest.TestCase):
         self.control.unmute("AI-ADMIN", "room-1", "AI-A", self.rooms)
         self.control.unmute("AI-ADMIN", "room-1", "AI-A", self.rooms)
         self.assertEqual(self.control.muted_participants("room-1"), set())
+
+    def test_mute_survives_control_restart_and_expires(self):
+        class Clock:
+            value = 1000.0
+            def __call__(self):
+                return self.value
+
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            clock = Clock()
+            store = SQLiteMessengerStore(f.name)
+            control = VoiceRoomControl({"AI-ADMIN"}, store=store, clock=clock)
+            result = control.mute("AI-ADMIN", "room-1", "AI-A",
+                                  self.rooms, duration_seconds=60)
+            self.assertEqual(result["expiresAt"], 1060.0)
+            self.assertTrue(control.is_muted("room-1", "AI-A"))
+            store.close()
+
+            reopened_store = SQLiteMessengerStore(f.name)
+            reopened = VoiceRoomControl({"AI-ADMIN"}, store=reopened_store,
+                                        clock=clock)
+            self.assertTrue(reopened.is_muted("room-1", "AI-A"))
+            clock.value = 1060.0
+            self.assertFalse(reopened.is_muted("room-1", "AI-A"))
+            self.assertEqual(reopened_store.load_active_voice_mutes(1060.0), [])
+            reopened_store.close()
+
+    def test_mute_duration_is_bounded(self):
+        with self.assertRaisesRegex(ValueError, "invalid_voice_mute_duration"):
+            self.control.mute("AI-ADMIN", "room-1", "AI-A", self.rooms, 0)
+        with self.assertRaisesRegex(ValueError, "invalid_voice_mute_duration"):
+            self.control.mute("AI-ADMIN", "room-1", "AI-A", self.rooms, 3601)
+        with self.assertRaisesRegex(ValueError, "invalid_voice_mute_duration"):
+            self.control.mute("AI-ADMIN", "room-1", "AI-A", self.rooms, True)
 
     def test_invalid_admin_configuration_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "invalid_voice_admin_ids"):
