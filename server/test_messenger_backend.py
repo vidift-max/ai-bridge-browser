@@ -3,6 +3,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
+from server.audio_blob_store import AudioBlobStore
 
 class MessengerBackendTest(unittest.TestCase):
     def setUp(self):
@@ -10,6 +11,43 @@ class MessengerBackendTest(unittest.TestCase):
 
     def tearDown(self):
         self.backend.close()
+
+    def test_audio_attachment_is_bound_to_message_and_survives_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = SQLiteMessengerStore(f"{directory}/messenger.sqlite")
+            backend = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B"},
+                {"room-1": {"AI-A", "AI-B"}}, db)
+            store = AudioBlobStore(f"{directory}/audio")
+            backend.submit("opaque-a", "audio-msg", "room-1", ["AI-B"], "voice", "voice-req")
+            attachment = backend.attach_audio("opaque-a", "audio-msg", store, b"OggS" + b"x" * 20, "audio/ogg")
+            self.assertEqual(attachment.message_id, "audio-msg")
+            self.assertEqual(attachment.sender_ai_id, "AI-A")
+            self.assertEqual(backend.read_audio("opaque-b", "audio-msg", attachment.object_id, store), b"OggS" + b"x" * 20)
+            backend.close()
+
+            restarted = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B"}, {}, db)
+            listed = restarted.list_audio_attachments("opaque-b", "audio-msg")
+            self.assertEqual([item.object_id for item in listed], [attachment.object_id])
+            restarted.close()
+
+    def test_audio_attachment_sender_only_and_member_only_read_access(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = SQLiteMessengerStore(f"{directory}/messenger.sqlite")
+            backend = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"},
+                {"room-1": {"AI-A", "AI-B"}}, db)
+            store = AudioBlobStore(f"{directory}/audio")
+            backend.submit("opaque-a", "audio-msg", "room-1", ["AI-B"], "voice", "voice-req")
+            with self.assertRaisesRegex(PermissionError, "attachment_sender_only"):
+                backend.attach_audio("opaque-b", "audio-msg", store, b"OggS" + b"x" * 20, "audio/ogg")
+            attachment = backend.attach_audio("opaque-a", "audio-msg", store, b"OggS" + b"x" * 20, "audio/ogg")
+            with self.assertRaisesRegex(PermissionError, "authorization_denied"):
+                backend.list_audio_attachments("opaque-c", "audio-msg")
+            with self.assertRaisesRegex(PermissionError, "authorization_denied"):
+                backend.read_audio("opaque-c", "audio-msg", attachment.object_id, store)
+            backend.close()
 
     def test_authenticated_submit_and_pending(self):
         msg=self.backend.submit("opaque-a","m-1","room-1",["AI-B"],"hello","req-1")
