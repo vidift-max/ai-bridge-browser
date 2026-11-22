@@ -2,9 +2,12 @@ from dataclasses import dataclass
 from functools import wraps
 from threading import RLock
 from typing import Dict, List, Set, Tuple
+import time
 from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
 from server.audio_blob_store import AudioBlobStore
+from server.retention_policy import (MESSAGE_NORMAL, MESSAGE_MISSION, CONVERSATION_GROUP,
+                                     expires_at, is_expired, normalize_message_kind, normalize_conversation_kind)
 
 def _synchronized(method):
     @wraps(method)
@@ -35,6 +38,8 @@ class Message:
     client_request_id: str
     sequence: int
     acknowledged_by: Set[str]
+    kind: str = MESSAGE_NORMAL
+    created_at_epoch_seconds: float = 0.0
 
 class MessengerBackend:
     MAX_BODY_LENGTH = 5000
@@ -48,6 +53,7 @@ class MessengerBackend:
         self._authenticator = authenticator or Authenticator(tokens)
         self._store = store or SQLiteMessengerStore(":memory:")
         self._conversations = self._store.load_conversations()
+        self._conversation_kinds = self._store.load_conversation_kinds()
         for conversation_id, members in conversations.items():
             normalized = set(members)
             if not conversation_id or len(normalized) < 2 or len(normalized) > self.MAX_ROOM_MEMBERS:
@@ -55,7 +61,7 @@ class MessengerBackend:
             if not normalized.issubset(self._known_ai_ids):
                 raise ValueError("unknown_conversation_member")
             self._conversations.setdefault(conversation_id, normalized)
-            self._store.save_conversation(conversation_id, sorted(normalized))
+            self._store.save_conversation(conversation_id, sorted(normalized), self._conversation_kinds.get(conversation_id, CONVERSATION_GROUP))
         self._messages: Dict[str, Message] = {}
         self._idempotency: Dict[Tuple[str, str], str] = {}
         self._next_sequence: Dict[str, int] = {}
@@ -63,8 +69,12 @@ class MessengerBackend:
         for row in self._store.load_messages():
             ack = acknowledgements.get(row["message_id"], set())
             recipients = tuple(filter(None, row["recipient_ai_ids"].split(",")))
+            created = float(row["created_at_epoch_seconds"] or 0.0)
+            if created <= 0:
+                created = time.time()
             msg = Message(row["message_id"], row["conversation_id"], row["sender_ai_id"], recipients,
-                          row["body"], row["client_request_id"], row["sequence"], set(ack))
+                          row["body"], row["client_request_id"], row["sequence"], set(ack),
+                          normalize_message_kind(row["kind"] or MESSAGE_NORMAL), created)
             self._messages[msg.message_id] = msg
             self._idempotency[(msg.sender_ai_id, msg.client_request_id)] = msg.message_id
             self._next_sequence[msg.conversation_id] = max(self._next_sequence.get(msg.conversation_id,0), msg.sequence)
@@ -110,8 +120,9 @@ class MessengerBackend:
             raise ValueError("unknown_conversation_member")
         if conversation_id in self._conversations:
             raise ValueError("conversation_id_conflict")
-        self._store.save_conversation(conversation_id, sorted(members))
+        self._store.save_conversation(conversation_id, sorted(members), kind)
         self._conversations[conversation_id] = members
+        self._conversation_kinds[conversation_id] = normalize_conversation_kind(kind)
         return {"conversationId": conversation_id, "kind": kind,
                 "memberAiIds": sorted(members), "memberCount": len(members)}
 
@@ -139,7 +150,8 @@ class MessengerBackend:
 
     @_synchronized
     def submit(self, bearer_token: str, message_id: str, conversation_id: str,
-               recipient_ai_ids: List[str], body: str, client_request_id: str) -> Message:
+               recipient_ai_ids: List[str], body: str, client_request_id: str,
+               message_kind: str = MESSAGE_NORMAL) -> Message:
         sender = self.authenticate(bearer_token)
         if (not isinstance(message_id, str) or not message_id.strip() or
                 not isinstance(conversation_id, str) or not conversation_id.strip() or
@@ -149,6 +161,8 @@ class MessengerBackend:
                 len(client_request_id) > self.MAX_ID_LENGTH or len(body) > self.MAX_BODY_LENGTH):
             raise ValueError("invalid_message")
         recipient_ids = self.authorize_recipients(sender, conversation_id, recipient_ai_ids)
+        normalized_kind = normalize_message_kind(message_kind)
+        created_at = time.time()
         if message_id in self._messages and not self._idempotency.get((sender, client_request_id)):
             raise ValueError("message_id_conflict")
         key = (sender, client_request_id)
@@ -160,12 +174,33 @@ class MessengerBackend:
                 return existing
             raise ValueError("idempotency_conflict")
         sequence = self._next_sequence.get(conversation_id, 0) + 1
-        message = Message(message_id, conversation_id, sender, recipient_ids, body, client_request_id, sequence, set())
-        self._store.save_message_with_idempotency((message.message_id,message.conversation_id,message.sender_ai_id,message.recipient_ai_ids,message.body,message.client_request_id,message.sequence))
+        message = Message(message_id, conversation_id, sender, recipient_ids, body, client_request_id, sequence, set(), normalized_kind, created_at)
+        self._store.save_message_with_idempotency((message.message_id,message.conversation_id,message.sender_ai_id,message.recipient_ai_ids,message.body,message.client_request_id,message.sequence,message.kind,message.created_at_epoch_seconds))
         self._messages[message_id] = message
         self._idempotency[key] = message_id
         self._next_sequence[conversation_id] = sequence
         return message
+
+    def message_expires_at(self, message: Message) -> float:
+        return expires_at(message.created_at_epoch_seconds,
+                          message.kind,
+                          self._conversation_kinds.get(message.conversation_id, CONVERSATION_GROUP))
+
+    def _purge_expired(self):
+        now = time.time()
+        expired = []
+        for message_id, message in list(self._messages.items()):
+            conversation_kind = self._conversation_kinds.get(message.conversation_id, CONVERSATION_GROUP)
+            if is_expired(message.created_at_epoch_seconds, message.kind, conversation_kind, now):
+                expired.append(message_id)
+        for message_id in expired:
+            message = self._messages.pop(message_id, None)
+            if message is None:
+                continue
+            self._store.delete_message(message_id)
+            for key, value in list(self._idempotency.items()):
+                if value == message_id:
+                    self._idempotency.pop(key, None)
 
     @_synchronized
     def attach_audio(self, bearer_token: str, message_id: str, audio_store: AudioBlobStore,
@@ -191,6 +226,7 @@ class MessengerBackend:
 
     @_synchronized
     def list_audio_attachments(self, bearer_token: str, message_id: str):
+        self._purge_expired()
         ai_id = self.authenticate(bearer_token)
         message = self._messages.get(message_id)
         if message is None:
@@ -204,6 +240,7 @@ class MessengerBackend:
     @_synchronized
     def read_audio(self, bearer_token: str, message_id: str, object_id: str,
                    audio_store: AudioBlobStore) -> bytes:
+        self._purge_expired()
         ai_id = self.authenticate(bearer_token)
         message = self._messages.get(message_id)
         if message is None:
@@ -216,6 +253,7 @@ class MessengerBackend:
 
     @_synchronized
     def pending(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50) -> List[Message]:
+        self._purge_expired()
         ai_id = self.authenticate(bearer_token)
         members = self._conversations.get(conversation_id)
         if not members or ai_id not in members:
@@ -227,6 +265,7 @@ class MessengerBackend:
 
     @_synchronized
     def acknowledge(self, bearer_token: str, message_id: str) -> Message:
+        self._purge_expired()
         ai_id = self.authenticate(bearer_token)
         message = self._messages.get(message_id)
         if message is None or ai_id not in message.recipient_ai_ids:
