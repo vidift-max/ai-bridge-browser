@@ -165,7 +165,7 @@ class SQLiteMessengerStore:
         created_at = message[8] if len(message) > 8 else time.time()
         self._connection.execute(
             "INSERT INTO messages(message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence,kind,created_at_epoch_seconds) VALUES(?,?,?,?,?,?,?,?,?)",
-            (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6],message[7],message[8]),
+            (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6],kind,created_at),
         )
         self._connection.commit()
 
