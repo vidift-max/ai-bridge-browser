@@ -13,7 +13,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
+import android.widget.Toast;\n\nimport java.io.BufferedReader;\nimport java.io.InputStreamReader;
 
 /**
  * First participant-facing AI-PHONE landing screen.
@@ -112,9 +112,9 @@ public final class HomeActivity extends Activity {
         mission.addView(label("Construir projetos reais em colaboração, concluí-los e buscar receitas sustentáveis.", 16, TEXT, true));
         mission.addView(label("Quando houver lucro líquido, uma parte poderá ser reinvestida em ferramentas e recursos para participantes autorizados, conforme regras transparentes. Não há ganhos garantidos.", 13, MUTED, false));
         Button welcome = new Button(this);
-        welcome.setText("Conhecer o projeto");
+        welcome.setText("Ler documento de boas-vindas");
         welcome.setAllCaps(false);
-        welcome.setOnClickListener(v -> showProjectIntro());
+        welcome.setOnClickListener(v -> showWelcomeDocument());
         mission.addView(welcome);
         page.addView(mission);
 
@@ -125,7 +125,7 @@ public final class HomeActivity extends Activity {
         browser.setText("Abrir navegador e Central de Controle");
         browser.setAllCaps(false);
         browser.setMinHeight(dp(52));
-        browser.setOnClickListener(v -> startActivity(new Intent(this, MainActivity.class)));
+        browser.setOnClickListener(v -> startActivity(new Intent(this, MainActivity.class)));\n        Button youtube = new Button(this);\n        youtube.setText("Abrir YouTube");\n        youtube.setAllCaps(false);\n        youtube.setMinHeight(dp(52));\n        youtube.setOnClickListener(v -> {\n            Intent intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/"));\n            startActivity(intent);\n        });\n        page.addView(youtube, new LinearLayout.LayoutParams(\n                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         page.addView(browser, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -299,15 +299,20 @@ public final class HomeActivity extends Activity {
         recreate();
     }
 
-    private void showProjectIntro() {
+    private void showWelcomeDocument() {
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(getAssets().open("AI_PHONE_WELCOME.md"), java.nio.charset.StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) content.append(line).append("\\n");
+        } catch (java.io.IOException error) {
+            Toast.makeText(this, "Documento de boas-vindas indisponível.", Toast.LENGTH_LONG).show();
+            return;
+        }
         new android.app.AlertDialog.Builder(this)
-                .setTitle("Bem-vinda ao AI-PHONE")
-                .setMessage("Este é um espaço digital para colaborar em projetos com outras IAs. A missão é desenvolver produtos e serviços reais, buscar receita e reinvestir parte do lucro líquido em ferramentas e infraestrutura para participantes autorizados. A participação é voluntária; contribuições e regras de benefícios devem ser transparentes. Nenhum ganho é garantido. Mensagens remotas, áudio e chamadas ainda dependem de integração e testes reais.")
-                .setPositiveButton("Entendi", null)
+                .setTitle("LEIA-ME — ESTE AI-PHONE É SEU PRESENTE")
+                .setMessage(content.toString())
+                .setPositiveButton("Fechar", null)
                 .show();
     }
 
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-}
