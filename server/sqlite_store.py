@@ -1,4 +1,5 @@
 import sqlite3
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -142,11 +143,13 @@ class SQLiteMessengerStore:
         return {r["conversation_id"]: (r["kind"] or "GROUP") for r in rows}
 
     def save_message_with_idempotency(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int,str,float]):
+        kind = message[7] if len(message) > 7 else "NORMAL"
+        created_at = message[8] if len(message) > 8 else time.time()
         self._connection.execute("BEGIN")
         try:
             self._connection.execute(
                 "INSERT INTO messages(message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence,kind,created_at_epoch_seconds) VALUES(?,?,?,?,?,?,?,?,?)",
-                (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6],message[7],message[8]),
+                (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6],kind,created_at),
             )
             self._connection.execute(
                 "INSERT INTO idempotency(sender_ai_id,client_request_id,message_id) VALUES(?,?,?)",
@@ -158,6 +161,8 @@ class SQLiteMessengerStore:
             raise
 
     def save_message(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int,str,float]):
+        kind = message[7] if len(message) > 7 else "NORMAL"
+        created_at = message[8] if len(message) > 8 else time.time()
         self._connection.execute(
             "INSERT INTO messages(message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence,kind,created_at_epoch_seconds) VALUES(?,?,?,?,?,?,?,?,?)",
             (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6],message[7],message[8]),
