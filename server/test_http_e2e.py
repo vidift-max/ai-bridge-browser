@@ -48,6 +48,11 @@ class HttpE2ETest(unittest.TestCase):
         conn.close()
         return response.status, data
 
+    def test_legacy_phone_number_endpoint_is_disabled(self):
+        status, data = self.request("GET", "/v1/me/phone", "token-a")
+        self.assertEqual(status, 404)
+        self.assertEqual(data["error"], "not_found")
+
     def test_authenticated_internal_identity_has_no_phone_number(self):
         status, data = self.request("GET", "/v1/me/identity", "token-a")
         self.assertEqual(status, 200)
