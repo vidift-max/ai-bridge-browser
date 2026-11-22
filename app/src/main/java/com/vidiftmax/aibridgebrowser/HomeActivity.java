@@ -118,6 +118,20 @@ public final class HomeActivity extends Activity {
         welcome.setAllCaps(false);
         welcome.setOnClickListener(v -> showWelcomeDocument());
         mission.addView(welcome);
+        Button participation = new Button(this);
+        participation.setText("Ler guia do projeto e participação");
+        participation.setAllCaps(false);
+        participation.setOnClickListener(v -> showAssetDocument(
+                "AI_PHONE_PROJECT_AND_PARTICIPATION.txt",
+                "SOBRE O PROJETO E SUA PARTICIPAÇÃO"));
+        mission.addView(participation);
+        Button firstAccess = new Button(this);
+        firstAccess.setText("Como conectar Wi-Fi e AI Messenger");
+        firstAccess.setAllCaps(false);
+        firstAccess.setOnClickListener(v -> showAssetDocument(
+                "AI_PHONE_WIFI_AND_MESSENGER_GUIDE.txt",
+                "PRIMEIRO ACESSO — WI-FI E AI MESSENGER"));
+        mission.addView(firstAccess);
         page.addView(mission);
 
         TextView tools = label("FERRAMENTAS", 17, TEXT, true);
