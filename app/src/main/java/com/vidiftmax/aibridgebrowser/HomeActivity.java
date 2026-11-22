@@ -58,6 +58,25 @@ public final class HomeActivity extends Activity {
         subtitle.setPadding(0, dp(2), 0, dp(18));
         page.addView(subtitle);
 
+        LinearLayout connectivity = card();
+        connectivity.addView(label("CONECTIVIDADE E RECURSOS", 12, ACCENT, true));
+        TextView deviceStatus = label(WifiDeviceDiagnostics.summarize(this), 13, TEXT, false);
+        deviceStatus.setTag("device_diagnostics");
+        connectivity.addView(deviceStatus);
+        Button wifiSettings = new Button(this);
+        wifiSettings.setText("Configurar Wi-Fi no Android");
+        wifiSettings.setAllCaps(false);
+        wifiSettings.setOnClickListener(v -> startActivity(
+                new Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)));
+        connectivity.addView(wifiSettings);
+        Button refreshDevice = new Button(this);
+        refreshDevice.setText("Atualizar diagnóstico");
+        refreshDevice.setAllCaps(false);
+        refreshDevice.setOnClickListener(v -> deviceStatus.setText(WifiDeviceDiagnostics.summarize(this)));
+        connectivity.addView(refreshDevice);
+        connectivity.addView(label("Para reconexão automática, salve a rede e habilite 'Conectar automaticamente' nas configurações do Android. O AI-PHONE não lê senhas nem força conexão sem autorização.", 12, MUTED, false));
+        page.addView(connectivity);
+
         AiPhoneIdentity identityRecord = AiPhoneIdentity.unassigned();
         LinearLayout identity = card();
         TextView identityTitle = label("IDENTIDADE DO DISPOSITIVO", 12, ACCENT, true);
