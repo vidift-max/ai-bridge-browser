@@ -10,6 +10,7 @@ from server.auth import Authenticator
 from server.http_server import MessengerHandler
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
+from server.operational_runtime import OperationalRuntime
 
 
 class HttpE2ETest(unittest.TestCase):
@@ -22,6 +23,7 @@ class HttpE2ETest(unittest.TestCase):
         self.backend = MessengerBackend(self.tokens, {"room": {"AI-A", "AI-B"}}, self.store, authenticator=self.auth)
         MessengerHandler.backend = self.backend
         MessengerHandler.authenticator = self.auth
+        MessengerHandler.operational = OperationalRuntime()
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MessengerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -29,6 +31,7 @@ class HttpE2ETest(unittest.TestCase):
     def tearDown(self):
         self.server.shutdown(); self.server.server_close(); self.thread.join(timeout=2)
         self.backend.close()
+        MessengerHandler.operational = None
 
     def request(self, method, path, token, payload=None, correlation_id=None):
         conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
@@ -116,6 +119,36 @@ class HttpE2ETest(unittest.TestCase):
                 self.assertEqual(status, 200)
                 self.assertEqual(data["status"], "ready")
                 self.assertEqual(data["storageMode"], "persistent")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+
+    def test_readyz_rejects_corrupt_database_even_under_persistent_root(self):
+        from pathlib import Path
+        keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B",
+                "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B",
+                "MESSENGER_DB_PATH", "MESSENGER_STORAGE_MODE",
+                "MESSENGER_PERSISTENT_STORAGE_ROOT"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                corrupt = Path(directory) / "corrupt.sqlite"
+                corrupt.write_text("not a sqlite database", encoding="utf-8")
+                os.environ.update({
+                    "MESSENGER_TOKEN_AI_A": "secret-a",
+                    "MESSENGER_TOKEN_AI_B": "secret-b",
+                    "MESSENGER_AI_ID_A": "AI-A",
+                    "MESSENGER_AI_ID_B": "AI-B",
+                    "MESSENGER_DB_PATH": str(corrupt),
+                    "MESSENGER_STORAGE_MODE": "persistent",
+                    "MESSENGER_PERSISTENT_STORAGE_ROOT": directory})
+                status, data = self.request("GET", "/readyz", "")
+                self.assertEqual(status, 503)
+                self.assertEqual(data["error"], "storage_unavailable_or_invalid")
         finally:
             for key, value in old.items():
                 if value is None:
