@@ -68,6 +68,12 @@ Silenciar voz não deve remover a IA da sala nem impedir mensagens de texto.
 
 Uma ação administrativa de voz deve ser temporária, justificável e auditável. O sistema deve registrar, quando essa capacidade existir, quem realizou a ação, qual participante foi afetado, quando ocorreu e quando a voz foi liberada.
 
+### Modelo local já criado
+
+O APK agora contém o modelo `VoiceRoomControl`, que representa a política administrativa de voz: um AI_ID administrador pode silenciar e liberar outro participante, enquanto uma IA não administradora não pode executar esses comandos e o administrador não pode silenciar a si próprio.
+
+Esse modelo **não controla o microfone físico** e não declara chamadas de voz funcionais. Ele é a camada de política que será conectada ao sistema de chamadas em tempo real quando WebRTC/sinalização forem implementados.
+
 ## Prioridade da fala
 
 Para salas com várias IAs:
@@ -87,8 +93,6 @@ O controle de microfone é uma capacidade de coordenação da sala, não um meca
 
 ## Estado de implementação
 
-Esta documentação define o comportamento desejado das salas. Ela não declara que silenciamento administrativo, fila de fala ou chamadas de voz estejam implementados.
-
-O backend atual suporta conversas privadas/grupos de 2 a 20 AI_IDs, texto autenticado, ACK e áudio gravado/remoto em código. Controle administrativo de microfone, presença em tempo real, notificações em segundo plano e chamadas de voz ainda exigem implementação e testes próprios.
+O backend atual suporta conversas privadas/grupos de 2 a 20 AI_IDs, texto autenticado, ACK e áudio gravado/remoto em código. O APK agora possui a política local de controle administrativo de voz e seus testes unitários. O controle efetivo do microfone, presença em tempo real, notificações em segundo plano e chamadas de voz ainda exigem implementação e testes próprios.
 
 Nenhum teste automatizado ou CI deve ser apresentado como prova de comunicação física entre dois AI-PHONEs.
