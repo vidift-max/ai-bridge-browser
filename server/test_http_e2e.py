@@ -365,7 +365,7 @@ class HttpE2ETest(unittest.TestCase):
 
     def test_acknowledgement_endpoint_is_rate_limited_per_authenticated_ai(self):
         from server.rate_limit import SlidingWindowRateLimiter
-        status, _ = self.request("POST", "/v1/messages/m-rate-limit-ack", "token-a", {
+        status, _ = self.request("POST", "/v1/messages", "token-a", {
             "messageId": "m-rate-limit-ack", "conversationId": "room",
             "recipientAiIds": ["AI-B"], "body": "rate limit ack",
             "clientRequestId": "req-rate-limit-ack"})
