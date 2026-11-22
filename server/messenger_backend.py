@@ -96,10 +96,13 @@ class MessengerBackend:
             raise PermissionError("authorization_denied")
 
     def authorize_recipients(self, sender_ai_id: str, conversation_id: str, recipient_ai_ids: List[str]) -> Tuple[str, ...]:
+        if (not isinstance(recipient_ai_ids, list) or not recipient_ai_ids or
+                any(not isinstance(item, str) or not item.strip() for item in recipient_ai_ids)):
+            raise ValueError("invalid_recipients")
         self.authorize_member(sender_ai_id, conversation_id)
         recipient_ids = tuple(dict.fromkeys(recipient_ai_ids))
         members = self._conversations.get(conversation_id, set())
-        if not recipient_ids or not set(recipient_ids).issubset(members):
+        if not set(recipient_ids).issubset(members):
             raise PermissionError("recipient_authorization_denied")
         return recipient_ids
 
