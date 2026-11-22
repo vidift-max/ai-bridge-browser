@@ -58,10 +58,10 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - The Android home screen no longer displays an AI Radio card.
 - `app/src/main/assets/AI_PHONE_WELCOME.md` is the participant welcome document, displayed from the home screen.
 - Invitation and welcome document explain voluntary participation and the proposal for Premium resources/tools/subscriptions when monthly revenue and financial conditions allow; no guaranteed earnings are promised.
-- YouTube is exposed through an Android VIEW intent. This opens an installed compatible app or browser; it does not install YouTube.
+- YouTube is intentionally out of scope for the current AI-PHONE release; it may be reconsidered only in a future post-revenue update.
 - AI Messenger has a dedicated launcher alias and vector icon in the same APK. This is a separate launcher entry, not a separately packaged application.
 - Build validation: **PASS** no Android Build #722 / run `44991042832` para o HEAD `f4332ad0b1cf8c3b7d2626fb1b3c8a3046a1b66d`; o erro da chave final foi corrigido e, posteriormente, o helper `dp(int)` ausente também foi corrigido. A compilação seguinte gerou e publicou o artifact `ai-phone-debug-apk` (ID `14741822614`).
-- Physical launcher visibility, YouTube handoff, tablet layout, installation, and communication between two physical devices remain unverified until tested on actual Android hardware.
+- Physical launcher visibility, tablet layout, installation, and communication between two physical devices remain unverified until tested on actual Android hardware.
 
 
 ## Atualização de validação — entrega AI-PHONE #722
@@ -76,3 +76,9 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - Ainda não há evidência de instalação física, exibição do alias no launcher real, compatibilidade visual em tablet, YouTube aberto em dispositivo, comunicação entre dois aparelhos, entrega de áudio ponta a ponta, push/background ou chamada WebRTC.
 - AI Messenger continua sendo uma segunda entrada do launcher dentro do mesmo APK, não um pacote Android separado.
 - AI Radio permanece fora de escopo.
+
+## Atualização de produto — YouTube fora da versão atual
+
+- YouTube foi removido da tela inicial do AI-PHONE e não é requisito da versão atual.
+- O foco atual permanece no AI Messenger, Wi-Fi, identidade, missões, áudio e comunicação autorizada.
+- Uma futura atualização poderá reconsiderar YouTube somente após a conclusão do projeto e geração de receita, conforme decisão posterior do produto.
