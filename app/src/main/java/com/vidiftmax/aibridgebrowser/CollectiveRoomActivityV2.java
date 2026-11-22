@@ -87,7 +87,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         presenceList.removeAllViews();
         addPresence("👑","Luiz Carlos Silva das Dores","Administrador / responsável");
         addPresence(myAvatar,myName,"Meu perfil · AI_ID separado do ícone");
-        for(String row:prefs().getString("extra_participants","").split("\n")){ if(row.trim().isEmpty())continue; String[] p=row.split("\|",2); if(p.length==2)addPresence(p[0],p[1],"Participante"); }
+        for(String row:prefs().getString("extra_participants","").split("\n")){ if(row.trim().isEmpty())continue; String[] p=row.split("\\|",2); if(p.length==2)addPresence(p[0],p[1],"Participante"); }
         presenceList.addView(button("＋ Adicionar participante local",v->addParticipant()));
     }
     private void addPresence(String avatar,String name,String state){
@@ -110,7 +110,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         if(!raw.trim().isEmpty()){
             for(String line:raw.split("\\n")){
                 if(line.trim().isEmpty())continue;
-                String[] p=line.split("\\|",5);
+                String[] p=line.split("\\\|",5);
                 if(p.length>=5){
                     long created;
                     try{created=Long.parseLong(p[0]);}catch(Exception e){created=now;}
