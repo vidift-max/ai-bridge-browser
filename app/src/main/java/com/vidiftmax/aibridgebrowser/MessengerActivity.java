@@ -548,10 +548,15 @@ public final class MessengerActivity extends Activity {
     private void showRemoteSettings() {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
+        android.content.SharedPreferences existing = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
         EditText server = new EditText(this);
+        server.setSingleLine(true);
         server.setHint("https://servidor.example");
+        server.setText(existing.getString("base_url", ""));
         EditText ai = new EditText(this);
+        ai.setSingleLine(true);
         ai.setHint("AI_ID autorizado");
+        ai.setText(existing.getString("ai_id", ""));
         EditText token = new EditText(this);
         token.setHint("Token Bearer");
         token.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
@@ -564,11 +569,13 @@ public final class MessengerActivity extends Activity {
                         String url = MessengerRemoteConfig.normalizeBaseUrl(server.getText().toString());
                         String id = MessengerRemoteConfig.validateAiId(ai.getText().toString());
                         String secret = token.getText().toString().trim();
-                        if (secret.isEmpty()) throw new IllegalArgumentException("Token obrigatório.");
+                        if (secret.isEmpty()) secret = new AiPhoneCredentialVault().load(this);
+                        if (secret == null || secret.trim().isEmpty()) throw new IllegalArgumentException("Token obrigatório.");
                         new AiPhoneCredentialVault().save(this, secret);
                         getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).edit()
                                 .putString("base_url", url).putString("ai_id", id).apply();
-                        Toast.makeText(this, "Configuração remota salva com segurança.", Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, "Configuração salva. Validando identidade no servidor…", Toast.LENGTH_LONG).show();
+                        verifyRemoteConnection();
                     } catch (Exception error) {
                         Toast.makeText(this, "Configuração inválida: " + error.getMessage(), Toast.LENGTH_LONG).show();
                     }
@@ -626,8 +633,9 @@ public final class MessengerActivity extends Activity {
             String title = item.optString("title", "Conversa local");
             Button choice = new Button(this);
             choice.setAllCaps(false);
+            boolean remote = item.optBoolean("remote", false);
             choice.setText((id.equals(selectedConversationId) ? "● " : "○ ") +
-                    title + "  ·  LOCAL ONLY");
+                    title + (remote ? "  ·  SERVIDOR" : "  ·  LOCAL"));
             choice.setContentDescription("Abrir conversa local " + title);
             choice.setOnClickListener(v -> {
                 selectedConversationId = id;
@@ -720,9 +728,12 @@ public final class MessengerActivity extends Activity {
             if (MessengerTransportRecord.DIRECTION_OUTBOX.equals(item.optString("direction"))) outbox++;
             if (MessengerTransportRecord.DIRECTION_INBOX.equals(item.optString("direction"))) inbox++;
         }
+        JSONObject selected = selectedConversation();
+        boolean remote = selected != null && selected.optBoolean("remote", false);
         transportSummary.setText(
-                "CAIXAS LOCAIS · saída: " + outbox + " · entrada: " + inbox +
-                " · LOCAL ONLY · nenhum registro comprova entrega remota");
+                (remote ? "TRANSPORTE REMOTO · " : "CAIXAS LOCAIS · ") +
+                "saída: " + outbox + " · entrada: " + inbox +
+                (remote ? " · mensagens remotas exigem sincronização" : " · sem entrega remota"));
     }
 
     private void renderMessages() {
@@ -745,7 +756,9 @@ public final class MessengerActivity extends Activity {
             String stamp = time > 0 ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
                     .format(new Date(time)) : "horário indisponível";
             String localState = item.optString("localState", MessengerLocalState.SAVED_LOCAL);
-            bubble.addView(text(stamp + " · LOCAL ONLY · " + localState, 11, ACCENT, true));
+            String transportLabel = item.optString("status", "").contains("SERVER") ||
+                    item.optString("status", "").contains("QUEUED") ? "SERVIDOR" : "LOCAL";
+            bubble.addView(text(stamp + " · " + transportLabel + " · " + localState, 11, ACCENT, true));
             if (MessengerLocalState.SAVED_LOCAL.equals(localState)) {
                 Button read = new Button(this);
                 read.setText("Marcar como lida localmente");
