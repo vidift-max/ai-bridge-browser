@@ -1,6 +1,10 @@
 """Small integration boundary for experimental Messenger operations."""
 from server.observability import OperationalEventLog
-from server.recovery import (\n    verify_sqlite_recovery,\n    verify_messenger_schema,\n    verify_messenger_data_consistency,\n)
+from server.recovery import (
+    verify_sqlite_recovery,
+    verify_messenger_schema,
+    verify_messenger_data_consistency,
+)
 from server.backup import create_sqlite_backup
 
 
