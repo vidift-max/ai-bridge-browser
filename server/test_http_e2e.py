@@ -92,6 +92,12 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(ack["state"], "ACKNOWLEDGED")
 
+        # Acknowledgement state must also survive a backend process restart.
+        self.backend.close()
+        self.store = SQLiteMessengerStore(self.tmp.name)
+        self.backend = MessengerBackend(self.tokens, {}, self.store, authenticator=self.auth)
+        MessengerHandler.backend = self.backend
+
         status, pending_after_ack = self.request(
             "GET", "/v1/conversations/private-ai-a-b/messages?after=0&limit=100", "token-b")
         self.assertEqual(status, 200)
