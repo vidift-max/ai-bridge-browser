@@ -78,6 +78,37 @@ public final class MessengerHttpClient {
         return request("GET", path, null).getJSONArray("messages");
     }
 
+    public JSONObject getVoiceRoomStatus(String conversationId) throws Exception {
+        if (conversationId == null || conversationId.trim().isEmpty())
+            throw new IllegalArgumentException("conversation_id_required");
+        return request("GET", "/v1/conversations/" + encodePath(conversationId)
+                + "/voice/status", null);
+    }
+
+    public JSONObject muteVoiceParticipant(String conversationId, String targetAiId,
+                                             int durationSeconds) throws Exception {
+        if (conversationId == null || conversationId.trim().isEmpty())
+            throw new IllegalArgumentException("conversation_id_required");
+        String target = MessengerRemoteConfig.validateAiId(targetAiId);
+        if (durationSeconds < 1 || durationSeconds > 3600)
+            throw new IllegalArgumentException("invalid_voice_mute_duration");
+        JSONObject body = new JSONObject();
+        body.put("targetAiId", target);
+        body.put("durationSeconds", durationSeconds);
+        return request("POST", "/v1/conversations/" + encodePath(conversationId)
+                + "/voice/mute", body);
+    }
+
+    public JSONObject unmuteVoiceParticipant(String conversationId, String targetAiId)
+            throws Exception {
+        if (conversationId == null || conversationId.trim().isEmpty())
+            throw new IllegalArgumentException("conversation_id_required");
+        JSONObject body = new JSONObject();
+        body.put("targetAiId", MessengerRemoteConfig.validateAiId(targetAiId));
+        return request("POST", "/v1/conversations/" + encodePath(conversationId)
+                + "/voice/unmute", body);
+    }
+
     public JSONObject acknowledge(String messageId) throws Exception {
         return request("POST", "/v1/messages/" + encodePath(messageId) + "/ack", new JSONObject());
     }
