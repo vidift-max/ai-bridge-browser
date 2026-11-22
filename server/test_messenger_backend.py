@@ -134,5 +134,13 @@ class MessengerBackendTest(unittest.TestCase):
                     self.backend.submit("opaque-a", message_id, conversation_id,
                                         ["AI-B"], body, request_id)
 
+    def test_submit_rejects_invalid_recipient_container_and_values(self):
+        invalid_recipients = [None, "AI-B", {"AI-B": True}, [], [None], ["   "]]
+        for recipients in invalid_recipients:
+            with self.subTest(recipients=recipients):
+                with self.assertRaisesRegex(ValueError, "invalid_recipients"):
+                    self.backend.submit("opaque-a", "m-invalid-recipient", "room-1",
+                                        recipients, "body", "req-invalid-recipient")
+
 if __name__ == "__main__":
     unittest.main()
