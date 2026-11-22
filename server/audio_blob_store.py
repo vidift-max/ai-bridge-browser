@@ -37,6 +37,8 @@ class StoredAudio:
 
 
 class AudioBlobStore:
+    MAX_AUDIO_BYTES = MAX_AUDIO_BYTES
+
     """Stores opaque audio blobs under a dedicated local directory."""
 
     def __init__(self, root: str | os.PathLike[str], max_bytes: int = MAX_AUDIO_BYTES):
