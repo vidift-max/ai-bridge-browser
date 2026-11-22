@@ -326,4 +326,4 @@ public final class HomeActivity extends Activity {
                 .setPositiveButton("Fechar", null)
                 .show();
     }
-
+}
