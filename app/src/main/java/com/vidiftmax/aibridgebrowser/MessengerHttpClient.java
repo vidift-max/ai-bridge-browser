@@ -130,15 +130,20 @@ public final class MessengerHttpClient {
             if (status < 200 || status >= 300) throw httpError(connection, status);
             java.io.File parent = destination.getParentFile();
             if (parent != null && !parent.exists() && !parent.mkdirs()) throw new java.io.IOException("audio_destination_unavailable");
-            try (InputStream in = connection.getInputStream(); java.io.FileOutputStream out = new java.io.FileOutputStream(destination)) {
-                byte[] buffer = new byte[8192];
-                long total = 0;
-                int count;
-                while ((count = in.read(buffer)) != -1) {
-                    total += count;
-                    if (total > 5L * 1024L * 1024L) throw new java.io.IOException("audio_download_too_large");
-                    out.write(buffer, 0, count);
+            try {
+                try (InputStream in = connection.getInputStream(); java.io.FileOutputStream out = new java.io.FileOutputStream(destination)) {
+                    byte[] buffer = new byte[8192];
+                    long total = 0;
+                    int count;
+                    while ((count = in.read(buffer)) != -1) {
+                        total += count;
+                        if (total > 5L * 1024L * 1024L) throw new java.io.IOException("audio_download_too_large");
+                        out.write(buffer, 0, count);
+                    }
                 }
+            } catch (Exception error) {
+                if (destination.isFile()) destination.delete();
+                throw error;
             }
             return destination;
         } finally {
