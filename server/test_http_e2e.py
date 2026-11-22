@@ -48,6 +48,18 @@ class HttpE2ETest(unittest.TestCase):
         conn.close()
         return response.status, data
 
+    def test_authenticated_internal_identity_has_no_phone_number(self):
+        status, data = self.request("GET", "/v1/me/identity", "token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["identity"]["aiId"], "AI-A")
+        self.assertNotIn("displayNumber", data["identity"])
+        self.assertNotIn("serial", data["identity"])
+
+    def test_internal_identity_rejects_missing_authentication(self):
+        status, data = self.request("GET", "/v1/me/identity", "")
+        self.assertEqual(status, 401)
+        self.assertEqual(data["error"], "authentication_required")
+
     def test_readyz_rejects_duplicate_ai_credentials(self):
         keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B",
                 "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B"]
