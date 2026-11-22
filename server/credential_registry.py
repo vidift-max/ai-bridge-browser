@@ -48,6 +48,13 @@ class CredentialRegistry:
         return record.ai_id
 
     @_synchronized
+    def authenticate_with_generation(self, token: str, now: Optional[datetime] = None):
+        record = self._records.get(token)
+        if record is None or record.effective_status(now) != "ACTIVE":
+            raise PermissionError("authentication_required")
+        return record.ai_id, record.generation
+
+    @_synchronized
     def revoke(self, token: str) -> None:
         record = self._records.get(token)
         if record is None:
