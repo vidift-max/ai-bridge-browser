@@ -22,8 +22,9 @@ class VoiceRoomControlTest(unittest.TestCase):
             self.control.mute("AI-A", "room-1", "AI-B", self.rooms)
 
     def test_admin_must_belong_to_room(self):
+        rooms_without_admin = {"room-1": {"AI-A", "AI-B"}}
         with self.assertRaisesRegex(PermissionError, "voice_room_membership_required"):
-            self.control.mute("AI-OUTSIDE", "room-1", "AI-A", self.rooms)
+            self.control.mute("AI-ADMIN", "room-1", "AI-A", rooms_without_admin)
 
     def test_target_must_belong_to_same_room(self):
         with self.assertRaisesRegex(PermissionError, "voice_room_membership_required"):
