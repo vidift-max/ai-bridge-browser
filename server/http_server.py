@@ -8,6 +8,7 @@ from server.sqlite_store import SQLiteMessengerStore
 from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
 from server.request_context import authenticate_request, bearer_token
 from server.audio_blob_store import AudioBlobStore
+from pathlib import Path
 
 
 def _unique_json_object(pairs):
@@ -245,7 +246,7 @@ def serve(host="127.0.0.1",port=8080):
     MessengerHandler.authenticator=authenticator
     from server.operational_runtime import OperationalRuntime
     MessengerHandler.operational=OperationalRuntime()
-    MessengerHandler.audio_store=AudioBlobStore(str(RuntimeConfig.storage_path()) + "/audio")
+    MessengerHandler.audio_store=AudioBlobStore(str(Path(RuntimeConfig.storage_path()).resolve().parent / "audio"))
     server = ThreadingHTTPServer((host, port), MessengerHandler)
     server.daemon_threads = True
     try:
