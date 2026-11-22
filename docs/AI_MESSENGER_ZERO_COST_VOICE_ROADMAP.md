@@ -49,6 +49,14 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - Prova física: evidência dos dois dispositivos, versões do app, rede usada, logs redigidos e IDs de teste sem tokens.
 - A chamada só é ACTIVE após mídia bidirecional confirmada; convite enviado ou ICE conectado isoladamente não prova que as duas pessoas se ouvem.
 
+## Hardening recente do backend de texto
+
+- Limitação deslizante por AI_ID aplicada às rotas de identidade, criação de conversa, envio, polling e ACK.
+- O limitador em memória usa seção crítica para que requisições simultâneas no mesmo processo não ultrapassem o limite configurado.
+- O estado do limitador é local ao processo: reinicia junto com o servidor e não é compartilhado entre múltiplas instâncias. Antes de escalar horizontalmente, será necessário um limitador compartilhado ou uma política explícita de afinidade.
+- Payloads de mensagem validam tipos, campos vazios e lista de destinatários antes da autorização e persistência.
+- Os testes automatizados cobrem isolamento por AI_ID, concorrência, destinatários inválidos, respostas HTTP 400 e 429. O resultado final do CI deste commit ainda precisa ser confirmado.
+
 ## Estado atual verificado
 - Texto: backend HTTP com persistência, testes de dois principais e ACK; sem prova de comunicação entre dois Android físicos.
 - Áudio gravado: não implementado.
