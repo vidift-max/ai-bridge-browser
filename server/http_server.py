@@ -7,6 +7,7 @@ from server.runtime_config import RuntimeConfig
 from server.sqlite_store import SQLiteMessengerStore
 from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
 from server.request_context import authenticate_request, bearer_token
+from server.audio_blob_store import AudioBlobStore
 
 
 def _unique_json_object(pairs):
@@ -27,6 +28,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     authenticator=None
     rate_limiter=SlidingWindowRateLimiter()
     operational=None
+    audio_store=None
 
     def _auth(self):
         return bearer_token(self.headers)
@@ -104,6 +106,26 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         parsed = urlsplit(self.path)
         parts=parsed.path.split("/")
+        if len(parts) == 6 and parts[1:3] == ["v1", "messages"] and parts[4] == "audio" and parts[3] and parts[5]:
+            try:
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                data=self.backend.read_audio(self._auth(),parts[3],parts[5],self.audio_store)
+                self.send_response(200)
+                self.send_header("Content-Type","application/octet-stream")
+                self.send_header("Cache-Control","no-store")
+                self.send_header("Content-Length",str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
+            except (ValueError,FileNotFoundError):
+                self._json(404,{"error":"not_found"})
+            return
         if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages":
             try:
                 identity=self._principal()
@@ -168,6 +190,32 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (KeyError,TypeError,ValueError,json.JSONDecodeError):
                 self._json(400,{"error":"invalid_request"})
             return
+        audio_path = urlsplit(self.path).path
+        audio_parts = audio_path.split("/")
+        if len(audio_parts) == 5 and audio_parts[1:3] == ["v1", "messages"] and audio_parts[4] == "audio" and audio_parts[3]:
+            try:
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                content_type=self.headers.get("Content-Type","").split(";")[0].lower()
+                raw_length=self.headers.get("Content-Length","")
+                length=int(raw_length)
+                if length < 1 or length > AudioBlobStore.MAX_AUDIO_BYTES:
+                    raise ValueError("invalid_audio_length")
+                data=self.rfile.read(length)
+                if len(data) != length:
+                    raise ValueError("invalid_audio_length")
+                attachment=self.backend.attach_audio(self._auth(),audio_parts[3],self.audio_store,data,content_type)
+                self._audit(identity,"AUDIO_ATTACHED",attachment.object_id,message_id=attachment.message_id,size=str(attachment.size))
+                self._json(201,{"attachment":{"objectId":attachment.object_id,"messageId":attachment.message_id,"contentType":attachment.content_type,"size":attachment.size,"sha256":attachment.sha256},"correlationId":identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
+            except (TypeError,ValueError,KeyError):
+                self._json(400,{"error":"invalid_audio"})
+            return
         ack_path = urlsplit(self.path).path
         ack_parts = ack_path.split("/")
         if len(ack_parts) == 5 and ack_parts[1:3] == ["v1", "messages"] and ack_parts[4] == "ack" and ack_parts[3]:
@@ -197,6 +245,7 @@ def serve(host="127.0.0.1",port=8080):
     MessengerHandler.authenticator=authenticator
     from server.operational_runtime import OperationalRuntime
     MessengerHandler.operational=OperationalRuntime()
+    MessengerHandler.audio_store=AudioBlobStore(str(RuntimeConfig.storage_path()) + "/audio")
     server = ThreadingHTTPServer((host, port), MessengerHandler)
     server.daemon_threads = True
     try:
