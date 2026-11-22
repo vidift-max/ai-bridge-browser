@@ -30,6 +30,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     rate_limiter=SlidingWindowRateLimiter()
     operational=None
     audio_store=None
+    voice_control=None
 
     def _auth(self):
         return bearer_token(self.headers)
@@ -167,6 +168,43 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        voice_path = urlsplit(self.path).path.split("/")
+        if (len(voice_path) == 6 and voice_path[1:3] == ["v1", "conversations"]
+                and voice_path[4] == "voice" and voice_path[5] in ("mute", "unmute")
+                and voice_path[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.voice_control is None:
+                    self._json(503, {"error": "voice_admin_control_unavailable"})
+                    return
+                payload = self._read_json()
+                target_ai_id = payload.get("targetAiId")
+                action = voice_path[5]
+                if action == "mute":
+                    result = self.voice_control.mute(
+                        principal.ai_id, voice_path[3], target_ai_id,
+                        self.backend.conversation_members())
+                    event_type = "VOICE_PARTICIPANT_MUTED"
+                else:
+                    result = self.voice_control.unmute(
+                        principal.ai_id, voice_path[3], target_ai_id,
+                        self.backend.conversation_members())
+                    event_type = "VOICE_PARTICIPANT_UNMUTED"
+                self._audit(identity, event_type, voice_path[3],
+                            target_ai_id=target_ai_id)
+                self._json(200, {"voiceControl": result,
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError):
+                self._json(400, {"error": "invalid_voice_control_request"})
+            return
         if self.path=="/v1/conversations":
             try:
                 identity=self._principal()
@@ -263,10 +301,13 @@ class MessengerHandler(BaseHTTPRequestHandler):
 def serve(host="127.0.0.1",port=8080):
     tokens=RuntimeConfig.auth_tokens()
     authenticator=Authenticator(tokens)
+    from server.voice_room_control import VoiceRoomControl
+    voice_control=VoiceRoomControl(RuntimeConfig.voice_admin_ids(tokens))
     store=SQLiteMessengerStore(RuntimeConfig.storage_path())
     backend=MessengerBackend(tokens,{"default":set(tokens.values())},store,authenticator=authenticator)
     MessengerHandler.backend=backend
     MessengerHandler.authenticator=authenticator
+    MessengerHandler.voice_control=voice_control
     from server.operational_runtime import OperationalRuntime
     MessengerHandler.operational=OperationalRuntime()
     MessengerHandler.audio_store=AudioBlobStore(str(Path(RuntimeConfig.storage_path()).resolve().parent / "audio"))
