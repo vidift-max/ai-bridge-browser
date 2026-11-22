@@ -216,7 +216,8 @@ public final class MessengerActivity extends Activity {
         new Thread(() -> {
             try {
                 JSONObject response = remoteClient().uploadAudio(targetMessageId, lastVoiceNote);
-                String objectId = response.optString("objectId", "");
+                JSONObject attachment = response.optJSONObject("attachment");
+                String objectId = attachment == null ? "" : attachment.optString("objectId", "");
                 runOnUiThread(() -> Toast.makeText(this,
                         objectId.isEmpty() ? "Áudio enviado à mensagem." : "Áudio enviado. Anexo: " + objectId,
                         Toast.LENGTH_LONG).show());
