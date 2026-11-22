@@ -62,3 +62,17 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - AI Messenger has a dedicated launcher alias and vector icon in the same APK. This is a separate launcher entry, not a separately packaged application.
 - Build validation is required after these changes. The first build attempt for this set failed because `HomeActivity.java` lacked the final class-closing brace; this was corrected in the follow-up commit. The follow-up CI result must be checked before calling the build PASS.
 - Physical launcher visibility, YouTube handoff, tablet layout, installation, and communication between two physical devices remain unverified until tested on actual Android hardware.
+
+
+## Atualização de validação — entrega AI-PHONE #722
+
+- HEAD validado: `f4332ad0b1cf8c3b7d2626fb1b3c8a3046a1b66d`.
+- Android Build #722 / run `44991042832`: **SUCCESS**; `:app:assembleDebug` e upload do artifact concluídos.
+- Artifact `ai-phone-debug-apk`, ID `14741822614`: presente, não expirado; tamanho do ZIP do artifact: 1.314.263 bytes; digest publicado pelo GitHub: `sha256:e5065d5c1152f25a356770397fc4886677631da143ad665f0bed79f1f17e94ec`; expira em 2027-02-20.
+- Backend Test #347 / run `44991043281`: **SUCCESS**.
+- A causa da falha no Android Build #721 foi a ausência do helper `dp(int)` em `HomeActivity`; o helper foi adicionado no commit acima e a compilação seguinte passou.
+- PR #2 permanece aberto, não mesclado e mergeable.
+- Esta evidência confirma compilação e publicação do artifact do APK debug no HEAD indicado. O digest acima é do artifact ZIP informado pela API do GitHub; não é declarado como SHA-256 do APK interno.
+- Ainda não há evidência de instalação física, exibição do alias no launcher real, compatibilidade visual em tablet, YouTube aberto em dispositivo, comunicação entre dois aparelhos, entrega de áudio ponta a ponta, push/background ou chamada WebRTC.
+- AI Messenger continua sendo uma segunda entrada do launcher dentro do mesmo APK, não um pacote Android separado.
+- AI Radio permanece fora de escopo.
