@@ -27,7 +27,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] not in ("1", "2"):
+    if not version_row or version_row[0] not in ("1", "2", "3"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     required_columns = {
         "schema_meta": {"key", "value"},
@@ -40,6 +40,10 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         "acknowledgements": {"message_id", "ai_id"},
         "audio_attachments": {"object_id", "message_id", "conversation_id", "sender_ai_id", "content_type", "size", "sha256", "created_at"},
     }
+    if version_row[0] == "3":
+        required_columns["voice_mutes"] = {
+            "conversation_id", "ai_id", "muted_by_ai_id", "expires_at",
+        }
     for table, expected in required_columns.items():
         rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
         if not expected.issubset({row[1] for row in rows}):
@@ -132,6 +136,21 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
         target = messages.get(row["message_id"])
         if target is None or row["ai_id"] not in target[4]:
             return False, "RESTORE_DATA_ACKNOWLEDGEMENT_INVALID"
+
+    version_row = connection.execute(
+        "SELECT value FROM schema_meta WHERE key='version'"
+    ).fetchone()
+    if version_row and version_row[0] == "3":
+        for row in connection.execute(
+            "SELECT conversation_id, ai_id, muted_by_ai_id, expires_at FROM voice_mutes"
+        ):
+            members = conversations.get(row["conversation_id"])
+            if (members is None or row["ai_id"] not in members
+                    or row["muted_by_ai_id"] not in members
+                    or row["ai_id"] == row["muted_by_ai_id"]
+                    or not isinstance(row["expires_at"], (int, float))
+                    or row["expires_at"] <= 0):
+                return False, "RESTORE_DATA_VOICE_MUTE_INVALID"
 
     for row in connection.execute(
         "SELECT object_id, message_id, conversation_id, sender_ai_id, content_type, size, sha256 "
