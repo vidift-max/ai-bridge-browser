@@ -1,7 +1,17 @@
 from dataclasses import dataclass
+from functools import wraps
+from threading import RLock
 from typing import Dict, List, Set, Tuple
 from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
+
+def _synchronized(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapped
+
 
 @dataclass(frozen=True)
 class Message:
@@ -20,6 +30,7 @@ class MessengerBackend:
     MAX_ROOM_MEMBERS = 20
 
     def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None):
+        self._lock = RLock()
         self._tokens = dict(tokens)
         self._known_ai_ids = set(tokens.values())
         self._authenticator = authenticator or Authenticator(tokens)
@@ -46,6 +57,7 @@ class MessengerBackend:
             self._idempotency[(msg.sender_ai_id, msg.client_request_id)] = msg.message_id
             self._next_sequence[msg.conversation_id] = max(self._next_sequence.get(msg.conversation_id,0), msg.sequence)
 
+    @_synchronized
     def close(self):
         self._store.close()
 
@@ -64,6 +76,7 @@ class MessengerBackend:
             raise PermissionError("stale_authenticated_principal")
         return current.ai_id
 
+    @_synchronized
     def create_conversation(self, bearer_token: str, conversation_id: str,
                             member_ai_ids: List[str], kind: str = "GROUP") -> Dict[str, object]:
         creator = self.authenticate(bearer_token)
@@ -106,6 +119,7 @@ class MessengerBackend:
             raise PermissionError("recipient_authorization_denied")
         return recipient_ids
 
+    @_synchronized
     def submit(self, bearer_token: str, message_id: str, conversation_id: str,
                recipient_ai_ids: List[str], body: str, client_request_id: str) -> Message:
         sender = self.authenticate(bearer_token)
@@ -135,6 +149,7 @@ class MessengerBackend:
         self._next_sequence[conversation_id] = sequence
         return message
 
+    @_synchronized
     def pending(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50) -> List[Message]:
         ai_id = self.authenticate(bearer_token)
         members = self._conversations.get(conversation_id)
@@ -145,6 +160,7 @@ class MessengerBackend:
         pending = [m for m in self._messages.values() if m.conversation_id == conversation_id and m.sequence > after_sequence and ai_id in m.recipient_ai_ids and ai_id not in m.acknowledged_by]
         return sorted(pending, key=lambda m: m.sequence)[:limit]
 
+    @_synchronized
     def acknowledge(self, bearer_token: str, message_id: str) -> Message:
         ai_id = self.authenticate(bearer_token)
         message = self._messages.get(message_id)
