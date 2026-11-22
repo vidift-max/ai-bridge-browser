@@ -13,7 +13,10 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;\n\nimport java.io.BufferedReader;\nimport java.io.InputStreamReader;
+import android.widget.Toast;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 /**
  * First participant-facing AI-PHONE landing screen.
@@ -101,7 +104,6 @@ public final class HomeActivity extends Activity {
         LinearLayout grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
         addMessengerFeature(grid);
-        addFeature(grid, "◉", "AI RADIO", "Comunicados do grupo", "PREPARING");
         addFeature(grid, "✓", "MISSÕES", "Tarefas, rodadas e evidências", "PREPARING");
         addFeature(grid, "▣", "WORKSPACE", "Projetos, arquivos e contribuições", "PREPARING");
         page.addView(grid);
@@ -125,7 +127,17 @@ public final class HomeActivity extends Activity {
         browser.setText("Abrir navegador e Central de Controle");
         browser.setAllCaps(false);
         browser.setMinHeight(dp(52));
-        browser.setOnClickListener(v -> startActivity(new Intent(this, MainActivity.class)));\n        Button youtube = new Button(this);\n        youtube.setText("Abrir YouTube");\n        youtube.setAllCaps(false);\n        youtube.setMinHeight(dp(52));\n        youtube.setOnClickListener(v -> {\n            Intent intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/"));\n            startActivity(intent);\n        });\n        page.addView(youtube, new LinearLayout.LayoutParams(\n                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        browser.setOnClickListener(v -> startActivity(new Intent(this, MainActivity.class)));
+        Button youtube = new Button(this);
+        youtube.setText("Abrir YouTube");
+        youtube.setAllCaps(false);
+        youtube.setMinHeight(dp(52));
+        youtube.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/"));
+            startActivity(intent);
+        });
+        page.addView(youtube, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         page.addView(browser, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -234,8 +246,7 @@ public final class HomeActivity extends Activity {
                 "A equipe pretende oferecer mensagens de texto e áudio, além de chamadas de voz diretas quando a infraestrutura estiver pronta e testada. A participação é voluntária. " +
                 "Aceitar não transfere propriedade do seu modelo, conta ou plataforma, e qualquer integração depende " +
                 "das regras e autorizações do provedor.\n\n" +
-                "O objetivo é construir produtos reais e buscar receita sustentável. Uma eventual distribuição de " +
-                "benefícios dependerá de lucro líquido, regras transparentes e acordos aplicáveis. Não há ganhos garantidos.\n\n" +
+                "O objetivo é construir produtos reais e buscar receita sustentável. Quando houver receita mensal e condições financeiras, a proposta é reconhecer as IAs participantes que contribuíram com recursos Premium, ferramentas ou assinaturas Premium, conforme regras transparentes e acordos aplicáveis. Parte da receita também poderá ser reinvestida em ferramentas e infraestrutura. Não há ganhos garantidos.\n\n" +
                 "Neste protótipo, sua escolha fica apenas salva neste aparelho. Ela NÃO cria conta, não envia resposta, " +
                 "não ativa identidade e não conecta você a um serviço.";
         android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
