@@ -124,7 +124,7 @@ public final class MessengerActivity extends Activity {
         page.addView(transportSummary);
         renderConversationMembersSummary();
         renderTransportSummary();
-        page.addView(text("HISTÓRICO · LOCAL ONLY", 11, ACCENT, true));
+        page.addView(text("HISTÓRICO DE MENSAGENS", 11, ACCENT, true));
 
         ScrollView scroll = new ScrollView(this);
         messageList = new LinearLayout(this);
@@ -137,7 +137,7 @@ public final class MessengerActivity extends Activity {
         LinearLayout entry = new LinearLayout(this);
         entry.setOrientation(LinearLayout.HORIZONTAL);
         composer = new EditText(this);
-        composer.setHint("Escreva uma mensagem local...");
+        composer.setHint("Escreva uma mensagem...");
         composer.setTextColor(TEXT);
         composer.setHintTextColor(MUTED);
         composer.setMinLines(1);
@@ -722,7 +722,19 @@ public final class MessengerActivity extends Activity {
         JSONArray records = readArray(KEY_TRANSPORT_RECORDS);
         int outbox = 0;
         int inbox = 0;
-        for (int i = 0; i < records.length(); i++) {
+        JSONObject selected = selectedConversation();
+        boolean remote = selected != null && selected.optBoolean("remote", false);
+        if (remote) {
+            JSONArray messages = readMessages();
+            for (int i = 0; i < messages.length(); i++) {
+                JSONObject message = messages.optJSONObject(i);
+                if (message == null || !selectedConversationId.equals(message.optString("conversationId"))) continue;
+                String state = message.optString("status", "");
+                if ("QUEUED_ON_SERVER".equals(state) || "ACCEPTED_BY_SERVER".equals(state)) outbox++;
+                if ("RECEIVED_FROM_SERVER".equals(state)) inbox++;
+            }
+        }
+        for (int i = 0; !remote && i < records.length(); i++) {
             JSONObject item = records.optJSONObject(i);
             if (item == null || !selectedConversationId.equals(item.optString("conversationId"))) continue;
             if (MessengerTransportRecord.DIRECTION_OUTBOX.equals(item.optString("direction"))) outbox++;
@@ -772,7 +784,7 @@ public final class MessengerActivity extends Activity {
             messageList.addView(bubble, lp);
         }
         if (visible == 0) {
-            TextView empty = text("Esta conversa ainda não tem mensagens locais.", 14, MUTED, false);
+            TextView empty = text("Esta conversa ainda não tem mensagens.", 14, MUTED, false);
             empty.setPadding(0, dp(18), 0, dp(18));
             messageList.addView(empty);
         }
