@@ -172,6 +172,11 @@ public final class MessengerActivity extends Activity {
         voice.addView(play, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         page.addView(voice);
         page.addView(text("ÁUDIO: gravação local exige permissão explícita; upload remoto só ocorre em conversa remota autenticada.", 10, MUTED, false));
+        Button uploadVoice = new Button(this);
+        uploadVoice.setText("Enviar último áudio à mensagem remota");
+        uploadVoice.setAllCaps(false);
+        uploadVoice.setOnClickListener(v -> uploadLastVoiceNote());
+        page.addView(uploadVoice);
         Button clear = new Button(this);
         clear.setText("Apagar mensagens desta conversa");
         clear.setAllCaps(false);
@@ -181,6 +186,44 @@ public final class MessengerActivity extends Activity {
         renderConversations();
         renderParticipants();
         renderMessages();
+    }
+
+    private void uploadLastVoiceNote() {
+        if (lastVoiceNote == null || !lastVoiceNote.isFile()) {
+            Toast.makeText(this, "Grave um áudio primeiro.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        JSONObject conversation = selectedConversation();
+        if (conversation == null || !conversation.optBoolean("remote", false)) {
+            Toast.makeText(this, "Selecione uma conversa remota antes do upload.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        JSONArray messages = readMessages();
+        String messageId = null;
+        for (int i = messages.length() - 1; i >= 0; i--) {
+            JSONObject item = messages.optJSONObject(i);
+            if (item != null && selectedConversationId.equals(item.optString("conversationId"))
+                    && item.optString("messageId").trim().length() > 0) {
+                messageId = item.optString("messageId");
+                break;
+            }
+        }
+        if (messageId == null) {
+            Toast.makeText(this, "Envie uma mensagem de texto remota antes de anexar o áudio.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final String targetMessageId = messageId;
+        new Thread(() -> {
+            try {
+                JSONObject response = remoteClient().uploadAudio(targetMessageId, lastVoiceNote);
+                String objectId = response.optString("objectId", "");
+                runOnUiThread(() -> Toast.makeText(this,
+                        objectId.isEmpty() ? "Áudio enviado à mensagem." : "Áudio enviado. Anexo: " + objectId,
+                        Toast.LENGTH_LONG).show());
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this, "Upload de áudio falhou: " + remoteError(error), Toast.LENGTH_LONG).show());
+            }
+        }).start();
     }
 
     private void startVoiceRecording() {
