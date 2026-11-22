@@ -1,6 +1,6 @@
 """Small integration boundary for experimental Messenger operations."""
 from server.observability import OperationalEventLog
-from server.recovery import verify_sqlite_recovery
+from server.recovery import (\n    verify_sqlite_recovery,\n    verify_messenger_schema,\n    verify_messenger_data_consistency,\n)
 from server.backup import create_sqlite_backup
 
 
@@ -20,7 +20,13 @@ class OperationalRuntime:
         )
 
     def check_storage(self, path: str, *, correlation_id=None):
-        ok, code = verify_sqlite_recovery(path)
+        checks = (
+            verify_sqlite_recovery(path),
+            verify_messenger_schema(path),
+            verify_messenger_data_consistency(path),
+        )
+        ok, code = next(((False, result[1]) for result in checks if not result[0]),
+                        (True, "STORAGE_RECOVERY_OK"))
         self.record(
             "STORAGE_RECOVERY_CHECK",
             correlation_id=correlation_id,
