@@ -51,6 +51,46 @@ class IdentityRegistryHttpTest(unittest.TestCase):
         except HTTPError as error:
             return error.code, json.loads(error.read())
 
+    def post(self, path, payload, token=None):
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = "Bearer " + token
+        request = Request(self.base + path, data=json.dumps(payload).encode("utf-8"),
+                          headers=headers, method="POST")
+        try:
+            with urlopen(request, timeout=3) as response:
+                return response.status, json.loads(response.read())
+        except HTTPError as error:
+            return error.code, json.loads(error.read())
+
+    def test_authenticated_group_creation_returns_room(self):
+        status, result = self.post("/v1/conversations", {
+            "conversationId": "team-alpha",
+            "kind": "GROUP",
+            "memberAiIds": ["AI-ALPHA", "AI-BRAVO"]
+        }, "secret-alpha")
+        self.assertEqual(status, 201)
+        self.assertEqual(result["conversation"]["memberCount"], 2)
+        self.assertEqual(result["conversation"]["kind"], "GROUP")
+
+    def test_conversation_creation_requires_authentication(self):
+        status, result = self.post("/v1/conversations", {
+            "conversationId": "private-alpha",
+            "kind": "PRIVATE",
+            "memberAiIds": ["AI-ALPHA", "AI-BRAVO"]
+        })
+        self.assertEqual(status, 401)
+        self.assertEqual(result["error"], "authentication_required")
+
+    def test_conversation_creation_rejects_unknown_ai(self):
+        status, result = self.post("/v1/conversations", {
+            "conversationId": "team-unknown",
+            "kind": "GROUP",
+            "memberAiIds": ["AI-ALPHA", "AI-UNKNOWN"]
+        }, "secret-alpha")
+        self.assertEqual(status, 400)
+        self.assertEqual(result["error"], "invalid_conversation")
+
     def test_authenticated_self_registration_is_idempotent(self):
         status, first = self.get("/v1/me/phone", "secret-alpha")
         again_status, again = self.get("/v1/me/phone", "secret-alpha")
