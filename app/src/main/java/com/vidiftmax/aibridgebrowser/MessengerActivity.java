@@ -627,7 +627,7 @@ public final class MessengerActivity extends Activity {
                         item.put("body",remote.optString("body",""));
                         item.put("sequence",remote.optInt("sequence"));
                         item.put("createdAtEpochMs",System.currentTimeMillis());
-                        item.put("status","RECEIVED_FROM_SERVER"); item.put("localState","SERVER_RECEIVED");
+                        item.put("status","RECEIVED_FROM_SERVER"); item.put("localState","SERVER_RECEIVED"); item.put("remoteMessage",true);
                         all.put(item);
                         boolean persisted=prefs().edit().putString(KEY_MESSAGES,all.toString()).commit();
                         if(!persisted) throw new IllegalStateException("local_message_persistence_failed_before_ack");
