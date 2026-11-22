@@ -159,3 +159,12 @@ This is an operator-declared path contract, not independent proof of a cloud vol
 
 
 Mission 42 final verification marker: storage mode is explicit and fail-closed; the experimental Render Blueprint declares ephemeral storage and cannot pass `/readyz`; persistent mode validates an operator-declared writable root and database path containment; readiness also checks SQLite integrity through the operational runtime. Regression tests cover configuration, HTTP readiness, and corrupt storage. Require Messenger Backend Test and Android Build SUCCESS on the exact final HEAD. This marker does not prove a cloud disk mount, deployment, real AI credentials, or cross-device communication. Full operator contract: `docs/AI_MESSENGER_MISSION_42_STAGING_STORAGE_CONTRACT.md`; report: `docs/AI_MESSENGER_MISSION_42_PERSISTENT_STORAGE_READINESS.md`.
+
+
+## Mission 43 — zero-cost local Messenger validation
+
+The current work is intentionally limited to repository code and free local/CI validation. No Render service, disk, database, secret, or deployment is required or authorized. For local development, use the standard-library SQLite backend and distinct test identities/tokens supplied only through the local process environment. Keep the database on a user-controlled local path; back it up before experiments.
+
+Readiness now checks SQLite integrity, the Messenger schema contract, and persisted relationship consistency: every message must have a matching idempotency mapping, and ACK records must belong to actual message recipients. These checks are read-only. A green CI run validates the code and test suite only; it does not create an internet-accessible endpoint or prove communication between separate physical devices.
+
+Free local testing can run two backend/client instances on the same computer or trusted local network. Internet-wide communication, always-on availability, push notifications, and voice calls require separately evaluated infrastructure and must not be described as available merely because local tests pass.
