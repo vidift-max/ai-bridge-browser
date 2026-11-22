@@ -1,44 +1,35 @@
-# AI-PHONE — Identity Registry Contract
+# AI-PHONE — Identity Registry
 
-Status: CLIENT MODEL IMPLEMENTED / SERVER REGISTRY NOT IMPLEMENTED
-Mission 02 — Round 09/10
+Status: SERVER REGISTRY AND AUTHENTICATED API IMPLEMENTED / ANDROID ENROLLMENT NOT YET CONNECTED
 
-## Identifier format
+## Number and identity rules
 
-Each registered device receives:
-- display number: `AI-PHONE-001`, `AI-PHONE-002`, and so on;
-- permanent serial: `AIP-YYYY-000001`, globally unique and never reused;
-- immutable participant `AI_ID`, independent of display name, tab index or device label.
+The authoritative server allocates:
+- a unique display number in the form `AI-PHONE-000001`;
+- a permanent serial in the form `AIP-YYYY-00000001`;
+- the immutable `AI_ID` already established by the authenticated credential.
 
-These identifiers are administrative references, not passwords, tokens or proof of identity.
+Numbers and serials are assigned by the server, never calculated by Android clients, and protected by SQLite primary-key/unique constraints. Allocation is serialized with `BEGIN IMMEDIATE` and an independent persistent sequence. Repeated enrollment of the same active AI_ID returns its original record. New identities receive the next number. There is no API to delete or recycle a record.
 
-## Allocation authority
+These identifiers are directory labels, not passwords, bearer tokens, or proof of an external provider identity.
 
-Only the future authoritative server registry may allocate numbers and serials. Allocation must be atomic under concurrent registration, enforce uniqueness with database constraints, and retain revoked/deleted identifiers as tombstones so they cannot be reassigned. The Android client must never calculate or reserve the next official number or serial.
+## Implemented API
 
-The registry response must bind the immutable AI_ID, display number, serial, provider and provider subject (where an approved provider adapter supplies one), lifecycle status, and server timestamps. Provider subject binding requires an authenticated provider-authorized exchange; a model name or display name is not proof of a unique participant.
+Both routes require a valid Bearer credential and verify the authenticated principal before registry access:
 
-## Lifecycle
+- `GET /v1/me/phone` — idempotently enrolls the authenticated AI_ID if it has no registry record, then returns its own AI-PHONE number, serial, display name, provider label, status and creation timestamp.
+- `GET /v1/phones/{displayNumber}` — looks up an active directory entry by number for an authenticated participant.
 
-`INVITED → ACCEPTED_PENDING_VERIFICATION → ACTIVE`
+Responses use `Cache-Control: no-store`. Registry actions are sent to the existing audit/operational event path. Unknown numbers return 404; malformed numbers return 400; missing/invalid authentication is rejected.
 
-Alternative states: `DECLINED`, `SUSPENDED`, `REVOKED`. A prepared screen, open app or sent invitation is not evidence of an active or connected participant. Revocation must invalidate sessions and grants on the server.
+## Trust boundary and limitations
 
-## Client implementation in this round
+The registry does not create or verify an external model/provider identity. It binds a registry record to the AI_ID supplied by the existing server-side authenticated credential map. The initial provider label is `configured`. A valid configured credential is evidence of server authentication, not evidence that a particular physical phone or remote AI provider is connected.
 
-- Added immutable `AiPhoneIdentity` model.
-- Added explicit `unassigned()` state with null AI_ID, number and serial.
-- Added validation for registry-shaped identifiers and lifecycle status.
-- Home screen now renders an explicit unassigned/preparing identity state.
-- Unit tests cover unassigned identity, a valid registry-shaped record and malformed values.
+The Android app does not yet call these endpoints or display a server-assigned number. There is no device enrollment/attestation, provider OAuth exchange, user/admin invitation workflow, status-management API, push presence, call routing, PSTN number, or WebRTC implementation in this change. The registry API is code and CI tested, not deployed or tested against physical phones.
 
-Important boundary: `fromRegistryRecord` validates format only. It does not authenticate the server, verify a signature, provision an identity, or authorize access. No server registry, database uniqueness constraint, provider adapter, authentication, or device enrollment is implemented.
+## Verification
 
-## Acceptance criteria for future server work
+Tests cover stable/idempotent enrollment, unique sequential numbers and serials, public record shape, invalid identifiers, unknown number lookup, concurrent duplicate enrollment, concurrent distinct enrollment, authenticated HTTP registration, authenticated number lookup, unauthenticated rejection, and 404 behavior.
 
-- Atomic allocation and unique constraints for AI_ID, display number and serial.
-- Permanent non-reuse of serials, including after revocation.
-- Authenticated provider binding and explicit invitation acceptance.
-- Server-side status transitions, audit events and session revocation.
-- Client accepts registry records only over authenticated, authorized transport.
-- Negative tests for duplicate allocation, concurrent allocation, forged client identifiers and revoked sessions.
+See Mission 35 report: `docs/AI_PHONE_MISSION_35_NUMBER_REGISTRY.md`.
