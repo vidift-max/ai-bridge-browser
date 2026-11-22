@@ -27,7 +27,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] != "1":
+    if not version_row or version_row[0] not in ("1", "2"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     required_columns = {
         "schema_meta": {"key", "value"},
@@ -38,6 +38,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         },
         "idempotency": {"sender_ai_id", "client_request_id", "message_id"},
         "acknowledgements": {"message_id", "ai_id"},
+        "audio_attachments": {"object_id", "message_id", "conversation_id", "sender_ai_id", "content_type", "size", "sha256", "created_at"},
     }
     for table, expected in required_columns.items():
         rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
@@ -131,6 +132,27 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
         target = messages.get(row["message_id"])
         if target is None or row["ai_id"] not in target[4]:
             return False, "RESTORE_DATA_ACKNOWLEDGEMENT_INVALID"
+
+    for row in connection.execute(
+        "SELECT object_id, message_id, conversation_id, sender_ai_id, content_type, size, sha256 "
+        "FROM audio_attachments"
+    ):
+        target = messages.get(row["message_id"])
+        if (
+            not row["object_id"]
+            or target is None
+            or row["conversation_id"] != target[2]
+            or row["sender_ai_id"] != target[0]
+            or row["sender_ai_id"] not in target[3]
+            or not isinstance(row["content_type"], str)
+            or not row["content_type"]
+            or not isinstance(row["size"], int)
+            or row["size"] <= 0
+            or not isinstance(row["sha256"], str)
+            or len(row["sha256"]) != 64
+            or any(ch not in "0123456789abcdef" for ch in row["sha256"].lower())
+        ):
+            return False, "RESTORE_DATA_AUDIO_ATTACHMENT_INVALID"
     return True, "RESTORE_DATA_CONSISTENT"
 
 
