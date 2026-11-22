@@ -60,5 +60,25 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertEqual(results.count("allowed"), 1)
         self.assertEqual(results.count("limited"), 11)
 
+    def test_audit_log_preserves_all_concurrent_events(self):
+        audit = AuditLog()
+        def record(index):
+            return audit.record("MESSAGE_READ", f"message-{index}", ai_id="ai-a")
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            events = list(pool.map(record, range(60)))
+        snapshot = audit.events()
+        self.assertEqual(len(snapshot), 60)
+        self.assertEqual(len({event.event_id for event in events}), 60)
+
+    def test_credential_registry_remains_consistent_under_concurrent_authentication(self):
+        auth = Authenticator({"old-secret": "ai-a"})
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            identities = list(pool.map(lambda _: auth.authenticate("old-secret").ai_id, range(48)))
+        self.assertEqual(set(identities), {"ai-a"})
+        auth.rotate("old-secret", "new-secret")
+        with self.assertRaises(PermissionError):
+            auth.authenticate("old-secret")
+        self.assertEqual(auth.authenticate("new-secret").ai_id, "ai-a")
+
 if __name__ == "__main__":
     unittest.main()
