@@ -27,7 +27,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] not in ("1", "2", "3"):
+    if not version_row or version_row[0] not in ("1", "2", "3", "4"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     required_columns = {
         "schema_meta": {"key", "value"},
@@ -40,10 +40,13 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         "acknowledgements": {"message_id", "ai_id"},
         "audio_attachments": {"object_id", "message_id", "conversation_id", "sender_ai_id", "content_type", "size", "sha256", "created_at"},
     }
-    if version_row[0] == "3":
+    if version_row[0] in ("3", "4"):
         required_columns["voice_mutes"] = {
             "conversation_id", "ai_id", "muted_by_ai_id", "expires_at",
         }
+    if version_row[0] == "4":
+        required_columns["conversations"].add("kind")
+        required_columns["messages"].update({"kind", "created_at_epoch_seconds"})
     for table, expected in required_columns.items():
         rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
         if not expected.issubset({row[1] for row in rows}):
@@ -140,7 +143,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if version_row and version_row[0] == "3":
+    if version_row and version_row[0] in ("3", "4"):
         for row in connection.execute(
             "SELECT conversation_id, ai_id, muted_by_ai_id, expires_at FROM voice_mutes"
         ):
