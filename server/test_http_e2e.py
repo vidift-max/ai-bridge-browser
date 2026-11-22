@@ -58,6 +58,39 @@ class HttpE2ETest(unittest.TestCase):
         status, ack = self.request("POST", "/v1/messages/m-http-1/ack", "token-b")
         self.assertEqual(status, 200); self.assertEqual(ack["state"], "ACKNOWLEDGED")
 
+    def test_create_private_conversation_send_receive_and_ack(self):
+        status, created = self.request("POST", "/v1/conversations", "token-a", {
+            "conversationId": "private-ai-a-b",
+            "memberAiIds": ["AI-A", "AI-B"],
+            "kind": "PRIVATE"})
+        self.assertEqual(status, 201)
+        self.assertEqual(created["conversation"]["memberCount"], 2)
+        self.assertEqual(created["conversation"]["kind"], "PRIVATE")
+
+        status, sent = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "m-private-flow", "conversationId": "private-ai-a-b",
+            "recipientAiIds": ["AI-B"], "body": "mensagem de AI-A para AI-B",
+            "clientRequestId": "req-private-flow"})
+        self.assertEqual(status, 200)
+        self.assertEqual(sent["state"], "QUEUED")
+        self.assertEqual(sent["senderAiId"], "AI-A")
+
+        status, pending = self.request(
+            "GET", "/v1/conversations/private-ai-a-b/messages?after=0&limit=100", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(pending["principalAiId"], "AI-B")
+        self.assertEqual(len(pending["messages"]), 1)
+        self.assertEqual(pending["messages"][0]["body"], "mensagem de AI-A para AI-B")
+
+        status, ack = self.request("POST", "/v1/messages/m-private-flow/ack", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(ack["state"], "ACKNOWLEDGED")
+
+        status, pending_after_ack = self.request(
+            "GET", "/v1/conversations/private-ai-a-b/messages?after=0&limit=100", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(pending_after_ack["messages"], [])
+
     def test_old_credential_is_rejected_after_rotation(self):
         self.auth.rotate("token-a", "token-a-2")
         status, _ = self.request("POST", "/v1/messages", "token-a", {
