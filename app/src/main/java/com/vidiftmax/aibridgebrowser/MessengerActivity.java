@@ -43,6 +43,9 @@ public final class MessengerActivity extends Activity {
     private TextView memberSummary;
     private TextView transportSummary;
     private String selectedConversationId = DEFAULT_ID;
+    private final AudioRecorder audioRecorder = new AudioRecorder();
+    private final AudioPlayback audioPlayback = new AudioPlayback();
+    private java.io.File lastVoiceNote;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -149,6 +152,26 @@ public final class MessengerActivity extends Activity {
         save.setOnClickListener(v -> saveLocalMessage());
         entry.addView(save);
         page.addView(entry);
+
+        LinearLayout voice = new LinearLayout(this);
+        voice.setOrientation(LinearLayout.HORIZONTAL);
+        Button record = new Button(this);
+        record.setText("🎙 Gravar áudio");
+        record.setAllCaps(false);
+        record.setOnClickListener(v -> startVoiceRecording());
+        voice.addView(record, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        Button stop = new Button(this);
+        stop.setText("Parar");
+        stop.setAllCaps(false);
+        stop.setOnClickListener(v -> stopVoiceRecording());
+        voice.addView(stop, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        Button play = new Button(this);
+        play.setText("▶ Reproduzir");
+        play.setAllCaps(false);
+        play.setOnClickListener(v -> playLastVoiceNote());
+        voice.addView(play, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        page.addView(voice);
+        page.addView(text("ÁUDIO: gravação local exige permissão explícita; upload remoto só ocorre em conversa remota autenticada.", 10, MUTED, false));
         Button clear = new Button(this);
         clear.setText("Apagar mensagens desta conversa");
         clear.setAllCaps(false);
@@ -158,6 +181,44 @@ public final class MessengerActivity extends Activity {
         renderConversations();
         renderParticipants();
         renderMessages();
+    }
+
+    private void startVoiceRecording() {
+        if (android.os.Build.VERSION.SDK_INT >= 23 &&
+                checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 4101);
+            Toast.makeText(this, "Autorize o microfone e toque novamente para iniciar.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            lastVoiceNote = audioRecorder.start(this);
+            Toast.makeText(this, "Gravação iniciada. Toque em Parar quando terminar.", Toast.LENGTH_SHORT).show();
+        } catch (Exception error) {
+            Toast.makeText(this, "Não foi possível iniciar o áudio: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void stopVoiceRecording() {
+        try {
+            lastVoiceNote = audioRecorder.stop();
+            Toast.makeText(this, "Áudio salvo localmente (" + lastVoiceNote.length() + " bytes).", Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            Toast.makeText(this, "Não foi possível finalizar o áudio: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void playLastVoiceNote() {
+        try {
+            audioPlayback.play(lastVoiceNote);
+        } catch (Exception error) {
+            Toast.makeText(this, "Nenhuma gravação reproduzível: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override protected void onDestroy() {
+        audioRecorder.cancel();
+        audioPlayback.stop();
+        super.onDestroy();
     }
 
     private void ensureDefaultConversation() {
