@@ -115,6 +115,12 @@ class MessengerBackend:
         return {"conversationId": conversation_id, "kind": kind,
                 "memberAiIds": sorted(members), "memberCount": len(members)}
 
+    @_synchronized
+    def conversation_members(self):
+        """Return a defensive snapshot for server-side room authorization."""
+        return {conversation_id: set(members)
+                for conversation_id, members in self._conversations.items()}
+
     def authorize_member(self, ai_id: str, conversation_id: str) -> None:
         members = self._conversations.get(conversation_id)
         if not members or ai_id not in members:
