@@ -66,6 +66,14 @@ public final class HomeActivity extends Activity {
                 ? identityRecord.getStatus().name() : "UNASSIGNED · PREPARING"), 13, MUTED, false));
         page.addView(identity);
 
+        Button phoneRegistry = new Button(this);
+        phoneRegistry.setText("Consultar / configurar meu número AI-PHONE");
+        phoneRegistry.setAllCaps(false);
+        phoneRegistry.setOnClickListener(v ->
+                startActivity(new Intent(this, AiPhoneRegistryActivity.class)));
+        page.addView(phoneRegistry, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         TextView invitationState = label(invitationStatus(), 12, MUTED, false);
         invitationState.setPadding(0, dp(8), 0, dp(4));
         page.addView(invitationState);
