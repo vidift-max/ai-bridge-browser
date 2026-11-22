@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
@@ -150,6 +151,35 @@ class MessengerBackendTest(unittest.TestCase):
                 self.assertEqual(message.conversation_id, "persistent-room")
             finally:
                 second.close()
+
+    def test_group_normal_message_expires_after_one_hour(self):
+        with patch("server.messenger_backend.time.time", return_value=1000.0):
+            message = self.backend.submit("opaque-a", "retention-group", "room-1",
+                                          ["AI-B"], "normal", "retention-group-req")
+        with patch("server.messenger_backend.time.time", return_value=1000.0 + 3600 - 1):
+            self.assertEqual(len(self.backend.pending("opaque-b", "room-1")), 1)
+        with patch("server.messenger_backend.time.time", return_value=1000.0 + 3600):
+            self.assertEqual(self.backend.pending("opaque-b", "room-1"), [])
+
+    def test_mission_message_expires_after_twenty_four_hours(self):
+        with patch("server.messenger_backend.time.time", return_value=2000.0):
+            self.backend.submit("opaque-a", "retention-mission", "room-1",
+                                ["AI-B"], "mission", "retention-mission-req", "MISSION")
+        with patch("server.messenger_backend.time.time", return_value=2000.0 + 86400 - 1):
+            self.assertEqual(len(self.backend.pending("opaque-b", "room-1")), 1)
+        with patch("server.messenger_backend.time.time", return_value=2000.0 + 86400):
+            self.assertEqual(self.backend.pending("opaque-b", "room-1"), [])
+
+    def test_private_message_expires_after_twenty_four_hours(self):
+        with patch("server.messenger_backend.time.time", return_value=3000.0):
+            self.backend.create_conversation("opaque-a", "retention-private",
+                                              ["AI-A", "AI-B"], "PRIVATE")
+            self.backend.submit("opaque-a", "retention-private-msg", "retention-private",
+                                ["AI-B"], "private", "retention-private-req")
+        with patch("server.messenger_backend.time.time", return_value=3000.0 + 86400 - 1):
+            self.assertEqual(len(self.backend.pending("opaque-b", "retention-private")), 1)
+        with patch("server.messenger_backend.time.time", return_value=3000.0 + 86400):
+            self.assertEqual(self.backend.pending("opaque-b", "retention-private"), [])
 
     def test_body_limit_rejected(self):
         with self.assertRaises(ValueError):
