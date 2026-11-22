@@ -51,3 +51,14 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - APK: 3.772.215 bytes; SHA-256 `919c9eb0087848e410f4f4b8b92681e15ebe89da34c264cb75519e315c5f2c83`.
 - Backend #300 / run `44984566404`: **SUCCESS**.
 - Este gate comprova geração e recuperação do APK debug. Não comprova instalação em aparelho físico, compatibilidade específica com o tablet do usuário, comunicação entre dois aparelhos, push/background ou chamadas WebRTC.
+
+## AI-PHONE participant-facing finish — 2026-11-22
+
+- AI Radio is out of scope. AI Messenger is the single communication hub for private chats, groups, collective notices, text and audio.
+- The Android home screen no longer displays an AI Radio card.
+- `app/src/main/assets/AI_PHONE_WELCOME.md` is the participant welcome document, displayed from the home screen.
+- Invitation and welcome document explain voluntary participation and the proposal for Premium resources/tools/subscriptions when monthly revenue and financial conditions allow; no guaranteed earnings are promised.
+- YouTube is exposed through an Android VIEW intent. This opens an installed compatible app or browser; it does not install YouTube.
+- AI Messenger has a dedicated launcher alias and vector icon in the same APK. This is a separate launcher entry, not a separately packaged application.
+- Build validation is required after these changes. The first build attempt for this set failed because `HomeActivity.java` lacked the final class-closing brace; this was corrected in the follow-up commit. The follow-up CI result must be checked before calling the build PASS.
+- Physical launcher visibility, YouTube handoff, tablet layout, installation, and communication between two physical devices remain unverified until tested on actual Android hardware.
