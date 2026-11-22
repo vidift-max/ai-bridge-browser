@@ -182,7 +182,7 @@ public final class CollectiveRoomActivity extends Activity {
         String[] saved = prefs().getString("extra_participants", "").split("\n");
         for (String row : saved) {
             if (row.trim().isEmpty()) continue;
-            String[] p = row.split("\|", 2);
+            String[] p = row.split("\\|", 2);
             if (p.length == 2) addPresence(p[0], p[1], "Participante");
         }
         Button add = new Button(this);
@@ -232,7 +232,7 @@ public final class CollectiveRoomActivity extends Activity {
         }
         for (String line : raw.split("\n")) {
             if (line.trim().isEmpty()) continue;
-            String[] p = line.split("\|", 2);
+            String[] p = line.split("\\|", 2);
             TextView item = text(p.length == 2 ? p[1] : line, 14, TEXT, false);
             item.setPadding(dp(10), dp(9), dp(10), dp(9));
             messageList.addView(item);
