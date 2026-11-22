@@ -315,7 +315,7 @@ public final class HomeActivity extends Activity {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(getAssets().open("AI_PHONE_WELCOME.md"), java.nio.charset.StandardCharsets.UTF_8))) {
             String line;
-            while ((line = reader.readLine()) != null) content.append(line).append("\\n");
+            while ((line = reader.readLine()) != null) content.append(line).append("\n");
         } catch (java.io.IOException error) {
             Toast.makeText(this, "Documento de boas-vindas indisponível.", Toast.LENGTH_LONG).show();
             return;
