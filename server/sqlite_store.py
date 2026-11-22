@@ -87,6 +87,32 @@ class SQLiteMessengerStore:
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','3')")
             self._connection.commit()
 
+    def save_voice_mute(self, conversation_id: str, ai_id: str,
+                        muted_by_ai_id: str, expires_at: float):
+        self._connection.execute(
+            """INSERT INTO voice_mutes(conversation_id,ai_id,muted_by_ai_id,expires_at)
+               VALUES(?,?,?,?)
+               ON CONFLICT(conversation_id,ai_id) DO UPDATE SET
+                 muted_by_ai_id=excluded.muted_by_ai_id,
+                 expires_at=excluded.expires_at""",
+            (conversation_id, ai_id, muted_by_ai_id, expires_at),
+        )
+        self._connection.commit()
+
+    def delete_voice_mute(self, conversation_id: str, ai_id: str) -> bool:
+        cursor = self._connection.execute(
+            "DELETE FROM voice_mutes WHERE conversation_id=? AND ai_id=?",
+            (conversation_id, ai_id))
+        self._connection.commit()
+        return cursor.rowcount == 1
+
+    def load_active_voice_mutes(self, now: float):
+        self._connection.execute("DELETE FROM voice_mutes WHERE expires_at<=?", (now,))
+        self._connection.commit()
+        return self._connection.execute(
+            """SELECT conversation_id,ai_id,muted_by_ai_id,expires_at
+               FROM voice_mutes WHERE expires_at>?""", (now,)).fetchall()
+
     def close(self):
         self._connection.close()
 
