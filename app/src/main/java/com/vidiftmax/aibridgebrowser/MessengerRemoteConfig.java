@@ -25,7 +25,7 @@ public final class MessengerRemoteConfig {
     }
 
     public static String validateAiId(String value) {
-        if (value == null || !value.trim().matches("AI-[A-Z0-9][A-Z0-9-]{1,62}"))
+        if (value == null || !value.trim().matches("AI-[A-Z0-9][A-Z0-9-]{0,62}"))
             throw new IllegalArgumentException("invalid_ai_id");
         return value.trim();
     }
