@@ -149,3 +149,10 @@ Mission 35 final verification marker: the permanent AI-PHONE number registry and
 ## Mission 41 — staging readiness gate
 
 Runtime configuration now rejects duplicate Messenger bearer tokens, duplicate AI_IDs, and malformed AI_ID values. The public `/readyz` endpoint runs the complete two-identity configuration validation and returns 503 rather than reporting ready for an invalid identity map. Regression tests cover both configuration validation and the HTTP readiness response. This is a fail-closed configuration check only: it does not provision credentials, deploy the experimental Render Blueprint, configure persistent hosted storage, or establish real-device communication. Mission 41 PASS for code requires Backend Test and Android Build SUCCESS on the same final HEAD; live staging remains BLOCKED until explicitly approved infrastructure, persistent storage, two distinct secrets/identities, and cross-device verification exist.
+
+
+## Mission 42 — hosted storage fail-closed contract
+
+Runtime configuration now distinguishes `local`, `persistent`, and `ephemeral` storage modes. The hosted experimental Render Blueprint explicitly declares `ephemeral`, so `/readyz` returns 503 rather than claiming durable Messenger readiness. Persistent mode requires an absolute, existing, writable mount root and a database path strictly below that root. Tests cover invalid modes, ephemeral rejection, root/path containment, and HTTP readiness behavior.
+
+This is an operator-declared path contract, not independent proof of a cloud volume mount or durability. The current Render Blueprint remains intentionally not-ready until an operator provisions and verifies a persistent disk, then supplies the persistent mode/root and two distinct AI credentials through the provider's secret manager. See `docs/AI_MESSENGER_MISSION_42_STAGING_STORAGE_CONTRACT.md`. No hosting resources, secrets, deployment, or external AI connection are created by this mission.
