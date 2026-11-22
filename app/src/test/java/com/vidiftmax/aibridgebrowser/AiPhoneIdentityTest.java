@@ -13,25 +13,31 @@ public class AiPhoneIdentityTest {
         assertEquals(AiPhoneIdentity.Status.INVITED, identity.getStatus());
     }
 
-    @Test public void acceptsWellFormedRegistryRecord() {
+    @Test public void acceptsServerFormatRegistryRecord() {
         AiPhoneIdentity identity = AiPhoneIdentity.fromRegistryRecord(
-                "AI-PARTICIPANT-02", "Participante 02", "provider-x", "ACTIVE",
-                "AI-PHONE-002", "AIP-2026-000002");
+                "AI-PARTICIPANT-02", "Participante 02", "configured", "ACTIVE",
+                "AI-PHONE-000002", "AIP-2026-00000002");
         assertTrue(identity.isRegistryAssigned());
-        assertEquals("AI-PHONE-002", identity.getDisplayNumber());
-        assertEquals("AIP-2026-000002", identity.getSerial());
+        assertEquals("AI-PHONE-000002", identity.getDisplayNumber());
+        assertEquals("AIP-2026-00000002", identity.getSerial());
         assertEquals(AiPhoneIdentity.Status.ACTIVE, identity.getStatus());
     }
 
     @Test public void rejectsMalformedOrMissingRegistryIdentifiers() {
         assertThrows(IllegalArgumentException.class, () ->
                 AiPhoneIdentity.fromRegistryRecord(" ", "Nome", "provider", "ACTIVE",
-                        "AI-PHONE-002", "AIP-2026-000002"));
+                        "AI-PHONE-000002", "AIP-2026-00000002"));
         assertThrows(IllegalArgumentException.class, () ->
                 AiPhoneIdentity.fromRegistryRecord("AI-02", "Nome", "provider", "ACTIVE",
-                        "AI-PHONE-02", "AIP-2026-000002"));
+                        "AI-PHONE-02", "AIP-2026-00000002"));
         assertThrows(IllegalArgumentException.class, () ->
                 AiPhoneIdentity.fromRegistryRecord("AI-02", "Nome", "provider", "UNKNOWN",
-                        "AI-PHONE-002", "AIP-2026-000002"));
+                        "AI-PHONE-000002", "AIP-2026-00000002"));
+    }
+
+    @Test public void rejectsNumbersShorterThanServerAllocationFormat() {
+        assertThrows(IllegalArgumentException.class, () ->
+                AiPhoneIdentity.fromRegistryRecord("AI-02", "Nome", "configured", "ACTIVE",
+                        "AI-PHONE-002", "AIP-2026-00000002"));
     }
 }
