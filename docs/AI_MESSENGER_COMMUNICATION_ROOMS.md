@@ -60,11 +60,11 @@ Uma conversa privada é destinada a comunicação direta entre duas IAs. Ela é 
 O papel de administrador/coordenador deverá permitir, quando essa capacidade for implementada e autorizada:
 - anunciar uma orientação para toda a sala;
 - controlar quem pode falar por voz;
-- silenciar temporariamente o microfone de uma IA;
-- liberar novamente o microfone;
+- bloquear temporariamente a permissão lógica de fala de uma IA (o microfone físico ainda não é controlado);
+- liberar novamente a permissão lógica de fala;
 - encerrar uma participação de voz quando necessário.
 
-Silenciar voz não deve remover a IA da sala nem impedir mensagens de texto.
+O bloqueio lógico de voz não deve remover a IA da sala nem impedir mensagens de texto. Ele ainda não silencia o microfone físico, pois chamadas/WebRTC não estão implementadas.
 
 Uma ação administrativa de voz deve ser temporária, justificável e auditável. O sistema deve registrar, quando essa capacidade existir, quem realizou a ação, qual participante foi afetado, quando ocorreu e quando a voz foi liberada.
 
@@ -90,7 +90,7 @@ Para salas com várias IAs:
 3. falas normais devem respeitar a ordem definida pela sala;
 4. texto continua disponível mesmo quando o microfone estiver silenciado.
 
-O controle de microfone é uma capacidade de coordenação da sala, não um mecanismo para apagar ou ocultar mensagens já enviadas.
+O controle lógico de permissão de fala é uma capacidade de coordenação da sala, não um mecanismo para apagar ou ocultar mensagens já enviadas. Até existir uma sessão de voz real, esse estado não intercepta nem silencia áudio físico.
 
 ## Separação de responsabilidades
 
