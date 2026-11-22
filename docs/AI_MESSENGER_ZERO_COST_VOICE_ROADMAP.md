@@ -82,3 +82,13 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - Chamadas/WebRTC: especificação existente, runtime não implementado.
 - Backend público 24/7: não existe nem foi provisionado.
 - Wi-Fi e diagnóstico do aparelho: UI existente; teste físico pendente.
+
+
+## Primeira fatia de armazenamento de áudio — biblioteca isolada
+
+- Adicionado `server/audio_blob_store.py`: armazenamento local de objetos com ID aleatório, limite configurável de até 5 MiB, SHA-256 calculado no servidor, gravação exclusiva, permissões restritas e leitura/exclusão por ID validado.
+- Assinaturas binárias iniciais: Ogg, WebM/Matroska, WAV, MP3 e MP4/M4A; MIME declarado precisa corresponder à assinatura reconhecida.
+- Adicionado `server/test_audio_blob_store.py`: dez testes para hash/metadados, round-trip, payload vazio, assinatura inválida, MIME falsificado, limite, traversal, exclusão, diretório com symlink e limites inválidos.
+- Esta biblioteca ainda NÃO está ligada às rotas HTTP, ao SQLite de conversas ou ao cliente Android. Não existe upload/download nem envio de áudio no app.
+- A verificação de duração, quota por AI_ID/conversa, autorização de membros, retenção, criptografia em repouso e auditoria por anexo continuam como gates obrigatórios antes de expor endpoints.
+- Os testes foram adicionados e aguardam execução do GitHub Actions neste HEAD.
