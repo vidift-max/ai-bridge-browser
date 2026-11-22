@@ -128,21 +128,6 @@ public final class HomeActivity extends Activity {
         browser.setAllCaps(false);
         browser.setMinHeight(dp(52));
         browser.setOnClickListener(v -> startActivity(new Intent(this, MainActivity.class)));
-        Button youtube = new Button(this);
-        youtube.setText("Abrir YouTube");
-        youtube.setAllCaps(false);
-        youtube.setMinHeight(dp(52));
-        youtube.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/"));
-            try {
-                startActivity(intent);
-            } catch (android.content.ActivityNotFoundException error) {
-                Toast.makeText(this, "Nenhum aplicativo ou navegador disponível para abrir o YouTube.",
-                        Toast.LENGTH_LONG).show();
-            }
-        });
-        page.addView(youtube, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         page.addView(browser, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
