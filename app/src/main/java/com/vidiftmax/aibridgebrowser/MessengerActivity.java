@@ -21,6 +21,7 @@ import java.util.Date;
 
 public final class MessengerActivity extends Activity {
     private static final String PREFS = "ai_messenger_local_v1";
+    private static final String REMOTE_PREFS = "ai_phone_registry_config_v1";
     private static final String KEY_MESSAGES = "local_messages";
     private static final String KEY_CONVERSATIONS = "local_conversations";
     private static final String KEY_PARTICIPANTS = "local_participants";
@@ -54,8 +55,14 @@ public final class MessengerActivity extends Activity {
         page.setBackgroundColor(BG);
 
         page.addView(text("AI MESSENGER", 25, TEXT, true));
-        page.addView(text("Conversas locais · sem participantes remotos conectados", 13, MUTED, false));
-        page.addView(text("LOCAL ONLY — nada é enviado pela internet.", 12, ACCENT, true));
+        page.addView(text("Conversas locais e remotas autenticadas", 13, MUTED, false));
+        page.addView(text("Modo remoto depende de servidor HTTPS e credencial autorizada.", 12, ACCENT, true));
+
+        Button remoteConfig = new Button(this);
+        remoteConfig.setText("Configurar conexão remota segura");
+        remoteConfig.setAllCaps(false);
+        remoteConfig.setOnClickListener(v -> showRemoteSettings());
+        page.addView(remoteConfig);
 
         Button create = new Button(this);
         create.setText("＋ Nova conversa local");
@@ -347,6 +354,37 @@ public final class MessengerActivity extends Activity {
                     prefs().edit().putString(KEY_MEMBERSHIPS, kept.toString()).apply();
                     renderConversationMembersSummary();
                     Toast.makeText(this, "Seleção local salva. Nenhum convite foi enviado.", Toast.LENGTH_SHORT).show();
+                }).show();
+    }
+
+
+    private void showRemoteSettings() {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        EditText server = new EditText(this);
+        server.setHint("https://servidor.example");
+        EditText ai = new EditText(this);
+        ai.setHint("AI_ID autorizado");
+        EditText token = new EditText(this);
+        token.setHint("Token Bearer");
+        token.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        form.addView(server); form.addView(ai); form.addView(token);
+        new android.app.AlertDialog.Builder(this).setTitle("Conexão do AI Messenger")
+                .setMessage("Use HTTPS e um AI_ID provisionado. O token será criptografado pelo Android Keystore.")
+                .setView(form).setNegativeButton("Cancelar", null)
+                .setPositiveButton("Salvar", (dialog, which) -> {
+                    try {
+                        String url = MessengerRemoteConfig.normalizeBaseUrl(server.getText().toString());
+                        String id = MessengerRemoteConfig.validateAiId(ai.getText().toString());
+                        String secret = token.getText().toString().trim();
+                        if (secret.isEmpty()) throw new IllegalArgumentException("Token obrigatório.");
+                        new AiPhoneCredentialVault().save(this, secret);
+                        getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).edit()
+                                .putString("base_url", url).putString("ai_id", id).apply();
+                        Toast.makeText(this, "Configuração remota salva com segurança.", Toast.LENGTH_LONG).show();
+                    } catch (Exception error) {
+                        Toast.makeText(this, "Configuração inválida: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                    }
                 }).show();
     }
 
