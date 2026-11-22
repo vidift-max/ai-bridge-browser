@@ -60,7 +60,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
         if self.path=="/readyz":
             try:
                 RuntimeConfig.auth_tokens()
-                RuntimeConfig.storage_path()
+                storage_mode = RuntimeConfig.validate_storage_contract()
                 RuntimeConfig.request_timeout_seconds()
                 RuntimeConfig.retry_limit()
                 if self.operational is not None:
@@ -68,7 +68,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     if not storage_ok:
                         self._json(503,{"status":"not_ready","error":"storage_unavailable_or_invalid"})
                         return
-                self._json(200,{"status":"ready"})
+                self._json(200,{"status":"ready","storageMode":storage_mode})
             except RuntimeError:
                 self._json(503,{"status":"not_ready","error":"runtime_configuration_invalid"})
             return
