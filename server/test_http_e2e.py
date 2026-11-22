@@ -29,7 +29,7 @@ class HttpE2ETest(unittest.TestCase):
         MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
         MessengerHandler.authenticator = self.auth
         from server.voice_room_control import VoiceRoomControl
-        MessengerHandler.voice_control = VoiceRoomControl({"AI-A"})
+        MessengerHandler.voice_control = VoiceRoomControl({"AI-A"}, store=self.store)
         MessengerHandler.operational = OperationalRuntime()
         self.audio_dir = tempfile.TemporaryDirectory()
         MessengerHandler.audio_store = AudioBlobStore(self.audio_dir.name)
@@ -75,6 +75,10 @@ class HttpE2ETest(unittest.TestCase):
                                     "token-a", {"targetAiId": "AI-B"})
         self.assertEqual(status, 200)
         self.assertTrue(data["voiceControl"]["muted"])
+        self.assertIsInstance(data["voiceControl"]["expiresAt"], (int, float))
+        from server.voice_room_control import VoiceRoomControl
+        MessengerHandler.voice_control = VoiceRoomControl({"AI-A"}, store=self.store)
+        self.assertTrue(MessengerHandler.voice_control.is_muted("room", "AI-B"))
         status, data = self.request("POST", "/v1/conversations/room/voice/unmute",
                                     "token-a", {"targetAiId": "AI-B"})
         self.assertEqual(status, 200)
@@ -82,6 +86,13 @@ class HttpE2ETest(unittest.TestCase):
         events = [event.event_type for event in self.auth.audit_log.events()]
         self.assertIn("VOICE_PARTICIPANT_MUTED", events)
         self.assertIn("VOICE_PARTICIPANT_UNMUTED", events)
+
+    def test_http_mute_rejects_unbounded_duration(self):
+        status, data = self.request("POST", "/v1/conversations/room/voice/mute",
+                                    "token-a", {"targetAiId": "AI-B",
+                                                "durationSeconds": 3601})
+        self.assertEqual(status, 400)
+        self.assertEqual(data["error"], "invalid_voice_control_request")
 
     def test_non_admin_cannot_mute_participant_over_http(self):
         status, data = self.request("POST", "/v1/conversations/room/voice/mute",
