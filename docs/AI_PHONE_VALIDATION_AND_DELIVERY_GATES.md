@@ -105,3 +105,14 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - O novo gate comprova compilação e recuperação do APK debug no HEAD de onboarding. Não comprova instalação física, compatibilidade visual no tablet, comunicação entre dois aparelhos, push/background ou WebRTC.
 - Os dois documentos de onboarding permanecem presentes e ligados à HomeActivity: participação voluntária/reconhecimento futuro sem promessa garantida; guia de Wi-Fi autorizado e primeiro acesso ao AI Messenger.
 - Próximo gate físico: instalar o APK em um Android real, abrir a HomeActivity, confirmar os documentos, ícone AI Messenger, Wi-Fi e permissões; depois validar comunicação entre dois aparelhos.
+
+
+## Atualização — gate final do HEAD dd3aae6 — 2026-11-22
+
+- HEAD: `dd3aae66979ee8481443b831c63b0f5a5b109bc3`.
+- Android Build #733 / run `45047918406`: **SUCCESS**; JDK 17, Gradle 9.6.0, build debug e upload do artifact concluídos.
+- Messenger Backend Test #358 / run `45047918308`: **SUCCESS**.
+- Artifact `ai-phone-debug-apk`, ID `14764148788`: **PRESENTE, NÃO EXPIRADO**; digest do ZIP: `sha256:098464eb8edd8108dba4d3041509d7d452dd4248f31b28417230552176dc1602`.
+- Artifact baixado e inspecionado: contém exatamente `app-debug.apk`; APK com 3.790.334 bytes; SHA-256 do APK: `a5517ca7b397e18997ff739bf26e44474917b8306efc439303cb79b2443fe97b`.
+- O gate confirma compilação, testes automatizados e entrega recuperável do APK no HEAD atual. Não confirma instalação física, compatibilidade específica com tablet, comunicação entre dois aparelhos, push/background ou WebRTC.
+- Reauditoria física continua como próximo gate: instalar em Android real, confirmar tela inicial, documentos, segundo ícone do AI Messenger, Wi-Fi, permissões, gravação/reprodução e depois comunicação autenticada entre dois aparelhos.
