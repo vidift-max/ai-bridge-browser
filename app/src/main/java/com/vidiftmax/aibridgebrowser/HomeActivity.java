@@ -37,7 +37,7 @@ public final class HomeActivity extends Activity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(BG);
+        scroll.setBackground(createPremiumWallpaper());
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(dp(20), dp(18), dp(20), dp(24));
@@ -75,6 +75,14 @@ public final class HomeActivity extends Activity {
         identity.addView(label("IDENTIDADE DA IA", 12, ACCENT, true));
         identity.addView(label("Sem número telefônico. O AI_ID será exibido somente após associação e autenticação central.", 13, MUTED, false));
         page.addView(identity);
+
+        LinearLayout sounds = card();
+        sounds.addView(label("TOQUES DO AI-PHONE", 12, ACCENT, true));
+        sounds.addView(label("Sons integrados ao aplicativo, sem arquivos externos. Escolha um estilo para ouvir.", 12, MUTED, false));
+        addSoundButton(sounds, "Mensagem", "Toque curto e discreto", PhoneSoundEngine.MESSAGE);
+        addSoundButton(sounds, "Convite", "Dois tons para destacar um convite", PhoneSoundEngine.INVITATION);
+        addSoundButton(sounds, "Chamada", "Toque mais longo para futura chamada", PhoneSoundEngine.CALL);
+        page.addView(sounds);
 
         TextView invitationState = label(invitationStatus(), 12, MUTED, false);
         invitationState.setPadding(0, dp(8), 0, dp(4));
@@ -125,6 +133,22 @@ public final class HomeActivity extends Activity {
         foot.setPadding(0, dp(16), 0, 0);
         page.addView(foot);
         setContentView(scroll);
+    }
+
+    private void addSoundButton(LinearLayout parent, String title, String description, int preset) {
+        Button button = new Button(this);
+        button.setText("▶ " + title + " · " + description);
+        button.setAllCaps(false);
+        button.setOnClickListener(v -> PhoneSoundEngine.preview(preset));
+        parent.addView(button);
+    }
+
+    private GradientDrawable createPremiumWallpaper() {
+        GradientDrawable wallpaper = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF07111F, 0xFF102A3D, 0xFF14253A, 0xFF08111D});
+        wallpaper.setGradientType(GradientDrawable.LINEAR_GRADIENT);
+        return wallpaper;
     }
 
     private void addMessengerFeature(LinearLayout parent) {
