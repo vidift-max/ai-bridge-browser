@@ -91,6 +91,35 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(pending_after_ack["messages"], [])
 
+    def test_http_retry_is_idempotent_for_same_ai_request(self):
+        payload = {
+            "messageId": "m-idempotent-http", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "retry-safe",
+            "clientRequestId": "req-idempotent-http"}
+        first_status, first = self.request("POST", "/v1/messages", "token-a", payload)
+        retry_status, retry = self.request("POST", "/v1/messages", "token-a", payload)
+        self.assertEqual(first_status, 200)
+        self.assertEqual(retry_status, 200)
+        self.assertEqual(first["messageId"], retry["messageId"])
+        self.assertEqual(first["sequence"], retry["sequence"])
+
+        status, pending = self.request("GET", "/v1/conversations/room/messages", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual([m["messageId"] for m in pending["messages"]], ["m-idempotent-http"])
+
+    def test_http_idempotency_conflict_is_rejected(self):
+        base = {
+            "messageId": "m-idempotency-conflict", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "first body",
+            "clientRequestId": "req-idempotency-conflict"}
+        status, _ = self.request("POST", "/v1/messages", "token-a", base)
+        self.assertEqual(status, 200)
+        changed = dict(base)
+        changed["body"] = "different body"
+        status, data = self.request("POST", "/v1/messages", "token-a", changed)
+        self.assertEqual(status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
     def test_old_credential_is_rejected_after_rotation(self):
         self.auth.rotate("token-a", "token-a-2")
         status, _ = self.request("POST", "/v1/messages", "token-a", {
