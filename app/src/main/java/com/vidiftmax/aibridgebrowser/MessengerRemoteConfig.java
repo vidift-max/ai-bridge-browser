@@ -35,9 +35,11 @@ public final class MessengerRemoteConfig {
         if (value == null || value.trim().isEmpty()) throw new IllegalArgumentException("members_required");
         Set<String> ids = new LinkedHashSet<>();
         ids.add(own);
-        for (String part : value.split(",")) {
+        String[] parts = value.split(",", -1);
+        for (String part : parts) {
             String candidate = part.trim();
-            if (!candidate.isEmpty()) ids.add(validateAiId(candidate));
+            if (candidate.isEmpty()) throw new IllegalArgumentException("empty_member_id");
+            ids.add(validateAiId(candidate));
         }
         if (ids.size() < 2 || ids.size() > 20) throw new IllegalArgumentException("member_count_out_of_range");
         return ids;
