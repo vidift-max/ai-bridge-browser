@@ -377,5 +377,21 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(second_status, 429)
         self.assertEqual(data["error"], "rate_limit_exceeded")
 
+    def test_http_rejects_non_string_message_body_without_server_error(self):
+        status, data = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "m-invalid-body", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": ["not", "text"],
+            "clientRequestId": "req-invalid-body"})
+        self.assertEqual(status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
+    def test_http_rejects_blank_message_body(self):
+        status, data = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "m-blank-body", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "   ",
+            "clientRequestId": "req-blank-body"})
+        self.assertEqual(status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
 if __name__ == "__main__":
     unittest.main()
