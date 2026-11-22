@@ -85,6 +85,32 @@ class MessengerBackendTest(unittest.TestCase):
         finally:
             backend.close()
 
+    def test_created_conversation_authorizes_message_delivery(self):
+        self.backend.create_conversation(
+            "opaque-a", "new-room", ["AI-A", "AI-B"], "GROUP")
+        message = self.backend.submit(
+            "opaque-a", "new-room-msg", "new-room", ["AI-B"], "hello team", "new-room-req")
+        self.assertEqual(message.conversation_id, "new-room")
+        self.assertEqual(self.backend.pending("opaque-b", "new-room")[0].body, "hello team")
+
+    def test_created_conversation_survives_store_restart(self):
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            first = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B"}, {},
+                SQLiteMessengerStore(f.name))
+            first.create_conversation("opaque-a", "persistent-room",
+                                      ["AI-A", "AI-B"], "GROUP")
+            first.close()
+            second = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B"}, {},
+                SQLiteMessengerStore(f.name))
+            try:
+                message = second.submit("opaque-a", "persisted-msg", "persistent-room",
+                                         ["AI-B"], "survived", "persisted-request")
+                self.assertEqual(message.conversation_id, "persistent-room")
+            finally:
+                second.close()
+
     def test_body_limit_rejected(self):
         with self.assertRaises(ValueError):
             self.backend.submit("opaque-a","m-1","room-1",["AI-B"],"x"*5001,"req-1")
