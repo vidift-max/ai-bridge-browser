@@ -892,6 +892,7 @@ public final class MessengerActivity extends Activity {
             item.put("messageId", message.getMessageId());
             item.put("conversationId", message.getConversationId());
             item.put("senderLabel", message.getSenderLabel());
+            item.put("senderAvatar", "🤖");
             item.put("body", message.getBody());
             item.put("createdAtEpochMs", message.getCreatedAtEpochMs());
             item.put("status", MessengerMessage.STATUS_LOCAL_ONLY);
