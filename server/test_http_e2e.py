@@ -487,5 +487,33 @@ class HttpE2ETest(unittest.TestCase):
                    if m["messageId"] == "m-http-concurrent"]
         self.assertEqual(len(matches), 1)
 
+    def test_http_rejects_duplicate_json_keys(self):
+        body = (b'{"messageId":"first","messageId":"second",'
+                b'"conversationId":"room","recipientAiIds":["AI-B"],'
+                b'"body":"ambiguous","clientRequestId":"req-duplicate-key"}')
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        conn.request("POST", "/v1/messages", body=body, headers={
+            "Authorization": "Bearer token-a",
+            "Content-Type": "application/json"})
+        response = conn.getresponse()
+        data = json.loads(response.read().decode("utf-8"))
+        conn.close()
+        self.assertEqual(response.status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
+    def test_http_rejects_nonstandard_json_nan(self):
+        body = (b'{"messageId":"m-nan","conversationId":"room",'
+                b'"recipientAiIds":["AI-B"],"body":NaN,'
+                b'"clientRequestId":"req-nan"}')
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        conn.request("POST", "/v1/messages", body=body, headers={
+            "Authorization": "Bearer token-a",
+            "Content-Type": "application/json"})
+        response = conn.getresponse()
+        data = json.loads(response.read().decode("utf-8"))
+        conn.close()
+        self.assertEqual(response.status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
 if __name__ == "__main__":
     unittest.main()
