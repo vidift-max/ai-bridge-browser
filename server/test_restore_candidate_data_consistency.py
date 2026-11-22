@@ -24,8 +24,6 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
     def test_valid_voice_mute_is_accepted_by_restore_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self._candidate(directory)
-            with SQLiteMessengerStore(str(path)) as unused:
-                pass
             with sqlite3.connect(path) as db:
                 db.execute(
                     "INSERT INTO voice_mutes(conversation_id,ai_id,muted_by_ai_id,expires_at) "
