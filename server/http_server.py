@@ -30,7 +30,11 @@ class MessengerHandler(BaseHTTPRequestHandler):
             raise ValueError("invalid_content_length")
         if length<1 or length>10000:
             raise ValueError("invalid_content_length")
-        payload=json.loads(self.rfile.read(length))
+        try:
+            raw = self.rfile.read(length).decode("utf-8")
+        except UnicodeDecodeError:
+            raise ValueError("invalid_json_encoding")
+        payload=json.loads(raw)
         if not isinstance(payload, dict):
             raise ValueError("json_object_required")
         return payload
@@ -149,13 +153,15 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (KeyError,TypeError,ValueError,json.JSONDecodeError):
                 self._json(400,{"error":"invalid_request"})
             return
-        if self.path.startswith("/v1/messages/") and self.path.endswith("/ack"):
+        ack_path = urlsplit(self.path).path
+        ack_parts = ack_path.split("/")
+        if len(ack_parts) == 5 and ack_parts[1:3] == ["v1", "messages"] and ack_parts[4] == "ack" and ack_parts[3]:
             try:
                 identity=self._principal()
                 principal=identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 self.rate_limiter.allow(principal.ai_id)
-                msg=self.backend.acknowledge(self._auth(),self.path[len("/v1/messages/"):-len("/ack")])
+                msg=self.backend.acknowledge(self._auth(),ack_parts[3])
                 self._audit(identity, "MESSAGE_ACKNOWLEDGED", msg.message_id)
                 self._json(200,{"messageId":msg.message_id,"state":"ACKNOWLEDGED","principalAiId":principal.ai_id,"correlationId":identity.correlation_id})
             except RateLimitExceeded:
