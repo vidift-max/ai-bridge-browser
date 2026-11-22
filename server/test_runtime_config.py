@@ -39,6 +39,34 @@ class RuntimeConfigTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "invalid_runtime_config"):
             RuntimeConfig.storage_path()
 
+    def test_auth_tokens_reject_duplicate_credentials_and_identities(self):
+        keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B",
+                "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ.update({
+                "MESSENGER_TOKEN_AI_A": "secret-a",
+                "MESSENGER_TOKEN_AI_B": "secret-b",
+                "MESSENGER_AI_ID_A": "AI-A",
+                "MESSENGER_AI_ID_B": "AI-B"})
+            self.assertEqual(RuntimeConfig.auth_tokens(), {"secret-a": "AI-A", "secret-b": "AI-B"})
+            os.environ["MESSENGER_TOKEN_AI_B"] = "secret-a"
+            with self.assertRaisesRegex(RuntimeError, "duplicate_ai_tokens"):
+                RuntimeConfig.auth_tokens()
+            os.environ["MESSENGER_TOKEN_AI_B"] = "secret-b"
+            os.environ["MESSENGER_AI_ID_B"] = "AI-A"
+            with self.assertRaisesRegex(RuntimeError, "duplicate_ai_ids"):
+                RuntimeConfig.auth_tokens()
+            os.environ["MESSENGER_AI_ID_B"] = " AI-B"
+            with self.assertRaisesRegex(RuntimeError, "invalid_ai_id"):
+                RuntimeConfig.auth_tokens()
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
     def test_auth_tokens_require_all_identity_pairs(self):
         keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B", "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B"]
         old = {key: os.environ.get(key) for key in keys}
