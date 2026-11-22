@@ -374,6 +374,177 @@ public final class MessengerActivity extends Activity {
     }
 
 
+
+    private MessengerHttpClient remoteClient() throws Exception {
+        android.content.SharedPreferences p = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
+        return new MessengerHttpClient(p.getString("base_url", null), p.getString("ai_id", null),
+                new AiPhoneCredentialVault().load(this));
+    }
+
+    private JSONObject selectedConversation() {
+        JSONArray items = readConversations();
+        for (int i=0;i<items.length();i++) {
+            JSONObject item=items.optJSONObject(i);
+            if(item!=null && selectedConversationId.equals(item.optString("conversationId"))) return item;
+        }
+        return null;
+    }
+
+    private void verifyRemoteConnection() {
+        new Thread(() -> {
+            try {
+                JSONObject phone=remoteClient().getMyPhone();
+                String number=phone.optString("displayNumber","número não informado");
+                runOnUiThread(() -> Toast.makeText(this,"Identidade autenticada: "+number,Toast.LENGTH_LONG).show());
+            } catch(Exception e) {
+                runOnUiThread(() -> Toast.makeText(this,"Servidor/credencial não validado: "+remoteError(e),Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void chooseRemoteConversationKind() {
+        new android.app.AlertDialog.Builder(this).setTitle("Tipo de conversa remota")
+                .setItems(new String[]{"Privada · 2 participantes","Grupo · até 20 participantes"},
+                        (dialog, which) -> showRemoteConversationForm(which==0?"PRIVATE":"GROUP"))
+                .setNegativeButton("Cancelar",null).show();
+    }
+
+    private void showRemoteConversationForm(String kind) {
+        android.content.SharedPreferences config=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE);
+        if(config.getString("base_url",null)==null) {
+            Toast.makeText(this,"Configure a conexão remota primeiro.",Toast.LENGTH_SHORT).show(); return;
+        }
+        LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL);
+        EditText title=new EditText(this); title.setHint("Nome da conversa");
+        EditText members=new EditText(this); members.setHint("AI_IDs dos outros participantes, separados por vírgula");
+        form.addView(title); form.addView(members);
+        new android.app.AlertDialog.Builder(this).setTitle("Nova conversa "+("PRIVATE".equals(kind)?"privada":"em grupo"))
+                .setMessage("Somente AI_IDs provisionados no servidor. Seu AI_ID será incluído automaticamente.")
+                .setView(form).setNegativeButton("Cancelar",null)
+                .setPositiveButton("Criar", (dialog,which) -> createRemoteConversationRequest(kind,title.getText().toString(),members.getText().toString()))
+                .show();
+    }
+
+    private void createRemoteConversationRequest(String kind,String title,String rawMembers) {
+        try {
+            android.content.SharedPreferences config=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE);
+            java.util.Set<String> ids=MessengerRemoteConfig.parseMemberIds(rawMembers,config.getString("ai_id",""));
+            if("PRIVATE".equals(kind)&&ids.size()!=2) throw new IllegalArgumentException("Conversa privada exige exatamente 2 participantes.");
+            JSONArray memberIds=new JSONArray(); for(String id:ids) memberIds.put(id);
+            String conversationId="conv-"+UUID.randomUUID().toString();
+            String label=title.trim().isEmpty()?("PRIVATE".equals(kind)?"Conversa privada":"Grupo AI"):title.trim();
+            new Thread(() -> {
+                try {
+                    JSONObject created=remoteClient().createConversation(conversationId,memberIds,kind);
+                    runOnUiThread(() -> {
+                        try {
+                            JSONObject item=new JSONObject();
+                            item.put("conversationId",created.optString("conversationId",conversationId));
+                            item.put("title",label); item.put("createdAtEpochMs",System.currentTimeMillis());
+                            item.put("kind",kind); item.put("status","REMOTE_CREATED");
+                            item.put("remote",true); item.put("remoteMemberAiIds",memberIds);
+                            JSONArray all=readConversations(); all.put(item);
+                            prefs().edit().putString(KEY_CONVERSATIONS,all.toString()).apply();
+                            selectedConversationId=conversationId;
+                            renderConversations(); renderConversationMembersSummary(); renderMessages(); renderTransportSummary();
+                            Toast.makeText(this,"Conversa criada e registrada no servidor.",Toast.LENGTH_LONG).show();
+                        } catch(JSONException error) {
+                            Toast.makeText(this,"Servidor criou a conversa, mas o registro local falhou.",Toast.LENGTH_LONG).show();
+                        }
+                    });
+                } catch(Exception error) {
+                    runOnUiThread(() -> Toast.makeText(this,"Criação remota falhou: "+remoteError(error),Toast.LENGTH_LONG).show());
+                }
+            }).start();
+        } catch(Exception error) {
+            Toast.makeText(this,"Participantes inválidos: "+error.getMessage(),Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void sendRemoteMessage(String body,JSONObject conversation) {
+        JSONArray members=conversation.optJSONArray("remoteMemberAiIds");
+        if(members==null) { Toast.makeText(this,"Lista de participantes remotos ausente.",Toast.LENGTH_LONG).show(); return; }
+        String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");
+        JSONArray recipients=new JSONArray();
+        for(int i=0;i<members.length();i++) {
+            String id=members.optString(i,""); if(!own.equals(id)) recipients.put(id);
+        }
+        if(recipients.length()==0) { Toast.makeText(this,"Não há destinatários nesta conversa.",Toast.LENGTH_LONG).show(); return; }
+        final String cid=selectedConversationId;
+        new Thread(() -> {
+            try {
+                JSONObject response=remoteClient().sendMessage(cid,recipients,body);
+                runOnUiThread(() -> {
+                    try {
+                        JSONObject item=new JSONObject();
+                        item.put("messageId",response.optString("messageId"));
+                        item.put("conversationId",cid); item.put("senderLabel",own);
+                        item.put("body",body); item.put("createdAtEpochMs",System.currentTimeMillis());
+                        item.put("sequence",response.optInt("sequence")); item.put("status","QUEUED_ON_SERVER");
+                        item.put("localState","SERVER_ACCEPTED");
+                        JSONArray all=readMessages(); all.put(item);
+                        prefs().edit().putString(KEY_MESSAGES,all.toString()).apply();
+                        composer.setText(""); renderMessages(); renderTransportSummary();
+                        Toast.makeText(this,"Mensagem enfileirada no servidor. Ainda não confirma leitura.",Toast.LENGTH_LONG).show();
+                    } catch(JSONException error) {
+                        Toast.makeText(this,"Mensagem enfileirada, mas o histórico local falhou.",Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch(Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,"Envio remoto falhou: "+remoteError(error),Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void syncRemoteMessages() {
+        JSONObject conversation=selectedConversation();
+        if(conversation==null || !conversation.optBoolean("remote",false)) {
+            Toast.makeText(this,"Selecione uma conversa remota para sincronizar.",Toast.LENGTH_SHORT).show(); return;
+        }
+        final String cid=selectedConversationId;
+        new Thread(() -> {
+            try {
+                JSONArray incoming=remoteClient().fetchPending(cid,0,100);
+                int added=0,acked=0;
+                for(int i=0;i<incoming.length();i++) {
+                    JSONObject remote=incoming.optJSONObject(i); if(remote==null) continue;
+                    String messageId=remote.optString("messageId","");
+                    JSONArray all=readMessages(); boolean exists=false;
+                    for(int j=0;j<all.length();j++) {
+                        JSONObject saved=all.optJSONObject(j);
+                        if(saved!=null && messageId.equals(saved.optString("messageId"))) { exists=true; break; }
+                    }
+                    if(!exists) {
+                        JSONObject item=new JSONObject();
+                        item.put("messageId",messageId); item.put("conversationId",cid);
+                        item.put("senderLabel",remote.optString("senderAiId","AI"));
+                        item.put("body",remote.optString("body",""));
+                        item.put("sequence",remote.optInt("sequence"));
+                        item.put("createdAtEpochMs",System.currentTimeMillis());
+                        item.put("status","RECEIVED_FROM_SERVER"); item.put("localState","SERVER_RECEIVED");
+                        all.put(item); prefs().edit().putString(KEY_MESSAGES,all.toString()).apply(); added++;
+                    }
+                    remoteClient().acknowledge(messageId); acked++;
+                }
+                final int newCount=added,ackCount=acked;
+                runOnUiThread(() -> {
+                    renderMessages(); renderTransportSummary();
+                    Toast.makeText(this,"Sincronização concluída: "+newCount+" nova(s), "+ackCount+" confirmação(ões).",Toast.LENGTH_LONG).show();
+                });
+            } catch(Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,"Sincronização falhou: "+remoteError(error),Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private String remoteError(Exception error) {
+        if(error instanceof MessengerHttpClient.MessengerHttpException) {
+            MessengerHttpClient.MessengerHttpException http=(MessengerHttpClient.MessengerHttpException)error;
+            return "HTTP "+http.getStatusCode()+" · "+http.getErrorCode();
+        }
+        return error.getMessage()==null?"erro de conexão":error.getMessage();
+    }
+
     private void showRemoteSettings() {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
