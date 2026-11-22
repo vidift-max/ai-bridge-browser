@@ -72,6 +72,19 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except RuntimeError:
                 self._json(503,{"status":"not_ready","error":"runtime_configuration_invalid"})
             return
+        if self.path == "/v1/me/identity":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                self._audit(identity, "AI_IDENTITY_READ", principal.ai_id)
+                self._json(200, {"identity": {"aiId": principal.ai_id}, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403, self._permission_error(exc))
+            return
         parsed = urlsplit(self.path)
         parts=parsed.path.split("/")
         if parsed.path == "/v1/me/phone":
