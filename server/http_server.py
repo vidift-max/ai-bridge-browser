@@ -128,6 +128,29 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        if self.path=="/v1/conversations":
+            try:
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                payload=self._read_json()
+                conversation=self.backend.create_conversation(
+                    self._auth(), payload.get("conversationId"),
+                    payload.get("memberAiIds"), payload.get("kind", "GROUP"))
+                self._audit(identity, "CONVERSATION_CREATED",
+                            conversation["conversationId"],
+                            kind=conversation["kind"],
+                            member_count=str(conversation["memberCount"]))
+                self._json(201, {"conversation":conversation,
+                                 "correlationId":identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
+            except (KeyError,TypeError,ValueError,json.JSONDecodeError):
+                self._json(400,{"error":"invalid_conversation"})
+            return
         if self.path=="/v1/messages":
             try:
                 identity=self._principal()
