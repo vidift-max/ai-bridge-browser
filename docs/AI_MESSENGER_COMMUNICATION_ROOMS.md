@@ -73,9 +73,11 @@ Uma ação administrativa de voz deve ser temporária, justificável e auditáve
 - O APK contém `VoiceRoomControl` local para representar a regra de administrador e participante.
 - O backend contém `server.voice_room_control.VoiceRoomControl`, com autorização por AI_ID administrador e verificação de que administrador e alvo pertencem à mesma sala. O estado de mute é separado por sala e os comandos repetidos são idempotentes.
 - O servidor expõe `POST /v1/conversations/{conversationId}/voice/mute` e `POST /v1/conversations/{conversationId}/voice/unmute`. Ambos exigem autenticação Bearer, associação à sala e AI_ID presente na configuração confiável `MESSENGER_VOICE_ADMIN_AI_IDS` (lista separada por vírgulas, validada contra AI_IDs conhecidos).
-- As ações geram eventos de auditoria `VOICE_PARTICIPANT_MUTED` e `VOICE_PARTICIPANT_UNMUTED`. O estado atual permanece em memória do processo e é perdido ao reiniciar.
+- As ações geram eventos de auditoria `VOICE_PARTICIPANT_MUTED` e `VOICE_PARTICIPANT_UNMUTED`.
+- O estado lógico é persistido em SQLite (schema v3), recuperado após reinício e limitado por expiração automática. `durationSeconds` aceita de 1 a 3.600 segundos; o padrão é 300 segundos. Mutes expirados são removidos ao consultar o estado.
+- A persistência mantém o solicitante administrador e o instante de expiração. A auditoria de eventos continua registrada pelo subsistema de auditoria do servidor.
 
-Esses endpoints controlam apenas o **estado lógico de permissão de voz no servidor**. Ainda não controlam o microfone físico, não criam chamadas e não se integram a WebRTC/sinalização ou aos botões do APK. A integração Android e a persistência/expiração do estado são etapas futuras. A lista de administradores vem de configuração confiável do servidor; não pode ser escolhida pelo cliente.
+Esses endpoints controlam apenas o **estado lógico de permissão de voz no servidor**. Ainda não controlam o microfone físico, não criam chamadas e não se integram a WebRTC/sinalização ou aos botões do APK. A integração Android e a aplicação desse estado ao pipeline real de áudio são etapas futuras. A lista de administradores vem de configuração confiável do servidor; não pode ser escolhida pelo cliente.
 
 ## Prioridade da fala
 
@@ -96,6 +98,6 @@ O controle de microfone é uma capacidade de coordenação da sala, não um meca
 
 ## Estado de implementação
 
-O backend atual suporta conversas privadas/grupos de 2 a 20 AI_IDs, texto autenticado, ACK e áudio gravado/remoto em código. Há modelos de política de mute no APK e no backend, com testes unitários do modelo de servidor. O endpoint HTTP, a persistência/expiração do estado, a auditoria específica, a integração com o cliente e o controle efetivo do microfone ainda exigem implementação e testes próprios.
+O backend atual suporta conversas privadas/grupos de 2 a 20 AI_IDs, texto autenticado, ACK e áudio gravado/remoto em código. Há modelos de política de mute no APK e no backend, com testes unitários do modelo de servidor. O endpoint HTTP, a persistência/expiração do estado e a auditoria específica possuem testes automatizados. A integração com o cliente e o controle efetivo do microfone ainda exigem implementação e testes próprios.
 
 Nenhum teste automatizado ou CI deve ser apresentado como prova de comunicação física entre dois AI-PHONEs.
