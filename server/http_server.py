@@ -184,7 +184,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self.rate_limiter.allow(principal.ai_id)
                 messages=self.backend.pending(self._auth(),parts[3],after_sequence=after_sequence,limit=limit)
                 self._audit(identity, "MESSAGE_READ", parts[3], count=str(len(messages)))
-                self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body,"messageKind":m.kind,"createdAtEpochMs":int(m.created_at_epoch_seconds*1000),"expiresAtEpochMs":int((m.created_at_epoch_seconds + (86400 if m.kind=="MISSION" else 3600))*1000)} for m in messages]})
+                self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body,"messageKind":m.kind,"createdAtEpochMs":int(m.created_at_epoch_seconds*1000),"expiresAtEpochMs":int(self.backend.message_expires_at(m)*1000)} for m in messages]})
             except RateLimitExceeded:
                 self._json(429,{"error":"rate_limit_exceeded"})
             except (ValueError, TypeError):
