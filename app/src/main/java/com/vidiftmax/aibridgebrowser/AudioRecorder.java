@@ -10,6 +10,7 @@ public final class AudioRecorder {
     private static final long MAX_BYTES = 5L * 1024L * 1024L;
     private MediaRecorder recorder;
     private File outputFile;
+    private boolean recorderStoppedByLimit;
 
     public synchronized File start(Context context) throws IOException {
         if (recorder != null) throw new IllegalStateException("recording_already_active");
@@ -25,6 +26,11 @@ public final class AudioRecorder {
             r.setAudioSamplingRate(44100);
             r.setMaxFileSize(MAX_BYTES);
             r.setMaxDuration(5 * 60 * 1000);
+            recorderStoppedByLimit = false;
+            r.setOnInfoListener((mr, what, extra) -> {
+                if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED ||
+                        what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) recorderStoppedByLimit = true;
+            });
             r.setOutputFile(outputFile.getAbsolutePath());
             r.prepare();
             r.start();
@@ -34,6 +40,7 @@ public final class AudioRecorder {
             r.release();
             outputFile.delete();
             outputFile = null;
+            recorderStoppedByLimit = false;
             throw error;
         }
     }
@@ -45,10 +52,11 @@ public final class AudioRecorder {
         recorder = null;
         outputFile = null;
         try {
-            r.stop();
+            if (!recorderStoppedByLimit) r.stop();
         } finally {
             r.release();
         }
+        recorderStoppedByLimit = false;
         if (!result.isFile() || result.length() <= 0 || result.length() > MAX_BYTES) {
             result.delete();
             throw new IllegalStateException("voice_note_size_invalid");
@@ -66,7 +74,7 @@ public final class AudioRecorder {
         File result = outputFile;
         recorder = null;
         outputFile = null;
-        try { r.stop(); } catch (RuntimeException ignored) { }
+        try { if (!recorderStoppedByLimit) r.stop(); } catch (RuntimeException ignored) { }
         r.release();
         if (result != null) result.delete();
     }
