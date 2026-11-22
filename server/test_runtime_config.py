@@ -82,6 +82,58 @@ class RuntimeConfigTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+
+    def test_storage_mode_rejects_unknown_values(self):
+        old = os.environ.get("MESSENGER_STORAGE_MODE")
+        try:
+            os.environ["MESSENGER_STORAGE_MODE"] = "cloud-ish"
+            with self.assertRaisesRegex(RuntimeError, "MESSENGER_STORAGE_MODE"):
+                RuntimeConfig.storage_mode()
+        finally:
+            if old is None:
+                os.environ.pop("MESSENGER_STORAGE_MODE", None)
+            else:
+                os.environ["MESSENGER_STORAGE_MODE"] = old
+
+    def test_ephemeral_storage_is_never_accepted_as_durable(self):
+        keys = ["MESSENGER_STORAGE_MODE", "MESSENGER_DB_PATH"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ["MESSENGER_STORAGE_MODE"] = "ephemeral"
+            os.environ["MESSENGER_DB_PATH"] = "/tmp/messenger.sqlite"
+            with self.assertRaisesRegex(RuntimeError, "storage_not_durable"):
+                RuntimeConfig.validate_storage_contract()
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    def test_persistent_storage_requires_absolute_root_and_database_inside_it(self):
+        import tempfile
+        from pathlib import Path
+        keys = ["MESSENGER_STORAGE_MODE", "MESSENGER_PERSISTENT_STORAGE_ROOT", "MESSENGER_DB_PATH"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                os.environ["MESSENGER_STORAGE_MODE"] = "persistent"
+                os.environ["MESSENGER_PERSISTENT_STORAGE_ROOT"] = directory
+                os.environ["MESSENGER_DB_PATH"] = str(Path(directory) / "messenger.sqlite")
+                self.assertEqual(RuntimeConfig.validate_storage_contract(), "persistent")
+                os.environ["MESSENGER_DB_PATH"] = str(Path(directory).parent / "outside.sqlite")
+                with self.assertRaisesRegex(RuntimeError, "database_outside_persistent_root"):
+                    RuntimeConfig.validate_storage_contract()
+                os.environ["MESSENGER_PERSISTENT_STORAGE_ROOT"] = "relative/path"
+                with self.assertRaisesRegex(RuntimeError, "PERSISTENT_STORAGE_ROOT"):
+                    RuntimeConfig.validate_storage_contract()
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
 if __name__ == "__main__":
     unittest.main()
 
