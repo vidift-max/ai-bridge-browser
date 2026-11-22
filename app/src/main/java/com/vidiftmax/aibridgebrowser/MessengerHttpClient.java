@@ -27,6 +27,21 @@ public final class MessengerHttpClient {
     public JSONObject getMyPhone() throws Exception { return request("GET", "/v1/me/phone", null).getJSONObject("phone"); }
 
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
+        if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
+            throw new IllegalArgumentException("invalid_conversation_id");
+        if (!"PRIVATE".equals(kind) && !"GROUP".equals(kind))
+            throw new IllegalArgumentException("invalid_conversation_kind");
+        if (memberAiIds == null || memberAiIds.length() < 2 || memberAiIds.length() > 20)
+            throw new IllegalArgumentException("invalid_member_count");
+        boolean includesSelf = false;
+        java.util.HashSet<String> unique = new java.util.HashSet<>();
+        for (int i=0;i<memberAiIds.length();i++) {
+            String id = MessengerRemoteConfig.validateAiId(memberAiIds.optString(i, ""));
+            if (!unique.add(id)) throw new IllegalArgumentException("duplicate_member_id");
+            if (aiId.equals(id)) includesSelf = true;
+        }
+        if (!includesSelf || ("PRIVATE".equals(kind) && memberAiIds.length() != 2))
+            throw new IllegalArgumentException("invalid_conversation_members");
         JSONObject body = new JSONObject();
         body.put("conversationId", conversationId);
         body.put("memberAiIds", memberAiIds);
@@ -35,6 +50,18 @@ public final class MessengerHttpClient {
     }
 
     public JSONObject sendMessage(String conversationId, JSONArray recipients, String bodyText) throws Exception {
+        if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
+            throw new IllegalArgumentException("invalid_conversation_id");
+        if (bodyText == null || bodyText.trim().isEmpty() || bodyText.length() > 5000)
+            throw new IllegalArgumentException("invalid_message_body");
+        if (recipients == null || recipients.length() < 1)
+            throw new IllegalArgumentException("message_recipients_required");
+        java.util.HashSet<String> uniqueRecipients = new java.util.HashSet<>();
+        for (int i=0;i<recipients.length();i++) {
+            String id = MessengerRemoteConfig.validateAiId(recipients.optString(i, ""));
+            if (aiId.equals(id) || !uniqueRecipients.add(id))
+                throw new IllegalArgumentException("invalid_message_recipient");
+        }
         JSONObject body = new JSONObject();
         body.put("messageId", UUID.randomUUID().toString());
         body.put("conversationId", conversationId);
