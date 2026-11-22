@@ -66,6 +66,31 @@ class HttpE2ETest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+
+    def test_readyz_rejects_ephemeral_hosted_storage(self):
+        keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B",
+                "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B",
+                "MESSENGER_DB_PATH", "MESSENGER_STORAGE_MODE"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ.update({
+                "MESSENGER_TOKEN_AI_A": "secret-a",
+                "MESSENGER_TOKEN_AI_B": "secret-b",
+                "MESSENGER_AI_ID_A": "AI-A",
+                "MESSENGER_AI_ID_B": "AI-B",
+                "MESSENGER_DB_PATH": self.tmp.name,
+                "MESSENGER_STORAGE_MODE": "ephemeral"})
+            status, data = self.request("GET", "/readyz", "")
+            self.assertEqual(status, 503)
+            self.assertEqual(data["status"], "not_ready")
+            self.assertEqual(data["error"], "runtime_configuration_invalid")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
     def test_two_principal_http_flow(self):
         status, sent = self.request("POST", "/v1/messages", "token-a", {
             "messageId": "m-http-1", "conversationId": "room",
