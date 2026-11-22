@@ -106,7 +106,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     messages = {}
     for row in connection.execute(
         "SELECT message_id, conversation_id, sender_ai_id, recipient_ai_ids, "
-        "client_request_id, sequence FROM messages"
+        "client_request_id, sequence, kind, created_at_epoch_seconds FROM messages"
     ):
         message_id = row["message_id"]
         members = conversations.get(row["conversation_id"])
@@ -117,6 +117,10 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                 or row["sequence"] <= 0
                 or len(recipients) != len(set(recipients))
                 or any(item not in members for item in recipients)):
+            return False, "RESTORE_DATA_MESSAGE_INVALID"
+        if "kind" in row.keys() and row["kind"] not in ("NORMAL", "MISSION"):
+            return False, "RESTORE_DATA_MESSAGE_INVALID"
+        if "created_at_epoch_seconds" in row.keys() and (not isinstance(row["created_at_epoch_seconds"], (int, float)) or row["created_at_epoch_seconds"] < 0):
             return False, "RESTORE_DATA_MESSAGE_INVALID"
         messages[message_id] = (row["sender_ai_id"], row["client_request_id"],
                                 row["conversation_id"], members, set(recipients))
