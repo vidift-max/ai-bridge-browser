@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import org.junit.Test;
+import org.json.JSONArray;
 import java.util.Set;
 
 public class MessengerRemoteConfigTest {
@@ -24,6 +25,16 @@ public class MessengerRemoteConfigTest {
                 () -> MessengerRemoteConfig.parseMemberIds("AI-CLAUDE,,AI-GEMINI", "AI-GPT6"));
         assertThrows(IllegalArgumentException.class,
                 () -> MessengerRemoteConfig.parseMemberIds("AI-CLAUDE", "not-an-ai"));
+    }
+    @Test public void clientRejectsPrivateRoomWithWrongMemberCountBeforeNetwork() throws Exception {
+        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
+        JSONArray members = new JSONArray().put("AI-GPT6").put("AI-CLAUDE").put("AI-GEMINI");
+        assertThrows(IllegalArgumentException.class, () -> client.createConversation("room-1", members, "PRIVATE"));
+    }
+    @Test public void clientRejectsEmptyMessageBeforeNetwork() throws Exception {
+        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
+        JSONArray recipients = new JSONArray().put("AI-CLAUDE");
+        assertThrows(IllegalArgumentException.class, () -> client.sendMessage("room-1", recipients, " "));
     }
     @Test public void acceptsMinimalValidAiId() {
         assertEquals("AI-1", MessengerRemoteConfig.validateAiId("AI-1"));
