@@ -23,6 +23,8 @@ public final class AudioRecorder {
             r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
             r.setAudioEncodingBitRate(64000);
             r.setAudioSamplingRate(44100);
+            r.setMaxFileSize(MAX_BYTES);
+            r.setMaxDuration(5 * 60 * 1000);
             r.setOutputFile(outputFile.getAbsolutePath());
             r.prepare();
             r.start();
