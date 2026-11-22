@@ -59,10 +59,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
             self._json(200,{"status":"ok","service":"ai-messenger-experimental"}); return
         if self.path=="/readyz":
             try:
-                RuntimeConfig.require("MESSENGER_TOKEN_AI_A")
-                RuntimeConfig.require("MESSENGER_TOKEN_AI_B")
-                RuntimeConfig.require("MESSENGER_AI_ID_A")
-                RuntimeConfig.require("MESSENGER_AI_ID_B")
+                RuntimeConfig.auth_tokens()
                 RuntimeConfig.storage_path()
                 RuntimeConfig.request_timeout_seconds()
                 RuntimeConfig.retry_limit()
