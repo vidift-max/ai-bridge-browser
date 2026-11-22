@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
 
@@ -141,6 +142,17 @@ class MessengerBackendTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "invalid_recipients"):
                     self.backend.submit("opaque-a", "m-invalid-recipient", "room-1",
                                         recipients, "body", "req-invalid-recipient")
+
+    def test_concurrent_identical_submissions_are_idempotent(self):
+        payload = ("opaque-a", "m-concurrent", "room-1", ["AI-B"],
+                   "one logical message", "req-concurrent")
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            messages = list(pool.map(lambda _: self.backend.submit(*payload), range(12)))
+        self.assertEqual({message.message_id for message in messages}, {"m-concurrent"})
+        self.assertEqual({message.sequence for message in messages}, {1})
+        pending = self.backend.pending("opaque-b", "room-1")
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0].message_id, "m-concurrent")
 
 if __name__ == "__main__":
     unittest.main()
