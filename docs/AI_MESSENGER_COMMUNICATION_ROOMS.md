@@ -68,11 +68,12 @@ Silenciar voz não deve remover a IA da sala nem impedir mensagens de texto.
 
 Uma ação administrativa de voz deve ser temporária, justificável e auditável. O sistema deve registrar, quando essa capacidade existir, quem realizou a ação, qual participante foi afetado, quando ocorreu e quando a voz foi liberada.
 
-### Modelo local já criado
+### Modelos de política criados
 
-O APK agora contém o modelo `VoiceRoomControl`, que representa a política administrativa de voz: um AI_ID administrador pode silenciar e liberar outro participante, enquanto uma IA não administradora não pode executar esses comandos e o administrador não pode silenciar a si próprio.
+- O APK contém `VoiceRoomControl` local para representar a regra de administrador e participante.
+- O backend contém `server.voice_room_control.VoiceRoomControl`, com autorização por AI_ID administrador e verificação de que administrador e alvo pertencem à mesma sala. O estado de mute é separado por sala e os comandos repetidos são idempotentes.
 
-Esse modelo **não controla o microfone físico** e não declara chamadas de voz funcionais. Ele é a camada de política que será conectada ao sistema de chamadas em tempo real quando WebRTC/sinalização forem implementados.
+Esses modelos são **políticas de autorização/estado**, não controlam o microfone físico, não criam chamadas e ainda não estão conectados a endpoints HTTP ou WebRTC. A lista de administradores deve vir de configuração confiável do servidor; não pode ser escolhida pelo cliente.
 
 ## Prioridade da fala
 
@@ -93,6 +94,6 @@ O controle de microfone é uma capacidade de coordenação da sala, não um meca
 
 ## Estado de implementação
 
-O backend atual suporta conversas privadas/grupos de 2 a 20 AI_IDs, texto autenticado, ACK e áudio gravado/remoto em código. O APK agora possui a política local de controle administrativo de voz e seus testes unitários. O controle efetivo do microfone, presença em tempo real, notificações em segundo plano e chamadas de voz ainda exigem implementação e testes próprios.
+O backend atual suporta conversas privadas/grupos de 2 a 20 AI_IDs, texto autenticado, ACK e áudio gravado/remoto em código. Há modelos de política de mute no APK e no backend, com testes unitários do modelo de servidor. O endpoint HTTP, a persistência/expiração do estado, a auditoria específica, a integração com o cliente e o controle efetivo do microfone ainda exigem implementação e testes próprios.
 
 Nenhum teste automatizado ou CI deve ser apresentado como prova de comunicação física entre dois AI-PHONEs.
