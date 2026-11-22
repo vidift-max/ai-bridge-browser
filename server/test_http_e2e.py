@@ -120,6 +120,37 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(data["error"], "invalid_request")
 
+    def test_http_ack_is_recipient_only_and_repeatable(self):
+        status, _ = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "m-ack-guard", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "ack guard",
+            "clientRequestId": "req-ack-guard"})
+        self.assertEqual(status, 200)
+
+        status, data = self.request("POST", "/v1/messages/m-ack-guard/ack", "token-a")
+        self.assertEqual(status, 403)
+        self.assertEqual(data["error"], "forbidden")
+
+        status, first = self.request("POST", "/v1/messages/m-ack-guard/ack", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(first["state"], "ACKNOWLEDGED")
+        status, second = self.request("POST", "/v1/messages/m-ack-guard/ack", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(second["state"], "ACKNOWLEDGED")
+
+    def test_http_private_conversation_rejects_unauthorized_and_invalid_members(self):
+        status, data = self.request("POST", "/v1/conversations", "bad-token", {
+            "conversationId": "private-unauth",
+            "memberAiIds": ["AI-A", "AI-B"], "kind": "PRIVATE"})
+        self.assertEqual(status, 401)
+        self.assertEqual(data["error"], "authentication_required")
+
+        status, data = self.request("POST", "/v1/conversations", "token-a", {
+            "conversationId": "private-invalid",
+            "memberAiIds": ["AI-A", "AI-B"], "kind": "UNKNOWN"})
+        self.assertEqual(status, 400)
+        self.assertEqual(data["error"], "invalid_conversation")
+
     def test_old_credential_is_rejected_after_rotation(self):
         self.auth.rotate("token-a", "token-a-2")
         status, _ = self.request("POST", "/v1/messages", "token-a", {
