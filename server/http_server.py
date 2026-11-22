@@ -8,6 +8,20 @@ from server.sqlite_store import SQLiteMessengerStore
 from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
 from server.request_context import authenticate_request, bearer_token
 
+
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(_value):
+    raise ValueError("invalid_json_constant")
+
+
 class MessengerHandler(BaseHTTPRequestHandler):
     backend=None
     authenticator=None
@@ -34,7 +48,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
             raw = self.rfile.read(length).decode("utf-8")
         except UnicodeDecodeError:
             raise ValueError("invalid_json_encoding")
-        payload=json.loads(raw)
+        payload=json.loads(raw, object_pairs_hook=_unique_json_object,
+                           parse_constant=_reject_json_constant)
         if not isinstance(payload, dict):
             raise ValueError("json_object_required")
         return payload
