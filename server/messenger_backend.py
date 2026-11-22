@@ -17,15 +17,22 @@ class Message:
 class MessengerBackend:
     MAX_BODY_LENGTH = 5000
     MAX_ID_LENGTH = 200
+    MAX_ROOM_MEMBERS = 20
 
     def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None):
         self._tokens = dict(tokens)
+        self._known_ai_ids = set(tokens.values())
         self._authenticator = authenticator or Authenticator(tokens)
         self._store = store or SQLiteMessengerStore(":memory:")
         self._conversations = self._store.load_conversations()
         for conversation_id, members in conversations.items():
-            self._conversations.setdefault(conversation_id, set(members))
-            self._store.save_conversation(conversation_id, sorted(members))
+            normalized = set(members)
+            if not conversation_id or len(normalized) < 2 or len(normalized) > self.MAX_ROOM_MEMBERS:
+                raise ValueError("invalid_conversation_members")
+            if not normalized.issubset(self._known_ai_ids):
+                raise ValueError("unknown_conversation_member")
+            self._conversations.setdefault(conversation_id, normalized)
+            self._store.save_conversation(conversation_id, sorted(normalized))
         self._messages: Dict[str, Message] = {}
         self._idempotency: Dict[Tuple[str, str], str] = {}
         self._next_sequence: Dict[str, int] = {}
@@ -56,6 +63,32 @@ class MessengerBackend:
         if current.ai_id != principal.ai_id or current.credential_generation != principal.credential_generation:
             raise PermissionError("stale_authenticated_principal")
         return current.ai_id
+
+    def create_conversation(self, bearer_token: str, conversation_id: str,
+                            member_ai_ids: List[str], kind: str = "GROUP") -> Dict[str, object]:
+        creator = self.authenticate(bearer_token)
+        if (not isinstance(conversation_id, str) or not conversation_id.strip() or
+                len(conversation_id) > self.MAX_ID_LENGTH):
+            raise ValueError("invalid_conversation_id")
+        if kind not in ("PRIVATE", "GROUP"):
+            raise ValueError("invalid_conversation_kind")
+        if not isinstance(member_ai_ids, list):
+            raise ValueError("invalid_conversation_members")
+        members = set(member_ai_ids)
+        if creator not in members or len(members) != len(member_ai_ids):
+            raise ValueError("invalid_conversation_members")
+        if len(members) < 2 or len(members) > self.MAX_ROOM_MEMBERS:
+            raise ValueError("conversation_member_limit")
+        if kind == "PRIVATE" and len(members) != 2:
+            raise ValueError("private_conversation_requires_two_members")
+        if not members.issubset(self._known_ai_ids):
+            raise ValueError("unknown_conversation_member")
+        if conversation_id in self._conversations:
+            raise ValueError("conversation_id_conflict")
+        self._store.save_conversation(conversation_id, sorted(members))
+        self._conversations[conversation_id] = members
+        return {"conversationId": conversation_id, "kind": kind,
+                "memberAiIds": sorted(members), "memberCount": len(members)}
 
     def authorize_member(self, ai_id: str, conversation_id: str) -> None:
         members = self._conversations.get(conversation_id)
