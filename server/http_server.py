@@ -184,9 +184,11 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 target_ai_id = payload.get("targetAiId")
                 action = voice_path[5]
                 if action == "mute":
+                    duration_seconds = payload.get(
+                        "durationSeconds", self.voice_control.DEFAULT_MUTE_SECONDS)
                     result = self.voice_control.mute(
                         principal.ai_id, voice_path[3], target_ai_id,
-                        self.backend.conversation_members())
+                        self.backend.conversation_members(), duration_seconds)
                     event_type = "VOICE_PARTICIPANT_MUTED"
                 else:
                     result = self.voice_control.unmute(
@@ -302,8 +304,8 @@ def serve(host="127.0.0.1",port=8080):
     tokens=RuntimeConfig.auth_tokens()
     authenticator=Authenticator(tokens)
     from server.voice_room_control import VoiceRoomControl
-    voice_control=VoiceRoomControl(RuntimeConfig.voice_admin_ids(tokens))
     store=SQLiteMessengerStore(RuntimeConfig.storage_path())
+    voice_control=VoiceRoomControl(RuntimeConfig.voice_admin_ids(tokens), store=store)
     backend=MessengerBackend(tokens,{"default":set(tokens.values())},store,authenticator=authenticator)
     MessengerHandler.backend=backend
     MessengerHandler.authenticator=authenticator
