@@ -42,3 +42,12 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 
 ## Critérios para declarar concluído
 Áudio ponta a ponta só será PASS quando dois clientes Android autenticados transmitirem e receberem áudio real com evidência registrada. Chamada só será PASS quando a sessão WebRTC tiver mídia bidirecional real, mute/recusa/encerramento e testes de interrupção/reconexão.
+
+
+## Atualização de entrega — APK debug
+- Android Build #675 / run `44984566411`: **SUCCESS** no commit `3b2b5330ebdf1ab2d49dd55c4f450260326f303b`.
+- Artifact `ai-phone-debug-apk` (ID `14738199924`): **PRESENTE, NÃO EXPIRADO**.
+- O artifact foi baixado e contém exatamente `app-debug.apk`.
+- APK: 3.772.215 bytes; SHA-256 `919c9eb0087848e410f4f4b8b92681e15ebe89da34c264cb75519e315c5f2c83`.
+- Backend #300 / run `44984566404`: **SUCCESS**.
+- Este gate comprova geração e recuperação do APK debug. Não comprova instalação em aparelho físico, compatibilidade específica com o tablet do usuário, comunicação entre dois aparelhos, push/background ou chamadas WebRTC.
