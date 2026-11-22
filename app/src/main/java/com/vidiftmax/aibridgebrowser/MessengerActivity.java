@@ -879,6 +879,13 @@ public final class MessengerActivity extends Activity {
             String transportLabel = item.optString("status", "").contains("SERVER") ||
                     item.optString("status", "").contains("QUEUED") ? "SERVIDOR" : "LOCAL";
             bubble.addView(text(stamp + " · " + transportLabel + " · " + localState, 11, ACCENT, true));
+            if (item.optString("messageId", "").length() > 0 && item.optBoolean("remoteMessage", false)) {
+                Button audio = new Button(this);
+                audio.setText("▶ Buscar e reproduzir áudio");
+                audio.setAllCaps(false);
+                audio.setOnClickListener(v -> fetchAndPlayRemoteAudio(item.optString("messageId", "")));
+                bubble.addView(audio);
+            }
             if (MessengerLocalState.SAVED_LOCAL.equals(localState)) {
                 Button read = new Button(this);
                 read.setText("Marcar como lida localmente");
@@ -896,6 +903,24 @@ public final class MessengerActivity extends Activity {
             empty.setPadding(0, dp(18), 0, dp(18));
             messageList.addView(empty);
         }
+    }
+
+    private void fetchAndPlayRemoteAudio(String messageId) {
+        new Thread(() -> {
+            try {
+                JSONArray attachments = remoteClient().listAudioAttachments(messageId);
+                if (attachments.length() == 0) throw new IllegalStateException("audio_not_found");
+                JSONObject a = attachments.getJSONObject(0);
+                String objectId = a.optString("objectId", "");
+                if (objectId.isEmpty()) throw new IllegalStateException("audio_object_id_missing");
+                java.io.File target = new java.io.File(getCacheDir(), "voice_notes/remote-" + objectId + ".m4a");
+                java.io.File downloaded = remoteClient().downloadAudio(messageId, objectId, target);
+                audioPlayback.play(downloaded);
+                runOnUiThread(() -> Toast.makeText(this, "Áudio remoto reproduzido.", Toast.LENGTH_SHORT).show());
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this, "Áudio remoto indisponível: " + remoteError(error), Toast.LENGTH_LONG).show());
+            }
+        }).start();
     }
 
     private void markMessageRead(String messageId) {
