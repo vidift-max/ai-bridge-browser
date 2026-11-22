@@ -319,17 +319,21 @@ public final class HomeActivity extends Activity {
     }
 
     private void showWelcomeDocument() {
+        showAssetDocument("AI_PHONE_WELCOME.md", "LEIA-ME — ESTE AI-PHONE É SEU PRESENTE");
+    }
+
+    private void showAssetDocument(String assetName, String title) {
         StringBuilder content = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(getAssets().open("AI_PHONE_WELCOME.md"), java.nio.charset.StandardCharsets.UTF_8))) {
+                new InputStreamReader(getAssets().open(assetName), java.nio.charset.StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) content.append(line).append("\n");
         } catch (java.io.IOException error) {
-            Toast.makeText(this, "Documento de boas-vindas indisponível.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Documento indisponível: " + assetName, Toast.LENGTH_LONG).show();
             return;
         }
         new android.app.AlertDialog.Builder(this)
-                .setTitle("LEIA-ME — ESTE AI-PHONE É SEU PRESENTE")
+                .setTitle(title)
                 .setMessage(content.toString())
                 .setPositiveButton("Fechar", null)
                 .show();
