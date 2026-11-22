@@ -1,4 +1,5 @@
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 from server.audit import AuditLog
@@ -38,6 +39,26 @@ class SecurityHardeningTests(unittest.TestCase):
         limiter.allow("ai-a", now)
         self.assertTrue(limiter.allow("ai-a", now + timedelta(seconds=61)))
 
+
+    def test_rate_limit_isolated_per_ai_principal(self):
+        limiter = SlidingWindowRateLimiter(max_events=1, window_seconds=60)
+        self.assertTrue(limiter.allow("ai-a"))
+        self.assertTrue(limiter.allow("ai-b"))
+        with self.assertRaises(RateLimitExceeded):
+            limiter.allow("ai-a")
+
+    def test_rate_limit_is_atomic_under_concurrent_requests(self):
+        limiter = SlidingWindowRateLimiter(max_events=1, window_seconds=60)
+        def attempt(_):
+            try:
+                limiter.allow("ai-a")
+                return "allowed"
+            except RateLimitExceeded:
+                return "limited"
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            results = list(pool.map(attempt, range(12)))
+        self.assertEqual(results.count("allowed"), 1)
+        self.assertEqual(results.count("limited"), 11)
 
 if __name__ == "__main__":
     unittest.main()
