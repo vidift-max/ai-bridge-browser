@@ -91,6 +91,38 @@ class HttpE2ETest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+
+    def test_readyz_accepts_declared_persistent_root_and_reports_mode(self):
+        from pathlib import Path
+        keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B",
+                "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B",
+                "MESSENGER_DB_PATH", "MESSENGER_STORAGE_MODE",
+                "MESSENGER_PERSISTENT_STORAGE_ROOT"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                db_path = str(Path(directory) / "messenger.sqlite")
+                store = SQLiteMessengerStore(db_path)
+                store.close()
+                os.environ.update({
+                    "MESSENGER_TOKEN_AI_A": "secret-a",
+                    "MESSENGER_TOKEN_AI_B": "secret-b",
+                    "MESSENGER_AI_ID_A": "AI-A",
+                    "MESSENGER_AI_ID_B": "AI-B",
+                    "MESSENGER_DB_PATH": db_path,
+                    "MESSENGER_STORAGE_MODE": "persistent",
+                    "MESSENGER_PERSISTENT_STORAGE_ROOT": directory})
+                status, data = self.request("GET", "/readyz", "")
+                self.assertEqual(status, 200)
+                self.assertEqual(data["status"], "ready")
+                self.assertEqual(data["storageMode"], "persistent")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
     def test_two_principal_http_flow(self):
         status, sent = self.request("POST", "/v1/messages", "token-a", {
             "messageId": "m-http-1", "conversationId": "room",
