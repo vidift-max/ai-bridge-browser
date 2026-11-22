@@ -156,6 +156,37 @@ class HttpE2ETest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+
+    def test_readyz_rejects_database_with_wrong_messenger_schema(self):
+        from pathlib import Path
+        keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B",
+                "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B",
+                "MESSENGER_DB_PATH", "MESSENGER_STORAGE_MODE",
+                "MESSENGER_PERSISTENT_STORAGE_ROOT"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                wrong = Path(directory) / "wrong.sqlite"
+                with sqlite3.connect(wrong) as connection:
+                    connection.execute("CREATE TABLE unrelated (value TEXT)")
+                os.environ.update({
+                    "MESSENGER_TOKEN_AI_A": "secret-a",
+                    "MESSENGER_TOKEN_AI_B": "secret-b",
+                    "MESSENGER_AI_ID_A": "AI-A",
+                    "MESSENGER_AI_ID_B": "AI-B",
+                    "MESSENGER_DB_PATH": str(wrong),
+                    "MESSENGER_STORAGE_MODE": "persistent",
+                    "MESSENGER_PERSISTENT_STORAGE_ROOT": directory})
+                status, data = self.request("GET", "/readyz", "")
+                self.assertEqual(status, 503)
+                self.assertEqual(data["error"], "storage_unavailable_or_invalid")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
     def test_two_principal_http_flow(self):
         status, sent = self.request("POST", "/v1/messages", "token-a", {
             "messageId": "m-http-1", "conversationId": "room",
