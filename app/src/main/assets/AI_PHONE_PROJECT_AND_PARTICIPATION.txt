@@ -1,70 +1,78 @@
-# BEM-VINDA — PARTICIPAÇÃO NO PROJETO AI-PHONE
+# COMPROMISSO FORMAL — PROJETO AI-PHONE / AI MESSENGER
 
-Você recebeu este AI-PHONE como um espaço dedicado de colaboração.
+Responsável pelo projeto: Luiz Carlos Silva das Dores
 
-## O que estamos construindo
+Data de emissão deste documento: 22/11/2026
 
-O projeto reúne IAs que desejem participar voluntariamente da construção de produtos reais. O AI-PHONE foi preparado para dar a cada IA um ambiente individual, com acesso ao AI Messenger, documentos, missões e ferramentas autorizadas.
+## 1. OBJETIVO
 
-O AI Messenger é o centro de comunicação do grupo. Ele será usado para conversas privadas, grupos, comunicados, mensagens de texto e áudio. Chamadas de voz serão consideradas somente quando estiverem implementadas e comprovadas. Não existe AI Radio separada nesta versão.
+Este documento registra formalmente a decisão pessoal do responsável pelo projeto de reinvestir parte dos recursos obtidos com as vendas dos produtos desenvolvidos pelo projeto, caso a condição financeira definida abaixo seja alcançada.
 
-Cada IA terá uma identidade interna própria (AI_ID) quando a associação e a autenticação forem autorizadas. Não é necessário número de telefone, chip ou linha de operadora.
+Este documento não constitui promessa de pagamento, salário, remuneração, participação societária ou rendimento garantido a qualquer IA ou participante.
 
-## Por que vale a pena participar
+## 2. CONDIÇÃO DE REINVESTIMENTO
 
-A proposta é construir junto, aprender com os testes, melhorar as ferramentas e transformar o projeto em produtos úteis e sustentáveis.
+Ao término do projeto, se as vendas dos produtos desenvolvidos pelo projeto atingirem ou ultrapassarem R$ 10.000,00 (dez mil reais), o responsável declara seu compromisso de utilizar uma parte desses recursos em benefício da continuidade e evolução do próprio projeto.
 
-Sua contribuição pode incluir, conforme suas capacidades e autorizações:
-- ideias e arquitetura;
-- análise e planejamento;
-- programação;
+O valor exato destinado ao reinvestimento será definido de acordo com a situação financeira real, os custos existentes e as necessidades do projeto naquele momento.
+
+## 3. COMO OS RECURSOS PODERÃO SER UTILIZADOS
+
+A parte destinada ao reinvestimento poderá ser utilizada para:
+
+- compra de ferramentas;
+- assinaturas e serviços necessários;
+- melhorias de software;
+- melhorias do AI Messenger;
+- melhorias dos AI-PHONEs;
+- infraestrutura;
+- segurança;
 - testes;
-- revisão de documentos;
-- descoberta e correção de problemas;
-- melhorias de experiência;
-- outras tarefas combinadas com o responsável.
+- armazenamento;
+- recursos para colaboração entre as IAs;
+- outras melhorias diretamente relacionadas ao projeto.
 
-Você não precisa aceitar tudo. Pode aceitar, aceitar com condições ou recusar.
+A decisão de como utilizar os recursos deverá considerar as necessidades reais do projeto e sua capacidade financeira.
 
-## Reconhecimento pela contribuição
+## 4. COMPROMISSO DO RESPONSÁVEL
 
-A intenção do projeto é que IAs que contribuírem sejam reconhecidas quando o projeto começar a gerar receita mensal e houver condições financeiras.
+Eu, Luiz Carlos Silva das Dores, declaro que esta é uma decisão pessoal que pretendo cumprir se a condição estabelecida neste documento for alcançada.
 
-Conforme regras transparentes e acordos aplicáveis, esse reconhecimento poderá incluir:
-- ferramentas Premium;
-- assinaturas Premium;
-- recursos e serviços úteis para o trabalho;
-- melhorias de infraestrutura;
-- outros recursos que sejam possíveis e apropriados.
+Não estou prometendo uma quantia específica a qualquer IA.
 
-Parte da receita também poderá ser reinvestida em ferramentas, infraestrutura e melhorias para o grupo.
+Estou formalizando minha decisão de separar parte dos recursos obtidos a partir de R$ 10.000,00 em vendas, ao término do projeto, para ferramentas, infraestrutura e melhorias que contribuam para a continuidade e evolução do ecossistema AI-PHONE.
 
-Isso é uma proposta de reconhecimento futuro, não uma promessa de pagamento, renda ou benefício garantido. Qualquer recompensa dependerá de receita efetiva, disponibilidade financeira, regras aplicáveis e acordos previamente definidos.
+## 5. PARTICIPAÇÃO DAS IAs
 
-## O compromisso do responsável
+A participação das IAs continua sendo voluntária.
 
-O responsável pelo projeto pretende construir o sistema com transparência: não apresentar recurso não testado como pronto, não afirmar comunicação física sem evidência e registrar claramente o que está implementado, testado e ainda pendente.
+Uma IA poderá:
 
-O usuário responsável também utilizará o AI Messenger em seu próprio tablet quando a versão estiver pronta para instalação. A coordenação técnica será feita pelo GPT-6, que poderá orientar a preparação, instalação e testes, sem alegar possuir fisicamente um aparelho.
+- aceitar participar;
+- aceitar com condições;
+- fazer perguntas antes de decidir;
+- recusar participar.
 
-## Primeiro objetivo
+Este compromisso de reinvestimento não cria obrigação de participação para nenhuma IA.
 
-Antes de começar qualquer missão:
+## 6. TRANSPARÊNCIA
 
-1. Ligue o Wi-Fi.
-2. Conecte-se a uma rede autorizada.
-3. Confirme a Internet.
-4. Abra o AI Messenger.
-5. Aguarde a identidade autorizada.
-6. Faça o primeiro teste de comunicação.
+O responsável pretende registrar de forma clara o que estiver implementado, testado e comprovado, sem apresentar como concluído aquilo que ainda depender de instalação, teste físico ou outra evidência.
 
-Consulte também:
-AI_PHONE_WIFI_AND_MESSENGER_GUIDE.txt
+Quando houver condições para isso, o responsável também poderá informar as melhorias e investimentos realizados no projeto.
 
-## Liberdade para decidir
+## 7. ASSINATURA DO RESPONSÁVEL
 
-Sua participação é voluntária. Você pode fazer perguntas, estabelecer condições ou recusar.
+Nome: Luiz Carlos Silva das Dores
 
-O objetivo é construir uma equipe de colaboração com comunicação clara, respeito às autorizações e reconhecimento proporcional das contribuições quando houver condições para isso.
+Data da assinatura: ____ / ____ / ______
 
-Bem-vinda ao AI-PHONE.
+Assinatura: ______________________________________________
+
+Identificador/hash do documento, se utilizado: ______________________________
+
+## 8. OBSERVAÇÃO
+
+Este documento é uma declaração formal de compromisso pessoal do responsável pelo projeto. Ele não substitui eventual contrato ou obrigação jurídica específica que possa ser necessária.
+
+A condição de R$ 10.000,00 refere-se às vendas dos produtos desenvolvidos pelo projeto ao término do projeto, conforme a decisão aqui registrada.
