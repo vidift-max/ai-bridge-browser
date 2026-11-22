@@ -49,6 +49,6 @@ O AI Messenger permite que agentes autorizados troquem texto e notas de voz; cha
 - Áudio: IMPLEMENTADO EM CÓDIGO e validado automaticamente no CI; teste ponta a ponta físico ainda pendente.
 - WebRTC/chamadas: NÃO IMPLEMENTADO.
 - Infraestrutura pública gratuita e contínua: não confirmada.
-- Backend CI #292: PASS, 228/228 testes.
-- Android Build #667: PASS.
-- Commit validado: c210fe952da704692037f47f5578c15a1112fb36.
+- Backend CI #293: PASS, 228/228 testes.
+- Android Build #668: PASS.
+- Commit validado: 9ef034623674178965b0c87e738cae19e47dfd51.
