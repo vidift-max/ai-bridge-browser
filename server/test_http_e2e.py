@@ -12,6 +12,7 @@ from server.auth import Authenticator
 from server.http_server import MessengerHandler
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
+from server.audio_blob_store import AudioBlobStore
 from server.operational_runtime import OperationalRuntime
 
 
@@ -28,6 +29,8 @@ class HttpE2ETest(unittest.TestCase):
         MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
         MessengerHandler.authenticator = self.auth
         MessengerHandler.operational = OperationalRuntime()
+        self.audio_dir = tempfile.TemporaryDirectory()
+        MessengerHandler.audio_store = AudioBlobStore(self.audio_dir.name)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MessengerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -36,6 +39,8 @@ class HttpE2ETest(unittest.TestCase):
         self.server.shutdown(); self.server.server_close(); self.thread.join(timeout=2)
         self.backend.close()
         MessengerHandler.operational = None
+        MessengerHandler.audio_store = None
+        self.audio_dir.cleanup()
 
     def request(self, method, path, token, payload=None, correlation_id=None):
         conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
@@ -51,6 +56,52 @@ class HttpE2ETest(unittest.TestCase):
         data = json.loads(response.read().decode("utf-8"))
         conn.close()
         return response.status, data
+
+    def request_bytes(self, method, path, token, data=b"", content_type="audio/ogg"):
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        headers = {"Authorization": "Bearer " + token, "Content-Type": content_type}
+        conn.request(method, path, body=data, headers=headers)
+        response = conn.getresponse()
+        payload = response.read()
+        headers_out = dict(response.getheaders())
+        conn.close()
+        return response.status, payload, headers_out
+
+    def test_authenticated_audio_upload_and_download(self):
+        status, _, _ = self.request_bytes("POST", "/v1/messages/audio-http/audio", "token-a", b"OggS" + b"x" * 20)
+        self.assertEqual(status, 404)
+        self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "audio-http", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "voice", "clientRequestId": "audio-http-req"})
+        status, body, _ = self.request_bytes("POST", "/v1/messages/audio-http/audio", "token-a", b"OggS" + b"x" * 20)
+        self.assertEqual(status, 201)
+        metadata = json.loads(body.decode("utf-8"))
+        object_id = metadata["attachment"]["objectId"]
+        self.assertEqual(metadata["attachment"]["contentType"], "audio/ogg")
+
+        status, downloaded, headers = self.request_bytes("GET", f"/v1/messages/audio-http/audio/{object_id}", "token-b", b"", "application/octet-stream")
+        self.assertEqual(status, 200)
+        self.assertEqual(downloaded, b"OggS" + b"x" * 20)
+        self.assertEqual(headers["Content-Type"], "application/octet-stream")
+
+    def test_audio_upload_rejects_spoofed_sender_and_invalid_audio(self):
+        self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "audio-guard", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "voice", "clientRequestId": "audio-guard-req"})
+        status, _, _ = self.request_bytes("POST", "/v1/messages/audio-guard/audio", "token-b", b"OggS" + b"x" * 20)
+        self.assertEqual(status, 403)
+        status, body, _ = self.request_bytes("POST", "/v1/messages/audio-guard/audio", "token-a", b"not-audio")
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body.decode("utf-8"))["error"], "invalid_audio")
+
+    def test_audio_download_is_member_only(self):
+        self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "audio-member", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "voice", "clientRequestId": "audio-member-req"})
+        status, body, _ = self.request_bytes("POST", "/v1/messages/audio-member/audio", "token-a", b"OggS" + b"x" * 20)
+        object_id = json.loads(body.decode("utf-8"))["attachment"]["objectId"]
+        status, _, _ = self.request_bytes("GET", f"/v1/messages/audio-member/audio/{object_id}", "bad-token", b"", "application/octet-stream")
+        self.assertEqual(status, 401)
 
     def test_legacy_phone_number_endpoint_is_disabled(self):
         status, data = self.request("GET", "/v1/me/phone", "token-a")
