@@ -57,6 +57,17 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - Payloads de mensagem validam tipos, campos vazios e lista de destinatários antes da autorização e persistência.
 - Os testes automatizados cobrem isolamento por AI_ID, concorrência, destinatários inválidos, respostas HTTP 400 e 429. O resultado final do CI deste commit ainda precisa ser confirmado.
 
+## Concorrência e robustez HTTP — hardening em andamento
+
+- O servidor de desenvolvimento/execução usa ThreadingHTTPServer para atender mais de uma requisição ao mesmo tempo.
+- O estado em memória do Messenger é protegido por RLock; envios idempotentes concorrentes no mesmo processo são serializados.
+- O ciclo de vida das credenciais (autenticar, revogar, expirar e rotacionar) é sincronizado.
+- O registro de auditoria protege gravação e leitura concorrentes.
+- O endpoint ACK analisa o caminho sem confundir parâmetros de query com o ID da mensagem.
+- JSON com bytes UTF-8 inválidos é rejeitado com HTTP 400, sem propagar exceção de decodificação.
+- Essas garantias são por processo. SQLite continua sendo o armazenamento persistente; múltiplas instâncias independentes ainda exigem coordenação compartilhada e testes específicos.
+- Os testes de concorrência e HTTP foram adicionados; aguardar CI para classificá-los como aprovados.
+
 ## Estado atual verificado
 - Texto: backend HTTP com persistência, testes de dois principais e ACK; sem prova de comunicação entre dois Android físicos.
 - Áudio gravado: não implementado.
