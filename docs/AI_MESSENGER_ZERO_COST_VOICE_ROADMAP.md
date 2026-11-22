@@ -137,3 +137,9 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - A validação verifica referências de anexos de áudio contra mensagem, conversa, remetente, tamanho, MIME e SHA-256.
 - Testes de candidato de restore cobrem anexo órfão e anexo consistente.
 - Nenhum restore é ativado, nenhum arquivo é sobrescrito e nenhuma infraestrutura externa é criada.
+
+
+### Correção CI — contrato do armazenamento de áudio
+- O limite de upload de 5 MiB é agora exposto como `AudioBlobStore.MAX_AUDIO_BYTES`, alinhando o contrato HTTP com o armazenamento.
+- O teste de restart do backend reabre explicitamente o SQLite após o primeiro backend fechar sua conexão.
+- Nenhuma infraestrutura externa, número telefônico, merge ou deploy foi realizado.
