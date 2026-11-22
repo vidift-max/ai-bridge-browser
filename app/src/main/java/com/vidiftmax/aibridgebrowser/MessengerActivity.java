@@ -60,7 +60,7 @@ public final class MessengerActivity extends Activity {
         page.addView(text("Modo remoto depende de servidor HTTPS e credencial autorizada.", 12, ACCENT, true));
 
         Button remoteConfig = new Button(this);
-        remoteConfig.setText("Configurar conexão remota segura");
+        remoteConfig.setText("Configurar conexão segura do AI Messenger");
         remoteConfig.setAllCaps(false);
         remoteConfig.setOnClickListener(v -> showRemoteSettings());
         page.addView(remoteConfig);
@@ -393,9 +393,9 @@ public final class MessengerActivity extends Activity {
     private void verifyRemoteConnection() {
         new Thread(() -> {
             try {
-                JSONObject phone=remoteClient().getMyPhone();
-                String number=phone.optString("displayNumber","número não informado");
-                runOnUiThread(() -> Toast.makeText(this,"Identidade autenticada: "+number,Toast.LENGTH_LONG).show());
+                JSONObject identity=remoteClient().getMyIdentity();
+                String aiId=identity.optString("aiId","AI_ID não informado");
+                runOnUiThread(() -> Toast.makeText(this,"Identidade autenticada: "+aiId,Toast.LENGTH_LONG).show());
             } catch(Exception e) {
                 runOnUiThread(() -> Toast.makeText(this,"Servidor/credencial não validado: "+remoteError(e),Toast.LENGTH_LONG).show());
             }
