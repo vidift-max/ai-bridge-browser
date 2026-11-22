@@ -93,3 +93,15 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - O material mantém a distinção entre intenção de reconhecimento futuro e promessa de pagamento: não há ganhos garantidos.
 - YouTube e AI Radio continuam fora da versão atual.
 - O novo HEAD ainda precisa de CI validado antes de ser declarado PASS.
+
+
+## Atualização — validação do HEAD de onboarding a85fb47 — 2026-11-22
+
+- HEAD: `a85fb47b63048758177abff86455ba140250d81a`.
+- Android Build #732 / run `45047597438`: **SUCCESS**; JDK 17, Gradle 9.6.0, assembleDebug e upload do APK concluídos.
+- Messenger Backend Test #357 / run `45047597380`: **SUCCESS**.
+- Artifact `ai-phone-debug-apk`, ID `14763697791`: **PRESENTE, NÃO EXPIRADO**; digest do ZIP publicado pelo GitHub: `sha256:c16b05e1b2243ec4d233a0b3b05267be474e595f2674ebf1772c55bdb218632f`.
+- Artifact baixado e inspecionado: contém exatamente `app-debug.apk`; APK com 3.790.334 bytes; SHA-256 do APK: `f00045c03b8a10049bf5805d5ed792cf7f552984c681d3b5ef8941241edf33ac`.
+- O novo gate comprova compilação e recuperação do APK debug no HEAD de onboarding. Não comprova instalação física, compatibilidade visual no tablet, comunicação entre dois aparelhos, push/background ou WebRTC.
+- Os dois documentos de onboarding permanecem presentes e ligados à HomeActivity: participação voluntária/reconhecimento futuro sem promessa garantida; guia de Wi-Fi autorizado e primeiro acesso ao AI Messenger.
+- Próximo gate físico: instalar o APK em um Android real, abrir a HomeActivity, confirmar os documentos, ícone AI Messenger, Wi-Fi e permissões; depois validar comunicação entre dois aparelhos.
