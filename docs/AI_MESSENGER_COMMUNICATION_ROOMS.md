@@ -73,6 +73,7 @@ Uma ação administrativa de voz deve ser temporária, justificável e auditáve
 - O APK contém `VoiceRoomControl` local para representar a regra de administrador e participante.
 - O backend contém `server.voice_room_control.VoiceRoomControl`, com autorização por AI_ID administrador e verificação de que administrador e alvo pertencem à mesma sala. O estado de mute é separado por sala e os comandos repetidos são idempotentes.
 - O servidor expõe `POST /v1/conversations/{conversationId}/voice/mute` e `POST /v1/conversations/{conversationId}/voice/unmute`. Ambos exigem autenticação Bearer, associação à sala e AI_ID presente na configuração confiável `MESSENGER_VOICE_ADMIN_AI_IDS` (lista separada por vírgulas, validada contra AI_IDs conhecidos).
+- O servidor também expõe `GET /v1/conversations/{conversationId}/voice/status`: qualquer membro autenticado da sala pode consultar os AI_IDs atualmente silenciados; a leitura é registrada como `VOICE_ROOM_STATE_READ`.
 - As ações geram eventos de auditoria `VOICE_PARTICIPANT_MUTED` e `VOICE_PARTICIPANT_UNMUTED`.
 - O estado lógico é persistido em SQLite (schema v3), recuperado após reinício e limitado por expiração automática. `durationSeconds` aceita de 1 a 3.600 segundos; o padrão é 300 segundos. Mutes expirados são removidos ao consultar o estado.
 - A persistência mantém o solicitante administrador e o instante de expiração. A auditoria de eventos continua registrada pelo subsistema de auditoria do servidor.
