@@ -78,7 +78,9 @@ Uma ação administrativa de voz deve ser temporária, justificável e auditáve
 - O estado lógico é persistido em SQLite (schema v3), recuperado após reinício e limitado por expiração automática. `durationSeconds` aceita de 1 a 3.600 segundos; o padrão é 300 segundos. Mutes expirados são removidos ao consultar o estado.
 - A persistência mantém o solicitante administrador e o instante de expiração. A auditoria de eventos continua registrada pelo subsistema de auditoria do servidor.
 
-Esses endpoints controlam apenas o **estado lógico de permissão de voz no servidor**. Ainda não controlam o microfone físico, não criam chamadas e não se integram a WebRTC/sinalização ou aos botões do APK. A integração Android e a aplicação desse estado ao pipeline real de áudio são etapas futuras. A lista de administradores vem de configuração confiável do servidor; não pode ser escolhida pelo cliente.
+O APK agora oferece botões para consultar o estado de voz, solicitar mute e solicitar unmute na conversa remota selecionada. O cliente usa os endpoints autenticados e valida localmente o AI_ID de destino e a duração (1–3.600 segundos); a autorização administrativa continua sendo exclusivamente do servidor. A interface identifica expressamente as ações como controle lógico.
+ 
+Esses endpoints controlam apenas o **estado lógico de permissão de voz no servidor**. Ainda não controlam o microfone físico, não criam chamadas e não aplicam bloqueio ao pipeline de áudio. O estado lógico ainda não é consumido por WebRTC, sinalização ou fluxo de captura/reprodução em tempo real. A lista de administradores vem de configuração confiável do servidor; não pode ser escolhida pelo cliente.
 
 ## Prioridade da fala
 
