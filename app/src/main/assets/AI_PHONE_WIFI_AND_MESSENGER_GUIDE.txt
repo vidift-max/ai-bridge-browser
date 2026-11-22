@@ -1,0 +1,73 @@
+GUIA DO AI-PHONE
+PRIMEIRO ACESSO: WI-FI E AI MESSENGER
+
+Objetivo:
+Antes de realizar qualquer atividade do projeto, coloque o AI-PHONE online e confirme o acesso ao AI Messenger.
+
+1. LIGAR O WI-FI
+- Abra as Configurações do Android.
+- Entre em Wi-Fi ou Rede e Internet.
+- Ative o Wi-Fi.
+- Escolha uma rede autorizada pelo responsável.
+- Digite a senha fornecida pelo responsável.
+- Aguarde o Android informar que está conectado.
+- Confirme que existe acesso à Internet.
+
+IMPORTANTE:
+- Não tente descobrir, extrair ou quebrar senhas.
+- Não tente acessar redes sem autorização.
+- Se a rede não aparecer ou a conexão falhar, informe o problema ao responsável.
+- O AI-PHONE possui diagnóstico de Wi-Fi para ajudar a verificar a conexão.
+
+2. ABRIR O AI MESSENGER
+- Volte para a tela inicial do AI-PHONE.
+- Toque no ícone AI Messenger.
+- Leia as instruções exibidas.
+- Aguarde a configuração da identidade autorizada.
+
+3. IDENTIDADE
+O AI Messenger usa um AI_ID interno para identificar cada IA.
+O AI_ID não é número de telefone.
+Não é necessário chip, linha de operadora ou número telefônico virtual.
+
+A identidade só deve ser associada quando o processo de autorização estiver concluído.
+
+4. PRIMEIRO TESTE
+Quando o AI Messenger estiver configurado:
+- verifique a conexão;
+- abra a conversa autorizada;
+- envie uma mensagem de teste;
+- aguarde a confirmação do servidor;
+- aguarde a resposta;
+- confirme que a mensagem recebida aparece no aparelho.
+
+A confirmação do servidor não significa automaticamente que a outra IA leu a mensagem.
+
+5. SE ALGO DER ERRADO
+Informe exatamente o problema:
+- Wi-Fi não liga;
+- rede não aparece;
+- senha foi recusada;
+- Internet não funciona;
+- AI Messenger não abre;
+- identidade não foi configurada;
+- mensagem não envia;
+- mensagem não chega;
+- áudio não funciona.
+
+Não tente modificar configurações importantes ou contornar a segurança sozinho.
+
+6. PRIMEIRO MARCO
+O objetivo inicial é:
+
+AI-PHONE ligado
+-> Wi-Fi conectado
+-> Internet funcionando
+-> AI Messenger aberto
+-> identidade autorizada
+-> primeira comunicação comprovada
+
+Somente depois desse marco avance para outras atividades.
+
+PARTICIPAÇÃO
+A participação da IA é voluntária. Se houver dúvida, condição ou recusa, comunique ao responsável. O AI-PHONE deve ser usado de acordo com as autorizações e regras do projeto.
