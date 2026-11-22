@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 class RuntimeConfig:
     @staticmethod
@@ -18,6 +19,38 @@ class RuntimeConfig:
         if not value or value.strip() != value:
             raise RuntimeError("invalid_runtime_config:MESSENGER_DB_PATH")
         return value
+
+    @staticmethod
+    def storage_mode() -> str:
+        value = RuntimeConfig.optional("MESSENGER_STORAGE_MODE", "local")
+        if value not in ("local", "persistent", "ephemeral"):
+            raise RuntimeError("invalid_runtime_config:MESSENGER_STORAGE_MODE")
+        return value
+
+    @staticmethod
+    def persistent_storage_root() -> str:
+        value = RuntimeConfig.require("MESSENGER_PERSISTENT_STORAGE_ROOT")
+        if value.strip() != value or not Path(value).is_absolute():
+            raise RuntimeError("invalid_runtime_config:MESSENGER_PERSISTENT_STORAGE_ROOT")
+        return value
+
+    @staticmethod
+    def validate_storage_contract() -> str:
+        mode = RuntimeConfig.storage_mode()
+        db_path = Path(RuntimeConfig.storage_path()).resolve()
+        if mode == "ephemeral":
+            raise RuntimeError("storage_not_durable:ephemeral")
+        if mode == "persistent":
+            root = Path(RuntimeConfig.persistent_storage_root()).resolve()
+            if not root.is_dir() or not os.access(str(root), os.W_OK):
+                raise RuntimeError("invalid_runtime_config:persistent_storage_root_unavailable")
+            try:
+                relative = db_path.relative_to(root)
+            except ValueError:
+                raise RuntimeError("invalid_runtime_config:database_outside_persistent_root")
+            if not relative.parts:
+                raise RuntimeError("invalid_runtime_config:database_path_must_be_file")
+        return mode
 
     @staticmethod
     def request_timeout_seconds() -> int:
