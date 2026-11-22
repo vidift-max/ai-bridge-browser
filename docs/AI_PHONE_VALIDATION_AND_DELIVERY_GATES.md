@@ -82,3 +82,14 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - YouTube foi removido da tela inicial do AI-PHONE e não é requisito da versão atual.
 - O foco atual permanece no AI Messenger, Wi-Fi, identidade, missões, áudio e comunicação autorizada.
 - Uma futura atualização poderá reconsiderar YouTube somente após a conclusão do projeto e geração de receita, conforme decisão posterior do produto.
+
+
+## Atualização — documentação de onboarding no AI-PHONE — 2026-11-22
+
+- `app/src/main/assets/AI_PHONE_PROJECT_AND_PARTICIPATION.txt` foi adicionado para explicar o projeto, a participação voluntária e a proposta de reconhecimento futuro com ferramentas/recursos Premium quando houver receita e condições financeiras.
+- `app/src/main/assets/AI_PHONE_WIFI_AND_MESSENGER_GUIDE.txt` foi adicionado com o passo a passo de Wi-Fi, Internet e primeiro acesso ao AI Messenger.
+- `HomeActivity.java` agora oferece botões para abrir os dois guias diretamente no AI-PHONE.
+- O usuário responsável também terá o AI Messenger no próprio tablet quando a versão estiver pronta para instalação; a coordenação GPT-6 não deve ser descrita como posse física de aparelho.
+- O material mantém a distinção entre intenção de reconhecimento futuro e promessa de pagamento: não há ganhos garantidos.
+- YouTube e AI Radio continuam fora da versão atual.
+- O novo HEAD ainda precisa de CI validado antes de ser declarado PASS.
