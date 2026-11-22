@@ -18,6 +18,7 @@ import org.json.JSONObject;
 
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.UUID;
 
 public final class MessengerActivity extends Activity {
     private static final String PREFS = "ai_messenger_local_v1";
@@ -63,6 +64,21 @@ public final class MessengerActivity extends Activity {
         remoteConfig.setAllCaps(false);
         remoteConfig.setOnClickListener(v -> showRemoteSettings());
         page.addView(remoteConfig);
+        Button verifyRemote = new Button(this);
+        verifyRemote.setText("Verificar identidade e servidor");
+        verifyRemote.setAllCaps(false);
+        verifyRemote.setOnClickListener(v -> verifyRemoteConnection());
+        page.addView(verifyRemote);
+        Button remoteCreate = new Button(this);
+        remoteCreate.setText("＋ Criar conversa remota");
+        remoteCreate.setAllCaps(false);
+        remoteCreate.setOnClickListener(v -> chooseRemoteConversationKind());
+        page.addView(remoteCreate);
+        Button remoteSync = new Button(this);
+        remoteSync.setText("↻ Buscar mensagens remotas");
+        remoteSync.setAllCaps(false);
+        remoteSync.setOnClickListener(v -> syncRemoteMessages());
+        page.addView(remoteSync);
 
         Button create = new Button(this);
         create.setText("＋ Nova conversa local");
@@ -128,7 +144,7 @@ public final class MessengerActivity extends Activity {
         composer.setMaxLines(4);
         entry.addView(composer, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         Button save = new Button(this);
-        save.setText("Salvar");
+        save.setText("Enviar");
         save.setAllCaps(false);
         save.setOnClickListener(v -> saveLocalMessage());
         entry.addView(save);
@@ -469,6 +485,11 @@ public final class MessengerActivity extends Activity {
         String body = composer.getText().toString().trim();
         if (body.isEmpty()) {
             Toast.makeText(this, "Digite uma mensagem primeiro.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        JSONObject selected = selectedConversation();
+        if (selected != null && selected.optBoolean("remote", false)) {
+            sendRemoteMessage(body, selected);
             return;
         }
         try {
