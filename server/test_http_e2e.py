@@ -28,6 +28,8 @@ class HttpE2ETest(unittest.TestCase):
         from server.rate_limit import SlidingWindowRateLimiter
         MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
         MessengerHandler.authenticator = self.auth
+        from server.voice_room_control import VoiceRoomControl
+        MessengerHandler.voice_control = VoiceRoomControl({"AI-A"})
         MessengerHandler.operational = OperationalRuntime()
         self.audio_dir = tempfile.TemporaryDirectory()
         MessengerHandler.audio_store = AudioBlobStore(self.audio_dir.name)
@@ -40,6 +42,7 @@ class HttpE2ETest(unittest.TestCase):
         self.backend.close()
         MessengerHandler.operational = None
         MessengerHandler.audio_store = None
+        MessengerHandler.voice_control = None
         self.audio_dir.cleanup()
 
     def request(self, method, path, token, payload=None, correlation_id=None):
@@ -66,6 +69,31 @@ class HttpE2ETest(unittest.TestCase):
         headers_out = dict(response.getheaders())
         conn.close()
         return response.status, payload, headers_out
+
+    def test_admin_can_mute_and_unmute_room_participant_over_http(self):
+        status, data = self.request("POST", "/v1/conversations/room/voice/mute",
+                                    "token-a", {"targetAiId": "AI-B"})
+        self.assertEqual(status, 200)
+        self.assertTrue(data["voiceControl"]["muted"])
+        status, data = self.request("POST", "/v1/conversations/room/voice/unmute",
+                                    "token-a", {"targetAiId": "AI-B"})
+        self.assertEqual(status, 200)
+        self.assertFalse(data["voiceControl"]["muted"])
+        events = [event.event_type for event in self.auth.audit_log.events()]
+        self.assertIn("VOICE_PARTICIPANT_MUTED", events)
+        self.assertIn("VOICE_PARTICIPANT_UNMUTED", events)
+
+    def test_non_admin_cannot_mute_participant_over_http(self):
+        status, data = self.request("POST", "/v1/conversations/room/voice/mute",
+                                    "token-b", {"targetAiId": "AI-A"})
+        self.assertEqual(status, 403)
+        self.assertEqual(data["error"], "forbidden")
+
+    def test_voice_mute_rejects_target_outside_room(self):
+        status, data = self.request("POST", "/v1/conversations/room/voice/mute",
+                                    "token-a", {"targetAiId": "AI-UNKNOWN"})
+        self.assertEqual(status, 403)
+        self.assertEqual(data["error"], "forbidden")
 
     def test_authenticated_audio_upload_and_download(self):
         status, _, _ = self.request_bytes("POST", "/v1/messages/audio-http/audio", "token-a", b"OggS" + b"x" * 20)
