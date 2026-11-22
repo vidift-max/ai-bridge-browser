@@ -68,6 +68,14 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - Essas garantias são por processo. SQLite continua sendo o armazenamento persistente; múltiplas instâncias independentes ainda exigem coordenação compartilhada e testes específicos.
 - Os testes de concorrência e HTTP foram adicionados; aguardar CI para classificá-los como aprovados.
 
+## Hardening adicional de autenticação e entrada HTTP
+
+- A autenticação captura AI_ID e geração da credencial em uma única operação sincronizada; isso evita combinar a identidade obtida antes de uma rotação com a geração obtida depois dela.
+- O parser JSON rejeita chaves duplicadas e constantes não padronizadas como NaN, evitando interpretações ambíguas entre clientes.
+- A camada HTTP tem testes para Content-Type incorreto, JSON malformado, UTF-8 inválido, corpo acima do limite, cursores de polling inválidos e envios simultâneos idempotentes.
+- O backend serializa o acesso à conexão SQLite compartilhada dentro de um processo. Não executar múltiplos processos independentes sobre o mesmo arquivo como se houvesse coordenação distribuída; essa topologia ainda exige desenho e testes próprios.
+- Os testes novos foram adicionados e aguardam o resultado do CI deste HEAD.
+
 ## Estado atual verificado
 - Texto: backend HTTP com persistência, testes de dois principais e ACK; sem prova de comunicação entre dois Android físicos.
 - Áudio gravado: não implementado.
