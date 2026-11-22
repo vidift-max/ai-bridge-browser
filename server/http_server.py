@@ -232,7 +232,12 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
-            except (TypeError,ValueError,KeyError):
+            except ValueError as exc:
+                if str(exc) == "message_not_found":
+                    self._json(404,{"error":"message_not_found"})
+                else:
+                    self._json(400,{"error":"invalid_audio"})
+            except (TypeError,KeyError):
                 self._json(400,{"error":"invalid_audio"})
             return
         ack_path = urlsplit(self.path).path
