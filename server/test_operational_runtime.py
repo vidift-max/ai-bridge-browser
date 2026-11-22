@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from server.operational_runtime import OperationalRuntime\nfrom server.sqlite_store import SQLiteMessengerStore
+from server.operational_runtime import OperationalRuntime
+from server.sqlite_store import SQLiteMessengerStore
 
 
 class OperationalRuntimeTests(unittest.TestCase):
