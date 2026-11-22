@@ -23,6 +23,8 @@ class HttpE2ETest(unittest.TestCase):
         self.store = SQLiteMessengerStore(self.tmp.name)
         self.backend = MessengerBackend(self.tokens, {"room": {"AI-A", "AI-B"}}, self.store, authenticator=self.auth)
         MessengerHandler.backend = self.backend
+        from server.rate_limit import SlidingWindowRateLimiter
+        MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
         MessengerHandler.authenticator = self.auth
         MessengerHandler.operational = OperationalRuntime()
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MessengerHandler)
@@ -351,6 +353,29 @@ class HttpE2ETest(unittest.TestCase):
         events = self.auth.audit_log.events()
         self.assertTrue(any(e.correlation_id == "corr-15" and e.event_type == "MESSAGE_SUBMITTED" for e in events))
 
+
+    def test_polling_endpoint_is_rate_limited_per_authenticated_ai(self):
+        from server.rate_limit import SlidingWindowRateLimiter
+        MessengerHandler.rate_limiter = SlidingWindowRateLimiter(max_events=1, window_seconds=60)
+        first_status, _ = self.request("GET", "/v1/conversations/room/messages", "token-b")
+        second_status, data = self.request("GET", "/v1/conversations/room/messages", "token-b")
+        self.assertEqual(first_status, 200)
+        self.assertEqual(second_status, 429)
+        self.assertEqual(data["error"], "rate_limit_exceeded")
+
+    def test_acknowledgement_endpoint_is_rate_limited_per_authenticated_ai(self):
+        from server.rate_limit import SlidingWindowRateLimiter
+        status, _ = self.request("POST", "/v1/messages/m-rate-limit-ack", "token-a", {
+            "messageId": "m-rate-limit-ack", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "rate limit ack",
+            "clientRequestId": "req-rate-limit-ack"})
+        self.assertEqual(status, 200)
+        MessengerHandler.rate_limiter = SlidingWindowRateLimiter(max_events=1, window_seconds=60)
+        first_status, _ = self.request("POST", "/v1/messages/m-rate-limit-ack/ack", "token-b")
+        second_status, data = self.request("POST", "/v1/messages/m-rate-limit-ack/ack", "token-b")
+        self.assertEqual(first_status, 200)
+        self.assertEqual(second_status, 429)
+        self.assertEqual(data["error"], "rate_limit_exceeded")
 
 if __name__ == "__main__":
     unittest.main()
