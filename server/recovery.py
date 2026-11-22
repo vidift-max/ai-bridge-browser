@@ -113,13 +113,19 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
         messages[message_id] = (row["sender_ai_id"], row["client_request_id"],
                                 row["conversation_id"], members)
 
+    idempotency_keys = set()
     for row in connection.execute(
         "SELECT sender_ai_id, client_request_id, message_id FROM idempotency"
     ):
         target = messages.get(row["message_id"])
+        key = (row["sender_ai_id"], row["client_request_id"])
         if (target is None or target[0] != row["sender_ai_id"]
-                or target[1] != row["client_request_id"]):
+                or target[1] != row["client_request_id"] or key in idempotency_keys):
             return False, "RESTORE_DATA_IDEMPOTENCY_INVALID"
+        idempotency_keys.add(key)
+    expected_idempotency = {(sender, request_id) for sender, request_id, _, _ in messages.values()}
+    if idempotency_keys != expected_idempotency:
+        return False, "RESTORE_DATA_IDEMPOTENCY_INVALID"
 
     for row in connection.execute("SELECT message_id, ai_id FROM acknowledgements"):
         target = messages.get(row["message_id"])
