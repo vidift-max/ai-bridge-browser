@@ -1,7 +1,7 @@
 """Local, bounded storage primitive for authenticated Messenger audio attachments.
 
-This module is intentionally not wired to HTTP yet. Authorization and conversation
-ownership must be enforced by the API layer before any object is exposed.
+The HTTP layer wires this store behind authenticated Messenger endpoints. Authorization
+and conversation ownership are enforced by the API layer before any object is exposed.
 """
 from __future__ import annotations
 
