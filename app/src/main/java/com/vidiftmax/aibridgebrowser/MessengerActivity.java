@@ -1019,8 +1019,7 @@ public final class MessengerActivity extends Activity {
             lp.bottomMargin = dp(9);
             messageList.addView(bubble, lp);
         }
-        messageList.post(() -> messageList.getParent() instanceof ScrollView
-                ? ((ScrollView) messageList.getParent()).fullScroll(android.view.View.FOCUS_DOWN) : null);
+        messageList.post(() -> { if (messageList.getParent() instanceof ScrollView) ((ScrollView) messageList.getParent()).fullScroll(android.view.View.FOCUS_DOWN); });
         if (visible == 0) {
             TextView empty = text("Esta conversa ainda não tem mensagens.", 14, MUTED, false);
             empty.setPadding(0, dp(18), 0, dp(18));
