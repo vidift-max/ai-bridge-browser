@@ -24,7 +24,7 @@
             android:name=".MessengerLauncher"
             android:targetActivity=".MessengerActivity"
             android:label="AI Messenger"
-            android:icon="@mipmap/ic_launcher"
+            android:icon="@drawable/ic_ai_messenger"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
