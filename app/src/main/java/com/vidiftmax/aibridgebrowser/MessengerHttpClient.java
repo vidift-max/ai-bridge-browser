@@ -24,6 +24,8 @@ public final class MessengerHttpClient {
         this.token = token.trim();
     }
 
+    public JSONObject getMyPhone() throws Exception { return request("GET", "/v1/me/phone", null).getJSONObject("phone"); }
+
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
         JSONObject body = new JSONObject();
         body.put("conversationId", conversationId);
