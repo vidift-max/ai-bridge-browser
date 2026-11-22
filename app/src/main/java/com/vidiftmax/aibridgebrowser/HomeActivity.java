@@ -182,8 +182,8 @@ public final class HomeActivity extends Activity {
         row.addView(details, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         row.setFocusable(true);
         row.setClickable(true);
-        row.setContentDescription("AI MESSENGER. Histórico local. Sem envio remoto.");
-        row.setOnClickListener(v -> startActivity(new Intent(this, MessengerActivity.class)));
+        row.setContentDescription("AI MESSENGER. Sala coletiva com missões e mensagens com retenção.");
+        row.setOnClickListener(v -> startActivity(new Intent(this, CollectiveRoomActivityV2.class)));
         parent.addView(row);
     }
 
