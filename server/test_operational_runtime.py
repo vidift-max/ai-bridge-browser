@@ -10,15 +10,13 @@ class OperationalRuntimeTests(unittest.TestCase):
     def test_storage_check_records_success_without_database_content(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "db.sqlite"
-            with sqlite3.connect(path) as connection:
-                connection.execute("CREATE TABLE private_data (value TEXT)")
-                connection.execute("INSERT INTO private_data VALUES ('do-not-log')")
+            self.make_valid_messenger_db(path)
             runtime = OperationalRuntime()
             self.assertEqual(runtime.check_storage(str(path), correlation_id="corr-1"),
                              (True, "STORAGE_RECOVERY_OK"))
             event = runtime.snapshot()[0]
             self.assertEqual(event.correlation_id, "corr-1")
-            self.assertNotIn("do-not-log", repr(event))
+            self.assertNotIn("hello", repr(event))
 
 
     def make_valid_messenger_db(self, path):
