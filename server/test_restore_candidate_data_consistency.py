@@ -21,6 +21,28 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
         store.close()
         return path
 
+    def test_valid_voice_mute_is_accepted_by_restore_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with SQLiteMessengerStore(str(path)) as unused:
+                pass
+            with sqlite3.connect(path) as db:
+                db.execute(
+                    "INSERT INTO voice_mutes(conversation_id,ai_id,muted_by_ai_id,expires_at) "
+                    "VALUES(?,?,?,?)", ("room-1", "AI-B", "AI-A", 9999999999.0))
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (True, "RESTORE_CANDIDATE_VALIDATED"))
+
+    def test_voice_mute_target_outside_room_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute(
+                    "INSERT INTO voice_mutes(conversation_id,ai_id,muted_by_ai_id,expires_at) "
+                    "VALUES(?,?,?,?)", ("room-1", "AI-X", "AI-A", 9999999999.0))
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
     def test_consistent_candidate_passes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self._candidate(directory)
