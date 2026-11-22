@@ -24,7 +24,7 @@ public final class MessengerHttpClient {
         this.token = token.trim();
     }
 
-    public JSONObject getMyPhone() throws Exception { return request("GET", "/v1/me/phone", null).getJSONObject("phone"); }
+    public JSONObject getMyIdentity() throws Exception { return request("GET", "/v1/me/identity", null).getJSONObject("identity"); }
 
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
