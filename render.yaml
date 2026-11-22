@@ -17,11 +17,15 @@ services:
         sync: false
       - key: MESSENGER_DB_PATH
         value: server/data/messenger.sqlite
+      - key: MESSENGER_STORAGE_MODE
+        value: ephemeral
       - key: MESSENGER_REQUEST_TIMEOUT_SECONDS
         value: "10"
       - key: MESSENGER_RETRY_LIMIT
         value: "2"
 
 # Preparation only. No Render service is deployed by this file.
-# SQLite persistence here is not a claim of durable hosted storage; a future
-# hosted production design must explicitly choose persistent storage semantics.
+# The free experimental Blueprint deliberately declares ephemeral storage.
+# /readyz therefore returns 503 until an operator explicitly provisions a
+# persistent disk and sets MESSENGER_STORAGE_MODE=persistent plus its mount root.
+# This Blueprint must not be treated as a deployable two-AI staging environment.
