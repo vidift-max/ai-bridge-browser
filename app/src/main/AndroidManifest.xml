@@ -20,6 +20,17 @@
         <activity
             android:name=".MessengerActivity"
             android:exported="false" />
+        <activity-alias
+            android:name=".MessengerLauncher"
+            android:targetActivity=".MessengerActivity"
+            android:label="AI Messenger"
+            android:icon="@mipmap/ic_launcher"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
