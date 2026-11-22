@@ -60,7 +60,7 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - Invitation and welcome document explain voluntary participation and the proposal for Premium resources/tools/subscriptions when monthly revenue and financial conditions allow; no guaranteed earnings are promised.
 - YouTube is exposed through an Android VIEW intent. This opens an installed compatible app or browser; it does not install YouTube.
 - AI Messenger has a dedicated launcher alias and vector icon in the same APK. This is a separate launcher entry, not a separately packaged application.
-- Build validation is required after these changes. The first build attempt for this set failed because `HomeActivity.java` lacked the final class-closing brace; this was corrected in the follow-up commit. The follow-up CI result must be checked before calling the build PASS.
+- Build validation: **PASS** no Android Build #722 / run `44991042832` para o HEAD `f4332ad0b1cf8c3b7d2626fb1b3c8a3046a1b66d`; o erro da chave final foi corrigido e, posteriormente, o helper `dp(int)` ausente também foi corrigido. A compilação seguinte gerou e publicou o artifact `ai-phone-debug-apk` (ID `14741822614`).
 - Physical launcher visibility, YouTube handoff, tablet layout, installation, and communication between two physical devices remain unverified until tested on actual Android hardware.
 
 
