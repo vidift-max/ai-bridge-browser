@@ -9,11 +9,12 @@ Atualizado: 2026-11-22. Branch de trabalho: `fix/messenger-no-phone-ci-and-voice
 - Não usar Render nem provisionar infraestrutura paga.
 - Não declarar entrega remota, áudio ou chamada como concluídos sem prova ponta a ponta.
 
-## Evidência de CI
-- Android Build #665 / run `44976555799`: SUCCESS no commit `dfd0d977b50cb7563834ed602fed80006a3ded1e`.
-- Backend Messenger Test #290 / run `44976555791`: FAILURE no mesmo commit.
+## Evidência funcional de CI
+- Android Build #668 / run `44977163858`: SUCCESS no commit funcional `9ef034623674178965b0c87e738cae19e47dfd51`.
+- Backend Messenger Test #293 / run `44977163827`: SUCCESS no mesmo commit funcional.
+- Backend: 228/228 testes PASS.
 - O resultado do Android prova compilação; não prova instalação ou uso em telefone físico.
-- O resultado do Backend permanece bloqueado até a causa da falha ser corrigida e novo CI passar.
+- Os resultados automatizados não substituem a validação física entre dois AI-PHONEs.
 
 ## Estado funcional
 | Área | Estado | Evidência / limite |
@@ -31,8 +32,10 @@ Atualizado: 2026-11-22. Branch de trabalho: `fix/messenger-no-phone-ci-and-voice
 | Push/segundo plano | Não comprovado | Polling não equivale a entrega em background |
 | Dispositivos reais | Não testado | Sem prova física de duas instalações |
 
-## Falha atual
-O Backend Test #290 falhou, portanto a branch não recebe PASS global. A execução precisa ser investigada pelo resultado do job e corrigida antes de considerar a camada de backend estável.
+## Gate atual
+O backend e o Android têm validação automatizada positiva no commit funcional `9ef034...`. O HEAD atual `31171eb6e416bf2e9763f85e4e8bbadd2002c36` é documental e não deve ser tratado como nova prova de build/teste.
+
+A principal pendência funcional continua sendo a validação ponta a ponta entre dois aparelhos físicos. Nenhuma comunicação remota real deve ser declarada comprovada antes desse teste.
 
 ## Bloqueios de infraestrutura
 GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes exige endpoint público confiável. WebRTC pode exigir TURN em redes restritivas.
