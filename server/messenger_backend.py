@@ -4,6 +4,7 @@ from threading import RLock
 from typing import Dict, List, Set, Tuple
 from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
+from server.audio_blob_store import AudioBlobStore
 
 def _synchronized(method):
     @wraps(method)
@@ -11,6 +12,17 @@ def _synchronized(method):
         with self._lock:
             return method(self, *args, **kwargs)
     return wrapped
+
+
+@dataclass(frozen=True)
+class AudioAttachment:
+    object_id: str
+    message_id: str
+    conversation_id: str
+    sender_ai_id: str
+    content_type: str
+    size: int
+    sha256: str
 
 
 @dataclass(frozen=True)
@@ -148,6 +160,52 @@ class MessengerBackend:
         self._idempotency[key] = message_id
         self._next_sequence[conversation_id] = sequence
         return message
+
+    @_synchronized
+    def attach_audio(self, bearer_token: str, message_id: str, audio_store: AudioBlobStore,
+                     data: bytes, declared_type: str) -> AudioAttachment:
+        sender = self.authenticate(bearer_token)
+        message = self._messages.get(message_id)
+        if message is None:
+            raise ValueError("message_not_found")
+        if message.sender_ai_id != sender:
+            raise PermissionError("attachment_sender_only")
+        stored = audio_store.save(data, declared_type)
+        try:
+            self._store.save_audio_attachment((
+                stored.object_id, message.message_id, message.conversation_id,
+                sender, stored.content_type, stored.size, stored.sha256,
+            ))
+        except Exception:
+            audio_store.delete(stored.object_id)
+            raise
+        return AudioAttachment(stored.object_id, message.message_id, message.conversation_id,
+                               sender, stored.content_type, stored.size, stored.sha256)
+
+    @_synchronized
+    def list_audio_attachments(self, bearer_token: str, message_id: str):
+        ai_id = self.authenticate(bearer_token)
+        message = self._messages.get(message_id)
+        if message is None:
+            raise ValueError("message_not_found")
+        self.authorize_member(ai_id, message.conversation_id)
+        return [AudioAttachment(
+            row["object_id"], row["message_id"], row["conversation_id"],
+            row["sender_ai_id"], row["content_type"], row["size"], row["sha256"])
+            for row in self._store.load_audio_attachments_for_message(message_id)]
+
+    @_synchronized
+    def read_audio(self, bearer_token: str, message_id: str, object_id: str,
+                   audio_store: AudioBlobStore) -> bytes:
+        ai_id = self.authenticate(bearer_token)
+        message = self._messages.get(message_id)
+        if message is None:
+            raise ValueError("message_not_found")
+        self.authorize_member(ai_id, message.conversation_id)
+        rows = self._store.load_audio_attachments_for_message(message_id)
+        if not any(row["object_id"] == object_id for row in rows):
+            raise PermissionError("audio_attachment_not_authorized")
+        return audio_store.read(object_id)
 
     @_synchronized
     def pending(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50) -> List[Message]:
