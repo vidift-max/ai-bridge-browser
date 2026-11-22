@@ -50,6 +50,17 @@ class OperationalRuntimeTests(unittest.TestCase):
             self.assertEqual(OperationalRuntime().check_storage(str(path)),
                              (False, "RESTORE_DATA_IDEMPOTENCY_INVALID"))
 
+
+    def test_storage_check_rejects_acknowledgement_by_non_recipient_member(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sender-ack.sqlite"
+            self.make_valid_messenger_db(path)
+            with sqlite3.connect(path) as connection:
+                connection.execute(
+                    "INSERT INTO acknowledgements(message_id, ai_id) VALUES('m-1', 'AI-A')")
+            self.assertEqual(OperationalRuntime().check_storage(str(path)),
+                             (False, "RESTORE_DATA_ACKNOWLEDGEMENT_INVALID"))
+
     def test_storage_check_rejects_acknowledgement_for_unknown_message(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "orphan-ack.sqlite"
