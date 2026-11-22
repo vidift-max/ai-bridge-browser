@@ -116,3 +116,16 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - Artifact baixado e inspecionado: contém exatamente `app-debug.apk`; APK com 3.790.334 bytes; SHA-256 do APK: `a5517ca7b397e18997ff739bf26e44474917b8306efc439303cb79b2443fe97b`.
 - O gate confirma compilação, testes automatizados e entrega recuperável do APK no HEAD atual. Não confirma instalação física, compatibilidade específica com tablet, comunicação entre dois aparelhos, push/background ou WebRTC.
 - Reauditoria física continua como próximo gate: instalar em Android real, confirmar tela inicial, documentos, segundo ícone do AI Messenger, Wi-Fi, permissões, gravação/reprodução e depois comunicação autenticada entre dois aparelhos.
+
+
+## Atualização — gate final do HEAD 52e6715 — 2026-11-22
+
+- HEAD: `52e671529b0311a52cfbb7698492ad7995e05930`.
+- PR #2: **OPEN**, não mesclado, não draft e mergeable=true.
+- Messenger Backend Test #359 / run `45048632906`: **SUCCESS**.
+- Android Build #734 / run `45048632903`: **SUCCESS**.
+- Artifact `ai-phone-debug-apk`, ID `14764836223`: **PRESENTE, NÃO EXPIRADO**; ZIP 1.317.938 bytes; digest `sha256:5ee4a4c16ffd9da1758c2d983683d17c8266cd3e2053c04f4583b781f826e5e7`.
+- Artifact baixado e inspecionado: contém exatamente `app-debug.apk`.
+- APK: 3.790.334 bytes; SHA-256 `1dd8e8eb3d27994fa2b54eb9145794a17845b5e49c0debb3d764968ee2c74629`.
+- Este gate confirma CI diretamente associado ao HEAD, geração/publicação/recuperação do APK e integridade do arquivo baixado. Não confirma instalação física, compatibilidade visual no tablet, comunicação entre dois aparelhos, push/background ou WebRTC.
+- Próximo gate físico permanece: instalar o APK em Android real, confirmar HomeActivity, documentos, segundo ícone do AI Messenger, Wi-Fi e permissões; depois provar comunicação autenticada entre dois aparelhos.
