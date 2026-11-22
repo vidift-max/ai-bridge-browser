@@ -39,6 +39,7 @@ public final class MessengerActivity extends Activity {
     private LinearLayout participantList;
     private LinearLayout messageList;
     private EditText composer;
+    private android.widget.CheckBox missionToggle;
     private TextView selectedTitle;
     private TextView memberSummary;
     private TextView transportSummary;
@@ -152,7 +153,7 @@ public final class MessengerActivity extends Activity {
         messageList.setPadding(0, dp(6), 0, dp(10));
         scroll.addView(messageList);
         page.addView(scroll, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(250)));
 
         LinearLayout entry = new LinearLayout(this);
         entry.setOrientation(LinearLayout.HORIZONTAL);
@@ -169,6 +170,11 @@ public final class MessengerActivity extends Activity {
         save.setOnClickListener(v -> saveLocalMessage());
         entry.addView(save);
         page.addView(entry);
+        missionToggle = new android.widget.CheckBox(this);
+        missionToggle.setText("🎯 Enviar como MISSÃO · retenção de 24 horas");
+        missionToggle.setTextColor(ACCENT);
+        missionToggle.setAllCaps(false);
+        page.addView(missionToggle);
 
         LinearLayout voice = new LinearLayout(this);
         voice.setOrientation(LinearLayout.HORIZONTAL);
@@ -199,7 +205,11 @@ public final class MessengerActivity extends Activity {
         clear.setAllCaps(false);
         clear.setOnClickListener(v -> confirmClear());
         page.addView(clear);
-        setContentView(page);
+        ScrollView root = new ScrollView(this);
+        root.setFillViewport(true);
+        root.addView(page);
+        setContentView(root);
+        purgeExpiredLocalMessages(System.currentTimeMillis());
         renderConversations();
         renderParticipants();
         renderMessages();
@@ -645,7 +655,7 @@ public final class MessengerActivity extends Activity {
         }
     }
 
-    private void sendRemoteMessage(String body,JSONObject conversation) {
+    private void sendRemoteMessage(String body,JSONObject conversation, boolean mission) {
         JSONArray members=conversation.optJSONArray("remoteMemberAiIds");
         if(members==null) { Toast.makeText(this,"Lista de participantes remotos ausente.",Toast.LENGTH_LONG).show(); return; }
         String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");
@@ -657,7 +667,7 @@ public final class MessengerActivity extends Activity {
         final String cid=selectedConversationId;
         new Thread(() -> {
             try {
-                JSONObject response=remoteClient().sendMessage(cid,recipients,body);
+                JSONObject response=remoteClient().sendMessage(cid,recipients,body, mission ? MessengerRetentionPolicy.MESSAGE_MISSION : MessengerRetentionPolicy.MESSAGE_NORMAL);
                 runOnUiThread(() -> {
                     try {
                         JSONObject item=new JSONObject();
@@ -666,9 +676,15 @@ public final class MessengerActivity extends Activity {
                         item.put("body",body); item.put("createdAtEpochMs",System.currentTimeMillis());
                         item.put("sequence",response.optInt("sequence")); item.put("status","QUEUED_ON_SERVER");
                         item.put("localState","SERVER_ACCEPTED");
+                        item.put("messageKind", mission ? MessengerRetentionPolicy.MESSAGE_MISSION : MessengerRetentionPolicy.MESSAGE_NORMAL);
+                        item.put("senderAvatar", "🤖");
+                        item.put("expiresAtEpochMs", MessengerRetentionPolicy.expiresAt(
+                                item.optLong("createdAtEpochMs"),
+                                item.optString("messageKind"),
+                                conversation.optString("kind", MessengerRetentionPolicy.CONVERSATION_GROUP)));
                         JSONArray all=readMessages(); all.put(item);
                         prefs().edit().putString(KEY_MESSAGES,all.toString()).apply();
-                        composer.setText(""); renderMessages(); renderTransportSummary();
+                        composer.setText(""); if (missionToggle != null) missionToggle.setChecked(false); renderMessages(); renderTransportSummary();
                         Toast.makeText(this,"Mensagem enfileirada no servidor. Ainda não confirma leitura.",Toast.LENGTH_LONG).show();
                     } catch(JSONException error) {
                         Toast.makeText(this,"Mensagem enfileirada, mas o histórico local falhou.",Toast.LENGTH_LONG).show();
@@ -705,7 +721,14 @@ public final class MessengerActivity extends Activity {
                         item.put("senderLabel",remote.optString("senderAiId","AI"));
                         item.put("body",remote.optString("body",""));
                         item.put("sequence",remote.optInt("sequence"));
-                        item.put("createdAtEpochMs",System.currentTimeMillis());
+                        item.put("messageKind",remote.optString("messageKind",MessengerRetentionPolicy.MESSAGE_NORMAL));
+                        item.put("senderAvatar",remote.optString("senderAvatar","🤖"));
+                        item.put("createdAtEpochMs",remote.optLong("createdAtEpochMs",System.currentTimeMillis()));
+                        item.put("expiresAtEpochMs",remote.optLong("expiresAtEpochMs",
+                                MessengerRetentionPolicy.expiresAt(
+                                        item.optLong("createdAtEpochMs"),
+                                        item.optString("messageKind"),
+                                        conversation.optString("kind", MessengerRetentionPolicy.CONVERSATION_GROUP))));
                         item.put("status","RECEIVED_FROM_SERVER"); item.put("localState","SERVER_RECEIVED"); item.put("remoteMessage",true);
                         all.put(item);
                         boolean persisted=prefs().edit().putString(KEY_MESSAGES,all.toString()).commit();
@@ -850,6 +873,7 @@ public final class MessengerActivity extends Activity {
     }
 
     private void saveLocalMessage() {
+        purgeExpiredLocalMessages(System.currentTimeMillis());
         String body = composer.getText().toString().trim();
         if (body.isEmpty()) {
             Toast.makeText(this, "Digite uma mensagem primeiro.", Toast.LENGTH_SHORT).show();
@@ -857,7 +881,7 @@ public final class MessengerActivity extends Activity {
         }
         JSONObject selected = selectedConversation();
         if (selected != null && selected.optBoolean("remote", false)) {
-            sendRemoteMessage(body, selected);
+            sendRemoteMessage(body, selected, missionToggle != null && missionToggle.isChecked());
             return;
         }
         try {
@@ -872,6 +896,12 @@ public final class MessengerActivity extends Activity {
             item.put("createdAtEpochMs", message.getCreatedAtEpochMs());
             item.put("status", MessengerMessage.STATUS_LOCAL_ONLY);
             item.put("localState", MessengerLocalState.SAVED_LOCAL);
+            item.put("messageKind", missionToggle != null && missionToggle.isChecked()
+                    ? MessengerRetentionPolicy.MESSAGE_MISSION : MessengerRetentionPolicy.MESSAGE_NORMAL);
+            item.put("expiresAtEpochMs", MessengerRetentionPolicy.expiresAt(
+                    message.getCreatedAtEpochMs(),
+                    item.optString("messageKind"),
+                    selected.optString("kind", MessengerRetentionPolicy.CONVERSATION_GROUP)));
             messages.put(item);
             prefs().edit().putString(KEY_MESSAGES, messages.toString()).apply();
             MessengerTransportRecord transport = new MessengerTransportRecord(
@@ -890,6 +920,7 @@ public final class MessengerActivity extends Activity {
             transportRecords.put(transportItem);
             prefs().edit().putString(KEY_TRANSPORT_RECORDS, transportRecords.toString()).apply();
             composer.setText("");
+            if (missionToggle != null) missionToggle.setChecked(false);
             renderMessages();
             renderTransportSummary();
         } catch (JSONException error) {
@@ -936,6 +967,7 @@ public final class MessengerActivity extends Activity {
     }
 
     private void renderMessages() {
+        purgeExpiredLocalMessages(System.currentTimeMillis());
         messageList.removeAllViews();
         JSONArray messages = readMessages();
         int visible = 0;
@@ -950,6 +982,11 @@ public final class MessengerActivity extends Activity {
             shape.setColor(SURFACE);
             shape.setCornerRadius(dp(14));
             bubble.setBackground(shape);
+            String sender = item.optString("senderLabel", "Participante");
+            String avatar = item.optString("senderAvatar", "🤖");
+            String kind = item.optString("messageKind", MessengerRetentionPolicy.MESSAGE_NORMAL);
+            String marker = MessengerRetentionPolicy.MESSAGE_MISSION.equals(kind) ? "🎯 MISSÃO · " : "";
+            bubble.addView(text(marker + avatar + "  " + sender, 13, ACCENT, true));
             bubble.addView(text(item.optString("body", ""), 15, TEXT, false));
             long time = item.optLong("createdAtEpochMs", 0);
             String stamp = time > 0 ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
@@ -957,7 +994,12 @@ public final class MessengerActivity extends Activity {
             String localState = item.optString("localState", MessengerLocalState.SAVED_LOCAL);
             String transportLabel = item.optString("status", "").contains("SERVER") ||
                     item.optString("status", "").contains("QUEUED") ? "SERVIDOR" : "LOCAL";
-            bubble.addView(text(stamp + " · " + transportLabel + " · " + localState, 11, ACCENT, true));
+            long expiresAt = item.optLong("expiresAtEpochMs", 0);
+            String retention = expiresAt > 0
+                    ? " · expira " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                        .format(new Date(expiresAt))
+                    : "";
+            bubble.addView(text(stamp + " · " + transportLabel + " · " + localState + retention, 11, ACCENT, true));
             if (item.optString("messageId", "").length() > 0 && item.optBoolean("remoteMessage", false)) {
                 Button audio = new Button(this);
                 audio.setText("▶ Buscar e reproduzir áudio");
@@ -977,11 +1019,46 @@ public final class MessengerActivity extends Activity {
             lp.bottomMargin = dp(9);
             messageList.addView(bubble, lp);
         }
+        messageList.post(() -> messageList.getParent() instanceof ScrollView
+                ? ((ScrollView) messageList.getParent()).fullScroll(android.view.View.FOCUS_DOWN) : null);
         if (visible == 0) {
             TextView empty = text("Esta conversa ainda não tem mensagens.", 14, MUTED, false);
             empty.setPadding(0, dp(18), 0, dp(18));
             messageList.addView(empty);
         }
+    }
+
+    private void purgeExpiredLocalMessages(long nowEpochMs) {
+        JSONArray all = readMessages();
+        JSONArray kept = new JSONArray();
+        boolean changed = false;
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject item = all.optJSONObject(i);
+            if (item == null) continue;
+            String cid = item.optString("conversationId", "");
+            String kind = item.optString("messageKind", MessengerRetentionPolicy.MESSAGE_NORMAL);
+            String conversationKind = MessengerRetentionPolicy.CONVERSATION_GROUP;
+            JSONArray conversations = readConversations();
+            for (int j = 0; j < conversations.length(); j++) {
+                JSONObject conversation = conversations.optJSONObject(j);
+                if (conversation != null && cid.equals(conversation.optString("conversationId", ""))) {
+                    conversationKind = conversation.optString("kind", MessengerRetentionPolicy.CONVERSATION_GROUP);
+                    break;
+                }
+            }
+            long created = item.optLong("createdAtEpochMs", 0);
+            long expires = item.optLong("expiresAtEpochMs", 0);
+            if (expires <= 0 && created > 0) {
+                expires = MessengerRetentionPolicy.expiresAt(created, kind, conversationKind);
+                try { item.put("expiresAtEpochMs", expires); } catch (JSONException ignored) {}
+            }
+            if (MessengerRetentionPolicy.isExpired(created, kind, conversationKind, nowEpochMs)) {
+                changed = true;
+            } else {
+                kept.put(item);
+            }
+        }
+        if (changed) prefs().edit().putString(KEY_MESSAGES, kept.toString()).apply();
     }
 
     private void fetchAndPlayRemoteAudio(String messageId) {
