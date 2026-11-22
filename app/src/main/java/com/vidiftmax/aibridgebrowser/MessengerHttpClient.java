@@ -82,6 +82,12 @@ public final class MessengerHttpClient {
         return request("POST", "/v1/messages/" + encodePath(messageId) + "/ack", new JSONObject());
     }
 
+    public JSONArray listAudioAttachments(String messageId) throws Exception {
+        if (messageId == null || messageId.trim().isEmpty()) throw new IllegalArgumentException("message_id_required");
+        return request("GET", "/v1/messages/" + encodePath(messageId) + "/audio", null)
+                .getJSONArray("attachments");
+    }
+
     public JSONObject uploadAudio(String messageId, java.io.File audioFile) throws Exception {
         if (messageId == null || messageId.trim().isEmpty()) throw new IllegalArgumentException("message_id_required");
         if (audioFile == null || !audioFile.isFile() || audioFile.length() <= 0 || audioFile.length() > 5L * 1024L * 1024L)
