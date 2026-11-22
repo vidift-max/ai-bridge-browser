@@ -99,7 +99,8 @@ public final class MessengerHttpClient {
     }
 
     private static String encodePath(String value) {
-        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+        try { return java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20"); }
+        catch (java.io.UnsupportedEncodingException impossible) { throw new IllegalStateException("UTF-8 unavailable", impossible); }
     }
 
     public static final class MessengerHttpException extends Exception {
