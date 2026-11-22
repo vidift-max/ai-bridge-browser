@@ -87,38 +87,6 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         parsed = urlsplit(self.path)
         parts=parsed.path.split("/")
-        if parsed.path == "/v1/me/phone":
-            try:
-                identity=self._principal()
-                principal=identity.principal
-                self.backend.assert_authenticated_principal(self._auth(), principal)
-                self.rate_limiter.allow(principal.ai_id)
-                record=self.identity_registry.register_authenticated(principal.ai_id)
-                self._audit(identity, "AI_PHONE_REGISTERED", record["displayNumber"])
-                self._json(200,{"phone":record,"correlationId":identity.correlation_id})
-            except RateLimitExceeded:
-                self._json(429,{"error":"rate_limit_exceeded"})
-            except PermissionError as exc:
-                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
-            except ValueError:
-                self._json(400,{"error":"invalid_identity"})
-            return
-        if len(parts)==4 and parts[1:3]==["v1","phones"]:
-            try:
-                identity=self._principal()
-                principal=identity.principal
-                self.backend.assert_authenticated_principal(self._auth(), principal)
-                record=self.identity_registry.get_by_number(parts[3])
-                if record is None:
-                    self._json(404,{"error":"phone_not_found"})
-                    return
-                self._audit(identity, "AI_PHONE_LOOKUP", record["displayNumber"])
-                self._json(200,{"phone":record,"correlationId":identity.correlation_id})
-            except PermissionError as exc:
-                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
-            except ValueError:
-                self._json(400,{"error":"invalid_phone_number"})
-            return
         if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages":
             try:
                 identity=self._principal()
