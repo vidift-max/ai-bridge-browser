@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -87,6 +87,16 @@ class SQLiteMessengerStore:
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','3')")
             self._connection.commit()
 
+        if version < 4:
+            self._connection.executescript("""
+                ALTER TABLE conversations ADD COLUMN kind TEXT NOT NULL DEFAULT 'GROUP';
+                ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'NORMAL';
+                ALTER TABLE messages ADD COLUMN created_at_epoch_seconds REAL NOT NULL DEFAULT 0;
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','4')")
+            self._connection.commit()
+            version = 4
+
     def save_voice_mute(self, conversation_id: str, ai_id: str,
                         muted_by_ai_id: str, expires_at: float):
         self._connection.execute(
@@ -116,23 +126,23 @@ class SQLiteMessengerStore:
     def close(self):
         self._connection.close()
 
-    def save_conversation(self, conversation_id: str, member_ai_ids: List[str]):
+    def save_conversation(self, conversation_id: str, member_ai_ids: List[str], kind: str = "GROUP"):
         self._connection.execute(
-            "INSERT OR REPLACE INTO conversations(conversation_id, member_ai_ids) VALUES(?,?)",
-            (conversation_id, ",".join(sorted(set(member_ai_ids)))),
+            "INSERT OR REPLACE INTO conversations(conversation_id, member_ai_ids, kind) VALUES(?,?,?)",
+            (conversation_id, ",".join(sorted(set(member_ai_ids))), kind),
         )
         self._connection.commit()
 
     def load_conversations(self) -> Dict[str, set]:
-        rows = self._connection.execute("SELECT conversation_id, member_ai_ids FROM conversations").fetchall()
+        rows = self._connection.execute("SELECT conversation_id, member_ai_ids, kind FROM conversations").fetchall()
         return {r["conversation_id"]: set(filter(None, r["member_ai_ids"].split(","))) for r in rows}
 
-    def save_message_with_idempotency(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int]):
+    def save_message_with_idempotency(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int,str,float]):
         self._connection.execute("BEGIN")
         try:
             self._connection.execute(
-                "INSERT INTO messages(message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence) VALUES(?,?,?,?,?,?,?)",
-                (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6]),
+                "INSERT INTO messages(message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence,kind,created_at_epoch_seconds) VALUES(?,?,?,?,?,?,?,?,?)",
+                (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6],message[7],message[8]),
             )
             self._connection.execute(
                 "INSERT INTO idempotency(sender_ai_id,client_request_id,message_id) VALUES(?,?,?)",
@@ -143,16 +153,16 @@ class SQLiteMessengerStore:
             self._connection.rollback()
             raise
 
-    def save_message(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int]):
+    def save_message(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int,str,float]):
         self._connection.execute(
-            "INSERT INTO messages(message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence) VALUES(?,?,?,?,?,?,?)",
-            (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6]),
+            "INSERT INTO messages(message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence,kind,created_at_epoch_seconds) VALUES(?,?,?,?,?,?,?,?,?)",
+            (message[0],message[1],message[2],",".join(message[3]),message[4],message[5],message[6],message[7],message[8]),
         )
         self._connection.commit()
 
     def load_messages(self):
         return self._connection.execute(
-            "SELECT message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence FROM messages ORDER BY sequence"
+            "SELECT message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,client_request_id,sequence,kind,created_at_epoch_seconds FROM messages ORDER BY sequence"
         ).fetchall()
 
     def save_idempotency(self, sender_ai_id: str, client_request_id: str, message_id: str):
