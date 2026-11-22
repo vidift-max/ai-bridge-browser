@@ -93,9 +93,12 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 query=parse_qs(parsed.query)
                 after_sequence=int(query.get("after", ["0"])[0])
                 limit=int(query.get("limit", ["50"])[0])
+                self.rate_limiter.allow(principal.ai_id)
                 messages=self.backend.pending(self._auth(),parts[3],after_sequence=after_sequence,limit=limit)
                 self._audit(identity, "MESSAGE_READ", parts[3], count=str(len(messages)))
                 self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
             except (ValueError, TypeError):
                 self._json(400,{"error":"invalid_cursor"})
             except PermissionError as exc:
@@ -151,6 +154,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 identity=self._principal()
                 principal=identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
                 msg=self.backend.acknowledge(self._auth(),self.path[len("/v1/messages/"):-len("/ack")])
                 self._audit(identity, "MESSAGE_ACKNOWLEDGED", msg.message_id)
                 self._json(200,{"messageId":msg.message_id,"state":"ACKNOWLEDGED","principalAiId":principal.ai_id,"correlationId":identity.correlation_id})
