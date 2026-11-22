@@ -154,5 +154,18 @@ class MessengerBackendTest(unittest.TestCase):
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0].message_id, "m-concurrent")
 
+    def test_concurrent_distinct_messages_receive_unique_ordered_sequences(self):
+        def submit(index):
+            return self.backend.submit(
+                "opaque-a", f"m-parallel-{index}", "room-1", ["AI-B"],
+                f"parallel-{index}", f"req-parallel-{index}")
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            messages = list(pool.map(submit, range(10)))
+        self.assertEqual(sorted(message.sequence for message in messages),
+                         list(range(1, 11)))
+        pending = self.backend.pending("opaque-b", "room-1", limit=100)
+        self.assertEqual([message.sequence for message in pending],
+                         list(range(1, 11)))
+
 if __name__ == "__main__":
     unittest.main()
