@@ -401,5 +401,27 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(data["error"], "invalid_request")
 
+    def test_http_ack_accepts_query_string_without_corrupting_message_id(self):
+        status, _ = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "m-ack-query", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "ack query",
+            "clientRequestId": "req-ack-query"})
+        self.assertEqual(status, 200)
+        status, data = self.request("POST", "/v1/messages/m-ack-query/ack?source=poll", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["messageId"], "m-ack-query")
+
+    def test_http_rejects_invalid_utf8_json_with_400(self):
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        conn.request("POST", "/v1/messages", body=b"\xff\xfe", headers={
+            "Authorization": "Bearer token-a",
+            "Content-Type": "application/json",
+            "Content-Length": "2"})
+        response = conn.getresponse()
+        data = json.loads(response.read().decode("utf-8"))
+        conn.close()
+        self.assertEqual(response.status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
 if __name__ == "__main__":
     unittest.main()
