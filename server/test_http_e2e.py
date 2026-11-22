@@ -393,5 +393,13 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(data["error"], "invalid_request")
 
+    def test_http_rejects_non_list_recipients(self):
+        status, data = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "m-invalid-recipients", "conversationId": "room",
+            "recipientAiIds": "AI-B", "body": "body",
+            "clientRequestId": "req-invalid-recipients"})
+        self.assertEqual(status, 400)
+        self.assertEqual(data["error"], "invalid_request")
+
 if __name__ == "__main__":
     unittest.main()
