@@ -740,8 +740,6 @@ public final class MessengerActivity extends Activity {
             if (MessengerTransportRecord.DIRECTION_OUTBOX.equals(item.optString("direction"))) outbox++;
             if (MessengerTransportRecord.DIRECTION_INBOX.equals(item.optString("direction"))) inbox++;
         }
-        JSONObject selected = selectedConversation();
-        boolean remote = selected != null && selected.optBoolean("remote", false);
         transportSummary.setText(
                 (remote ? "TRANSPORTE REMOTO · " : "CAIXAS LOCAIS · ") +
                 "saída: " + outbox + " · entrada: " + inbox +
