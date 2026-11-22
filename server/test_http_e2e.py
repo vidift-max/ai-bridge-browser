@@ -75,6 +75,12 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(sent["state"], "QUEUED")
         self.assertEqual(sent["senderAiId"], "AI-A")
 
+        # Simulate a backend process restart before recipient AI-B polls.
+        self.backend.close()
+        self.store = SQLiteMessengerStore(self.tmp.name)
+        self.backend = MessengerBackend(self.tokens, {}, self.store, authenticator=self.auth)
+        MessengerHandler.backend = self.backend
+
         status, pending = self.request(
             "GET", "/v1/conversations/private-ai-a-b/messages?after=0&limit=100", "token-b")
         self.assertEqual(status, 200)
