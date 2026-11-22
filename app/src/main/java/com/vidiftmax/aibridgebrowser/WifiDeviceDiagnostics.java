@@ -50,8 +50,8 @@ public final class WifiDeviceDiagnostics {
         } catch (IllegalArgumentException ignored) {
             // Keep the safe unavailable label.
         }
-        return wifi + "\\n" + ram + "\\n" + storage
-                + "\\nConexão automática: o Android reconecta redes salvas e autorizadas.";
+        return wifi + "\n" + ram + "\n" + storage
+                + "\nConexão automática: o Android reconecta redes salvas e autorizadas.";
     }
 
     private static String formatBytes(long bytes) {
