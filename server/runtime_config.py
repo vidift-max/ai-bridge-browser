@@ -75,6 +75,25 @@ class RuntimeConfig:
         return value
 
     @staticmethod
+    def voice_admin_ids(tokens=None):
+        raw = RuntimeConfig.optional("MESSENGER_VOICE_ADMIN_AI_IDS", "")
+        if not isinstance(raw, str) or raw.strip() != raw:
+            raise RuntimeError("invalid_runtime_config:MESSENGER_VOICE_ADMIN_AI_IDS")
+        if not raw:
+            return frozenset()
+        values = raw.split(",")
+        if any(not item or item.strip() != item for item in values):
+            raise RuntimeError("invalid_runtime_config:MESSENGER_VOICE_ADMIN_AI_IDS")
+        if len(set(values)) != len(values):
+            raise RuntimeError("invalid_runtime_config:duplicate_voice_admin_ai_ids")
+        for ai_id in values:
+            if not ai_id.startswith("AI-") or len(ai_id) > 66:
+                raise RuntimeError("invalid_runtime_config:invalid_voice_admin_ai_id")
+        if tokens is not None and not set(values).issubset(set(tokens.values())):
+            raise RuntimeError("invalid_runtime_config:unknown_voice_admin_ai_id")
+        return frozenset(values)
+
+    @staticmethod
     def auth_tokens():
         token_a = RuntimeConfig.require("MESSENGER_TOKEN_AI_A")
         token_b = RuntimeConfig.require("MESSENGER_TOKEN_AI_B")
