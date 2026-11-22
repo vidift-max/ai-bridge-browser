@@ -92,3 +92,17 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - Esta biblioteca ainda NÃO está ligada às rotas HTTP, ao SQLite de conversas ou ao cliente Android. Não existe upload/download nem envio de áudio no app.
 - A verificação de duração, quota por AI_ID/conversa, autorização de membros, retenção, criptografia em repouso e auditoria por anexo continuam como gates obrigatórios antes de expor endpoints.
 - Os testes foram adicionados e aguardam execução do GitHub Actions neste HEAD.
+
+
+## Segunda fatia — áudio ligado ao Messenger
+
+- O SQLite passou para schema 2 e agora guarda metadados dos anexos de áudio: objeto, mensagem, conversa, remetente, MIME verificado, tamanho e SHA-256.
+- O backend agora permite anexar áudio somente ao próprio `message_id` do remetente autenticado.
+- Leitura/listagem de anexos exige que a IA seja membro da conversa.
+- Adicionados endpoints HTTP autenticados:
+  - `POST /v1/messages/{messageId}/audio` para bytes de áudio;
+  - `GET /v1/messages/{messageId}/audio/{objectId}` para recuperar o objeto autorizado.
+- O upload usa limite de 5 MiB, valida assinatura/MIME no armazenamento e aplica o rate limit por AI_ID.
+- Testes HTTP cobrem upload/download, remetente não autorizado, áudio inválido e autenticação no download.
+- Ainda não há gravação pelo microfone, reprodução Android, UI de anexos ou chamadas WebRTC.
+- O endpoint HTTP é uma etapa de backend experimental; teste entre dois aparelhos físicos ainda é obrigatório antes de declarar comunicação remota funcional.
