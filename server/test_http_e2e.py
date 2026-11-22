@@ -347,6 +347,25 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(data["error"], "invalid_request")
 
+    def test_http_audio_attachment_listing_is_member_only(self):
+        status, _ = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "m-audio-list", "conversationId": "room",
+            "recipientAiIds": ["AI-B"], "body": "audio list",
+            "clientRequestId": "req-audio-list"})
+        self.assertEqual(status, 200)
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        body = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00"
+        conn.request("POST", "/v1/messages/m-audio-list/audio", body=body, headers={
+            "Authorization":"Bearer token-a","Content-Type":"audio/mp4","Content-Length":str(len(body))})
+        response=conn.getresponse(); response.read(); conn.close()
+        self.assertEqual(response.status, 201)
+        status, data = self.request("GET", "/v1/messages/m-audio-list/audio", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(data["attachments"]), 1)
+        status, data = self.request("GET", "/v1/messages/m-audio-list/audio", "token-x")
+        self.assertEqual(status, 401)
+        self.assertEqual(data["error"], "authentication_required")
+
     def test_http_ack_is_recipient_only_and_repeatable(self):
         status, _ = self.request("POST", "/v1/messages", "token-a", {
             "messageId": "m-ack-guard", "conversationId": "room",
