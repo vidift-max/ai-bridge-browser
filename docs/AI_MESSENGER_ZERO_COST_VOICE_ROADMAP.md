@@ -129,3 +129,11 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - O upload usa a resposta real do backend (`attachment.objectId`) e não assume um campo inexistente na raiz do JSON.
 - O teste HTTP cobre listagem de anexo por membro autorizado e rejeição de credencial inválida.
 - Isso ainda não prova áudio ponta a ponta entre dois aparelhos físicos.
+
+
+## Missão seguinte — recuperação SQLite e áudio (correção de regressão)
+- O schema do Messenger agora é v2 por causa de `audio_attachments`.
+- A validação de restore em modo somente leitura foi alinhada ao schema v2.
+- A validação verifica referências de anexos de áudio contra mensagem, conversa, remetente, tamanho, MIME e SHA-256.
+- Testes de candidato de restore cobrem anexo órfão e anexo consistente.
+- Nenhum restore é ativado, nenhum arquivo é sobrescrito e nenhuma infraestrutura externa é criada.
