@@ -25,6 +25,9 @@ public class MessengerRemoteConfigTest {
         assertThrows(IllegalArgumentException.class,
                 () -> MessengerRemoteConfig.parseMemberIds("AI-CLAUDE", "not-an-ai"));
     }
+    @Test public void acceptsMinimalValidAiId() {
+        assertEquals("AI-1", MessengerRemoteConfig.validateAiId("AI-1"));
+    }
     @Test public void rejectsMalformedAndOversizedMembership() {
         assertThrows(IllegalArgumentException.class, () -> MessengerRemoteConfig.parseMemberIds("bad", "AI-GPT6"));
         StringBuilder members = new StringBuilder();
