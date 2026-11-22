@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import threading
 import unittest
@@ -43,6 +44,27 @@ class HttpE2ETest(unittest.TestCase):
         data = json.loads(response.read().decode("utf-8"))
         conn.close()
         return response.status, data
+
+    def test_readyz_rejects_duplicate_ai_credentials(self):
+        keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B",
+                "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ.update({
+                "MESSENGER_TOKEN_AI_A": "same-secret",
+                "MESSENGER_TOKEN_AI_B": "same-secret",
+                "MESSENGER_AI_ID_A": "AI-A",
+                "MESSENGER_AI_ID_B": "AI-B",
+                "MESSENGER_DB_PATH": self.tmp.name})
+            status, data = self.request("GET", "/readyz", "")
+            self.assertEqual(status, 503)
+            self.assertEqual(data["status"], "not_ready")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
 
     def test_two_principal_http_flow(self):
         status, sent = self.request("POST", "/v1/messages", "token-a", {
