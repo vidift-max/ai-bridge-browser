@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -52,6 +52,25 @@ class SQLiteMessengerStore:
                     ON messages(conversation_id, sequence);
             """)
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','1')")
+            self._connection.commit()
+            version = 1
+        if version < 2:
+            self._connection.executescript("""
+                CREATE TABLE IF NOT EXISTS audio_attachments (
+                    object_id TEXT PRIMARY KEY,
+                    message_id TEXT NOT NULL,
+                    conversation_id TEXT NOT NULL,
+                    sender_ai_id TEXT NOT NULL,
+                    content_type TEXT NOT NULL,
+                    size INTEGER NOT NULL,
+                    sha256 TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(message_id, object_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_audio_attachments_message
+                    ON audio_attachments(message_id);
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','2')")
             self._connection.commit()
 
     def close(self):
@@ -123,3 +142,26 @@ class SQLiteMessengerStore:
         for row in rows:
             result.setdefault(row["message_id"],set()).add(row["ai_id"])
         return result
+
+
+    def save_audio_attachment(self, attachment: Tuple[str,str,str,str,str,int,str]):
+        self._connection.execute(
+            """INSERT INTO audio_attachments(
+                object_id,message_id,conversation_id,sender_ai_id,content_type,size,sha256
+            ) VALUES(?,?,?,?,?,?,?)""",
+            attachment,
+        )
+        self._connection.commit()
+
+    def load_audio_attachments_for_message(self, message_id: str):
+        return self._connection.execute(
+            """SELECT object_id,message_id,conversation_id,sender_ai_id,content_type,size,sha256,created_at
+               FROM audio_attachments WHERE message_id=? ORDER BY object_id""",
+            (message_id,),
+        ).fetchall()
+
+    def delete_audio_attachment(self, object_id: str) -> bool:
+        cursor = self._connection.execute(
+            "DELETE FROM audio_attachments WHERE object_id=?", (object_id,))
+        self._connection.commit()
+        return cursor.rowcount == 1
