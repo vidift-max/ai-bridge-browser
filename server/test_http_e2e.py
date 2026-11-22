@@ -87,6 +87,27 @@ class HttpE2ETest(unittest.TestCase):
         self.assertIn("VOICE_PARTICIPANT_MUTED", events)
         self.assertIn("VOICE_PARTICIPANT_UNMUTED", events)
 
+    def test_room_member_can_read_persisted_voice_mute_state(self):
+        status, _ = self.request("POST", "/v1/conversations/room/voice/mute",
+                                 "token-a", {"targetAiId": "AI-B"})
+        self.assertEqual(status, 200)
+        status, data = self.request("GET", "/v1/conversations/room/voice/status",
+                                    "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["conversationId"], "room")
+        self.assertEqual(data["mutedAiIds"], ["AI-B"])
+        events = [event.event_type for event in self.auth.audit_log.events()]
+        self.assertIn("VOICE_ROOM_STATE_READ", events)
+
+    def test_voice_status_rejects_non_member_and_missing_authentication(self):
+        status, data = self.request("GET", "/v1/conversations/unknown/voice/status",
+                                    "token-b")
+        self.assertEqual(status, 403)
+        self.assertEqual(data["error"], "forbidden")
+        status, data = self.request("GET", "/v1/conversations/room/voice/status", "")
+        self.assertEqual(status, 401)
+        self.assertEqual(data["error"], "authentication_required")
+
     def test_http_mute_rejects_unbounded_duration(self):
         status, data = self.request("POST", "/v1/conversations/room/voice/mute",
                                     "token-a", {"targetAiId": "AI-B",
