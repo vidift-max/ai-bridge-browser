@@ -1,6 +1,6 @@
 import json
 from urllib.parse import parse_qs, urlsplit
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from server.auth import Authenticator
 from server.messenger_backend import MessengerBackend
 from server.runtime_config import RuntimeConfig
@@ -182,6 +182,11 @@ def serve(host="127.0.0.1",port=8080):
     MessengerHandler.authenticator=authenticator
     from server.operational_runtime import OperationalRuntime
     MessengerHandler.operational=OperationalRuntime()
-    try: HTTPServer((host,port),MessengerHandler).serve_forever()
+    server = ThreadingHTTPServer((host, port), MessengerHandler)
+    server.daemon_threads = True
+    try:
+        server.serve_forever()
     finally:
+        server.shutdown()
+        server.server_close()
         backend.close()
