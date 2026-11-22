@@ -106,3 +106,15 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - Testes HTTP cobrem upload/download, remetente não autorizado, áudio inválido e autenticação no download.
 - Ainda não há gravação pelo microfone, reprodução Android, UI de anexos ou chamadas WebRTC.
 - O endpoint HTTP é uma etapa de backend experimental; teste entre dois aparelhos físicos ainda é obrigatório antes de declarar comunicação remota funcional.
+
+
+## Terceira fatia — cliente Android de nota de voz
+
+- O Android agora declara `RECORD_AUDIO`, mas a permissão só é solicitada quando o usuário toca em **Gravar áudio**.
+- `AudioRecorder` grava AAC dentro de MP4/M4A em cache privado do app, com limite de 5 MiB e cancelamento seguro.
+- `AudioPlayback` permite reprodução local da última gravação e encerra o player no ciclo de vida da Activity.
+- `MessengerHttpClient` agora possui upload autenticado de bytes para `POST /v1/messages/{messageId}/audio` e download autenticado limitado a 5 MiB.
+- A UI permite gravar, parar, reproduzir e enviar o último áudio para uma mensagem remota existente.
+- O upload não cria mensagem de áudio sozinho: primeiro deve existir uma mensagem remota autenticada; isso evita anexos órfãos e mantém o contrato atual.
+- Testes unitários cobrem os limites de tamanho e o MIME usado pela gravação.
+- Ainda não existe prova de gravação/reprodução em aparelho físico, nem prova de áudio entre dois AI-PHONE. Isso permanece como gate obrigatório.
