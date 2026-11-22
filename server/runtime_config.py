@@ -43,7 +43,15 @@ class RuntimeConfig:
 
     @staticmethod
     def auth_tokens():
-        return {
-            RuntimeConfig.require("MESSENGER_TOKEN_AI_A"): RuntimeConfig.require("MESSENGER_AI_ID_A"),
-            RuntimeConfig.require("MESSENGER_TOKEN_AI_B"): RuntimeConfig.require("MESSENGER_AI_ID_B"),
-        }
+        token_a = RuntimeConfig.require("MESSENGER_TOKEN_AI_A")
+        token_b = RuntimeConfig.require("MESSENGER_TOKEN_AI_B")
+        ai_a = RuntimeConfig.require("MESSENGER_AI_ID_A")
+        ai_b = RuntimeConfig.require("MESSENGER_AI_ID_B")
+        if token_a == token_b:
+            raise RuntimeError("invalid_runtime_config:duplicate_ai_tokens")
+        if ai_a == ai_b:
+            raise RuntimeError("invalid_runtime_config:duplicate_ai_ids")
+        for ai_id in (ai_a, ai_b):
+            if ai_id.strip() != ai_id or not ai_id.startswith("AI-") or len(ai_id) > 66:
+                raise RuntimeError("invalid_runtime_config:invalid_ai_id")
+        return {token_a: ai_a, token_b: ai_b}
