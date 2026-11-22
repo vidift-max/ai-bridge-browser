@@ -4,6 +4,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 
@@ -463,6 +464,28 @@ class HttpE2ETest(unittest.TestCase):
                     "GET", "/v1/conversations/room/messages?" + query, "token-b")
                 self.assertEqual(status, 400)
                 self.assertEqual(data["error"], "invalid_cursor")
+
+    def test_http_concurrent_duplicate_submissions_create_one_message(self):
+        payload = {
+            "messageId": "m-http-concurrent",
+            "conversationId": "room",
+            "recipientAiIds": ["AI-B"],
+            "body": "one logical concurrent HTTP message",
+            "clientRequestId": "req-http-concurrent",
+        }
+        def submit(_):
+            return self.request("POST", "/v1/messages", "token-a", payload)
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            responses = list(pool.map(submit, range(10)))
+        self.assertEqual({status for status, _ in responses}, {200})
+        self.assertEqual(
+            {data["messageId"] for _, data in responses}, {"m-http-concurrent"})
+        status, pending = self.request(
+            "GET", "/v1/conversations/room/messages", "token-b")
+        self.assertEqual(status, 200)
+        matches = [m for m in pending["messages"]
+                   if m["messageId"] == "m-http-concurrent"]
+        self.assertEqual(len(matches), 1)
 
 if __name__ == "__main__":
     unittest.main()
