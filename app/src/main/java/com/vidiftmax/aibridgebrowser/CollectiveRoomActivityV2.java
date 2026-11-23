@@ -73,6 +73,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         header.addView(button("＋ Entrar na sala coletiva",v->enterRoom()));
         header.addView(button("🔐 Configurar AI Messenger remoto",v->startActivity(new Intent(this,MessengerActivity.class))));
         header.addView(button("🔗 Vincular conversa remota",v->chooseRemoteConversation()));
+        header.addView(button("🔢 Vincular por ID e AI_IDs",v->linkRemoteConversationById()));
         header.addView(button("↻ Sincronizar mensagens",v->syncRemoteRoom()));
         remoteStatus=text("Sala em modo local · nenhuma conversa remota vinculada.",11,MUTED,false);
         header.addView(remoteStatus);
@@ -289,6 +290,56 @@ public final class CollectiveRoomActivityV2 extends Activity {
                     updateRemoteStatus();
                     Toast.makeText(this,"Conversa remota vinculada. Sincronize para buscar mensagens.",Toast.LENGTH_LONG).show();
                 }).setNegativeButton("Cancelar",null).show();
+    }
+
+    private void linkRemoteConversationById() {
+        android.content.SharedPreferences config = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
+        String own = config.getString("ai_id", "");
+        if (own.trim().isEmpty()) {
+            Toast.makeText(this, "Configure e valide seu AI_ID no AI Messenger primeiro.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        EditText conversation = new EditText(this);
+        conversation.setSingleLine(true);
+        conversation.setHint("ID exato da conversa remota");
+        EditText members = new EditText(this);
+        members.setHint("Outros AI_IDs, separados por vírgula");
+        form.addView(conversation);
+        form.addView(members);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Vincular aparelho a uma sala existente")
+                .setMessage("Informe o ID compartilhado da conversa e os AI_IDs dos outros membros. O servidor confirmará sua autorização; não use nomes ou números telefônicos.")
+                .setView(form)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Validar e vincular", (dialog, which) -> {
+                    String cid = conversation.getText().toString().trim();
+                    try {
+                        if (cid.isEmpty() || cid.length() > 200) throw new IllegalArgumentException("conversation_id_invalid");
+                        java.util.Set<String> ids = MessengerRemoteConfig.parseMemberIds(members.getText().toString(), own);
+                        JSONArray memberArray = new JSONArray(ids);
+                        new Thread(() -> {
+                            try {
+                                remoteClient().fetchPending(cid, 0, 1);
+                                prefs().edit().putString("remote_conversation_id", cid)
+                                        .putString("remote_member_ai_ids", memberArray.toString()).commit();
+                                remoteConversationId = cid;
+                                remoteMemberAiIds = memberArray;
+                                runOnUiThread(() -> {
+                                    updateRemoteStatus();
+                                    renderPresence();
+                                    Toast.makeText(this, "Servidor autorizou o vínculo desta conversa.", Toast.LENGTH_LONG).show();
+                                });
+                            } catch (Exception error) {
+                                runOnUiThread(() -> Toast.makeText(this,
+                                        "Vínculo recusado pelo servidor: " + error.getMessage(), Toast.LENGTH_LONG).show());
+                            }
+                        }, "ai-room-link-validation").start();
+                    } catch (Exception error) {
+                        Toast.makeText(this, "Dados da sala inválidos: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                }).show();
     }
 
     private void restoreRemoteLink(){
