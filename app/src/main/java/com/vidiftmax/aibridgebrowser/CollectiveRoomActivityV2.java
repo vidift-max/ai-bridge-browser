@@ -19,9 +19,20 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public final class CollectiveRoomActivityV2 extends Activity {
     private static final String PREFS="ai_collective_room_v2";
+    private static final String MESSENGER_PREFS="ai_messenger_local_v1";
+    private static final String REMOTE_PREFS="ai_phone_registry_config_v1";
+    private static final String REMOTE_IDS="remote_message_ids";
+    private String remoteConversationId="";
+    private JSONArray remoteMemberAiIds=new JSONArray();
+    private TextView remoteStatus;
+    private volatile boolean remoteOperationRunning;
     private static final int BG=0xFF101827,SURFACE=0xFF1B293B,TEXT=0xFFF4F7FB,MUTED=0xFFB5C2D1,ACCENT=0xFF55D6BE;
     private LinearLayout presenceList,messageList;
     private EditText composer;
@@ -56,6 +67,11 @@ public final class CollectiveRoomActivityV2 extends Activity {
         header.addView(text("Conversa principal · participantes aparecem no painel à direita.",12,MUTED,false));
         header.addView(button("✎ Meu perfil · "+myAvatar+" "+myName,v->editProfile()));
         header.addView(button("＋ Entrar na sala coletiva",v->enterRoom()));
+        header.addView(button("🔐 Configurar AI Messenger remoto",v->startActivity(new Intent(this,MessengerActivity.class))));
+        header.addView(button("🔗 Vincular conversa remota",v->chooseRemoteConversation()));
+        header.addView(button("↻ Sincronizar mensagens",v->syncRemoteRoom()));
+        remoteStatus=text("Sala em modo local · nenhuma conversa remota vinculada.",11,MUTED,false);
+        header.addView(remoteStatus);
 
         LinearLayout quickActions=new LinearLayout(this);
         quickActions.setOrientation(LinearLayout.HORIZONTAL);
@@ -218,8 +234,145 @@ public final class CollectiveRoomActivityV2 extends Activity {
                 prefs().edit().putString("profile_name",myName).putString("profile_avatar",myAvatar).apply(); renderPresence(); }).show();
     }
 
+    private MessengerHttpClient remoteClient() throws Exception {
+        android.content.SharedPreferences config=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE);
+        return new MessengerHttpClient(config.getString("base_url",null),config.getString("ai_id",null),
+                new AiPhoneCredentialVault().load(this));
+    }
+
+    private void chooseRemoteConversation(){
+        JSONArray conversations;
+        try { conversations=new JSONArray(getSharedPreferences(MESSENGER_PREFS,MODE_PRIVATE).getString("local_conversations","[]")); }
+        catch(Exception invalid){ Toast.makeText(this,"Lista de conversas remotas inválida.",Toast.LENGTH_LONG).show(); return; }
+        java.util.ArrayList<JSONObject> choices=new java.util.ArrayList<>();
+        java.util.ArrayList<String> labels=new java.util.ArrayList<>();
+        for(int i=0;i<conversations.length();i++){
+            JSONObject item=conversations.optJSONObject(i);
+            if(item!=null && item.optBoolean("remote",false)){
+                JSONArray members=item.optJSONArray("remoteMemberAiIds");
+                if(members!=null && members.length()>=2){
+                    choices.add(item);
+                    labels.add(item.optString("title","Conversa remota")+" · "+item.optString("kind","GROUP")+" · "+members.length()+" membros");
+                }
+            }
+        }
+        if(choices.isEmpty()){
+            new android.app.AlertDialog.Builder(this).setTitle("Nenhuma conversa remota")
+                    .setMessage("Configure o servidor e crie uma conversa remota no AI Messenger. Depois volte aqui para vinculá-la à Sala Coletiva.")
+                    .setPositiveButton("Abrir configuração",(d,w)->startActivity(new Intent(this,MessengerActivity.class)))
+                    .setNegativeButton("Fechar",null).show();
+            return;
+        }
+        new android.app.AlertDialog.Builder(this).setTitle("Vincular Sala Coletiva a uma conversa remota")
+                .setItems(labels.toArray(new String[0]),(d,which)->{
+                    JSONObject selected=choices.get(which);
+                    remoteConversationId=selected.optString("conversationId","");
+                    remoteMemberAiIds=selected.optJSONArray("remoteMemberAiIds");
+                    if(remoteMemberAiIds==null)remoteMemberAiIds=new JSONArray();
+                    prefs().edit().putString("remote_conversation_id",remoteConversationId)
+                            .putString("remote_member_ai_ids",remoteMemberAiIds.toString()).apply();
+                    updateRemoteStatus();
+                    Toast.makeText(this,"Conversa remota vinculada. Sincronize para buscar mensagens.",Toast.LENGTH_LONG).show();
+                }).setNegativeButton("Cancelar",null).show();
+    }
+
+    private void restoreRemoteLink(){
+        remoteConversationId=prefs().getString("remote_conversation_id","");
+        try { remoteMemberAiIds=new JSONArray(prefs().getString("remote_member_ai_ids","[]")); }
+        catch(Exception invalid){ remoteMemberAiIds=new JSONArray(); remoteConversationId=""; }
+        updateRemoteStatus();
+    }
+
+    private void updateRemoteStatus(){
+        if(remoteStatus==null)return;
+        if(remoteConversationId.trim().isEmpty()){
+            remoteStatus.setText("Sala em modo local · nenhuma conversa remota vinculada.");
+        }else{
+            String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","AI_ID não configurado");
+            remoteStatus.setText("REMOTO · "+remoteConversationId+" · "+own+" · "+remoteMemberAiIds.length()+" participantes cadastrados");
+        }
+    }
+
+    private void syncRemoteRoom(){
+        if(remoteConversationId.trim().isEmpty()){
+            Toast.makeText(this,"Vincule uma conversa remota primeiro.",Toast.LENGTH_LONG).show(); return;
+        }
+        if(remoteOperationRunning)return;
+        remoteOperationRunning=true;
+        new Thread(()->{
+            int added=0,acked=0;
+            try{
+                JSONArray incoming=remoteClient().fetchPending(remoteConversationId,0,100);
+                for(int i=0;i<incoming.length();i++){
+                    JSONObject remote=incoming.optJSONObject(i);
+                    if(remote==null)continue;
+                    String messageId=remote.optString("messageId","");
+                    if(messageId.trim().isEmpty())throw new IllegalStateException("server_message_id_missing");
+                    if(persistRemoteMessage(remote))added++;
+                    remoteClient().acknowledge(messageId);
+                    acked++;
+                }
+                final int newCount=added,ackCount=acked;
+                runOnUiThread(()->{
+                    remoteOperationRunning=false;renderMessages();renderPresence();
+                    Toast.makeText(this,"Sala sincronizada: "+newCount+" nova(s), "+ackCount+" confirmação(ões).",Toast.LENGTH_LONG).show();
+                });
+            }catch(Exception error){
+                runOnUiThread(()->{remoteOperationRunning=false;Toast.makeText(this,"Sincronização remota falhou: "+error.getMessage(),Toast.LENGTH_LONG).show();});
+            }
+        },"ai-room-sync").start();
+    }
+
+    private boolean persistRemoteMessage(JSONObject remote) throws Exception{
+        String messageId=remote.optString("messageId","");
+        Set<String> ids=new HashSet<>();
+        for(String id:prefs().getString(REMOTE_IDS,"").split("\\n"))if(!id.trim().isEmpty())ids.add(id.trim());
+        if(ids.contains(messageId))return false;
+        long created=remote.optLong("createdAtEpochMs",System.currentTimeMillis());
+        String kind=MessengerRetentionPolicy.normalizeMessageKind(remote.optString("messageKind",MessengerRetentionPolicy.MESSAGE_NORMAL));
+        String sender=remote.optString("senderAiId","AI");
+        String body=remote.optString("body","");
+        String line=CollectiveRoomMessageCodec.encode(created,kind,sender,"🤖",body);
+        String old=prefs().getString("messages","");
+        String updated=old.trim().isEmpty()?line:old.trim()+"\\n"+line;
+        StringBuilder allIds=new StringBuilder(prefs().getString(REMOTE_IDS,""));
+        if(allIds.length()>0)allIds.append("\\n");
+        allIds.append(messageId);
+        boolean saved=prefs().edit().putString("messages",updated).putString(REMOTE_IDS,allIds.toString()).commit();
+        if(!saved)throw new IllegalStateException("local_message_persistence_failed_before_ack");
+        return true;
+    }
+
+    private void sendRemoteRoomMessage(String body,String kind){
+        if(remoteOperationRunning)return;
+        String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");
+        JSONArray recipients=new JSONArray();
+        for(int i=0;i<remoteMemberAiIds.length();i++){
+            String id=remoteMemberAiIds.optString(i,"");
+            if(!own.equals(id))recipients.put(id);
+        }
+        if(recipients.length()==0){Toast.makeText(this,"A conversa remota não tem destinatários válidos.",Toast.LENGTH_LONG).show();return;}
+        remoteOperationRunning=true;
+        new Thread(()->{
+            try{
+                JSONObject response=remoteClient().sendMessage(remoteConversationId,recipients,body,kind);
+                long created=response.optLong("createdAtEpochMs",System.currentTimeMillis());
+                String line=CollectiveRoomMessageCodec.encode(created,kind,own,myAvatar,body);
+                String old=prefs().getString("messages","");
+                String updated=old.trim().isEmpty()?line:old.trim()+"\\n"+line;
+                if(!prefs().edit().putString("messages",updated).commit())throw new IllegalStateException("local_message_persistence_failed");
+                runOnUiThread(()->{
+                    remoteOperationRunning=false;composer.setText("");if(missionToggle!=null)missionToggle.setChecked(false);
+                    renderMessages();Toast.makeText(this,"Mensagem aceita pelo servidor. Sincronize nos outros aparelhos; isso ainda não confirma leitura.",Toast.LENGTH_LONG).show();
+                });
+            }catch(Exception error){
+                runOnUiThread(()->{remoteOperationRunning=false;Toast.makeText(this,"Envio remoto falhou: "+error.getMessage(),Toast.LENGTH_LONG).show();});
+            }
+        },"ai-room-send").start();
+    }
+
     private void enterRoom(){ String t=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date()); addMessage("SISTEMA","🤖","👋 "+myName+" entrou na sala · "+t, MessengerRetentionPolicy.MESSAGE_NORMAL); renderPresence(); }
-    private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty()){ android.widget.Toast.makeText(this,"Digite uma mensagem primeiro.",android.widget.Toast.LENGTH_SHORT).show(); return; } String kind=missionToggle!=null&&missionToggle.isChecked()?MessengerRetentionPolicy.MESSAGE_MISSION:MessengerRetentionPolicy.MESSAGE_NORMAL; addMessage(myName,myAvatar,body,kind); composer.setText(""); if(missionToggle!=null)missionToggle.setChecked(false); android.widget.Toast.makeText(this,"Mensagem adicionada à sala neste aparelho (modo local).",android.widget.Toast.LENGTH_SHORT).show(); }
+    private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty()){ android.widget.Toast.makeText(this,"Digite uma mensagem primeiro.",android.widget.Toast.LENGTH_SHORT).show(); return; } String kind=missionToggle!=null&&missionToggle.isChecked()?MessengerRetentionPolicy.MESSAGE_MISSION:MessengerRetentionPolicy.MESSAGE_NORMAL; if(!remoteConversationId.trim().isEmpty()){sendRemoteRoomMessage(body,kind);return;} addMessage(myName,myAvatar,body,kind); composer.setText(""); if(missionToggle!=null)missionToggle.setChecked(false); android.widget.Toast.makeText(this,"Mensagem adicionada à sala neste aparelho (modo local).",android.widget.Toast.LENGTH_SHORT).show(); }
     private void addMessage(String sender,String avatar,String body,String kind){
         String old=prefs().getString("messages","");
         String line=CollectiveRoomMessageCodec.encode(System.currentTimeMillis(),kind,sender,avatar,body);
