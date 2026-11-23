@@ -88,7 +88,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         composerArea.addView(text("Texto é a comunicação normal. Áudio aberto será um recurso separado e só será declarado funcional após teste E2E real.",10,MUTED,false));
         chatColumn.addView(composerArea);
 
-        root.addView(chatColumn,new LinearLayout.LayoutParams(0,0,1));
+        root.addView(chatColumn,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.MATCH_PARENT,1));
 
         LinearLayout participantColumn=new LinearLayout(this);
         participantColumn.setOrientation(LinearLayout.VERTICAL);
@@ -110,7 +110,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
         int widthDp=getResources().getConfiguration().screenWidthDp;
         int panelWidth=widthDp>=700?dp(235):dp(155);
-        root.addView(participantColumn,new LinearLayout.LayoutParams(panelWidth,0));
+        root.addView(participantColumn,new LinearLayout.LayoutParams(panelWidth,ViewGroup.LayoutParams.MATCH_PARENT));
 
         setContentView(root);
         renderPresence();
