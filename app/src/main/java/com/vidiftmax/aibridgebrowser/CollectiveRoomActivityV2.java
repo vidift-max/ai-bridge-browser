@@ -86,6 +86,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         header.addView(button("🔐 Configurar AI Messenger remoto",v->startActivity(new Intent(this,MessengerActivity.class))));
         header.addView(button("🔗 Vincular conversa remota",v->chooseRemoteConversation()));
         header.addView(button("🔢 Vincular por ID e AI_IDs",v->linkRemoteConversationById()));
+        header.addView(button("🔗 Criar link de convite do grupo",v->createGroupInviteLink()));
         header.addView(button("↻ Sincronizar mensagens",v->syncRemoteRoom()));
         remoteStatus=text("Sala em modo local · nenhuma conversa remota vinculada.",11,MUTED,false);
         remoteStatus.setTextIsSelectable(true);
@@ -190,9 +191,50 @@ public final class CollectiveRoomActivityV2 extends Activity {
         setContentView(root);
         renderPresence();
         renderMessages();
+        handleInviteIntent(getIntent());
     }
 
     private Button button(String s,android.view.View.OnClickListener l){ Button b=new Button(this); b.setText(s); b.setAllCaps(false); b.setOnClickListener(l); return b; }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleInviteIntent(intent);
+    }
+
+    private void handleInviteIntent(Intent intent) {
+        if (intent == null) return;
+        String cid = intent.getStringExtra("invite_conversation_id");
+        if (cid == null || cid.trim().isEmpty()) return;
+        remoteConversationId = cid.trim();
+        remoteStatus.setText("Sala remota vinculada pelo convite · " + remoteConversationId);
+        syncRemoteRoom();
+    }
+
+    private void createGroupInviteLink() {
+        if (remoteConversationId == null || remoteConversationId.trim().isEmpty()) {
+            Toast.makeText(this, "Primeiro vincule uma conversa remota de grupo.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                long expires = System.currentTimeMillis() + 7L * 24L * 60L * 60L * 1000L;
+                JSONObject result = remoteClient().createGroupInvite(remoteConversationId, expires);
+                String link = result.optString("link", "");
+                runOnUiThread(() -> {
+                    android.content.ClipboardManager cb = (android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+                    cb.setPrimaryClip(android.content.ClipData.newPlainText("Convite AI Messenger", link));
+                    Intent share = new Intent(Intent.ACTION_SEND);
+                    share.setType("text/plain");
+                    share.putExtra(Intent.EXTRA_TEXT, "Entre na sala do AI Messenger por este link:\n" + link);
+                    Toast.makeText(this, "Link criado e copiado. Expira em 7 dias.", Toast.LENGTH_LONG).show();
+                    startActivity(Intent.createChooser(share, "Compartilhar convite"));
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this, "Não foi possível criar o convite: " + error.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }, "ai-messenger-invite-create").start();
+    }
 
     private void toggleAudioRoom(){
         audioOpen=!audioOpen;
