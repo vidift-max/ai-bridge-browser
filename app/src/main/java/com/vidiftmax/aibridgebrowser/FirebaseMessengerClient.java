@@ -164,7 +164,7 @@ public final class FirebaseMessengerClient {
     public JSONObject acknowledge(String conversationId, String messageId) throws Exception {
         if (conversationId == null || messageId == null || conversationId.isEmpty() || messageId.isEmpty())
             throw new IllegalArgumentException("ack_reference_required");
-        databaseRequest("PUT", "/conversations/" + path(conversationId) + "/acks/" + path(messageId)
+        databaseRequest("PUT", "/messenger/conversations/" + path(conversationId) + "/acks/" + path(messageId)
                 + "/" + path(aiId), trueJson());
         return new JSONObject().put("state", "ACKNOWLEDGED").put("messageId", messageId);
     }
