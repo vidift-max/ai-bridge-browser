@@ -33,6 +33,8 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private String remoteConversationId="";
     private JSONArray remoteMemberAiIds=new JSONArray();
     private TextView remoteStatus;
+    private TextView callStatus;
+    private String activeVoiceCallId = "";
     private volatile boolean remoteOperationRunning;
     private static final int BG=0xFF101827,SURFACE=0xFF1B293B,TEXT=0xFFF4F7FB,MUTED=0xFFB5C2D1,ACCENT=0xFF55D6BE;
     private LinearLayout presenceList,messageList;
@@ -78,6 +80,16 @@ public final class CollectiveRoomActivityV2 extends Activity {
         remoteStatus=text("Sala em modo local · nenhuma conversa remota vinculada.",11,MUTED,false);
         remoteStatus.setTextIsSelectable(true);
         header.addView(remoteStatus);
+        LinearLayout callRow = new LinearLayout(this);
+        callRow.setOrientation(LinearLayout.HORIZONTAL);
+        callRow.addView(button("📞 Ligar",v->startVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
+        callRow.addView(button("📲 Atender",v->answerVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
+        callRow.addView(button("Recusar",v->rejectVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
+        callRow.addView(button("Desligar",v->endVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
+        callRow.addView(button("↻ Chamada",v->refreshVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
+        header.addView(callRow);
+        callStatus = text("Chamadas ao vivo: aguardando implementação do transporte de mídia.",10,MUTED,false);
+        header.addView(callStatus);
 
         LinearLayout quickActions=new LinearLayout(this);
         quickActions.setOrientation(LinearLayout.HORIZONTAL);
@@ -476,6 +488,87 @@ public final class CollectiveRoomActivityV2 extends Activity {
             File destination = new File(dir, "voice-" + safeId + ".m4a");
             lastRemoteVoiceNote = client.downloadAudio(messageId, objectId, destination);
         }
+    }
+
+    private void startVoiceCall() {
+        if (remoteConversationId.isEmpty() || remoteMemberAiIds.length() != 2) {
+            Toast.makeText(this, "Ligações exigem uma conversa privada remota com exatamente dois AI_IDs.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String own = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("ai_id", "");
+        String target = "";
+        for (int i=0;i<remoteMemberAiIds.length();i++) {
+            String candidate = remoteMemberAiIds.optString(i, "");
+            if (!own.equals(candidate)) target = candidate;
+        }
+        if (target.isEmpty()) {
+            Toast.makeText(this, "Destinatário privado não identificado.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final String callee = target;
+        new Thread(() -> {
+            try {
+                JSONObject call = remoteClient().createVoiceCall(remoteConversationId, callee);
+                activeVoiceCallId = call.optString("call_id", "");
+                runOnUiThread(() -> {
+                    callStatus.setText("CHAMANDO " + callee + " · " + activeVoiceCallId
+                            + " · sinalização somente; áudio ao vivo ainda não conectado");
+                    Toast.makeText(this, "Convite de chamada enviado. O outro aparelho precisa aceitar.", Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this, "Não foi possível iniciar chamada: " + error.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }, "ai-voice-call-create").start();
+    }
+
+    private void refreshVoiceCall() {
+        if (remoteConversationId.isEmpty()) return;
+        new Thread(() -> {
+            try {
+                JSONObject call = remoteClient().getActiveVoiceCall(remoteConversationId);
+                runOnUiThread(() -> {
+                    if (call == null) {
+                        activeVoiceCallId = "";
+                        callStatus.setText("Nenhuma chamada ativa.");
+                    } else {
+                        activeVoiceCallId = call.optString("call_id", "");
+                        callStatus.setText("CHAMADA " + call.optString("state", "UNKNOWN")
+                                + " · " + activeVoiceCallId + " · mídia WebRTC ainda não conectada");
+                    }
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this, "Consulta de chamada falhou: " + error.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }, "ai-voice-call-refresh").start();
+    }
+
+    private void answerVoiceCall() { applyVoiceCallAction("accept"); }
+    private void rejectVoiceCall() { applyVoiceCallAction("reject"); }
+    private void endVoiceCall() {
+        if (activeVoiceCallId.isEmpty()) refreshVoiceCall();
+        else applyVoiceCallAction("end");
+    }
+
+    private void applyVoiceCallAction(String action) {
+        if (activeVoiceCallId.isEmpty()) {
+            refreshVoiceCall();
+            Toast.makeText(this, "Atualize a chamada para carregar o convite pendente.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                JSONObject call = remoteClient().voiceCallAction(activeVoiceCallId, action);
+                runOnUiThread(() -> {
+                    callStatus.setText("CHAMADA " + call.optString("state", "UNKNOWN")
+                            + " · " + activeVoiceCallId + " · sinalização somente; sem áudio ao vivo");
+                    if ("accept".equals(action)) {
+                        Toast.makeText(this, "Convite aceito. A mídia ao vivo ainda não está conectada.", Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this, "Ação de chamada falhou: " + error.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }, "ai-voice-call-action").start();
     }
 
     private void syncRemoteRoom(){
