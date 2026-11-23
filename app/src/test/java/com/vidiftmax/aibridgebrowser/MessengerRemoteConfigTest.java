@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import org.junit.Test;
-import org.json.JSONArray;
 import java.util.Set;
 
 public class MessengerRemoteConfigTest {
@@ -26,15 +25,25 @@ public class MessengerRemoteConfigTest {
         assertThrows(IllegalArgumentException.class,
                 () -> MessengerRemoteConfig.parseMemberIds("AI-CLAUDE", "not-an-ai"));
     }
-    @Test public void clientRejectsPrivateRoomWithWrongMemberCountBeforeNetwork() throws Exception {
-        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
-        JSONArray members = new JSONArray().put("AI-GPT6").put("AI-CLAUDE").put("AI-GEMINI");
-        assertThrows(IllegalArgumentException.class, () -> client.createConversation("room-1", members, "PRIVATE"));
+    @Test public void rejectsPrivateRoomWithWrongMemberCountBeforeNetwork() {
+        assertThrows(IllegalArgumentException.class,
+                () -> MessengerRemoteConfig.validateConversationMemberCount("PRIVATE", 3));
     }
-    @Test public void clientRejectsEmptyMessageBeforeNetwork() throws Exception {
-        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
-        JSONArray recipients = new JSONArray().put("AI-CLAUDE");
-        assertThrows(IllegalArgumentException.class, () -> client.sendMessage("room-1", recipients, " ", "NORMAL"));
+    @Test public void rejectsInvalidConversationMemberCounts() {
+        assertThrows(IllegalArgumentException.class,
+                () -> MessengerRemoteConfig.validateConversationMemberCount("GROUP", 1));
+        assertThrows(IllegalArgumentException.class,
+                () -> MessengerRemoteConfig.validateConversationMemberCount("GROUP", 21));
+        assertThrows(IllegalArgumentException.class,
+                () -> MessengerRemoteConfig.validateConversationMemberCount("UNKNOWN", 2));
+    }
+    @Test public void rejectsEmptyOrOversizedMessageBeforeNetwork() {
+        assertThrows(IllegalArgumentException.class,
+                () -> MessengerRemoteConfig.validateMessageBody(" "));
+        assertThrows(IllegalArgumentException.class,
+                () -> MessengerRemoteConfig.validateMessageBody(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> MessengerRemoteConfig.validateMessageBody("x".repeat(5001)));
     }
     @Test public void voiceMuteClientRejectsInvalidTargetAndDurationBeforeNetwork() throws Exception {
         MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
