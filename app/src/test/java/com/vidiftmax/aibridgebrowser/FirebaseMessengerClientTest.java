@@ -12,7 +12,7 @@ public class FirebaseMessengerClientTest {
 
     @Test public void rejectsNonFirebaseHosts() {
         assertFalse(FirebaseMessengerClient.isFirebaseDatabaseUrl("https://example.com"));
-        assertFalse(FirebaseMessengerClient.isFirebaseDatabaseUrl("http://demo.firebaseio.com"));
+        assertFalse(FirebaseMessengerClient.isFirebaseDatabaseUrl("http://demo.firebaseio.com"));\n        assertFalse(FirebaseMessengerClient.isFirebaseDatabaseUrl("https://demo.firebaseio.com?x=1"));\n        assertFalse(FirebaseMessengerClient.isFirebaseDatabaseUrl("https://demo.firebaseio.com/#fragment"));
     }
 
     @Test public void normalizesTrailingSlash() {
