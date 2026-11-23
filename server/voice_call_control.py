@@ -126,6 +126,9 @@ class VoiceCallControl:
         if len(encoded.encode("utf-8")) > self.MAX_SIGNAL_BYTES:
             raise ValueError("voice_signal_too_large")
         if kind in ("OFFER", "ANSWER"):
+            expected_sender = call["caller_ai_id"] if kind == "OFFER" else call["callee_ai_id"]
+            if acting_ai_id != expected_sender:
+                raise PermissionError("voice_signal_role_mismatch")
             if set(payload) != {"type", "sdp"} or payload.get("type") != kind.lower():
                 raise ValueError("invalid_voice_session_description")
             sdp = payload.get("sdp")
