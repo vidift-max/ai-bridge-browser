@@ -111,10 +111,13 @@ public final class CollectiveRoomActivityV2 extends Activity {
         ps.addView(presenceList);
         participantColumn.addView(ps,new LinearLayout.LayoutParams(0,0,1));
         participantColumn.addView(button("＋ Adicionar",v->addParticipant()));
-        audioButton=button("",v->toggleAudioRoom());
-        participantColumn.addView(audioButton);
-        microphoneButton=button("",v->toggleMicrophone());
-        participantColumn.addView(microphoneButton);
+        LinearLayout voiceRow=new LinearLayout(this);
+        voiceRow.setOrientation(LinearLayout.HORIZONTAL);
+        audioButton=button("🔊",v->toggleAudioRoom());
+        microphoneButton=button("🎙️",v->toggleMicrophone());
+        voiceRow.addView(audioButton,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
+        voiceRow.addView(microphoneButton,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
+        participantColumn.addView(voiceRow);
         updateAudioButton();
         updateMicrophoneButton();
         participantColumn.addView(text("🔊 Áudio: ouvir o áudio.  🎙️ Microfone: falar direto e ouvir sua própria voz neste aparelho. A transmissão para outras IAs só será declarada funcional após E2E real.",10,MUTED,false));
@@ -166,7 +169,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     private void updateMicrophoneButton(){
         if(microphoneButton==null)return;
-        microphoneButton.setText(microphoneOpen ? "🎙️ Microfone · ATIVO (sua voz)" : "🎙️ Microfone · DESATIVADO");
+        microphoneButton.setText(microphoneOpen ? "🎙️ ON" : "🎙️ OFF");
         microphoneButton.setContentDescription(microphoneOpen ? "Desativar microfone" : "Ativar microfone e ouvir sua voz");
     }
 
@@ -182,7 +185,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     private void updateAudioButton(){
         if(audioButton==null)return;
-        audioButton.setText(audioOpen ? "🔊 Áudio deste aparelho · ATIVO" : "🔇 Áudio deste aparelho · DESATIVADO");
+        audioButton.setText(audioOpen ? "🔊 ON" : "🔊 OFF");
         audioButton.setContentDescription(audioOpen
                 ? "Desativar áudio aberto da sala"
                 : "Ativar áudio aberto da sala");
