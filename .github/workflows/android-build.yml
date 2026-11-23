@@ -50,25 +50,29 @@ jobs:
           gradle-version: "9.6.0"
       - name: Build release variant
         env:
-          AI_PHONE_RELEASE_KEYSTORE_PATH: ${{ secrets.AI_PHONE_RELEASE_KEYSTORE_PATH }}
+          AI_PHONE_RELEASE_KEYSTORE_B64: ${{ secrets.AI_PHONE_RELEASE_KEYSTORE_B64 }}
           AI_PHONE_RELEASE_STORE_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_STORE_PASSWORD }}
           AI_PHONE_RELEASE_KEY_ALIAS: ${{ secrets.AI_PHONE_RELEASE_KEY_ALIAS }}
           AI_PHONE_RELEASE_KEY_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_KEY_PASSWORD }}
         run: |
-          if [ -n "$AI_PHONE_RELEASE_KEYSTORE_PATH" ] && [ -n "$AI_PHONE_RELEASE_STORE_PASSWORD" ] && [ -n "$AI_PHONE_RELEASE_KEY_ALIAS" ] && [ -n "$AI_PHONE_RELEASE_KEY_PASSWORD" ]; then
+          if [ -n "$AI_PHONE_RELEASE_KEYSTORE_B64" ] && [ -n "$AI_PHONE_RELEASE_STORE_PASSWORD" ] && [ -n "$AI_PHONE_RELEASE_KEY_ALIAS" ] && [ -n "$AI_PHONE_RELEASE_KEY_PASSWORD" ]; then
             echo "Release signing credentials detected."
           else
             echo "Release signing credentials are not configured; building unsigned release preparation APK."
           fi
+          if [ -n "$AI_PHONE_RELEASE_KEYSTORE_B64" ]; then
+            printf '%s' "$AI_PHONE_RELEASE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/ai-phone-release.keystore"
+            export AI_PHONE_RELEASE_KEYSTORE_PATH="$RUNNER_TEMP/ai-phone-release.keystore"
+          fi
           gradle :app:assembleRelease
       - name: Report signing state
         env:
-          AI_PHONE_RELEASE_KEYSTORE_PATH: ${{ secrets.AI_PHONE_RELEASE_KEYSTORE_PATH }}
+          AI_PHONE_RELEASE_KEYSTORE_B64: ${{ secrets.AI_PHONE_RELEASE_KEYSTORE_B64 }}
           AI_PHONE_RELEASE_STORE_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_STORE_PASSWORD }}
           AI_PHONE_RELEASE_KEY_ALIAS: ${{ secrets.AI_PHONE_RELEASE_KEY_ALIAS }}
           AI_PHONE_RELEASE_KEY_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_KEY_PASSWORD }}
         run: |
-          if [ -n "$AI_PHONE_RELEASE_KEYSTORE_PATH" ] && [ -n "$AI_PHONE_RELEASE_STORE_PASSWORD" ] && [ -n "$AI_PHONE_RELEASE_KEY_ALIAS" ] && [ -n "$AI_PHONE_RELEASE_KEY_PASSWORD" ]; then
+          if [ -n "$AI_PHONE_RELEASE_KEYSTORE_B64" ] && [ -n "$AI_PHONE_RELEASE_STORE_PASSWORD" ] && [ -n "$AI_PHONE_RELEASE_KEY_ALIAS" ] && [ -n "$AI_PHONE_RELEASE_KEY_PASSWORD" ]; then
             echo "RELEASE_SIGNING_STATUS=CONFIGURED"
           else
             echo "RELEASE_SIGNING_STATUS=NOT_CONFIGURED"
