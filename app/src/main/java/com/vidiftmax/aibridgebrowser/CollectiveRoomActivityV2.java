@@ -27,14 +27,17 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private EditText composer;
     private String myName,myAvatar;
     private android.widget.CheckBox missionToggle;
-    private Button audioButton;
-    private boolean audioOpen;
+    private Button audioButton, microphoneButton;
+    private boolean audioOpen, microphoneOpen;
+    private AudioMonitor audioMonitor;
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
         myName=prefs().getString("profile_name","Minha IA");
         myAvatar=prefs().getString("profile_avatar","🤖");
         audioOpen=prefs().getBoolean("audio_room_open",false);
+        microphoneOpen=prefs().getBoolean("microphone_open",false);
+        audioMonitor=new AudioMonitor();
 
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
@@ -110,8 +113,11 @@ public final class CollectiveRoomActivityV2 extends Activity {
         participantColumn.addView(button("＋ Adicionar",v->addParticipant()));
         audioButton=button("",v->toggleAudioRoom());
         participantColumn.addView(audioButton);
+        microphoneButton=button("",v->toggleMicrophone());
+        participantColumn.addView(microphoneButton);
         updateAudioButton();
-        participantColumn.addView(text("Áudio aberto neste aparelho. O controle remoto do líder só será declarado funcional após E2E real.",10,MUTED,false));
+        updateMicrophoneButton();
+        participantColumn.addView(text("🔊 Áudio: ouvir o áudio.  🎙️ Microfone: falar direto e ouvir sua própria voz neste aparelho. A transmissão para outras IAs só será declarada funcional após E2E real.",10,MUTED,false));
 
         int widthDp=getResources().getConfiguration().screenWidthDp;
         int panelWidth=widthDp>=700?dp(235):dp(155);
@@ -131,6 +137,47 @@ public final class CollectiveRoomActivityV2 extends Activity {
         android.widget.Toast.makeText(this,
                 audioOpen ? "Áudio da sala ativado neste aparelho." : "Áudio da sala desativado neste aparelho.",
                 android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    private void toggleMicrophone(){
+        if (microphoneOpen) {
+            microphoneOpen=false;
+            audioMonitor.stop();
+            prefs().edit().putBoolean("microphone_open",false).apply();
+            updateMicrophoneButton();
+            android.widget.Toast.makeText(this,"Microfone desativado.",android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 7001);
+            return;
+        }
+        try {
+            audioMonitor.start();
+            microphoneOpen=true;
+            prefs().edit().putBoolean("microphone_open",true).apply();
+            updateMicrophoneButton();
+            android.widget.Toast.makeText(this,"Microfone ativado. Use fones para evitar microfonia.",android.widget.Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            microphoneOpen=false;
+            android.widget.Toast.makeText(this,"Microfone indisponível: "+error.getMessage(),android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void updateMicrophoneButton(){
+        if(microphoneButton==null)return;
+        microphoneButton.setText(microphoneOpen ? "🎙️ Microfone · ATIVO (sua voz)" : "🎙️ Microfone · DESATIVADO");
+        microphoneButton.setContentDescription(microphoneOpen ? "Desativar microfone" : "Ativar microfone e ouvir sua voz");
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if(requestCode==7001 && grantResults.length>0 && grantResults[0]==android.content.pm.PackageManager.PERMISSION_GRANTED) toggleMicrophone();
+    }
+
+    @Override protected void onPause(){
+        super.onPause();
+        if(microphoneOpen){ microphoneOpen=false; audioMonitor.stop(); prefs().edit().putBoolean("microphone_open",false).apply(); updateMicrophoneButton(); }
     }
 
     private void updateAudioButton(){
@@ -156,7 +203,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
     }
 
     private void enterRoom(){ String t=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date()); addMessage("SISTEMA","🤖","👋 "+myName+" entrou na sala · "+t, MessengerRetentionPolicy.MESSAGE_NORMAL); renderPresence(); }
-    private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty())return; String kind=missionToggle!=null&&missionToggle.isChecked()?MessengerRetentionPolicy.MESSAGE_MISSION:MessengerRetentionPolicy.MESSAGE_NORMAL; addMessage(myName,myAvatar,body,kind); composer.setText(""); if(missionToggle!=null)missionToggle.setChecked(false); }
+    private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty()){ android.widget.Toast.makeText(this,"Digite uma mensagem primeiro.",android.widget.Toast.LENGTH_SHORT).show(); return; } String kind=missionToggle!=null&&missionToggle.isChecked()?MessengerRetentionPolicy.MESSAGE_MISSION:MessengerRetentionPolicy.MESSAGE_NORMAL; addMessage(myName,myAvatar,body,kind); composer.setText(""); if(missionToggle!=null)missionToggle.setChecked(false); android.widget.Toast.makeText(this,"OI/mensagem enviada e salva nesta sala.",android.widget.Toast.LENGTH_SHORT).show(); }
     private void addMessage(String sender,String avatar,String body,String kind){
         String old=prefs().getString("messages","");
         long now=System.currentTimeMillis();
