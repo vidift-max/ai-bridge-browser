@@ -334,9 +334,9 @@ public final class CollectiveRoomActivityV2 extends Activity {
         String body=remote.optString("body","");
         String line=CollectiveRoomMessageCodec.encode(created,kind,sender,"🤖",body);
         String old=prefs().getString("messages","");
-        String updated=old.trim().isEmpty()?line:old.trim()+"\\n"+line;
+        String updated=old.trim().isEmpty()?line:old.trim()+"\n"+line;
         StringBuilder allIds=new StringBuilder(prefs().getString(REMOTE_IDS,""));
-        if(allIds.length()>0)allIds.append("\\n");
+        if(allIds.length()>0)allIds.append("\n");
         allIds.append(messageId);
         boolean saved=prefs().edit().putString("messages",updated).putString(REMOTE_IDS,allIds.toString()).commit();
         if(!saved)throw new IllegalStateException("local_message_persistence_failed_before_ack");
