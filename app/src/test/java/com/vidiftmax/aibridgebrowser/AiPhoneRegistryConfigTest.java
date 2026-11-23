@@ -6,7 +6,7 @@ import static org.junit.Assert.*;
 public class AiPhoneRegistryConfigTest {
     @Test public void acceptsHttpsAndRemovesTrailingSlash() {
         assertEquals("https://registry.ai-phone.test/api",
-                AiPhoneRegistryConfig.normalizeBaseUrl(" https://registry.example.com/api/// "));
+                AiPhoneRegistryConfig.normalizeBaseUrl(" https://registry.acme.org/api/// "));
     }
 
     @Test public void rejectsHttpAndCredentialBearingUrls() {
