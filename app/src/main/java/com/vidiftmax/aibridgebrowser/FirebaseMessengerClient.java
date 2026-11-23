@@ -342,7 +342,7 @@ public final class FirebaseMessengerClient {
             URI uri = new URI(value.trim());
             String host = uri.getHost();
             if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null ||
-                    !(host.endsWith(".firebaseio.com") || host.endsWith(".firebasedatabase.app")) ||
+                    !(host.equals("firebaseio.com") || host.endsWith(".firebaseio.com") || host.equals("firebasedatabase.app") || host.endsWith(".firebasedatabase.app")) ||
                     uri.getQuery() != null || uri.getFragment() != null)
                 throw new IllegalArgumentException("firebase_database_url_invalid");
             String result = value.trim();
