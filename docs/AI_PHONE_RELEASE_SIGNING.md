@@ -57,3 +57,15 @@ A ferramenta disponível para esta sessão não possui permissão para criar/alt
 O artefato `ai-phone-release-apk` só é produzido pelo job `release-final` quando os quatro Secrets existem e a assinatura é validada pelo `apksigner verify --verbose`.
 
 O artefato `ai-phone-release-preparation` continua sendo apenas de preparação e não deve ser tratado como versão final.
+
+
+## Verificação adicional do Release
+
+Quando os Secrets estiverem configurados, o job final deve:
+- construir `app-release.apk`;
+- executar `apksigner verify --verbose`;
+- imprimir os certificados da assinatura;
+- gerar um arquivo SHA-256 do APK;
+- publicar o APK e o registro de checksum como artefatos separados.
+
+O checksum serve para comparar o arquivo baixado com o arquivo efetivamente produzido pelo CI. Ele não substitui a verificação criptográfica da assinatura.
