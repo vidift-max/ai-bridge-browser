@@ -25,7 +25,7 @@
           "$conversationId": {
             "$token": {
               ".read": "auth != null && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === $aiId",
-              ".write": "auth != null && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === $aiId && !data.exists() && root.child('messenger/invites').child($token).child('conversationId').val() === $conversationId && root.child('messenger/invites').child($token).child('createdByAiId').exists() && root.child('messenger/invites').child($token).child('expiresAtEpochMs').val() > now",
+              ".write": "auth != null && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === $aiId && !data.exists() && root.child('messenger/invites').child($token).child('conversationId').val() === $conversationId && root.child('messenger/invites').child($token).child('expiresAtEpochMs').val() > now",
               ".validate": "newData.val() === true"
             }
           }
@@ -34,16 +34,25 @@
       "conversations": {
         "$conversationId": {
           ".read": "auth != null && (data.child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true || root.child('messenger/invitesByAi').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).child($conversationId).hasChildren())",
-          ".write": "auth != null && !data.exists() && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === newData.child('meta').child('ownerAiId').val()",
+          ".write": "auth != null && ((!data.exists() && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === newData.child('meta').child('ownerAiId').val()) || (data.exists() && data.child('meta').child('kind').val() === 'GROUP' && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() !== '' && root.child('messenger/invitesByAi').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).child($conversationId).hasChildren() && !data.child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).exists() && newData.child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true && newData.child('memberCount').val() === data.child('memberCount').val() + 1 && newData.child('memberCount').val() <= 20))",
           ".validate": "newData.hasChildren(['meta','members','memberCount']) && newData.child('meta').hasChildren(['ownerAiId','kind','createdAtEpochMs']) && (newData.child('meta').child('kind').val() === 'GROUP' || newData.child('meta').child('kind').val() === 'PRIVATE') && newData.child('memberCount').isNumber() && newData.child('memberCount').val() >= 2 && newData.child('memberCount').val() <= 20 && newData.child('members').child(newData.child('meta').child('ownerAiId').val()).val() === true",
+          "meta": {
+            "ownerAiId": {
+              ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+            },
+            "kind": {
+              ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+            },
+            "createdAtEpochMs": {
+              ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val())"
+            }
+          },
           "memberCount": {
-            ".write": "auth != null && data.exists() && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === newData.parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).key && root.child('messenger/invitesByAi').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).child($conversationId).hasChildren() && newData.val() === data.val() + 1 && newData.val() <= 20",
-            ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 20"
+            ".validate": "newData.isNumber() && (!data.exists() ? newData.val() >= 2 && newData.val() <= 20 : newData.val() === data.val() + 1 && newData.val() <= 20)"
           },
           "members": {
             "$memberAiId": {
-              ".write": "auth != null && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === $memberAiId && !data.exists() && root.child('messenger/invitesByAi').child($memberAiId).child($conversationId).hasChildren() && newData.val() === true && data.parent().parent().child('memberCount').val() < 20",
-              ".validate": "newData.val() === true"
+              ".validate": "newData.val() === data.val() || (!data.exists() && newData.val() === true && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === $memberAiId)"
             }
           },
           "messages": {
