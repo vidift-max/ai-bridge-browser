@@ -50,18 +50,8 @@ jobs:
           gradle-version: "9.6.0"
       - name: Build release preparation variant
         run: gradle :app:assembleRelease
-      - name: Report signing state
-        env:
-          AI_PHONE_RELEASE_KEYSTORE_B64: ${{ secrets.AI_PHONE_RELEASE_KEYSTORE_B64 }}
-          AI_PHONE_RELEASE_STORE_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_STORE_PASSWORD }}
-          AI_PHONE_RELEASE_KEY_ALIAS: ${{ secrets.AI_PHONE_RELEASE_KEY_ALIAS }}
-          AI_PHONE_RELEASE_KEY_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_KEY_PASSWORD }}
-        run: |
-          if [ -n "$AI_PHONE_RELEASE_KEYSTORE_B64" ] && [ -n "$AI_PHONE_RELEASE_STORE_PASSWORD" ] && [ -n "$AI_PHONE_RELEASE_KEY_ALIAS" ] && [ -n "$AI_PHONE_RELEASE_KEY_PASSWORD" ]; then
-            echo "RELEASE_SIGNING_STATUS=CONFIGURED"
-          else
-            echo "RELEASE_SIGNING_STATUS=NOT_CONFIGURED"
-          fi
+      - name: Report release preparation state
+        run: echo "RELEASE_SIGNING_STATUS=PREPARATION_ONLY"
       - name: Upload release preparation APK
         uses: actions/upload-artifact@v4
         with:
