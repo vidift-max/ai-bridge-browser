@@ -37,3 +37,23 @@ O workflow deve distinguir explicitamente:
 - Release de preparação sem assinatura.
 
 Assinatura Release melhora a identidade e a cadeia de distribuição, mas não garante que o Google Play Protect nunca apresente aviso quando o APK é instalado fora da Google Play.
+
+
+## Como preparar a chave no Windows
+
+1. Tenha um JDK 17+ instalado.
+2. Execute `scripts/create_ai_phone_release_keystore.ps1`.
+3. O script cria localmente:
+   - `ai-phone-release.keystore`;
+   - `ai-phone-release-keystore.b64`.
+4. Cadastre os quatro valores como **GitHub Actions Secrets** do repositório.
+5. Não faça commit do keystore nem do arquivo Base64.
+6. Depois, execute manualmente o workflow **Android Build** para produzir o artefato `ai-phone-release-apk`.
+
+A ferramenta disponível para esta sessão não possui permissão para criar/alterar Secrets do GitHub. Portanto, a etapa de cadastro dos quatro Secrets precisa ser feita pelo responsável do repositório.
+
+## Gate de entrega
+
+O artefato `ai-phone-release-apk` só é produzido pelo job `release-final` quando os quatro Secrets existem e a assinatura é validada pelo `apksigner verify --verbose`.
+
+O artefato `ai-phone-release-preparation` continua sendo apenas de preparação e não deve ser tratado como versão final.
