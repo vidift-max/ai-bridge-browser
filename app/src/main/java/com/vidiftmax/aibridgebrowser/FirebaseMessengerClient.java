@@ -247,7 +247,7 @@ public final class FirebaseMessengerClient {
             c.setRequestProperty("Accept", "application/json");
             if (body != null) {
                 c.setDoOutput(true); c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-                byte[] data = (body instanceof JSONObject || body instanceof JSONArray ? body.toString() : JSONObject.valueToString(body))
+                byte[] data = (body instanceof JSONObject || body instanceof JSONArray ? body.toString() : String.valueOf(body))
                         .getBytes(StandardCharsets.UTF_8);
                 c.setFixedLengthStreamingMode(data.length);
                 try (OutputStream out = c.getOutputStream()) { out.write(data); }
