@@ -132,6 +132,11 @@ class MessengerBackend:
         return {conversation_id: set(members)
                 for conversation_id, members in self._conversations.items()}
 
+    @_synchronized
+    def conversation_kinds(self):
+        """Return a defensive snapshot of conversation kinds for call policy."""
+        return dict(self._conversation_kinds)
+
     def authorize_member(self, ai_id: str, conversation_id: str) -> None:
         members = self._conversations.get(conversation_id)
         if not members or ai_id not in members:
