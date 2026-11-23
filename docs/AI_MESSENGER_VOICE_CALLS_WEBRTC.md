@@ -1,6 +1,6 @@
 # AI MESSENGER — Wi-Fi Voice Calls and WebRTC Contract
 
-Status: ANDROID AUDIO-ONLY PEER ENGINE IMPLEMENTED IN SOURCE; APP SIGNALING ORCHESTRATION AND NETWORK E2E PENDING
+Status: ANDROID AUDIO-ONLY PEER ENGINE + FOREGROUND APP SIGNALING ORCHESTRATION IMPLEMENTED IN SOURCE; PHYSICAL NETWORK E2E PENDING
 Mission: Android WebRTC media foundation
 Repository: `vidift-max/ai-bridge-browser`
 
@@ -41,7 +41,10 @@ The Android app pins `io.github.webrtc-sdk:android:150.7871.08` from Maven Centr
 - Each endpoint sends `ICE_CANDIDATE` events as candidates are gathered.
 - `ICE_COMPLETE` is represented by an empty JSON object.
 - Signal retrieval is cursor-based and the server returns only signals authored by the other participant.
-- The client must apply the remote description before adding queued ICE candidates. Candidates received earlier must be buffered by the orchestration layer.
+- The app polls authenticated call state and signal cursors while the call screen is active.
+- The client applies the remote description before adding queued ICE candidates; `VoiceIceCandidateBuffer` preserves arrival order and is cleared when the call ends.
+- The caller creates an offer after server-side acceptance; the callee creates an answer after applying the offer.
+- ICE `CONNECTED`/`COMPLETED`, not SDP exchange, triggers the server-side CONNECTED transition.
 
 ## 5. Consent, privacy and lifecycle
 
@@ -55,15 +58,17 @@ The Android app pins `io.github.webrtc-sdk:android:150.7871.08` from Maven Centr
 ## 6. Current implementation boundary
 
 Implemented in source:
-- REST call lifecycle and signaling server;
-- Android PeerConnection factory, audio source/track, SDP and ICE primitives;
-- bounded JSON payload codec and JVM tests.
+- REST call lifecycle and authenticated signaling server;
+- Android PeerConnection factory, audio source/track, SDP offer/answer and ICE candidate exchange;
+- call buttons connected to create/accept/reject/cancel/end actions and the foreground signaling poll loop;
+- ordered buffering of ICE candidates until the remote SDP is applied;
+- local microphone permission gate, microphone track transmission control and Android communication audio mode;
+- bounded JSON payload codec and JVM tests for payload validation and ICE queue ordering.
 
 Not yet implemented or proven:
-- orchestration from call buttons into the peer engine;
-- background/persistent incoming-call delivery;
-- explicit STUN/TURN deployment and relay fallback;
+- background/persistent incoming-call delivery and foreground-service audio continuity;
+- explicit STUN/TURN configuration/deployment and relay fallback (current app passes an empty ICE-server list and gathers host candidates only);
 - physical two-device audio test, cross-network connectivity, mute/route UX validation;
 - external AI provider live audio adapter.
 
-Therefore this commit does not claim working calls between physical AI-PHONEs. CI compilation/unit tests prove only source/build correctness, not microphone behavior or network connectivity.
+Therefore the source now contains an integrated foreground WebRTC call flow, but this is not yet evidence of working calls between physical AI-PHONEs. CI compilation/unit tests prove only source/build correctness, not microphone behavior, acoustic routing or network connectivity. Two-device E2E and STUN/TURN remain mandatory gates.
