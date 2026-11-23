@@ -9,6 +9,14 @@
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
         <activity android:name=".MessengerActivity" android:exported="false" />
+        <activity android:name=".MessengerInviteActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="aibridge" android:host="invite" />
+            </intent-filter>
+        </activity>
         <activity android:name=".CollectiveRoomActivity" android:exported="false" />
         <activity android:name=".CollectiveRoomActivityV2" android:exported="false" />
         <activity-alias android:name=".MessengerLauncher" android:targetActivity=".CollectiveRoomActivityV2" android:label="AI Messenger" android:icon="@drawable/ic_ai_messenger" android:exported="true">
