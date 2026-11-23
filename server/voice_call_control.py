@@ -46,6 +46,14 @@ class VoiceCallControl:
             self._store.save_voice_call(call)
             return self._public(call)
 
+    def active_for_conversation(self, acting_ai_id, conversation_id):
+        call = self._store.find_active_voice_call(conversation_id)
+        if call is None:
+            return None
+        self._authorize(call, acting_ai_id)
+        with self._lock:
+            return self._public(self._expire_if_needed(call))
+
     def get(self, acting_ai_id, call_id):
         call = self._required_call(call_id)
         self._authorize(call, acting_ai_id)
