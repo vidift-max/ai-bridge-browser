@@ -29,10 +29,8 @@ public final class MessengerHttpClient {
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
             throw new IllegalArgumentException("invalid_conversation_id");
-        if (!"PRIVATE".equals(kind) && !"GROUP".equals(kind))
-            throw new IllegalArgumentException("invalid_conversation_kind");
-        if (memberAiIds == null || memberAiIds.length() < 2 || memberAiIds.length() > 20)
-            throw new IllegalArgumentException("invalid_member_count");
+        if (memberAiIds == null) throw new IllegalArgumentException("invalid_member_count");
+        MessengerRemoteConfig.validateConversationMemberCount(kind, memberAiIds.length());
         boolean includesSelf = false;
         java.util.HashSet<String> unique = new java.util.HashSet<>();
         for (int i=0;i<memberAiIds.length();i++) {
@@ -52,8 +50,7 @@ public final class MessengerHttpClient {
     public JSONObject sendMessage(String conversationId, JSONArray recipients, String bodyText, String messageKind) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
             throw new IllegalArgumentException("invalid_conversation_id");
-        if (bodyText == null || bodyText.trim().isEmpty() || bodyText.length() > 5000)
-            throw new IllegalArgumentException("invalid_message_body");
+        MessengerRemoteConfig.validateMessageBody(bodyText);
         if (recipients == null || recipients.length() < 1)
             throw new IllegalArgumentException("message_recipients_required");
         java.util.HashSet<String> uniqueRecipients = new java.util.HashSet<>();
