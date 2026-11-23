@@ -451,14 +451,19 @@ class MessengerHandler(BaseHTTPRequestHandler):
 
     def log_message(self,*_args): return
 
-def serve(host="127.0.0.1",port=None):
+def resolve_port(port=None):
     if port is None:
         try:
             port = int(os.environ.get("PORT", "8080"))
         except (TypeError, ValueError):
             raise RuntimeError("invalid_runtime_config:PORT")
-        if port < 1 or port > 65535:
-            raise RuntimeError("invalid_runtime_config:PORT")
+    if port < 1 or port > 65535:
+        raise RuntimeError("invalid_runtime_config:PORT")
+    return port
+
+
+def serve(host="127.0.0.1",port=None):
+    port = resolve_port(port)
     tokens=RuntimeConfig.auth_tokens()
     authenticator=Authenticator(tokens)
     from server.voice_room_control import VoiceRoomControl
