@@ -26,6 +26,11 @@ public final class AudioMonitor {
 
     public synchronized void start() {
         if (running) return;
+        if (worker != null && worker.isAlive()) {
+            throw new IllegalStateException("audio_monitor_still_stopping");
+        }
+        worker = null;
+
         int minRecord = AudioRecord.getMinBufferSize(
                 16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         int minPlay = AudioTrack.getMinBufferSize(
@@ -87,18 +92,23 @@ public final class AudioMonitor {
                     running = false;
                     if (recorder == r) recorder = null;
                     if (player == p) player = null;
-                    worker = null;
+                    if (worker == Thread.currentThread()) worker = null;
                 }
             }
         }, "ai-phone-audio-monitor");
         worker.start();
     }
 
-    public synchronized void stop() {
-        running = false;
-        AudioRecord activeRecorder = recorder;
-        AudioTrack activePlayer = player;
-        Thread t = worker;
+    public void stop() {
+        AudioRecord activeRecorder;
+        AudioTrack activePlayer;
+        Thread activeWorker;
+        synchronized (this) {
+            running = false;
+            activeRecorder = recorder;
+            activePlayer = player;
+            activeWorker = worker;
+        }
         if (activeRecorder != null) {
             try { activeRecorder.stop(); } catch (RuntimeException ignored) { }
         }
@@ -106,8 +116,14 @@ public final class AudioMonitor {
             try { activePlayer.pause(); } catch (RuntimeException ignored) { }
             try { activePlayer.flush(); } catch (RuntimeException ignored) { }
         }
-        worker = null;
-        if (t != null) t.interrupt();
+        if (activeWorker != null) {
+            activeWorker.interrupt();
+            try {
+                activeWorker.join(1500);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     public synchronized boolean isRunning() {
