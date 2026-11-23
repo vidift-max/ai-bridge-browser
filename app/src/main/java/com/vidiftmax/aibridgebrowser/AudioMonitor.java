@@ -33,13 +33,13 @@ public final class AudioMonitor {
         if (minRecord <= 0 || minPlay <= 0) throw new IllegalStateException("audio_monitor_unavailable");
         int buffer = Math.max(minRecord, minPlay) * 2;
         AudioRecord r = new AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                MediaRecorder.AudioSource.MIC,
                 16000,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
                 buffer);
         AudioTrack p = new AudioTrack(
-                android.media.AudioManager.STREAM_VOICE_CALL,
+                android.media.AudioManager.STREAM_MUSIC,
                 16000,
                 AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
@@ -64,7 +64,11 @@ public final class AudioMonitor {
                 p.play();
                 while (running) {
                     int read = r.read(data, 0, data.length);
-                    if (read > 0 && running && playbackEnabled) p.write(data, 0, read);
+                    if (read < 0) break;
+                    if (read > 0 && running && playbackEnabled) {
+                        int written = p.write(data, 0, read);
+                        if (written < 0) break;
+                    }
                 }
             } finally {
                 try { r.stop(); } catch (RuntimeException ignored) {}
@@ -72,6 +76,7 @@ public final class AudioMonitor {
                 r.release();
                 p.release();
                 synchronized (AudioMonitor.this) {
+                    running = false;
                     if (recorder == r) recorder = null;
                     if (player == p) player = null;
                     worker = null;
