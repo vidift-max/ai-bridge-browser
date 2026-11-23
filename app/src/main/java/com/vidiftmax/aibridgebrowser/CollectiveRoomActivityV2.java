@@ -739,10 +739,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
                     for (VoiceSignalPayload.IceCandidateData candidate : pendingRemoteIce.drain())
                         engine.addRemoteIceCandidate(candidate);
                 }
-                if ("offer".equals(type)) {
-                    WebRtcVoiceEngine engine = webRtcVoiceEngine;
-                    if (engine != null) engine.createAnswer();
-                }
+                if ("offer".equals(type) && engine != null) engine.createAnswer();
             }
             @Override public void onError(String code) { showVoiceError(code); }
         });
