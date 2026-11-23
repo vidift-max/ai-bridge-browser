@@ -214,7 +214,8 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     @Override protected void onPause(){
         super.onPause();
-        if(microphoneOpen){ microphoneOpen=false; audioMonitor.stop(); prefs().edit().putBoolean("microphone_open",false).apply(); updateMicrophoneButton(); }\n        voiceNoteRecorder.cancel();
+        if(microphoneOpen){ microphoneOpen=false; audioMonitor.stop(); prefs().edit().putBoolean("microphone_open",false).apply(); updateMicrophoneButton(); }
+        voiceNoteRecorder.cancel();
     }
 
     @Override protected void onDestroy(){
