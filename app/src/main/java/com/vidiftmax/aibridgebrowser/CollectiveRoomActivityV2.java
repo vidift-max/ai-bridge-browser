@@ -304,7 +304,120 @@ public final class CollectiveRoomActivityV2 extends Activity {
         }
     }
 
-    private void startVoiceNote(){\n        if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) { requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},7101); return; }\n        try { voiceNoteRecorder.start(this); Toast.makeText(this,"Gravando nota de voz. Toque em Parar ao terminar.",Toast.LENGTH_LONG).show(); } catch(Exception error){Toast.makeText(this,"Falha ao gravar: "+error.getMessage(),Toast.LENGTH_LONG).show();}\n    }\n\n    private void stopVoiceNote(){\n        try { File file=voiceNoteRecorder.stop(); prefs().edit().putString("pending_voice_note",file.getAbsolutePath()).apply(); Toast.makeText(this,"Nota gravada ("+file.length()+" bytes). Toque em Enviar áudio.",Toast.LENGTH_LONG).show(); } catch(Exception error){Toast.makeText(this,"Falha ao finalizar gravação: "+error.getMessage(),Toast.LENGTH_LONG).show();}\n    }\n\n    private void sendVoiceNote(){\n        if(remoteConversationId.trim().isEmpty()){Toast.makeText(this,"Vincule uma conversa remota antes de enviar áudio.",Toast.LENGTH_LONG).show();return;}\n        String path=prefs().getString("pending_voice_note",""); File file=path.isEmpty()?null:new File(path);\n        if(file==null||!file.isFile()||file.length()<=0){Toast.makeText(this,"Grave uma nota de voz primeiro.",Toast.LENGTH_LONG).show();return;}\n        if(remoteOperationRunning)return;\n        String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");\n        final JSONArray recipients; try{recipients=CollectiveRoomRemotePolicy.recipients(remoteMemberAiIds,own);}catch(Exception error){Toast.makeText(this,"Membros remotos inválidos: "+error.getMessage(),Toast.LENGTH_LONG).show();return;}\n        remoteOperationRunning=true;\n        new Thread(()->{\n            try{\n                MessengerHttpClient client=remoteClient();\n                JSONObject sent=client.sendMessage(remoteConversationId,recipients,"🎙️ Nota de voz",MessengerRetentionPolicy.MESSAGE_NORMAL);\n                String messageId=sent.optString("messageId",""); if(messageId.trim().isEmpty())throw new IllegalStateException("voice_message_id_missing");\n                client.uploadAudio(messageId,file);\n                String line=CollectiveRoomMessageCodec.encode(sent.optLong("createdAtEpochMs",System.currentTimeMillis()),MessengerRetentionPolicy.MESSAGE_NORMAL,own,"🎙️","Nota de voz enviada");\n                String old=prefs().getString("messages",""); String updated=old.trim().isEmpty()?line:old.trim()+"\\n"+line;\n                if(!prefs().edit().putString("messages",updated).commit())throw new IllegalStateException("voice_message_local_persistence_failed");\n                prefs().edit().remove("pending_voice_note").apply();\n                runOnUiThread(()->{remoteOperationRunning=false;renderMessages();Toast.makeText(this,"Nota de voz enviada ao servidor para os participantes autorizados.",Toast.LENGTH_LONG).show();});\n            }catch(Exception error){runOnUiThread(()->{remoteOperationRunning=false;Toast.makeText(this,"Envio de nota de voz falhou: "+error.getMessage(),Toast.LENGTH_LONG).show();});}\n        },"ai-room-voice-upload").start();\n    }\n\n    private void playRemoteVoiceNote(){\n        if(lastRemoteVoiceNote==null||!lastRemoteVoiceNote.isFile()){Toast.makeText(this,"Nenhuma nota de voz remota baixada. Sincronize a sala.",Toast.LENGTH_LONG).show();return;}\n        try{voiceNotePlayback.play(lastRemoteVoiceNote);}catch(Exception error){Toast.makeText(this,"Reprodução falhou: "+error.getMessage(),Toast.LENGTH_LONG).show();}\n    }\n\n    private void downloadRemoteVoiceAttachments(MessengerHttpClient client,String messageId) throws Exception{\n        JSONArray attachments=client.listAudioAttachments(messageId);\n        if(attachments.length()==0)return;\n        File dir=new File(getCacheDir(),"remote_voice_notes"); if(!dir.exists()&&!dir.mkdirs())throw new java.io.IOException("voice_cache_unavailable");\n        for(int i=0;i<attachments.length();i++){\n            JSONObject attachment=attachments.optJSONObject(i); if(attachment==null)continue;\n            String objectId=attachment.optString("objectId",""); if(objectId.trim().isEmpty())continue;\n            String safeId=Integer.toHexString(messageId.hashCode())+"-"+Integer.toHexString(objectId.hashCode());\n            File destination=new File(dir,"voice-"+safeId+".m4a");\n            lastRemoteVoiceNote=client.downloadAudio(messageId,objectId,destination);\n        }\n    }\n\n    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){\n        super.onRequestPermissionsResult(requestCode,permissions,grantResults);\n        if(requestCode==7101 && grantResults.length>0 && grantResults[0]==android.content.pm.PackageManager.PERMISSION_GRANTED) startVoiceNote();\n    }\n\n    private void syncRemoteRoom(){
+    private void startVoiceNote() {
+        if (android.os.Build.VERSION.SDK_INT >= 23
+                && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 7101);
+            return;
+        }
+        try {
+            voiceNoteRecorder.start(this);
+            Toast.makeText(this, "Gravando nota de voz. Toque em Parar ao terminar.", Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            Toast.makeText(this, "Falha ao gravar: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void stopVoiceNote() {
+        try {
+            File file = voiceNoteRecorder.stop();
+            prefs().edit().putString("pending_voice_note", file.getAbsolutePath()).apply();
+            Toast.makeText(this, "Nota gravada (" + file.length() + " bytes). Toque em Enviar áudio.", Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            Toast.makeText(this, "Falha ao finalizar gravação: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void sendVoiceNote() {
+        if (remoteConversationId.trim().isEmpty()) {
+            Toast.makeText(this, "Vincule uma conversa remota antes de enviar áudio.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String path = prefs().getString("pending_voice_note", "");
+        File file = path.isEmpty() ? null : new File(path);
+        if (file == null || !file.isFile() || file.length() <= 0) {
+            Toast.makeText(this, "Grave uma nota de voz primeiro.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (remoteOperationRunning) return;
+        String own = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("ai_id", "");
+        final JSONArray recipients;
+        try {
+            recipients = CollectiveRoomRemotePolicy.recipients(remoteMemberAiIds, own);
+        } catch (Exception error) {
+            Toast.makeText(this, "Membros remotos inválidos: " + error.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        remoteOperationRunning = true;
+        new Thread(() -> {
+            try {
+                MessengerHttpClient client = remoteClient();
+                JSONObject sent = client.sendMessage(remoteConversationId, recipients,
+                        "🎙️ Nota de voz", MessengerRetentionPolicy.MESSAGE_NORMAL);
+                String messageId = sent.optString("messageId", "");
+                if (messageId.trim().isEmpty()) throw new IllegalStateException("voice_message_id_missing");
+                client.uploadAudio(messageId, file);
+                String line = CollectiveRoomMessageCodec.encode(
+                        sent.optLong("createdAtEpochMs", System.currentTimeMillis()),
+                        MessengerRetentionPolicy.MESSAGE_NORMAL, own, "🎙️", "Nota de voz enviada");
+                String old = prefs().getString("messages", "");
+                String updated = old.trim().isEmpty() ? line : old.trim() + "\n" + line;
+                if (!prefs().edit().putString("messages", updated).commit()) {
+                    throw new IllegalStateException("voice_message_local_persistence_failed");
+                }
+                prefs().edit().remove("pending_voice_note").apply();
+                runOnUiThread(() -> {
+                    remoteOperationRunning = false;
+                    renderMessages();
+                    Toast.makeText(this, "Nota de voz enviada aos participantes autorizados.", Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    remoteOperationRunning = false;
+                    Toast.makeText(this, "Envio de nota de voz falhou: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        }, "ai-room-voice-upload").start();
+    }
+
+    private void playRemoteVoiceNote() {
+        if (lastRemoteVoiceNote == null || !lastRemoteVoiceNote.isFile()) {
+            Toast.makeText(this, "Nenhuma nota de voz remota baixada. Sincronize a sala.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            voiceNotePlayback.play(lastRemoteVoiceNote);
+        } catch (Exception error) {
+            Toast.makeText(this, "Reprodução falhou: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void downloadRemoteVoiceAttachments(MessengerHttpClient client, String messageId) throws Exception {
+        JSONArray attachments = client.listAudioAttachments(messageId);
+        if (attachments.length() == 0) return;
+        File dir = new File(getCacheDir(), "remote_voice_notes");
+        if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("voice_cache_unavailable");
+        for (int i = 0; i < attachments.length(); i++) {
+            JSONObject attachment = attachments.optJSONObject(i);
+            if (attachment == null) continue;
+            String objectId = attachment.optString("objectId", "");
+            if (objectId.trim().isEmpty()) continue;
+            String safeId = Integer.toHexString(messageId.hashCode()) + "-" + Integer.toHexString(objectId.hashCode());
+            File destination = new File(dir, "voice-" + safeId + ".m4a");
+            lastRemoteVoiceNote = client.downloadAudio(messageId, objectId, destination);
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 7101 && grantResults.length > 0
+                && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            startVoiceNote();
+        }
+    }
+
+    private void syncRemoteRoom(){
         if(remoteConversationId.trim().isEmpty()){
             Toast.makeText(this,"Vincule uma conversa remota primeiro.",Toast.LENGTH_LONG).show(); return;
         }
