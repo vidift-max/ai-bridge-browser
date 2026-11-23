@@ -971,7 +971,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
                     if(messageId.trim().isEmpty())throw new IllegalStateException("server_message_id_missing");
                     if(persistRemoteMessage(remote))added++;
                     downloadRemoteVoiceAttachments(remoteClient(),messageId);
-                    remoteClient().acknowledge(messageId);
+                    remoteClient().acknowledge(remoteConversationId, messageId);
                     acked++;
                 }
                 final int newCount=added,ackCount=acked;
