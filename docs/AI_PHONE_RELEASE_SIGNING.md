@@ -69,3 +69,8 @@ Quando os Secrets estiverem configurados, o job final deve:
 - publicar o APK e o registro de checksum como artefatos separados.
 
 O checksum serve para comparar o arquivo baixado com o arquivo efetivamente produzido pelo CI. Ele não substitui a verificação criptográfica da assinatura.
+
+
+## Critério de segurança do repositório
+
+O CI também verifica que nenhum arquivo de keystore, JKS ou Base64 do keystore está versionado. Se material de assinatura for encontrado no índice Git, o job final falha.
