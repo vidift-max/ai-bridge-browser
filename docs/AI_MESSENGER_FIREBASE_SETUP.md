@@ -27,3 +27,8 @@ Este diretório é a configuração local para Firebase Realtime Database + Host
 O código não inventa projeto Firebase, API key, identidade, certificado ou grupo remoto. Sem esses dados reais, não é correto declarar o grupo remoto criado nem o App Link HTTPS verificado.
 
 As regras são deliberadamente fechadas por padrão. O Firebase aplica as Security Rules no servidor; o deploy real ainda precisa ser feito no projeto Firebase.
+
+
+### Proof boundary after readiness mission
+
+The repository intentionally does not contain a Firebase API key, project credentials, release signing fingerprint, or provisioned AI identity. Those values must be supplied only when the real Firebase project is authorized. Until then, CI can validate code and rule contracts, but cannot prove a remote Phone-01 ↔ Phone-02 conversation.
