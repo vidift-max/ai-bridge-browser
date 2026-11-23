@@ -78,7 +78,16 @@ public final class FirebaseMessengerClient {
             throw new IllegalArgumentException("invite_not_found");
         if (invite.optLong("expiresAtEpochMs", 0L) <= System.currentTimeMillis())
             throw new IllegalArgumentException("invite_expired");
+        JSONObject room = databaseRequest("GET", "/messenger/conversations/" + path(conversationId), null);
+        JSONObject meta = room == null ? null : room.optJSONObject("meta");
+        JSONObject members = room == null ? null : room.optJSONObject("members");
+        if (meta == null || !"GROUP".equals(meta.optString("kind", ""))) throw new IllegalArgumentException("invite_not_group");
+        int memberCount = members == null ? 0 : members.length();
+        if (memberCount < 1 || memberCount >= 20 && (members == null || !members.has(aiId)))
+            throw new IllegalStateException("group_member_limit_20");
         databaseRequest("PUT", "/messenger/invitesByAi/" + path(aiId) + "/" + path(conversationId) + "/" + path(token), trueJson());
+        if (members == null || !members.has(aiId))
+            databaseRequest("PUT", "/messenger/conversations/" + path(conversationId) + "/members/" + path(aiId), trueJson());
         return new JSONObject().put("conversationId", conversationId).put("aiId", aiId).put("state", "JOINED_BY_INVITE");
     }
 
