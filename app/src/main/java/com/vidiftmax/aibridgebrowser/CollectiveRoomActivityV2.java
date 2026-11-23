@@ -27,11 +27,14 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private EditText composer;
     private String myName,myAvatar;
     private android.widget.CheckBox missionToggle;
+    private Button audioButton;
+    private boolean audioOpen;
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
         myName=prefs().getString("profile_name","Minha IA");
         myAvatar=prefs().getString("profile_avatar","🤖");
+        audioOpen=prefs().getBoolean("audio_room_open",false);
 
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
@@ -105,7 +108,9 @@ public final class CollectiveRoomActivityV2 extends Activity {
         ps.addView(presenceList);
         participantColumn.addView(ps,new LinearLayout.LayoutParams(0,0,1));
         participantColumn.addView(button("＋ Adicionar",v->addParticipant()));
-        participantColumn.addView(button("🔊 Áudio da sala",v->showAudioRoomInfo()));
+        audioButton=button("",v->toggleAudioRoom());
+        participantColumn.addView(audioButton);
+        updateAudioButton();
         participantColumn.addView(text("O líder pode moderar o áudio aberto. Silenciar não remove a IA da sala.",10,MUTED,false));
 
         int widthDp=getResources().getConfiguration().screenWidthDp;
@@ -119,12 +124,21 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     private Button button(String s,android.view.View.OnClickListener l){ Button b=new Button(this); b.setText(s); b.setAllCaps(false); b.setOnClickListener(l); return b; }
 
-    private void showAudioRoomInfo(){
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("Áudio aberto da sala")
-                .setMessage("A sala terá comunicação normal por texto. O áudio aberto poderá ser ativado ou desativado por cada participante. O líder poderá cortar o áudio aberto de uma IA quando necessário, sem removê-la automaticamente da sala. A implementação de áudio em tempo real só será considerada funcional depois de um teste entre dois dispositivos físicos.")
-                .setPositiveButton("Entendi",null)
-                .show();
+    private void toggleAudioRoom(){
+        audioOpen=!audioOpen;
+        prefs().edit().putBoolean("audio_room_open",audioOpen).apply();
+        updateAudioButton();
+        android.widget.Toast.makeText(this,
+                audioOpen ? "Áudio da sala ativado neste aparelho." : "Áudio da sala desativado neste aparelho.",
+                android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    private void updateAudioButton(){
+        if(audioButton==null)return;
+        audioButton.setText(audioOpen ? "🔊 Áudio da sala · ATIVO" : "🔇 Áudio da sala · DESATIVADO");
+        audioButton.setContentDescription(audioOpen
+                ? "Desativar áudio aberto da sala"
+                : "Ativar áudio aberto da sala");
     }
 
     private void editProfile(){
@@ -143,7 +157,16 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     private void enterRoom(){ String t=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date()); addMessage("SISTEMA","🤖","👋 "+myName+" entrou na sala · "+t, MessengerRetentionPolicy.MESSAGE_NORMAL); renderPresence(); }
     private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty())return; String kind=missionToggle!=null&&missionToggle.isChecked()?MessengerRetentionPolicy.MESSAGE_MISSION:MessengerRetentionPolicy.MESSAGE_NORMAL; addMessage(myName,myAvatar,body,kind); composer.setText(""); if(missionToggle!=null)missionToggle.setChecked(false); }
-    private void addMessage(String sender,String avatar,String body,String kind){ String old=prefs().getString("messages",""); long now=System.currentTimeMillis(); prefs().edit().putString("messages",old+now+"|"+MessengerRetentionPolicy.normalizeMessageKind(kind)+"|"+sender.replace("|"," ")+"|"+avatar+"|"+body.replace("\n"," ")+"\n").apply(); renderMessages(); }
+    private void addMessage(String sender,String avatar,String body,String kind){
+        String old=prefs().getString("messages","");
+        long now=System.currentTimeMillis();
+        String safeBody=body.replace("|","¦").replace("\n"," ");
+        String line=now+"|"+MessengerRetentionPolicy.normalizeMessageKind(kind)+"|"
+                +sender.replace("|"," ")+"|"+avatar+"|"+safeBody;
+        String updated=old.trim().isEmpty()?line:old.trim()+"\n"+line;
+        prefs().edit().putString("messages",updated).apply();
+        renderMessages();
+    }
 
     private void renderPresence(){
         presenceList.removeAllViews();
@@ -178,7 +201,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
                     try{created=Long.parseLong(p[0]);}catch(Exception e){created=now;}
                     String kind=MessengerRetentionPolicy.normalizeMessageKind(p[1]);
                     if(MessengerRetentionPolicy.isExpired(created,kind,MessengerRetentionPolicy.CONVERSATION_GROUP,now))continue;
-                    kept.append(line).append("\\n");
+                    kept.append(line).append("\n");
                     String sender=p[2],avatar=p[3],body=p[4];
                     String marker=MessengerRetentionPolicy.MESSAGE_MISSION.equals(kind)?"🎯 MISSÃO · ":"";
                     LinearLayout card=new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL);
