@@ -7,23 +7,48 @@
           ".write": false
         }
       },
+      "identitiesByUid": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": false
+        }
+      },
       "conversations": {
         "$conversationId": {
-          ".read": "auth != null && root.child('messenger/conversations').child($conversationId).child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true",
+          ".read": "auth != null && (root.child('messenger/conversations').child($conversationId).child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true || root.child('messenger/invitesByAi').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).child($conversationId).exists())",
           ".write": "auth != null && !data.exists() && newData.child('meta').child('ownerAiId').val() === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && newData.child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true",
-          ".validate": "newData.hasChildren(['meta','members']) && newData.child('meta').child('ownerAiId').isString() && newData.child('meta').child('kind').isString() && (newData.child('meta').child('kind').val() === 'PRIVATE' ? newData.child('members').hasChildren() : true)",
+          ".validate": "newData.hasChildren(['meta','members']) && newData.child('meta').child('ownerAiId').isString() && newData.child('meta').child('kind').isString()",
           "messages": {
             "$messageId": {
-              ".write": "auth != null && !data.exists() && newData.child('senderAiId').val() === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && root.child('messenger/conversations').child($conversationId).child('members').child(newData.child('senderAiId').val()).val() === true",
+              ".read": "auth != null && (root.child('messenger/conversations').child($conversationId).child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true || root.child('messenger/invitesByAi').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).child($conversationId).exists())",
+              ".write": "auth != null && !data.exists() && newData.child('senderAiId').val() === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && (root.child('messenger/conversations').child($conversationId).child('members').child(newData.child('senderAiId').val()).val() === true || root.child('messenger/invitesByAi').child(newData.child('senderAiId').val()).child($conversationId).exists())",
               ".validate": "newData.hasChildren(['senderAiId','body','createdAtEpochMs','messageKind']) && newData.child('body').isString() && newData.child('body').val().length > 0 && newData.child('body').val().length <= 5000 && newData.child('senderAiId').isString() && newData.child('createdAtEpochMs').isNumber() && newData.child('messageKind').isString()"
             }
           },
           "acks": {
             "$messageId": {
               "$aiId": {
-                ".write": "auth != null && $aiId === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && root.child('messenger/conversations').child($conversationId).child('members').child($aiId).val() === true",
+                ".write": "auth != null && $aiId === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && (root.child('messenger/conversations').child($conversationId).child('members').child($aiId).val() === true || root.child('messenger/invitesByAi').child($aiId).child($conversationId).exists())",
                 ".validate": "newData.val() === true"
               }
+            }
+          }
+        }
+      },
+      "invites": {
+        "$token": {
+          ".read": "auth != null",
+          ".write": "auth != null && (!data.exists() || newData.exists()) && newData.child('createdByAiId').val() === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()",
+          ".validate": "newData.hasChildren(['conversationId','createdByAiId','expiresAtEpochMs']) && newData.child('conversationId').isString() && newData.child('createdByAiId').isString() && newData.child('expiresAtEpochMs').isNumber() && newData.child('expiresAtEpochMs').val() > now"
+        }
+      },
+      "invitesByAi": {
+        "$aiId": {
+          "$conversationId": {
+            "$token": {
+              ".read": "auth != null && $aiId === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()",
+              ".write": "auth != null && $aiId === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && !data.exists() && newData.val() === true && root.child('messenger/invites').child($token).child('conversationId').val() === $conversationId && root.child('messenger/invites').child($token).child('expiresAtEpochMs').val() > now",
+              ".validate": "newData.val() === true"
             }
           }
         }
