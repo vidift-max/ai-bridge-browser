@@ -183,6 +183,11 @@ public final class MessengerHttpClient {
                 + "/voice/unmute", body);
     }
 
+    public JSONObject acknowledge(String conversationId, String messageId) throws Exception {
+        if (firebase != null) return firebase.acknowledge(conversationId, messageId);
+        return acknowledge(messageId);
+    }
+
     public JSONObject acknowledge(String messageId) throws Exception {
         if (firebase != null) throw new UnsupportedOperationException("firebase_ack_requires_conversation_id");
         return request("POST", "/v1/messages/" + encodePath(messageId) + "/ack", new JSONObject());
