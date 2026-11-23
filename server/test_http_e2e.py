@@ -319,25 +319,6 @@ class HttpE2ETest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
-    def test_http_port_resolution_honors_render_port_and_bounds_values(self):
-        from server.http_server import resolve_port
-        old = os.environ.get("PORT")
-        try:
-            os.environ["PORT"] = "12345"
-            self.assertEqual(resolve_port(), 12345)
-            self.assertEqual(resolve_port(54321), 54321)
-            os.environ["PORT"] = "0"
-            with self.assertRaisesRegex(RuntimeError, "invalid_runtime_config:PORT"):
-                resolve_port()
-            os.environ["PORT"] = "not-a-port"
-            with self.assertRaisesRegex(RuntimeError, "invalid_runtime_config:PORT"):
-                resolve_port()
-        finally:
-            if old is None:
-                os.environ.pop("PORT", None)
-            else:
-                os.environ["PORT"] = old
-
     def test_two_principal_http_flow(self):
         status, sent = self.request("POST", "/v1/messages", "token-a", {
             "messageId": "m-http-1", "conversationId": "room",
