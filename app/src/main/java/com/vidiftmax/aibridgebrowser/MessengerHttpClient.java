@@ -76,6 +76,46 @@ public final class MessengerHttpClient {
         return request("GET", path, null).getJSONArray("messages");
     }
 
+    public JSONObject createVoiceCall(String conversationId, String calleeAiId) throws Exception {
+        if (conversationId == null || conversationId.trim().isEmpty())
+            throw new IllegalArgumentException("conversation_id_required");
+        JSONObject body = new JSONObject();
+        body.put("conversationId", conversationId);
+        body.put("calleeAiId", MessengerRemoteConfig.validateAiId(calleeAiId));
+        return request("POST", "/v1/calls", body).getJSONObject("call");
+    }
+
+    public JSONObject getVoiceCall(String callId) throws Exception {
+        return request("GET", "/v1/calls/" + encodePath(callId), null).getJSONObject("call");
+    }
+
+    public JSONObject voiceCallAction(String callId, String action) throws Exception {
+        if (!java.util.Arrays.asList("accept", "reject", "cancel", "end",
+                "connecting", "connected").contains(action))
+            throw new IllegalArgumentException("invalid_voice_call_action");
+        return request("POST", "/v1/calls/" + encodePath(callId) + "/" + action,
+                new JSONObject()).getJSONObject("call");
+    }
+
+    public JSONObject sendVoiceSignal(String callId, String kind, JSONObject signalPayload)
+            throws Exception {
+        if (!java.util.Arrays.asList("OFFER", "ANSWER", "ICE_CANDIDATE", "ICE_COMPLETE")
+                .contains(kind) || signalPayload == null)
+            throw new IllegalArgumentException("invalid_voice_signal");
+        JSONObject body = new JSONObject();
+        body.put("kind", kind);
+        body.put("payload", signalPayload);
+        return request("POST", "/v1/calls/" + encodePath(callId) + "/signals", body)
+                .getJSONObject("signal");
+    }
+
+    public JSONArray fetchVoiceSignals(String callId, long afterSignalId) throws Exception {
+        if (afterSignalId < 0) throw new IllegalArgumentException("invalid_voice_signal_cursor");
+        return request("GET", "/v1/calls/" + encodePath(callId)
+                + "/signals?after=" + afterSignalId + "&limit=100", null)
+                .getJSONArray("signals");
+    }
+
     public JSONObject getVoiceRoomStatus(String conversationId) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty())
             throw new IllegalArgumentException("conversation_id_required");
