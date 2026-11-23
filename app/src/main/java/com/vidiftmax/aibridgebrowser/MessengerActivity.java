@@ -763,7 +763,7 @@ public final class MessengerActivity extends Activity {
         android.content.SharedPreferences existing = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
         EditText server = new EditText(this);
         server.setSingleLine(true);
-        server.setHint("https://servidor.example");
+        server.setHint("https://seu-servidor-https");
         server.setText(existing.getString("base_url", ""));
         EditText ai = new EditText(this);
         ai.setSingleLine(true);
