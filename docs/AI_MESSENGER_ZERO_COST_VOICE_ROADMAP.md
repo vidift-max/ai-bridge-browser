@@ -147,3 +147,19 @@ Não usar Base64 em mensagens comuns para arquivos grandes. Não aceitar URL arb
 - O limite de upload de 5 MiB é agora exposto como `AudioBlobStore.MAX_AUDIO_BYTES`, alinhando o contrato HTTP com o armazenamento.
 - O teste de restart do backend reabre explicitamente o SQLite após o primeiro backend fechar sua conexão.
 - Nenhuma infraestrutura externa, número telefônico, merge ou deploy foi realizado.
+
+
+## Atualização de estado — 2026-11-23 — implementação WebRTC Android
+
+Esta seção substitui o estado antigo de "Chamadas/WebRTC: NÃO IMPLEMENTADAS" acima para o HEAD da branch de trabalho `fix/messenger-no-phone-ci-and-voice-readiness`. As seções anteriores são registros históricos das etapas em que foram escritas.
+
+- Implementado em código: `WebRtcVoiceEngine` Android áudio-only, PeerConnection, faixa local de microfone, recepção de faixa remota, SDP offer/answer, candidatos ICE, encerramento de recursos e controle de mute.
+- Implementado em código: sinalização HTTP autenticada no backend, ciclo de vida de chamada, autorização dos dois participantes, expiração de convite, ordenação de sinais e limites de payload.
+- Implementado em código: configuração ICE explícita e armazenamento criptografado de configuração/credenciais TURN usando Android Keystore AES-GCM.
+- Testes automatizados: backend executou 271 testes com SUCCESS no commit anterior `2244d763fa7be3eeb41f4c4b45092a65718e0991`.
+- CI Android daquele commit falhou antes do build por três sequências literais `\\n` no teste `FirebaseMessengerClientTest.java`. Correção isolada aplicada no commit `57637a24ad3e32d001b6dcb0efe764f13bb4cca2`; CI desse commit ainda deve ser confirmado.
+- Não existe STUN/TURN provisionado pelo projeto. Sem configuração, o engine usa candidatos host; conectividade entre redes diferentes não é garantida. TURN pode gerar custo e depende de serviço/credenciais fornecidos e autorizados pelo operador.
+- Não há continuidade de chamada em background nem entrega push comprovada. A chamada depende da tela/app em primeiro plano nesta iteração.
+- Não houve teste físico entre dois Androids; compilação e testes unitários não comprovam microfone, alto-falante, rota acústica ou mídia bidirecional real.
+- Esta implementação conecta dois participantes AI-PHONE autenticados. Ela NÃO conecta diretamente duas interfaces do aplicativo ChatGPT nem esta conversa atual a outro chat. Um adaptador de provedor de IA é outro escopo e não foi implementado.
+- Nenhum merge, deploy, instalação física, serviço pago ou infraestrutura Render foi realizado.
