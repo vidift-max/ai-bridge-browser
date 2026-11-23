@@ -38,7 +38,7 @@ public final class FirebaseMessengerClient {
     public String getLocalUid() throws Exception { return session().uid; }
 
     public JSONObject getMyIdentity() throws Exception {
-        JSONObject identity = databaseRequest("GET", "/identities/" + path(aiId), null);
+        JSONObject identity = databaseRequest("GET", "/messenger/identities/" + path(aiId), null);
         if (identity == null || !aiId.equals(identity.optString("aiId", ""))) {
             throw new IllegalStateException("firebase_identity_not_provisioned");
         }
@@ -57,7 +57,7 @@ public final class FirebaseMessengerClient {
                 .put("conversationId", conversationId)
                 .put("createdByAiId", aiId)
                 .put("expiresAtEpochMs", expiresAtEpochMs);
-        databaseRequest("PUT", "/invites/" + path(token), invite);
+        databaseRequest("PUT", "/messenger/invites/" + path(token), invite);
         return new JSONObject()
                 .put("token", token)
                 .put("conversationId", conversationId)
@@ -68,12 +68,12 @@ public final class FirebaseMessengerClient {
     public JSONObject redeemGroupInvite(String conversationId, String token) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty()) throw new IllegalArgumentException("conversation_id_required");
         if (token == null || !token.matches("[A-Za-z0-9_-]{20,64}")) throw new IllegalArgumentException("invalid_invite_token");
-        JSONObject invite = databaseRequest("GET", "/invites/" + path(token), null);
+        JSONObject invite = databaseRequest("GET", "/messenger/invites/" + path(token), null);
         if (invite == null || !conversationId.equals(invite.optString("conversationId", "")))
             throw new IllegalArgumentException("invite_not_found");
         if (invite.optLong("expiresAtEpochMs", 0L) <= System.currentTimeMillis())
             throw new IllegalArgumentException("invite_expired");
-        databaseRequest("PUT", "/invitesByAi/" + path(aiId) + "/" + path(conversationId) + "/" + path(token), trueJson());
+        databaseRequest("PUT", "/messenger/invitesByAi/" + path(aiId) + "/" + path(conversationId) + "/" + path(token), trueJson());
         return new JSONObject().put("conversationId", conversationId).put("aiId", aiId).put("state", "JOINED_BY_INVITE");
     }
 
@@ -95,7 +95,7 @@ public final class FirebaseMessengerClient {
                 .put("kind", kind)
                 .put("createdAtEpochMs", System.currentTimeMillis()));
         root.put("members", members);
-        databaseRequest("PUT", "/conversations/" + path(conversationId), root);
+        databaseRequest("PUT", "/messenger/conversations/" + path(conversationId), root);
         return new JSONObject().put("conversationId", conversationId)
                 .put("kind", kind).put("memberAiIds", memberAiIds);
     }
@@ -116,7 +116,7 @@ public final class FirebaseMessengerClient {
                 .put("messageKind", MessengerRetentionPolicy.normalizeMessageKind(messageKind))
                 .put("createdAtEpochMs", System.currentTimeMillis());
         JSONObject pushed = databaseRequest("POST",
-                "/conversations/" + path(conversationId) + "/messages", message);
+                "/messenger/conversations/" + path(conversationId) + "/messages", message);
         String messageId = pushed == null ? "" : pushed.optString("name", "");
         if (messageId.isEmpty()) throw new IllegalStateException("firebase_message_key_missing");
         return new JSONObject()
@@ -129,7 +129,7 @@ public final class FirebaseMessengerClient {
     }
 
     public JSONArray fetchPending(String conversationId, int afterSequence, int limit) throws Exception {
-        String url = databaseUrl + "/conversations/" + path(conversationId)
+        String url = databaseUrl + "/messenger/conversations/" + path(conversationId)
                 + "/messages.json?auth=" + encode(session().idToken)
                 + "&orderBy=%22$key%22&limitToFirst=" + Math.max(1, Math.min(100, limit));
         JSONObject root = getJson(url);
