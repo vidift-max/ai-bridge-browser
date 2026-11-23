@@ -118,14 +118,14 @@ public final class CollectiveRoomActivityV2 extends Activity {
         participantColumn.addView(button("＋ Adicionar",v->addParticipant()));
         LinearLayout voiceRow=new LinearLayout(this);
         voiceRow.setOrientation(LinearLayout.HORIZONTAL);
-        audioButton=button("🔊",v->toggleAudioRoom());
+        audioButton=button("🔊 Ouvir voz",v->toggleAudioRoom());
         microphoneButton=button("🎙️",v->toggleMicrophone());
         voiceRow.addView(audioButton,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
         voiceRow.addView(microphoneButton,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
         participantColumn.addView(voiceRow);
         updateAudioButton();
         updateMicrophoneButton();
-        participantColumn.addView(text("🔊 Áudio: ouvir o áudio.  🎙️ Microfone: falar direto e ouvir sua própria voz neste aparelho. A transmissão para outras IAs só será declarada funcional após E2E real.",10,MUTED,false));
+        participantColumn.addView(text("🔊 Ouvir voz: ativa/desativa o retorno local. 🎙️ Microfone: captura sua voz. Para ouvir sua própria voz, ative os dois controles e use fones. Isso não transmite voz às outras IAs.",10,MUTED,false));
 
         int widthDp=getResources().getConfiguration().screenWidthDp;
         int panelWidth=widthDp>=700?dp(235):dp(155);
@@ -144,7 +144,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         prefs().edit().putBoolean("audio_room_open",audioOpen).apply();
         updateAudioButton();
         android.widget.Toast.makeText(this,
-                audioOpen ? "Áudio da sala ativado neste aparelho." : "Áudio da sala desativado neste aparelho.",
+                audioOpen ? "Retorno de áudio local ativado. Ligue o microfone para ouvir sua voz." : "Retorno de áudio local desativado.",
                 android.widget.Toast.LENGTH_SHORT).show();
     }
 
@@ -191,10 +191,10 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     private void updateAudioButton(){
         if(audioButton==null)return;
-        audioButton.setText(audioOpen ? "🔊 ON" : "🔊 OFF");
+        audioButton.setText(audioOpen ? "🔊 Ouvir voz · ON" : "🔊 Ouvir voz · OFF");
         audioButton.setContentDescription(audioOpen
-                ? "Desativar áudio aberto da sala"
-                : "Ativar áudio aberto da sala");
+                ? "Desativar retorno de áudio local"
+                : "Ativar retorno de áudio local");
     }
 
     private void editProfile(){
