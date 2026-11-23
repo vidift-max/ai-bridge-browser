@@ -50,7 +50,8 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private EditText composer;
     private String myName,myAvatar;
     private android.widget.CheckBox missionToggle;
-    private Button audioButton, microphoneButton;
+    private Button audioButton, microphoneButton, voiceMuteButton;
+    private boolean voiceCallMuted;
     private boolean audioOpen, microphoneOpen;
     private AudioMonitor audioMonitor;
     private final AudioRecorder voiceNoteRecorder=new AudioRecorder();
@@ -97,6 +98,9 @@ public final class CollectiveRoomActivityV2 extends Activity {
         callRow.addView(button("Desligar",v->endVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
         callRow.addView(button("↻ Chamada",v->refreshVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
         header.addView(callRow);
+        voiceMuteButton = button("🎙️ Silenciar na chamada",v->toggleVoiceCallMute());
+        header.addView(voiceMuteButton);
+        updateVoiceCallMuteButton();
         callStatus = text("Chamadas WebRTC de áudio · requer microfone autorizado e conectividade ICE.",10,MUTED,false);
         header.addView(callStatus);
 
@@ -635,6 +639,25 @@ public final class CollectiveRoomActivityV2 extends Activity {
         }, "ai-voice-call-action").start();
     }
 
+    private void toggleVoiceCallMute() {
+        WebRtcVoiceEngine engine = webRtcVoiceEngine;
+        if (engine == null) {
+            Toast.makeText(this, "Entre em uma chamada antes de silenciar o microfone.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        voiceCallMuted = !voiceCallMuted;
+        engine.setMicrophoneEnabled(!voiceCallMuted);
+        updateVoiceCallMuteButton();
+    }
+
+    private void updateVoiceCallMuteButton() {
+        if (voiceMuteButton == null) return;
+        voiceMuteButton.setText(voiceCallMuted ? "🎙️ Ativar microfone na chamada"
+                : "🎙️ Silenciar na chamada");
+        voiceMuteButton.setContentDescription(voiceCallMuted
+                ? "Ativar microfone da chamada" : "Silenciar microfone da chamada");
+    }
+
     private void prepareVoiceAudioRoute() {
         android.media.AudioManager manager =
                 (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
@@ -787,7 +810,9 @@ public final class CollectiveRoomActivityV2 extends Activity {
         voiceOfferCreated = false;
         remoteSdpReady = false;
         voiceCallConnected = false;
+        voiceCallMuted = false;
         pendingRemoteIce.clear();
+        runOnUiThread(this::updateVoiceCallMuteButton);
         WebRtcVoiceEngine engine = webRtcVoiceEngine;
         webRtcVoiceEngine = null;
         if (engine != null) engine.close();
