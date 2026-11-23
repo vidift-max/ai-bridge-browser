@@ -97,6 +97,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         callRow.addView(button("Recusar",v->rejectVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
         callRow.addView(button("Desligar",v->endVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
         callRow.addView(button("↻ Chamada",v->refreshVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
+        callRow.addView(button("⚙ ICE",v->configureVoiceIceServers()),new LinearLayout.LayoutParams(0,-2,1));
         header.addView(callRow);
         voiceMuteButton = button("🎙️ Silenciar na chamada",v->toggleVoiceCallMute());
         header.addView(voiceMuteButton);
@@ -541,6 +542,33 @@ public final class CollectiveRoomActivityV2 extends Activity {
                 == android.content.pm.PackageManager.PERMISSION_GRANTED;
     }
 
+    private void configureVoiceIceServers() {
+        EditText input = new EditText(this);
+        input.setSingleLine(false);
+        input.setMinLines(5);
+        input.setHint("[{\\"url\\":\\"stun:stun.example.invalid\\"}]");
+        String existing = null;
+        try { existing = new VoiceIceServerConfigVault().load(this); } catch (Exception ignored) { }
+        if (existing != null) input.setText(existing);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Configurar ICE seguro")
+                .setMessage("Opcional. STUN/TURN é fornecido pelo operador. Credenciais TURN são criptografadas pelo Android Keystore e não são exibidas em logs. Sem configuração, a chamada usa apenas candidatos host e não promete atravessar NAT.")
+                .setView(input)
+                .setNegativeButton("Limpar", (d, w) -> {
+                    new VoiceIceServerConfigVault().clear(this);
+                    Toast.makeText(this, "Configuração ICE removida.", Toast.LENGTH_LONG).show();
+                })
+                .setNeutralButton("Cancelar", null)
+                .setPositiveButton("Salvar", (d, w) -> {
+                    try {
+                        new VoiceIceServerConfigVault().save(this, input.getText().toString());
+                        Toast.makeText(this, "Configuração ICE validada e protegida.", Toast.LENGTH_LONG).show();
+                    } catch (Exception error) {
+                        Toast.makeText(this, "Configuração ICE recusada: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                }).show();
+    }
+
     private void startVoiceCall() {
         if (!hasVoiceMicrophonePermission()) {
             pendingVoicePermissionAction = "start";
@@ -714,8 +742,16 @@ public final class CollectiveRoomActivityV2 extends Activity {
         if (webRtcVoiceEngine != null) return;
         if (!hasVoiceMicrophonePermission()) throw new SecurityException("record_audio_permission_required");
         prepareVoiceAudioRoute();
+        java.util.List<org.webrtc.PeerConnection.IceServer> iceServers;
+        try {
+            String json = new VoiceIceServerConfigVault().load(this);
+            iceServers = VoiceIceServerConfig.parse(json);
+        } catch (Exception error) {
+            showVoiceError("ice_config_invalid");
+            return;
+        }
         webRtcVoiceEngine = new WebRtcVoiceEngine(this,
-                java.util.Collections.emptyList(), new WebRtcVoiceEngine.Listener() {
+                iceServers, new WebRtcVoiceEngine.Listener() {
             @Override public void onLocalDescription(String type, String sdp) {
                 String kind = "offer".equals(type) ? "OFFER" : "ANSWER";
                 try {
