@@ -32,38 +32,100 @@ public final class CollectiveRoomActivityV2 extends Activity {
         super.onCreate(state);
         myName=prefs().getString("profile_name","Minha IA");
         myAvatar=prefs().getString("profile_avatar","🤖");
-        LinearLayout page=new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(14),dp(12),dp(14),dp(10)); page.setBackgroundColor(BG);
-        page.addView(text("SALA COLETIVA · AI MESSENGER",22,TEXT,true));
-        page.addView(text("Nome + ícone identificam cada participante. O ícone não altera o AI_ID.",12,MUTED,false));
-        Button profile=button("✎ Meu perfil · "+myAvatar+" "+myName,v->editProfile()); page.addView(profile);
-        page.addView(button("＋ Entrar na sala coletiva",v->enterRoom()));
-        page.addView(button("📄 Abrir PDF · Compromisso assinado",v->openPdf(true)));
-        page.addView(button("📄 Abrir PDF · Contrato de participação",v->openPdf(false)));
-        page.addView(text("PARTICIPANTES / PRESENÇA",11,ACCENT,true));
-        ScrollView ps=new ScrollView(this); presenceList=new LinearLayout(this); presenceList.setOrientation(LinearLayout.VERTICAL); ps.addView(presenceList);
-        page.addView(ps,new LinearLayout.LayoutParams(-1,dp(130)));
-        page.addView(text("MENSAGENS DA SALA",11,ACCENT,true));
-        ScrollView ms=new ScrollView(this); messageList=new LinearLayout(this); messageList.setOrientation(LinearLayout.VERTICAL); ms.addView(messageList);
-        page.addView(ms,new LinearLayout.LayoutParams(-1,dp(250)));
-        LinearLayout entry=new LinearLayout(this); entry.setOrientation(LinearLayout.HORIZONTAL);
-        composer=new EditText(this); composer.setHint("Mensagem para todos..."); composer.setTextColor(TEXT); composer.setHintTextColor(MUTED);
-        entry.addView(composer,new LinearLayout.LayoutParams(0,-2,1)); entry.addView(button("Enviar",v->sendMessage()));
-        page.addView(entry);
+
+        LinearLayout root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.HORIZONTAL);
+        root.setPadding(dp(10),dp(10),dp(10),dp(10));
+        root.setBackgroundColor(BG);
+
+        LinearLayout chatColumn=new LinearLayout(this);
+        chatColumn.setOrientation(LinearLayout.VERTICAL);
+        chatColumn.setPadding(dp(4),dp(2),dp(8),dp(2));
+
+        LinearLayout header=new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.addView(text("SALA COLETIVA · AI MESSENGER",21,TEXT,true));
+        header.addView(text("Conversa principal · participantes aparecem no painel à direita.",12,MUTED,false));
+        header.addView(button("✎ Meu perfil · "+myAvatar+" "+myName,v->editProfile()));
+        header.addView(button("＋ Entrar na sala coletiva",v->enterRoom()));
+
+        LinearLayout quickActions=new LinearLayout(this);
+        quickActions.setOrientation(LinearLayout.HORIZONTAL);
+        quickActions.addView(button("📄 Compromisso",v->openPdf(true)),
+                new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
+        quickActions.addView(button("📄 Contrato",v->openPdf(false)),
+                new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
+        header.addView(quickActions);
+        chatColumn.addView(header);
+
+        chatColumn.addView(text("MENSAGENS DA SALA",11,ACCENT,true));
+        ScrollView ms=new ScrollView(this);
+        messageList=new LinearLayout(this);
+        messageList.setOrientation(LinearLayout.VERTICAL);
+        ms.addView(messageList);
+        chatColumn.addView(ms,new LinearLayout.LayoutParams(0,0,1));
+
+        LinearLayout composerArea=new LinearLayout(this);
+        composerArea.setOrientation(LinearLayout.VERTICAL);
+        composer=new EditText(this);
+        composer.setHint("Falando com todos...");
+        composer.setTextColor(TEXT);
+        composer.setHintTextColor(MUTED);
+        composer.setMinLines(2);
+        composer.setGravity(android.view.Gravity.TOP);
+        composerArea.addView(composer,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,dp(70)));
+        LinearLayout sendRow=new LinearLayout(this);
+        sendRow.setOrientation(LinearLayout.HORIZONTAL);
         missionToggle = new android.widget.CheckBox(this);
-        missionToggle.setText("🎯 Enviar como MISSÃO · 24 horas");
+        missionToggle.setText("🎯 MISSÃO · 24h");
         missionToggle.setTextColor(ACCENT);
         missionToggle.setAllCaps(false);
-        page.addView(missionToggle);
-        page.addView(text("LOCAL: esta interface registra as mensagens neste aparelho. Entrega entre AI-PHONEs só será declarada após servidor e teste E2E reais.",10,MUTED,false));
-        page.addView(button("Abrir Messenger completo",v->startActivity(new Intent(this,MessengerActivity.class))));
-        ScrollView root = new ScrollView(this);
-        root.setFillViewport(true);
-        root.addView(page);
-        setContentView(root); renderPresence(); renderMessages();
+        sendRow.addView(missionToggle,new LinearLayout.LayoutParams(0,-2,1));
+        sendRow.addView(button("Enviar",v->sendMessage()),
+                new LinearLayout.LayoutParams(dp(105),ViewGroup.LayoutParams.WRAP_CONTENT));
+        composerArea.addView(sendRow);
+        composerArea.addView(text("Texto é a comunicação normal. Áudio aberto será um recurso separado e só será declarado funcional após teste E2E real.",10,MUTED,false));
+        chatColumn.addView(composerArea);
+
+        root.addView(chatColumn,new LinearLayout.LayoutParams(0,0,1));
+
+        LinearLayout participantColumn=new LinearLayout(this);
+        participantColumn.setOrientation(LinearLayout.VERTICAL);
+        participantColumn.setPadding(dp(8),dp(2),dp(2),dp(2));
+        GradientDrawable panelBg=new GradientDrawable();
+        panelBg.setColor(SURFACE);
+        panelBg.setCornerRadius(dp(16));
+        participantColumn.setBackground(panelBg);
+        participantColumn.addView(text("PARTICIPANTES",15,TEXT,true));
+        participantColumn.addView(text("Todos nesta sala",10,MUTED,false));
+        ScrollView ps=new ScrollView(this);
+        presenceList=new LinearLayout(this);
+        presenceList.setOrientation(LinearLayout.VERTICAL);
+        ps.addView(presenceList);
+        participantColumn.addView(ps,new LinearLayout.LayoutParams(0,0,1));
+        participantColumn.addView(button("＋ Adicionar",v->addParticipant()));
+        participantColumn.addView(button("🔊 Áudio da sala",v->showAudioRoomInfo()));
+        participantColumn.addView(text("O líder pode moderar o áudio aberto. Silenciar não remove a IA da sala.",10,MUTED,false));
+
+        int widthDp=getResources().getConfiguration().screenWidthDp;
+        int panelWidth=widthDp>=700?dp(235):dp(155);
+        root.addView(participantColumn,new LinearLayout.LayoutParams(panelWidth,0));
+
+        setContentView(root);
+        renderPresence();
+        renderMessages();
     }
 
     private Button button(String s,android.view.View.OnClickListener l){ Button b=new Button(this); b.setText(s); b.setAllCaps(false); b.setOnClickListener(l); return b; }
+
+    private void showAudioRoomInfo(){
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Áudio aberto da sala")
+                .setMessage("A sala terá comunicação normal por texto. O áudio aberto poderá ser ativado ou desativado por cada participante. O líder poderá cortar o áudio aberto de uma IA quando necessário, sem removê-la automaticamente da sala. A implementação de áudio em tempo real só será considerada funcional depois de um teste entre dois dispositivos físicos.")
+                .setPositiveButton("Entendi",null)
+                .show();
+    }
 
     private void editProfile(){
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL);
