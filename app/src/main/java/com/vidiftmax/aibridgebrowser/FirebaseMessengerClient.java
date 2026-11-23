@@ -47,6 +47,11 @@ public final class FirebaseMessengerClient {
         return new JSONObject().put("aiId", aiId).put("uid", uid).put("transport", "firebase_rtdb");
     }
 
+    public JSONObject getConversation(String conversationId) throws Exception {
+        if (conversationId == null || conversationId.trim().isEmpty()) throw new IllegalArgumentException("conversation_id_required");
+        return databaseRequest("GET", "/messenger/conversations/" + path(conversationId), null);
+    }
+
     public JSONObject createGroupInvite(String conversationId, long expiresAtEpochMs) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty()) throw new IllegalArgumentException("conversation_id_required");
         if (expiresAtEpochMs <= System.currentTimeMillis()) throw new IllegalArgumentException("invite_expired");
