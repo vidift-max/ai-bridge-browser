@@ -27,7 +27,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] not in ("1", "2", "3", "4"):
+    if not version_row or version_row[0] not in ("1", "2", "3", "4", "5"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     required_columns = {
         "schema_meta": {"key", "value"},
@@ -44,9 +44,17 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         required_columns["voice_mutes"] = {
             "conversation_id", "ai_id", "muted_by_ai_id", "expires_at",
         }
-    if version_row[0] == "4":
+    if version_row[0] in ("4", "5"):
         required_columns["conversations"].add("kind")
         required_columns["messages"].update({"kind", "created_at_epoch_seconds"})
+    if version_row[0] == "5":
+        required_columns["voice_calls"] = {
+            "call_id", "conversation_id", "caller_ai_id", "callee_ai_id",
+            "state", "created_at", "expires_at", "updated_at",
+        }
+        required_columns["voice_call_signals"] = {
+            "signal_id", "call_id", "sender_ai_id", "kind", "payload_json", "created_at",
+        }
     for table, expected in required_columns.items():
         rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
         if not expected.issubset({row[1] for row in rows}):
@@ -147,7 +155,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if version_row and version_row[0] in ("3", "4"):
+    if version_row and version_row[0] in ("3", "4", "5"):
         for row in connection.execute(
             "SELECT conversation_id, ai_id, muted_by_ai_id, expires_at FROM voice_mutes"
         ):
@@ -158,6 +166,38 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                     or not isinstance(row["expires_at"], (int, float))
                     or row["expires_at"] <= 0):
                 return False, "RESTORE_DATA_VOICE_MUTE_INVALID"
+
+    if version_row and version_row[0] == "5":
+        calls = {}
+        allowed_states = {"RINGING", "ACCEPTED", "CONNECTING", "CONNECTED",
+                          "REJECTED", "CANCELLED", "TIMED_OUT", "ENDED", "FAILED"}
+        for row in connection.execute(
+            "SELECT call_id, conversation_id, caller_ai_id, callee_ai_id, state, "
+            "created_at, expires_at, updated_at FROM voice_calls"
+        ):
+            members = conversations.get(row["conversation_id"])
+            if (not row["call_id"] or row["call_id"] in calls or members is None
+                    or row["caller_ai_id"] == row["callee_ai_id"]
+                    or row["caller_ai_id"] not in members
+                    or row["callee_ai_id"] not in members
+                    or row["state"] not in allowed_states
+                    or any(not isinstance(row[key], (int, float)) or row[key] <= 0
+                           for key in ("created_at", "expires_at", "updated_at"))):
+                return False, "RESTORE_DATA_VOICE_CALL_INVALID"
+            calls[row["call_id"]] = {row["caller_ai_id"], row["callee_ai_id"]}
+        for row in connection.execute(
+            "SELECT call_id, sender_ai_id, kind, payload_json, created_at FROM voice_call_signals"
+        ):
+            try:
+                payload = __import__("json").loads(row["payload_json"])
+            except (TypeError, ValueError):
+                return False, "RESTORE_DATA_VOICE_SIGNAL_INVALID"
+            if (row["call_id"] not in calls or row["sender_ai_id"] not in calls[row["call_id"]]
+                    or row["kind"] not in ("OFFER", "ANSWER", "ICE_CANDIDATE", "ICE_COMPLETE")
+                    or not isinstance(payload, dict)
+                    or not isinstance(row["created_at"], (int, float))
+                    or row["created_at"] <= 0):
+                return False, "RESTORE_DATA_VOICE_SIGNAL_INVALID"
 
     for row in connection.execute(
         "SELECT object_id, message_id, conversation_id, sender_ai_id, content_type, size, sha256 "
