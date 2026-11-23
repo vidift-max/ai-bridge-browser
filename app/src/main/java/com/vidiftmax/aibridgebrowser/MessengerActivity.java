@@ -29,6 +29,8 @@ public final class MessengerActivity extends Activity {
     private static final String KEY_MEMBERSHIPS = "local_memberships";
     private static final String KEY_INVITATIONS = "local_invitation_drafts";
     private static final String KEY_TRANSPORT_RECORDS = "local_transport_records";
+    private static final String KEY_PENDING_INVITES = "pending_group_invites";
+    private LinearLayout pendingInviteList;
     private static final String DEFAULT_ID = "LOCAL-DEMO";
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
@@ -113,6 +115,10 @@ public final class MessengerActivity extends Activity {
         conversationList = new LinearLayout(this);
         conversationList.setOrientation(LinearLayout.VERTICAL);
         directoryScroll.addView(conversationList);
+        page.addView(text("CONVITES DE GRUPO", 12, ACCENT, true));
+        pendingInviteList = new LinearLayout(this);
+        pendingInviteList.setOrientation(LinearLayout.VERTICAL);
+        page.addView(pendingInviteList);
         page.addView(text("CONVERSAS DESTE APARELHO", 12, ACCENT, true));
         page.addView(directoryScroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(132)));
@@ -210,6 +216,7 @@ public final class MessengerActivity extends Activity {
         root.addView(page);
         setContentView(root);
         purgeExpiredLocalMessages(System.currentTimeMillis());
+        renderPendingInvites();
         renderConversations();
         renderParticipants();
         renderMessages();
@@ -855,6 +862,86 @@ public final class MessengerActivity extends Activity {
                         Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 }).show();
+    }
+
+    private void renderPendingInvites() {
+        if (pendingInviteList == null) return;
+        pendingInviteList.removeAllViews();
+        JSONArray invites = readArray(KEY_PENDING_INVITES);
+        if (invites.length() == 0) {
+            pendingInviteList.addView(text("Nenhum convite pendente.", 11, MUTED, false));
+            return;
+        }
+        for (int i=0;i<invites.length();i++) {
+            JSONObject invite = invites.optJSONObject(i);
+            if (invite == null) continue;
+            String cid = invite.optString("conversationId","");
+            Button enter = new Button(this);
+            enter.setAllCaps(false);
+            enter.setText("🔗 Grupo " + cid + " · ENTRAR NO GRUPO");
+            enter.setOnClickListener(v -> redeemPendingInvite(cid));
+            pendingInviteList.addView(enter);
+        }
+    }
+
+    private void redeemPendingInvite(String conversationId) {
+        JSONArray invites = readArray(KEY_PENDING_INVITES);
+        JSONObject target = null;
+        for (int i=0;i<invites.length();i++) {
+            JSONObject item=invites.optJSONObject(i);
+            if (item != null && conversationId.equals(item.optString("conversationId",""))) { target=item; break; }
+        }
+        if (target == null) {
+            Toast.makeText(this,"Convite não encontrado.",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final String token=target.optString("token","");
+        new Thread(() -> {
+            try {
+                MessengerHttpClient client=remoteClient();
+                client.redeemGroupInvite(conversationId, token);
+                JSONObject roomData=client.getConversation(conversationId);
+                JSONObject members=roomData == null ? null : roomData.optJSONObject("members");
+                JSONArray conversations=readConversations();
+                boolean exists=false;
+                for(int i=0;i<conversations.length();i++) {
+                    JSONObject c=conversations.optJSONObject(i);
+                    if(c != null && conversationId.equals(c.optString("conversationId",""))) {
+                        exists=true; break;
+                    }
+                }
+                if(!exists) {
+                    JSONObject c=new JSONObject();
+                    c.put("conversationId",conversationId);
+                    c.put("title","Grupo AI Messenger");
+                    c.put("createdAtEpochMs",System.currentTimeMillis());
+                    c.put("kind",MessengerRetentionPolicy.CONVERSATION_GROUP);
+                    c.put("status","REMOTE_ACTIVE");
+                    c.put("remote",true);
+                    c.put("memberAiIds",members == null ? "[]" : members.toString());
+                    conversations.put(c);
+                }
+                prefs().edit().putString(KEY_CONVERSATIONS,conversations.toString()).apply();
+                JSONArray remaining=new JSONArray();
+                for(int i=0;i<invites.length();i++) {
+                    JSONObject item=invites.optJSONObject(i);
+                    if(item != null && conversationId.equals(item.optString("conversationId",""))) continue;
+                    if(item != null) remaining.put(item);
+                }
+                prefs().edit().putString(KEY_PENDING_INVITES,remaining.toString()).apply();
+                runOnUiThread(() -> {
+                    selectedConversationId=conversationId;
+                    renderPendingInvites();
+                    renderConversations();
+                    renderConversationMembersSummary();
+                    renderMessages();
+                    renderTransportSummary();
+                    Toast.makeText(this,"Você entrou no grupo. Ele ficou salvo no AI Messenger.",Toast.LENGTH_LONG).show();
+                });
+            } catch(Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,"Não foi possível entrar no grupo: "+remoteError(error),Toast.LENGTH_LONG).show());
+            }
+        },"ai-messenger-invite-redeem").start();
     }
 
     private void renderConversations() {
