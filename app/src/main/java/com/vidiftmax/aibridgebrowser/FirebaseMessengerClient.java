@@ -78,22 +78,29 @@ public final class FirebaseMessengerClient {
             throw new IllegalArgumentException("invite_not_found");
         if (invite.optLong("expiresAtEpochMs", 0L) <= System.currentTimeMillis())
             throw new IllegalArgumentException("invite_expired");
-        JSONObject room = databaseRequest("GET", "/messenger/conversations/" + path(conversationId), null);
-        JSONObject meta = room == null ? null : room.optJSONObject("meta");
-        JSONObject members = room == null ? null : room.optJSONObject("members");
-        if (meta == null || !"GROUP".equals(meta.optString("kind", ""))) throw new IllegalArgumentException("invite_not_group");
-        int memberCount = members == null ? 0 : members.length();
-        boolean alreadyMember = members != null && members.has(aiId);
-        if (memberCount < 1 || (!alreadyMember && memberCount >= 20))
-            throw new IllegalStateException("group_member_limit_20");
         databaseRequest("PUT", "/messenger/invitesByAi/" + path(aiId) + "/" + path(conversationId) + "/" + path(token), trueJson());
-        if (!alreadyMember) {
-            JSONObject update = new JSONObject()
-                    .put("members/" + aiId, true)
-                    .put("memberCount", memberCount + 1);
-            databaseRequest("PATCH", "/messenger/conversations/" + path(conversationId), update);
+        for (int attempt = 0; attempt < 3; attempt++) {
+            ConditionalJson current = getJsonWithEtag("/messenger/conversations/" + path(conversationId));
+            JSONObject room = current.body;
+            JSONObject meta = room == null ? null : room.optJSONObject("meta");
+            JSONObject members = room == null ? null : room.optJSONObject("members");
+            if (meta == null || !"GROUP".equals(meta.optString("kind", ""))) throw new IllegalArgumentException("invite_not_group");
+            int memberCount = members == null ? 0 : members.length();
+            boolean alreadyMember = members != null && members.has(aiId);
+            if (memberCount < 1 || (!alreadyMember && memberCount >= 20))
+                throw new IllegalStateException("group_member_limit_20");
+            if (alreadyMember) return new JSONObject().put("conversationId", conversationId).put("aiId", aiId).put("state", "ALREADY_MEMBER");
+            JSONObject updated = new JSONObject(room.toString());
+            updated.getJSONObject("members").put(aiId, true);
+            updated.put("memberCount", memberCount + 1);
+            try {
+                putWithEtag("/messenger/conversations/" + path(conversationId), updated, current.etag);
+                return new JSONObject().put("conversationId", conversationId).put("aiId", aiId).put("state", "JOINED_BY_INVITE");
+            } catch (ConditionalWriteException conflict) {
+                if (attempt == 2) throw conflict;
+            }
         }
-        return new JSONObject().put("conversationId", conversationId).put("aiId", aiId).put("state", "JOINED_BY_INVITE");
+        throw new IllegalStateException("group_join_conflict_retry");
     }
 
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
@@ -256,6 +263,43 @@ public final class FirebaseMessengerClient {
         } finally { if (c != null) c.disconnect(); }
     }
 
+    private ConditionalJson getJsonWithEtag(String path) throws Exception {
+        Session s = session();
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(databaseUrl + path + ".json?auth=" + encode(s.idToken)).openConnection();
+            c.setRequestMethod("GET");
+            c.setConnectTimeout(10000); c.setReadTimeout(15000);
+            c.setRequestProperty("Accept", "application/json");
+            c.setRequestProperty("X-Firebase-ETag", "true");
+            JSONObject body = readJson(c);
+            String etag = c.getHeaderField("ETag");
+            if (etag == null || etag.trim().isEmpty()) throw new IllegalStateException("firebase_etag_missing");
+            return new ConditionalJson(body, etag);
+        } finally { if (c != null) c.disconnect(); }
+    }
+
+    private void putWithEtag(String path, JSONObject body, String etag) throws Exception {
+        Session s = session();
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(databaseUrl + path + ".json?auth=" + encode(s.idToken)).openConnection();
+            c.setRequestMethod("PUT");
+            c.setConnectTimeout(10000); c.setReadTimeout(15000);
+            c.setDoOutput(true);
+            c.setRequestProperty("Accept", "application/json");
+            c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            c.setRequestProperty("if-match", etag);
+            byte[] data = body.toString().getBytes(StandardCharsets.UTF_8);
+            c.setFixedLengthStreamingMode(data.length);
+            try (OutputStream out = c.getOutputStream()) { out.write(data); }
+            int status = c.getResponseCode();
+            String response = readBounded(status >= 200 && status < 300 ? c.getInputStream() : c.getErrorStream());
+            if (status == 412) throw new ConditionalWriteException("firebase_etag_conflict");
+            if (status < 200 || status >= 300) throw new IllegalStateException("firebase_http_" + status + ":" + response);
+        } finally { if (c != null) c.disconnect(); }
+    }
+
     private JSONObject getJson(String url) throws Exception {
         HttpURLConnection c = null;
         try {
@@ -308,6 +352,15 @@ public final class FirebaseMessengerClient {
             if (e instanceof IllegalArgumentException) throw (IllegalArgumentException)e;
             throw new IllegalArgumentException("firebase_database_url_invalid");
         }
+    }
+
+    private static final class ConditionalJson {
+        final JSONObject body; final String etag;
+        ConditionalJson(JSONObject body, String etag) { this.body = body; this.etag = etag; }
+    }
+
+    private static final class ConditionalWriteException extends Exception {
+        ConditionalWriteException(String message) { super(message); }
     }
 
     private static final class Session {
