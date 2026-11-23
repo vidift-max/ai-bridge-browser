@@ -91,6 +91,11 @@ public final class MessengerHttpClient {
         return request("GET", path, null).getJSONArray("messages");
     }
 
+    public JSONObject getConversation(String conversationId) throws Exception {
+        if (firebase == null) throw new IllegalStateException("conversation_metadata_requires_firebase_transport");
+        return firebase.getConversation(conversationId);
+    }
+
     public JSONObject createGroupInvite(String conversationId, long expiresAtEpochMs) throws Exception {
         if (firebase == null) throw new IllegalStateException("group_invites_require_firebase_transport");
         return firebase.createGroupInvite(conversationId, expiresAtEpochMs);
