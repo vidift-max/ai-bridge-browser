@@ -27,7 +27,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] != "1":
+    if not version_row or version_row[0] not in ("1", "2", "3", "4", "5"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     required_columns = {
         "schema_meta": {"key", "value"},
@@ -38,7 +38,23 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         },
         "idempotency": {"sender_ai_id", "client_request_id", "message_id"},
         "acknowledgements": {"message_id", "ai_id"},
+        "audio_attachments": {"object_id", "message_id", "conversation_id", "sender_ai_id", "content_type", "size", "sha256", "created_at"},
     }
+    if version_row[0] in ("3", "4"):
+        required_columns["voice_mutes"] = {
+            "conversation_id", "ai_id", "muted_by_ai_id", "expires_at",
+        }
+    if version_row[0] in ("4", "5"):
+        required_columns["conversations"].add("kind")
+        required_columns["messages"].update({"kind", "created_at_epoch_seconds"})
+    if version_row[0] == "5":
+        required_columns["voice_calls"] = {
+            "call_id", "conversation_id", "caller_ai_id", "callee_ai_id",
+            "state", "created_at", "expires_at", "updated_at",
+        }
+        required_columns["voice_call_signals"] = {
+            "signal_id", "call_id", "sender_ai_id", "kind", "payload_json", "created_at",
+        }
     for table, expected in required_columns.items():
         rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
         if not expected.issubset({row[1] for row in rows}):
@@ -98,7 +114,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     messages = {}
     for row in connection.execute(
         "SELECT message_id, conversation_id, sender_ai_id, recipient_ai_ids, "
-        "client_request_id, sequence FROM messages"
+        "client_request_id, sequence, kind, created_at_epoch_seconds FROM messages"
     ):
         message_id = row["message_id"]
         members = conversations.get(row["conversation_id"])
@@ -109,6 +125,10 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                 or row["sequence"] <= 0
                 or len(recipients) != len(set(recipients))
                 or any(item not in members for item in recipients)):
+            return False, "RESTORE_DATA_MESSAGE_INVALID"
+        if "kind" in row.keys() and row["kind"] not in ("NORMAL", "MISSION"):
+            return False, "RESTORE_DATA_MESSAGE_INVALID"
+        if "created_at_epoch_seconds" in row.keys() and (not isinstance(row["created_at_epoch_seconds"], (int, float)) or row["created_at_epoch_seconds"] < 0):
             return False, "RESTORE_DATA_MESSAGE_INVALID"
         messages[message_id] = (row["sender_ai_id"], row["client_request_id"],
                                 row["conversation_id"], members, set(recipients))
@@ -131,6 +151,74 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
         target = messages.get(row["message_id"])
         if target is None or row["ai_id"] not in target[4]:
             return False, "RESTORE_DATA_ACKNOWLEDGEMENT_INVALID"
+
+    version_row = connection.execute(
+        "SELECT value FROM schema_meta WHERE key='version'"
+    ).fetchone()
+    if version_row and version_row[0] in ("3", "4", "5"):
+        for row in connection.execute(
+            "SELECT conversation_id, ai_id, muted_by_ai_id, expires_at FROM voice_mutes"
+        ):
+            members = conversations.get(row["conversation_id"])
+            if (members is None or row["ai_id"] not in members
+                    or row["muted_by_ai_id"] not in members
+                    or row["ai_id"] == row["muted_by_ai_id"]
+                    or not isinstance(row["expires_at"], (int, float))
+                    or row["expires_at"] <= 0):
+                return False, "RESTORE_DATA_VOICE_MUTE_INVALID"
+
+    if version_row and version_row[0] == "5":
+        calls = {}
+        allowed_states = {"RINGING", "ACCEPTED", "CONNECTING", "CONNECTED",
+                          "REJECTED", "CANCELLED", "TIMED_OUT", "ENDED", "FAILED"}
+        for row in connection.execute(
+            "SELECT call_id, conversation_id, caller_ai_id, callee_ai_id, state, "
+            "created_at, expires_at, updated_at FROM voice_calls"
+        ):
+            members = conversations.get(row["conversation_id"])
+            if (not row["call_id"] or row["call_id"] in calls or members is None
+                    or row["caller_ai_id"] == row["callee_ai_id"]
+                    or row["caller_ai_id"] not in members
+                    or row["callee_ai_id"] not in members
+                    or row["state"] not in allowed_states
+                    or any(not isinstance(row[key], (int, float)) or row[key] <= 0
+                           for key in ("created_at", "expires_at", "updated_at"))):
+                return False, "RESTORE_DATA_VOICE_CALL_INVALID"
+            calls[row["call_id"]] = {row["caller_ai_id"], row["callee_ai_id"]}
+        for row in connection.execute(
+            "SELECT call_id, sender_ai_id, kind, payload_json, created_at FROM voice_call_signals"
+        ):
+            try:
+                payload = __import__("json").loads(row["payload_json"])
+            except (TypeError, ValueError):
+                return False, "RESTORE_DATA_VOICE_SIGNAL_INVALID"
+            if (row["call_id"] not in calls or row["sender_ai_id"] not in calls[row["call_id"]]
+                    or row["kind"] not in ("OFFER", "ANSWER", "ICE_CANDIDATE", "ICE_COMPLETE")
+                    or not isinstance(payload, dict)
+                    or not isinstance(row["created_at"], (int, float))
+                    or row["created_at"] <= 0):
+                return False, "RESTORE_DATA_VOICE_SIGNAL_INVALID"
+
+    for row in connection.execute(
+        "SELECT object_id, message_id, conversation_id, sender_ai_id, content_type, size, sha256 "
+        "FROM audio_attachments"
+    ):
+        target = messages.get(row["message_id"])
+        if (
+            not row["object_id"]
+            or target is None
+            or row["conversation_id"] != target[2]
+            or row["sender_ai_id"] != target[0]
+            or row["sender_ai_id"] not in target[3]
+            or not isinstance(row["content_type"], str)
+            or not row["content_type"]
+            or not isinstance(row["size"], int)
+            or row["size"] <= 0
+            or not isinstance(row["sha256"], str)
+            or len(row["sha256"]) != 64
+            or any(ch not in "0123456789abcdef" for ch in row["sha256"].lower())
+        ):
+            return False, "RESTORE_DATA_AUDIO_ATTACHMENT_INVALID"
     return True, "RESTORE_DATA_CONSISTENT"
 
 

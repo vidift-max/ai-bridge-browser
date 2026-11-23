@@ -1,20 +1,37 @@
 import json
 from urllib.parse import parse_qs, urlsplit
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from server.auth import Authenticator
 from server.messenger_backend import MessengerBackend
 from server.runtime_config import RuntimeConfig
 from server.sqlite_store import SQLiteMessengerStore
-from server.identity_registry import IdentityRegistry
 from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
 from server.request_context import authenticate_request, bearer_token
+from server.audio_blob_store import AudioBlobStore
+from pathlib import Path
+
+
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(_value):
+    raise ValueError("invalid_json_constant")
+
 
 class MessengerHandler(BaseHTTPRequestHandler):
     backend=None
     authenticator=None
     rate_limiter=SlidingWindowRateLimiter()
     operational=None
-    identity_registry=None
+    audio_store=None
+    voice_control=None
+    voice_calls=None
 
     def _auth(self):
         return bearer_token(self.headers)
@@ -22,7 +39,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     def _principal(self):
         return authenticate_request(self.authenticator, self.headers)
 
-    def _read_json(self):
+    def _read_json(self, max_length=10000):
         if self.headers.get("Content-Type","").split(";")[0].lower()!="application/json":
             raise ValueError("content_type_required")
         raw_length=self.headers.get("Content-Length","")
@@ -30,9 +47,14 @@ class MessengerHandler(BaseHTTPRequestHandler):
             length=int(raw_length)
         except (TypeError, ValueError):
             raise ValueError("invalid_content_length")
-        if length<1 or length>10000:
+        if length<1 or length>max_length:
             raise ValueError("invalid_content_length")
-        payload=json.loads(self.rfile.read(length))
+        try:
+            raw = self.rfile.read(length).decode("utf-8")
+        except UnicodeDecodeError:
+            raise ValueError("invalid_json_encoding")
+        payload=json.loads(raw, object_pairs_hook=_unique_json_object,
+                           parse_constant=_reject_json_constant)
         if not isinstance(payload, dict):
             raise ValueError("json_object_required")
         return payload
@@ -72,39 +94,151 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except RuntimeError:
                 self._json(503,{"status":"not_ready","error":"runtime_configuration_invalid"})
             return
+        if self.path == "/v1/me/identity":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                self._audit(identity, "AI_IDENTITY_READ", principal.ai_id)
+                self._json(200, {"identity": {"aiId": principal.ai_id}, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403, self._permission_error(exc))
+            return
+        parsed = urlsplit(self.path)
+        call_parts = parsed.path.split("/")
+        if (len(call_parts) == 6 and call_parts[1:3] == ["v1", "conversations"]
+                and call_parts[4:] == ["calls", "active"] and call_parts[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.voice_calls is None:
+                    self._json(503, {"error": "voice_call_service_unavailable"})
+                    return
+                call = self.voice_calls.active_for_conversation(principal.ai_id, call_parts[3])
+                self._json(200, {"call": call, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+            return
+        if len(call_parts) == 4 and call_parts[1:3] == ["v1", "calls"] and call_parts[3]:
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.voice_calls is None:
+                    self._json(503, {"error": "voice_call_service_unavailable"})
+                    return
+                call = self.voice_calls.get(principal.ai_id, call_parts[3])
+                self._audit(identity, "VOICE_CALL_STATE_READ", call_parts[3], state=call["state"])
+                self._json(200, {"call": call, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except ValueError as exc:
+                self._json(404 if str(exc) == "voice_call_not_found" else 400,
+                           {"error": str(exc)})
+            return
+        if (len(call_parts) == 5 and call_parts[1:3] == ["v1", "calls"]
+                and call_parts[4] == "signals" and call_parts[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                query = parse_qs(parsed.query)
+                after_id = int(query.get("after", ["0"])[0])
+                limit = int(query.get("limit", ["100"])[0])
+                self.rate_limiter.allow(principal.ai_id)
+                if self.voice_calls is None:
+                    self._json(503, {"error": "voice_call_service_unavailable"})
+                    return
+                signals = self.voice_calls.pending_signals(principal.ai_id, call_parts[3], after_id, limit)
+                self._json(200, {"signals": signals, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+            return
         parsed = urlsplit(self.path)
         parts=parsed.path.split("/")
-        if parsed.path == "/v1/me/phone":
+        if (len(parts) == 6 and parts[1:3] == ["v1", "conversations"]
+                and parts[4] == "voice" and parts[5] == "status" and parts[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.voice_control is None:
+                    self._json(503, {"error": "voice_admin_control_unavailable"})
+                    return
+                members = self.backend.conversation_members().get(parts[3])
+                if not members or principal.ai_id not in members:
+                    raise PermissionError("voice_room_membership_required")
+                muted = sorted(self.voice_control.muted_participants(parts[3]))
+                self._audit(identity, "VOICE_ROOM_STATE_READ", parts[3],
+                            muted_count=str(len(muted)))
+                self._json(200, {
+                    "conversationId": parts[3],
+                    "mutedAiIds": muted,
+                    "correlationId": identity.correlation_id,
+                })
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            return
+        if len(parts) == 5 and parts[1:3] == ["v1", "messages"] and parts[4] == "audio" and parts[3]:
             try:
                 identity=self._principal()
                 principal=identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 self.rate_limiter.allow(principal.ai_id)
-                record=self.identity_registry.register_authenticated(principal.ai_id)
-                self._audit(identity, "AI_PHONE_REGISTERED", record["displayNumber"])
-                self._json(200,{"phone":record,"correlationId":identity.correlation_id})
+                attachments=self.backend.list_audio_attachments(self._auth(),parts[3])
+                self._json(200,{"messageId":parts[3],"attachments":[
+                    {"objectId":a.object_id,"messageId":a.message_id,"contentType":a.content_type,
+                     "size":a.size,"sha256":a.sha256,"senderAiId":a.sender_ai_id}
+                    for a in attachments]})
             except RateLimitExceeded:
                 self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
-            except ValueError:
-                self._json(400,{"error":"invalid_identity"})
+            except (ValueError,FileNotFoundError):
+                self._json(404,{"error":"not_found"})
             return
-        if len(parts)==4 and parts[1:3]==["v1","phones"]:
+        if len(parts) == 6 and parts[1:3] == ["v1", "messages"] and parts[4] == "audio" and parts[3] and parts[5]:
             try:
                 identity=self._principal()
                 principal=identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
-                record=self.identity_registry.get_by_number(parts[3])
-                if record is None:
-                    self._json(404,{"error":"phone_not_found"})
-                    return
-                self._audit(identity, "AI_PHONE_LOOKUP", record["displayNumber"])
-                self._json(200,{"phone":record,"correlationId":identity.correlation_id})
+                self.rate_limiter.allow(principal.ai_id)
+                data=self.backend.read_audio(self._auth(),parts[3],parts[5],self.audio_store)
+                self.send_response(200)
+                self.send_header("Content-Type","application/octet-stream")
+                self.send_header("Cache-Control","no-store")
+                self.send_header("Content-Length",str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
-            except ValueError:
-                self._json(400,{"error":"invalid_phone_number"})
+            except (ValueError,FileNotFoundError):
+                self._json(404,{"error":"not_found"})
             return
         if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages":
             try:
@@ -114,9 +248,12 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 query=parse_qs(parsed.query)
                 after_sequence=int(query.get("after", ["0"])[0])
                 limit=int(query.get("limit", ["50"])[0])
+                self.rate_limiter.allow(principal.ai_id)
                 messages=self.backend.pending(self._auth(),parts[3],after_sequence=after_sequence,limit=limit)
                 self._audit(identity, "MESSAGE_READ", parts[3], count=str(len(messages)))
-                self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body} for m in messages]})
+                self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body,"messageKind":m.kind,"createdAtEpochMs":int(m.created_at_epoch_seconds*1000),"expiresAtEpochMs":int(self.backend.message_expires_at(m)*1000)} for m in messages]})
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
             except (ValueError, TypeError):
                 self._json(400,{"error":"invalid_cursor"})
             except PermissionError as exc:
@@ -125,6 +262,101 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        call_path = urlsplit(self.path).path.split("/")
+        if urlsplit(self.path).path == "/v1/calls" or (
+                len(call_path) == 4 and call_path[1:3] == ["v1", "calls"] and call_path[3]) or (
+                len(call_path) == 5 and call_path[1:3] == ["v1", "calls"] and call_path[3]
+                and call_path[4] in ("accept", "reject", "cancel", "end", "connecting", "connected", "signals")):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.voice_calls is None:
+                    self._json(503, {"error": "voice_call_service_unavailable"})
+                    return
+                if urlsplit(self.path).path == "/v1/calls":
+                    payload = self._read_json()
+                    target = payload.get("calleeAiId")
+                    conversation_id = payload.get("conversationId")
+                    call = self.voice_calls.create(
+                        principal.ai_id, target, conversation_id,
+                        self.backend.conversation_members(),
+                        self.backend.conversation_kinds())
+                    self._audit(identity, "VOICE_CALL_INVITED", call["call_id"],
+                                callee_ai_id=target)
+                    self._json(201, {"call": call, "correlationId": identity.correlation_id})
+                    return
+                if len(call_path) == 4:
+                    self._json(405, {"error": "method_not_allowed"})
+                    return
+                call_id, action = call_path[3], call_path[4]
+                if action == "signals":
+                    payload = self._read_json(max_length=30000)
+                    result = self.voice_calls.add_signal(
+                        principal.ai_id, call_id, payload.get("kind"), payload.get("payload"))
+                    self._audit(identity, "VOICE_CALL_SIGNAL_SENT", call_id,
+                                signal_kind=payload.get("kind"))
+                    self._json(201, {"signal": result, "correlationId": identity.correlation_id})
+                    return
+                if action in ("connecting", "connected"):
+                    call = (self.voice_calls.set_connecting(principal.ai_id, call_id)
+                            if action == "connecting" else
+                            self.voice_calls.set_connected(principal.ai_id, call_id))
+                else:
+                    call = self.voice_calls.transition(principal.ai_id, call_id, action)
+                self._audit(identity, "VOICE_CALL_STATE_CHANGED", call_id,
+                            state=call["state"])
+                self._json(200, {"call": call, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except RuntimeError as exc:
+                self._json(409, {"error": str(exc)})
+            except (TypeError, ValueError, KeyError) as exc:
+                self._json(400, {"error": str(exc) or "invalid_voice_call_request"})
+            return
+        voice_path = urlsplit(self.path).path.split("/")
+        if (len(voice_path) == 6 and voice_path[1:3] == ["v1", "conversations"]
+                and voice_path[4] == "voice" and voice_path[5] in ("mute", "unmute")
+                and voice_path[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.voice_control is None:
+                    self._json(503, {"error": "voice_admin_control_unavailable"})
+                    return
+                payload = self._read_json()
+                target_ai_id = payload.get("targetAiId")
+                action = voice_path[5]
+                if action == "mute":
+                    duration_seconds = payload.get(
+                        "durationSeconds", self.voice_control.DEFAULT_MUTE_SECONDS)
+                    result = self.voice_control.mute(
+                        principal.ai_id, voice_path[3], target_ai_id,
+                        self.backend.conversation_members(), duration_seconds)
+                    event_type = "VOICE_PARTICIPANT_MUTED"
+                else:
+                    result = self.voice_control.unmute(
+                        principal.ai_id, voice_path[3], target_ai_id,
+                        self.backend.conversation_members())
+                    event_type = "VOICE_PARTICIPANT_UNMUTED"
+                self._audit(identity, event_type, voice_path[3],
+                            target_ai_id=target_ai_id)
+                self._json(200, {"voiceControl": result,
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError):
+                self._json(400, {"error": "invalid_voice_control_request"})
+            return
         if self.path=="/v1/conversations":
             try:
                 identity=self._principal()
@@ -157,9 +389,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 payload=self._read_json()
                 claimed_sender = payload.get("senderAiId", "")
                 self.backend.assert_authenticated_sender(self._auth(), claimed_sender)
-                msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"])
+                msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"],payload.get("messageKind","NORMAL"))
                 self._audit(identity, "MESSAGE_SUBMITTED", msg.message_id, sequence=str(msg.sequence))
-                self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"correlationId":identity.correlation_id})
+                self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"messageKind":msg.kind,"createdAtEpochMs":int(msg.created_at_epoch_seconds*1000),"correlationId":identity.correlation_id})
             except RateLimitExceeded:
                 self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
@@ -167,14 +399,50 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (KeyError,TypeError,ValueError,json.JSONDecodeError):
                 self._json(400,{"error":"invalid_request"})
             return
-        if self.path.startswith("/v1/messages/") and self.path.endswith("/ack"):
+        audio_path = urlsplit(self.path).path
+        audio_parts = audio_path.split("/")
+        if len(audio_parts) == 5 and audio_parts[1:3] == ["v1", "messages"] and audio_parts[4] == "audio" and audio_parts[3]:
             try:
                 identity=self._principal()
                 principal=identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
-                msg=self.backend.acknowledge(self._auth(),self.path[len("/v1/messages/"):-len("/ack")])
+                self.rate_limiter.allow(principal.ai_id)
+                content_type=self.headers.get("Content-Type","").split(";")[0].lower()
+                raw_length=self.headers.get("Content-Length","")
+                length=int(raw_length)
+                if length < 1 or length > AudioBlobStore.MAX_AUDIO_BYTES:
+                    raise ValueError("invalid_audio_length")
+                data=self.rfile.read(length)
+                if len(data) != length:
+                    raise ValueError("invalid_audio_length")
+                attachment=self.backend.attach_audio(self._auth(),audio_parts[3],self.audio_store,data,content_type)
+                self._audit(identity,"AUDIO_ATTACHED",attachment.object_id,message_id=attachment.message_id,size=str(attachment.size))
+                self._json(201,{"attachment":{"objectId":attachment.object_id,"messageId":attachment.message_id,"contentType":attachment.content_type,"size":attachment.size,"sha256":attachment.sha256},"correlationId":identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
+            except ValueError as exc:
+                if str(exc) == "message_not_found":
+                    self._json(404,{"error":"message_not_found"})
+                else:
+                    self._json(400,{"error":"invalid_audio"})
+            except (TypeError,KeyError):
+                self._json(400,{"error":"invalid_audio"})
+            return
+        ack_path = urlsplit(self.path).path
+        ack_parts = ack_path.split("/")
+        if len(ack_parts) == 5 and ack_parts[1:3] == ["v1", "messages"] and ack_parts[4] == "ack" and ack_parts[3]:
+            try:
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                msg=self.backend.acknowledge(self._auth(),ack_parts[3])
                 self._audit(identity, "MESSAGE_ACKNOWLEDGED", msg.message_id)
                 self._json(200,{"messageId":msg.message_id,"state":"ACKNOWLEDGED","principalAiId":principal.ai_id,"correlationId":identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             return
@@ -185,15 +453,23 @@ class MessengerHandler(BaseHTTPRequestHandler):
 def serve(host="127.0.0.1",port=8080):
     tokens=RuntimeConfig.auth_tokens()
     authenticator=Authenticator(tokens)
+    from server.voice_room_control import VoiceRoomControl
     store=SQLiteMessengerStore(RuntimeConfig.storage_path())
+    voice_control=VoiceRoomControl(RuntimeConfig.voice_admin_ids(tokens), store=store)
     backend=MessengerBackend(tokens,{"default":set(tokens.values())},store,authenticator=authenticator)
     MessengerHandler.backend=backend
     MessengerHandler.authenticator=authenticator
-    identity_registry=IdentityRegistry(RuntimeConfig.storage_path())
-    MessengerHandler.identity_registry=identity_registry
+    MessengerHandler.voice_control=voice_control
+    from server.voice_call_control import VoiceCallControl
+    MessengerHandler.voice_calls=VoiceCallControl(store)
     from server.operational_runtime import OperationalRuntime
     MessengerHandler.operational=OperationalRuntime()
-    try: HTTPServer((host,port),MessengerHandler).serve_forever()
+    MessengerHandler.audio_store=AudioBlobStore(str(Path(RuntimeConfig.storage_path()).resolve().parent / "audio"))
+    server = ThreadingHTTPServer((host, port), MessengerHandler)
+    server.daemon_threads = True
+    try:
+        server.serve_forever()
     finally:
-        identity_registry.close()
+        server.shutdown()
+        server.server_close()
         backend.close()

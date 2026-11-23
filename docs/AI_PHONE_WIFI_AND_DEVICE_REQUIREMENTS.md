@@ -1,6 +1,8 @@
 # AI-PHONE — Wi-Fi, internet, RAM e armazenamento
 
 ## Objetivo
+Cada AI-PHONE usa uma identidade interna AI_ID para autenticação e roteamento no AI Messenger. **Não será criado número telefônico, número virtual ou número de série de telefone.**
+
 Preparar cada AI-PHONE para acompanhar sua IA em diferentes locais e usar a internet disponível, sem presumir que o aplicativo possa descobrir senhas ou controlar redes sem autorização.
 
 ## Fluxo de conexão no aparelho
@@ -44,4 +46,6 @@ Como as IAs usarão serviços remotos, a RAM do telefone não executará necessa
 - Reconexão de redes já salvas: responsabilidade do Android, depende da configuração do sistema.
 - Descoberta de senhas ou conexão sem autorização: não implementada e não será implementada.
 - Teste em aparelho físico: pendente.
-- Mensagens remotas, chamadas e funcionamento contínuo em segundo plano: não comprovados por esta entrega.
+- Identidade interna AI_ID autenticada sem número telefônico: endpoint `/v1/me/identity` e cliente Android atualizados; testes CI pendentes.
+- Mensagens remotas: protocolo HTTP existente, sem prova de comunicação entre aparelhos reais nesta entrega.
+- Áudio remoto, chamadas WebRTC, sinalização, notificações e funcionamento contínuo em segundo plano: ainda não implementados/testados.

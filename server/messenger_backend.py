@@ -1,7 +1,32 @@
 from dataclasses import dataclass
+from functools import wraps
+from threading import RLock
 from typing import Dict, List, Set, Tuple
+import time
 from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
+from server.audio_blob_store import AudioBlobStore
+from server.retention_policy import (MESSAGE_NORMAL, MESSAGE_MISSION, CONVERSATION_GROUP,
+                                     expires_at, is_expired, normalize_message_kind, normalize_conversation_kind)
+
+def _synchronized(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapped
+
+
+@dataclass(frozen=True)
+class AudioAttachment:
+    object_id: str
+    message_id: str
+    conversation_id: str
+    sender_ai_id: str
+    content_type: str
+    size: int
+    sha256: str
+
 
 @dataclass(frozen=True)
 class Message:
@@ -13,6 +38,8 @@ class Message:
     client_request_id: str
     sequence: int
     acknowledged_by: Set[str]
+    kind: str = MESSAGE_NORMAL
+    created_at_epoch_seconds: float = 0.0
 
 class MessengerBackend:
     MAX_BODY_LENGTH = 5000
@@ -20,11 +47,13 @@ class MessengerBackend:
     MAX_ROOM_MEMBERS = 20
 
     def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None):
+        self._lock = RLock()
         self._tokens = dict(tokens)
         self._known_ai_ids = set(tokens.values())
         self._authenticator = authenticator or Authenticator(tokens)
         self._store = store or SQLiteMessengerStore(":memory:")
         self._conversations = self._store.load_conversations()
+        self._conversation_kinds = self._store.load_conversation_kinds()
         for conversation_id, members in conversations.items():
             normalized = set(members)
             if not conversation_id or len(normalized) < 2 or len(normalized) > self.MAX_ROOM_MEMBERS:
@@ -32,7 +61,7 @@ class MessengerBackend:
             if not normalized.issubset(self._known_ai_ids):
                 raise ValueError("unknown_conversation_member")
             self._conversations.setdefault(conversation_id, normalized)
-            self._store.save_conversation(conversation_id, sorted(normalized))
+            self._store.save_conversation(conversation_id, sorted(normalized), self._conversation_kinds.get(conversation_id, CONVERSATION_GROUP))
         self._messages: Dict[str, Message] = {}
         self._idempotency: Dict[Tuple[str, str], str] = {}
         self._next_sequence: Dict[str, int] = {}
@@ -40,12 +69,17 @@ class MessengerBackend:
         for row in self._store.load_messages():
             ack = acknowledgements.get(row["message_id"], set())
             recipients = tuple(filter(None, row["recipient_ai_ids"].split(",")))
+            created = float(row["created_at_epoch_seconds"] or 0.0)
+            if created <= 0:
+                created = time.time()
             msg = Message(row["message_id"], row["conversation_id"], row["sender_ai_id"], recipients,
-                          row["body"], row["client_request_id"], row["sequence"], set(ack))
+                          row["body"], row["client_request_id"], row["sequence"], set(ack),
+                          normalize_message_kind(row["kind"] or MESSAGE_NORMAL), created)
             self._messages[msg.message_id] = msg
             self._idempotency[(msg.sender_ai_id, msg.client_request_id)] = msg.message_id
             self._next_sequence[msg.conversation_id] = max(self._next_sequence.get(msg.conversation_id,0), msg.sequence)
 
+    @_synchronized
     def close(self):
         self._store.close()
 
@@ -64,6 +98,7 @@ class MessengerBackend:
             raise PermissionError("stale_authenticated_principal")
         return current.ai_id
 
+    @_synchronized
     def create_conversation(self, bearer_token: str, conversation_id: str,
                             member_ai_ids: List[str], kind: str = "GROUP") -> Dict[str, object]:
         creator = self.authenticate(bearer_token)
@@ -85,10 +120,22 @@ class MessengerBackend:
             raise ValueError("unknown_conversation_member")
         if conversation_id in self._conversations:
             raise ValueError("conversation_id_conflict")
-        self._store.save_conversation(conversation_id, sorted(members))
+        self._store.save_conversation(conversation_id, sorted(members), kind)
         self._conversations[conversation_id] = members
+        self._conversation_kinds[conversation_id] = normalize_conversation_kind(kind)
         return {"conversationId": conversation_id, "kind": kind,
                 "memberAiIds": sorted(members), "memberCount": len(members)}
+
+    @_synchronized
+    def conversation_members(self):
+        """Return a defensive snapshot for server-side room authorization."""
+        return {conversation_id: set(members)
+                for conversation_id, members in self._conversations.items()}
+
+    @_synchronized
+    def conversation_kinds(self):
+        """Return a defensive snapshot of conversation kinds for call policy."""
+        return dict(self._conversation_kinds)
 
     def authorize_member(self, ai_id: str, conversation_id: str) -> None:
         members = self._conversations.get(conversation_id)
@@ -96,21 +143,31 @@ class MessengerBackend:
             raise PermissionError("authorization_denied")
 
     def authorize_recipients(self, sender_ai_id: str, conversation_id: str, recipient_ai_ids: List[str]) -> Tuple[str, ...]:
+        if (not isinstance(recipient_ai_ids, list) or not recipient_ai_ids or
+                any(not isinstance(item, str) or not item.strip() for item in recipient_ai_ids)):
+            raise ValueError("invalid_recipients")
         self.authorize_member(sender_ai_id, conversation_id)
         recipient_ids = tuple(dict.fromkeys(recipient_ai_ids))
         members = self._conversations.get(conversation_id, set())
-        if not recipient_ids or not set(recipient_ids).issubset(members):
+        if not set(recipient_ids).issubset(members):
             raise PermissionError("recipient_authorization_denied")
         return recipient_ids
 
+    @_synchronized
     def submit(self, bearer_token: str, message_id: str, conversation_id: str,
-               recipient_ai_ids: List[str], body: str, client_request_id: str) -> Message:
+               recipient_ai_ids: List[str], body: str, client_request_id: str,
+               message_kind: str = MESSAGE_NORMAL) -> Message:
         sender = self.authenticate(bearer_token)
-        recipient_ids = self.authorize_recipients(sender, conversation_id, recipient_ai_ids)
-        if (not message_id or not body or not client_request_id or
+        if (not isinstance(message_id, str) or not message_id.strip() or
+                not isinstance(conversation_id, str) or not conversation_id.strip() or
+                not isinstance(body, str) or not body.strip() or
+                not isinstance(client_request_id, str) or not client_request_id.strip() or
                 len(message_id) > self.MAX_ID_LENGTH or len(conversation_id) > self.MAX_ID_LENGTH or
                 len(client_request_id) > self.MAX_ID_LENGTH or len(body) > self.MAX_BODY_LENGTH):
             raise ValueError("invalid_message")
+        recipient_ids = self.authorize_recipients(sender, conversation_id, recipient_ai_ids)
+        normalized_kind = normalize_message_kind(message_kind)
+        created_at = time.time()
         if message_id in self._messages and not self._idempotency.get((sender, client_request_id)):
             raise ValueError("message_id_conflict")
         key = (sender, client_request_id)
@@ -122,14 +179,86 @@ class MessengerBackend:
                 return existing
             raise ValueError("idempotency_conflict")
         sequence = self._next_sequence.get(conversation_id, 0) + 1
-        message = Message(message_id, conversation_id, sender, recipient_ids, body, client_request_id, sequence, set())
-        self._store.save_message_with_idempotency((message.message_id,message.conversation_id,message.sender_ai_id,message.recipient_ai_ids,message.body,message.client_request_id,message.sequence))
+        message = Message(message_id, conversation_id, sender, recipient_ids, body, client_request_id, sequence, set(), normalized_kind, created_at)
+        self._store.save_message_with_idempotency((message.message_id,message.conversation_id,message.sender_ai_id,message.recipient_ai_ids,message.body,message.client_request_id,message.sequence,message.kind,message.created_at_epoch_seconds))
         self._messages[message_id] = message
         self._idempotency[key] = message_id
         self._next_sequence[conversation_id] = sequence
         return message
 
+    def message_expires_at(self, message: Message) -> float:
+        return expires_at(message.created_at_epoch_seconds,
+                          message.kind,
+                          self._conversation_kinds.get(message.conversation_id, CONVERSATION_GROUP))
+
+    def _purge_expired(self):
+        now = time.time()
+        expired = []
+        for message_id, message in list(self._messages.items()):
+            conversation_kind = self._conversation_kinds.get(message.conversation_id, CONVERSATION_GROUP)
+            if is_expired(message.created_at_epoch_seconds, message.kind, conversation_kind, now):
+                expired.append(message_id)
+        for message_id in expired:
+            message = self._messages.pop(message_id, None)
+            if message is None:
+                continue
+            self._store.delete_message(message_id)
+            for key, value in list(self._idempotency.items()):
+                if value == message_id:
+                    self._idempotency.pop(key, None)
+
+    @_synchronized
+    def attach_audio(self, bearer_token: str, message_id: str, audio_store: AudioBlobStore,
+                     data: bytes, declared_type: str) -> AudioAttachment:
+        self._purge_expired()
+        sender = self.authenticate(bearer_token)
+        message = self._messages.get(message_id)
+        if message is None:
+            raise ValueError("message_not_found")
+        if message.sender_ai_id != sender:
+            raise PermissionError("attachment_sender_only")
+        stored = audio_store.save(data, declared_type)
+        try:
+            self._store.save_audio_attachment((
+                stored.object_id, message.message_id, message.conversation_id,
+                sender, stored.content_type, stored.size, stored.sha256,
+            ))
+        except Exception:
+            audio_store.delete(stored.object_id)
+            raise
+        return AudioAttachment(stored.object_id, message.message_id, message.conversation_id,
+                               sender, stored.content_type, stored.size, stored.sha256)
+
+    @_synchronized
+    def list_audio_attachments(self, bearer_token: str, message_id: str):
+        self._purge_expired()
+        ai_id = self.authenticate(bearer_token)
+        message = self._messages.get(message_id)
+        if message is None:
+            raise ValueError("message_not_found")
+        self.authorize_member(ai_id, message.conversation_id)
+        return [AudioAttachment(
+            row["object_id"], row["message_id"], row["conversation_id"],
+            row["sender_ai_id"], row["content_type"], row["size"], row["sha256"])
+            for row in self._store.load_audio_attachments_for_message(message_id)]
+
+    @_synchronized
+    def read_audio(self, bearer_token: str, message_id: str, object_id: str,
+                   audio_store: AudioBlobStore) -> bytes:
+        self._purge_expired()
+        ai_id = self.authenticate(bearer_token)
+        message = self._messages.get(message_id)
+        if message is None:
+            raise ValueError("message_not_found")
+        self.authorize_member(ai_id, message.conversation_id)
+        rows = self._store.load_audio_attachments_for_message(message_id)
+        if not any(row["object_id"] == object_id for row in rows):
+            raise PermissionError("audio_attachment_not_authorized")
+        return audio_store.read(object_id)
+
+    @_synchronized
     def pending(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50) -> List[Message]:
+        self._purge_expired()
         ai_id = self.authenticate(bearer_token)
         members = self._conversations.get(conversation_id)
         if not members or ai_id not in members:
@@ -139,7 +268,9 @@ class MessengerBackend:
         pending = [m for m in self._messages.values() if m.conversation_id == conversation_id and m.sequence > after_sequence and ai_id in m.recipient_ai_ids and ai_id not in m.acknowledged_by]
         return sorted(pending, key=lambda m: m.sequence)[:limit]
 
+    @_synchronized
     def acknowledge(self, bearer_token: str, message_id: str) -> Message:
+        self._purge_expired()
         ai_id = self.authenticate(bearer_token)
         message = self._messages.get(message_id)
         if message is None or ai_id not in message.recipient_ai_ids:

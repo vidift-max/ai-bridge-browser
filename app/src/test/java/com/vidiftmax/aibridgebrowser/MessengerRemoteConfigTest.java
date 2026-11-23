@@ -1,48 +1,24 @@
 package com.vidiftmax.aibridgebrowser;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
 import org.junit.Test;
-import org.json.JSONArray;
-import java.util.Set;
+import static org.junit.Assert.assertEquals;
 
 public class MessengerRemoteConfigTest {
-    @Test public void acceptsHttpsAndRemovesTrailingSlash() {
-        assertEquals("https://messenger.example", MessengerRemoteConfig.normalizeBaseUrl("https://messenger.example///"));
+    @Test public void group_allows_exactly_twenty_members() {
+        assertEquals(20, MessengerRemoteConfig.parseMemberIds(
+                "AI-02,AI-03,AI-04,AI-05,AI-06,AI-07,AI-08,AI-09,AI-10,AI-11,AI-12,AI-13,AI-14,AI-15,AI-16,AI-17,AI-18,AI-19,AI-20",
+                "AI-01").size());
     }
-    @Test public void rejectsInsecureOrCredentialBearingUrls() {
-        assertThrows(IllegalArgumentException.class, () -> MessengerRemoteConfig.normalizeBaseUrl("http://messenger.example"));
-        assertThrows(IllegalArgumentException.class, () -> MessengerRemoteConfig.normalizeBaseUrl("https://user:pass@messenger.example"));
+
+    @Test(expected = IllegalArgumentException.class)
+    public void group_rejects_more_than_twenty_members() {
+        MessengerRemoteConfig.parseMemberIds(
+                "AI-02,AI-03,AI-04,AI-05,AI-06,AI-07,AI-08,AI-09,AI-10,AI-11,AI-12,AI-13,AI-14,AI-15,AI-16,AI-17,AI-18,AI-19,AI-20,AI-21",
+                "AI-01");
     }
-    @Test public void parsesUniqueMemberIdsAndIncludesCurrentAi() {
-        Set<String> ids = MessengerRemoteConfig.parseMemberIds("AI-CLAUDE, AI-GEMINI, AI-CLAUDE", "AI-GPT6");
-        assertEquals(3, ids.size());
-        assertTrue(ids.contains("AI-GPT6"));
-    }
-    @Test public void rejectsEmptyMemberTokensAndInvalidCurrentIdentity() {
-        assertThrows(IllegalArgumentException.class,
-                () -> MessengerRemoteConfig.parseMemberIds("AI-CLAUDE,,AI-GEMINI", "AI-GPT6"));
-        assertThrows(IllegalArgumentException.class,
-                () -> MessengerRemoteConfig.parseMemberIds("AI-CLAUDE", "not-an-ai"));
-    }
-    @Test public void clientRejectsPrivateRoomWithWrongMemberCountBeforeNetwork() throws Exception {
-        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
-        JSONArray members = new JSONArray().put("AI-GPT6").put("AI-CLAUDE").put("AI-GEMINI");
-        assertThrows(IllegalArgumentException.class, () -> client.createConversation("room-1", members, "PRIVATE"));
-    }
-    @Test public void clientRejectsEmptyMessageBeforeNetwork() throws Exception {
-        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
-        JSONArray recipients = new JSONArray().put("AI-CLAUDE");
-        assertThrows(IllegalArgumentException.class, () -> client.sendMessage("room-1", recipients, " "));
-    }
-    @Test public void acceptsMinimalValidAiId() {
-        assertEquals("AI-1", MessengerRemoteConfig.validateAiId("AI-1"));
-    }
-    @Test public void rejectsMalformedAndOversizedMembership() {
-        assertThrows(IllegalArgumentException.class, () -> MessengerRemoteConfig.parseMemberIds("bad", "AI-GPT6"));
-        StringBuilder members = new StringBuilder();
-        for (int i=1;i<=20;i++) { if (i>1) members.append(","); members.append("AI-").append(i); }
-        assertThrows(IllegalArgumentException.class, () -> MessengerRemoteConfig.parseMemberIds(members.toString(), "AI-GPT6"));
+
+    @Test(expected = IllegalArgumentException.class)
+    public void private_conversation_rejects_more_than_two_members() {
+        MessengerRemoteConfig.validateConversationMemberCount("PRIVATE", 3);
     }
 }

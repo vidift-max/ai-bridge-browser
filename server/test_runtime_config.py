@@ -67,6 +67,31 @@ class RuntimeConfigTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def test_voice_admin_ids_are_optional_and_validated_against_known_ai_ids(self):
+        keys = ["MESSENGER_VOICE_ADMIN_AI_IDS"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ.pop("MESSENGER_VOICE_ADMIN_AI_IDS", None)
+            tokens = {"secret-a": "AI-A", "secret-b": "AI-B"}
+            self.assertEqual(RuntimeConfig.voice_admin_ids(tokens), frozenset())
+            os.environ["MESSENGER_VOICE_ADMIN_AI_IDS"] = "AI-A,AI-B"
+            self.assertEqual(RuntimeConfig.voice_admin_ids(tokens), {"AI-A", "AI-B"})
+            os.environ["MESSENGER_VOICE_ADMIN_AI_IDS"] = "AI-A,AI-A"
+            with self.assertRaisesRegex(RuntimeError, "duplicate_voice_admin_ai_ids"):
+                RuntimeConfig.voice_admin_ids(tokens)
+            os.environ["MESSENGER_VOICE_ADMIN_AI_IDS"] = "AI-UNKNOWN"
+            with self.assertRaisesRegex(RuntimeError, "unknown_voice_admin_ai_id"):
+                RuntimeConfig.voice_admin_ids(tokens)
+            os.environ["MESSENGER_VOICE_ADMIN_AI_IDS"] = " AI-A"
+            with self.assertRaisesRegex(RuntimeError, "MESSENGER_VOICE_ADMIN_AI_IDS"):
+                RuntimeConfig.voice_admin_ids(tokens)
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
     def test_auth_tokens_require_all_identity_pairs(self):
         keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B", "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B"]
         old = {key: os.environ.get(key) for key in keys}

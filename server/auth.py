@@ -20,8 +20,7 @@ class Authenticator:
     def authenticate(self, bearer_token: str, now: Optional[datetime] = None) -> AuthenticatedPrincipal:
         if not bearer_token:
             raise PermissionError("authentication_required")
-        ai_id = self._registry.authenticate(bearer_token, now)
-        generation = self._registry.generation(bearer_token)
+        ai_id, generation = self._registry.authenticate_with_generation(bearer_token, now)
         self.audit_log.record("AUTHENTICATED", "credential", ai_id=ai_id)
         return AuthenticatedPrincipal(ai_id=ai_id, credential_generation=generation)
 

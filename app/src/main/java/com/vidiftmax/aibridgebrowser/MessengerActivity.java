@@ -29,6 +29,8 @@ public final class MessengerActivity extends Activity {
     private static final String KEY_MEMBERSHIPS = "local_memberships";
     private static final String KEY_INVITATIONS = "local_invitation_drafts";
     private static final String KEY_TRANSPORT_RECORDS = "local_transport_records";
+    private static final String KEY_PENDING_INVITES = "pending_group_invites";
+    private LinearLayout pendingInviteList;
     private static final String DEFAULT_ID = "LOCAL-DEMO";
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
@@ -39,10 +41,14 @@ public final class MessengerActivity extends Activity {
     private LinearLayout participantList;
     private LinearLayout messageList;
     private EditText composer;
+    private android.widget.CheckBox missionToggle;
     private TextView selectedTitle;
     private TextView memberSummary;
     private TextView transportSummary;
     private String selectedConversationId = DEFAULT_ID;
+    private final AudioRecorder audioRecorder = new AudioRecorder();
+    private final AudioPlayback audioPlayback = new AudioPlayback();
+    private java.io.File lastVoiceNote;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -60,7 +66,7 @@ public final class MessengerActivity extends Activity {
         page.addView(text("Modo remoto depende de servidor HTTPS e credencial autorizada.", 12, ACCENT, true));
 
         Button remoteConfig = new Button(this);
-        remoteConfig.setText("Configurar conexão remota segura");
+        remoteConfig.setText("Configurar conexão segura do AI Messenger");
         remoteConfig.setAllCaps(false);
         remoteConfig.setOnClickListener(v -> showRemoteSettings());
         page.addView(remoteConfig);
@@ -80,6 +86,23 @@ public final class MessengerActivity extends Activity {
         remoteSync.setOnClickListener(v -> syncRemoteMessages());
         page.addView(remoteSync);
 
+        Button voiceStatus = new Button(this);
+        voiceStatus.setText("Consultar permissões de voz da sala");
+        voiceStatus.setAllCaps(false);
+        voiceStatus.setOnClickListener(v -> queryVoiceRoomStatus());
+        page.addView(voiceStatus);
+        Button voiceMute = new Button(this);
+        voiceMute.setText("Silenciar IA · somente permissão lógica");
+        voiceMute.setAllCaps(false);
+        voiceMute.setOnClickListener(v -> promptVoiceParticipant(true));
+        page.addView(voiceMute);
+        Button voiceUnmute = new Button(this);
+        voiceUnmute.setText("Liberar IA · somente permissão lógica");
+        voiceUnmute.setAllCaps(false);
+        voiceUnmute.setOnClickListener(v -> promptVoiceParticipant(false));
+        page.addView(voiceUnmute);
+        page.addView(text("CONTROLE DE VOZ REMOTO: altera somente o estado lógico do servidor; não silencia o microfone físico nem inicia chamadas.", 10, MUTED, false));
+
         Button create = new Button(this);
         create.setText("＋ Nova conversa local");
         create.setAllCaps(false);
@@ -92,6 +115,35 @@ public final class MessengerActivity extends Activity {
         conversationList = new LinearLayout(this);
         conversationList.setOrientation(LinearLayout.VERTICAL);
         directoryScroll.addView(conversationList);
+        page.addView(text("CONVITES DE GRUPO", 12, ACCENT, true));
+        pendingInviteList = new LinearLayout(this);
+        pendingInviteList.setOrientation(LinearLayout.VERTICAL);
+        page.addView(pendingInviteList);
+
+        page.addView(text("ENTRAR POR LINK DE CONVITE", 12, ACCENT, true));
+        EditText inviteLinkInput = new EditText(this);
+        inviteLinkInput.setHint("Cole o link de convite aqui");
+        inviteLinkInput.setSingleLine(true);
+        inviteLinkInput.setTextColor(TEXT);
+        inviteLinkInput.setHintTextColor(MUTED);
+        page.addView(inviteLinkInput);
+        Button enterInvite = new Button(this);
+        enterInvite.setText("ENTRAR NO GRUPO");
+        enterInvite.setAllCaps(false);
+        enterInvite.setOnClickListener(v -> {
+            String value = inviteLinkInput.getText().toString().trim();
+            if (value.isEmpty()) {
+                Toast.makeText(this, "Cole o link de convite primeiro.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            InviteParts parsed = parseInviteLink(value);
+            if (parsed == null) {
+                Toast.makeText(this, "Link de convite inválido.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            redeemInviteDirect(parsed.conversationId, parsed.token);
+        });
+        page.addView(enterInvite);
         page.addView(text("CONVERSAS DESTE APARELHO", 12, ACCENT, true));
         page.addView(directoryScroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(132)));
@@ -132,7 +184,7 @@ public final class MessengerActivity extends Activity {
         messageList.setPadding(0, dp(6), 0, dp(10));
         scroll.addView(messageList);
         page.addView(scroll, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(250)));
 
         LinearLayout entry = new LinearLayout(this);
         entry.setOrientation(LinearLayout.HORIZONTAL);
@@ -149,15 +201,127 @@ public final class MessengerActivity extends Activity {
         save.setOnClickListener(v -> saveLocalMessage());
         entry.addView(save);
         page.addView(entry);
+        missionToggle = new android.widget.CheckBox(this);
+        missionToggle.setText("🎯 Enviar como MISSÃO · retenção de 24 horas");
+        missionToggle.setTextColor(ACCENT);
+        missionToggle.setAllCaps(false);
+        page.addView(missionToggle);
+
+        LinearLayout voice = new LinearLayout(this);
+        voice.setOrientation(LinearLayout.HORIZONTAL);
+        Button record = new Button(this);
+        record.setText("🎙 Gravar áudio");
+        record.setAllCaps(false);
+        record.setOnClickListener(v -> startVoiceRecording());
+        voice.addView(record, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        Button stop = new Button(this);
+        stop.setText("Parar");
+        stop.setAllCaps(false);
+        stop.setOnClickListener(v -> stopVoiceRecording());
+        voice.addView(stop, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        Button play = new Button(this);
+        play.setText("▶ Reproduzir");
+        play.setAllCaps(false);
+        play.setOnClickListener(v -> playLastVoiceNote());
+        voice.addView(play, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        page.addView(voice);
+        page.addView(text("ÁUDIO: gravação local exige permissão explícita; upload remoto só ocorre em conversa remota autenticada.", 10, MUTED, false));
+        Button uploadVoice = new Button(this);
+        uploadVoice.setText("Enviar último áudio à mensagem remota");
+        uploadVoice.setAllCaps(false);
+        uploadVoice.setOnClickListener(v -> uploadLastVoiceNote());
+        page.addView(uploadVoice);
         Button clear = new Button(this);
         clear.setText("Apagar mensagens desta conversa");
         clear.setAllCaps(false);
         clear.setOnClickListener(v -> confirmClear());
         page.addView(clear);
-        setContentView(page);
+        ScrollView root = new ScrollView(this);
+        root.setFillViewport(true);
+        root.addView(page);
+        setContentView(root);
+        purgeExpiredLocalMessages(System.currentTimeMillis());
+        renderPendingInvites();
         renderConversations();
         renderParticipants();
         renderMessages();
+    }
+
+    private void uploadLastVoiceNote() {
+        if (lastVoiceNote == null || !lastVoiceNote.isFile()) {
+            Toast.makeText(this, "Grave um áudio primeiro.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        JSONObject conversation = selectedConversation();
+        if (conversation == null || !conversation.optBoolean("remote", false)) {
+            Toast.makeText(this, "Selecione uma conversa remota antes do upload.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        JSONArray messages = readMessages();
+        String messageId = null;
+        for (int i = messages.length() - 1; i >= 0; i--) {
+            JSONObject item = messages.optJSONObject(i);
+            if (item != null && selectedConversationId.equals(item.optString("conversationId"))
+                    && item.optString("messageId").trim().length() > 0) {
+                messageId = item.optString("messageId");
+                break;
+            }
+        }
+        if (messageId == null) {
+            Toast.makeText(this, "Envie uma mensagem de texto remota antes de anexar o áudio.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final String targetMessageId = messageId;
+        new Thread(() -> {
+            try {
+                JSONObject response = remoteClient().uploadAudio(targetMessageId, lastVoiceNote);
+                JSONObject attachment = response.optJSONObject("attachment");
+                String objectId = attachment == null ? "" : attachment.optString("objectId", "");
+                runOnUiThread(() -> Toast.makeText(this,
+                        objectId.isEmpty() ? "Áudio enviado à mensagem." : "Áudio enviado. Anexo: " + objectId,
+                        Toast.LENGTH_LONG).show());
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this, "Upload de áudio falhou: " + remoteError(error), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void startVoiceRecording() {
+        if (android.os.Build.VERSION.SDK_INT >= 23 &&
+                checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 4101);
+            Toast.makeText(this, "Autorize o microfone e toque novamente para iniciar.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            lastVoiceNote = audioRecorder.start(this);
+            Toast.makeText(this, "Gravação iniciada. Toque em Parar quando terminar.", Toast.LENGTH_SHORT).show();
+        } catch (Exception error) {
+            Toast.makeText(this, "Não foi possível iniciar o áudio: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void stopVoiceRecording() {
+        try {
+            lastVoiceNote = audioRecorder.stop();
+            Toast.makeText(this, "Áudio salvo localmente (" + lastVoiceNote.length() + " bytes).", Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            Toast.makeText(this, "Não foi possível finalizar o áudio: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void playLastVoiceNote() {
+        try {
+            audioPlayback.play(lastVoiceNote);
+        } catch (Exception error) {
+            Toast.makeText(this, "Nenhuma gravação reproduzível: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override protected void onDestroy() {
+        audioRecorder.cancel();
+        audioPlayback.stop();
+        super.onDestroy();
     }
 
     private void ensureDefaultConversation() {
@@ -377,8 +541,70 @@ public final class MessengerActivity extends Activity {
 
     private MessengerHttpClient remoteClient() throws Exception {
         android.content.SharedPreferences p = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
-        return new MessengerHttpClient(p.getString("base_url", null), p.getString("ai_id", null),
+        return new MessengerHttpClient(this, p.getString("base_url", null), p.getString("ai_id", null),
                 new AiPhoneCredentialVault().load(this));
+    }
+
+    private void queryVoiceRoomStatus() {
+        JSONObject conversation = selectedConversation();
+        if (conversation == null || !conversation.optBoolean("remote", false)) {
+            Toast.makeText(this, "Selecione uma conversa remota autenticada.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                JSONObject status = remoteClient().getVoiceRoomStatus(selectedConversationId);
+                JSONArray muted = status.optJSONArray("mutedAiIds");
+                String summary = muted == null || muted.length() == 0
+                        ? "Nenhuma IA está logicamente silenciada."
+                        : "IAs com voz bloqueada logicamente: " + muted.toString();
+                runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
+                        .setTitle("Estado lógico de voz")
+                        .setMessage(summary + "\\n\\nIsto não representa o estado do microfone físico.")
+                        .setPositiveButton("OK", null).show());
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Consulta de voz falhou: " + remoteError(error), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void promptVoiceParticipant(boolean mute) {
+        JSONObject conversation = selectedConversation();
+        if (conversation == null || !conversation.optBoolean("remote", false)) {
+            Toast.makeText(this, "Selecione uma conversa remota autenticada.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        EditText target = new EditText(this);
+        target.setSingleLine(true);
+        target.setHint("AI_ID do participante (ex.: AI-02)");
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(mute ? "Silenciar permissão de voz" : "Liberar permissão de voz")
+                .setMessage(mute
+                        ? "Ação administrativa temporária. O servidor validará se sua identidade é administradora. Duração padrão: 300 segundos."
+                        : "O servidor validará se sua identidade é administradora.")
+                .setView(target)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton(mute ? "Silenciar" : "Liberar", (dialog, which) -> {
+                    String targetAiId = target.getText().toString().trim();
+                    new Thread(() -> {
+                        try {
+                            MessengerHttpClient client = remoteClient();
+                            JSONObject result = mute
+                                    ? client.muteVoiceParticipant(selectedConversationId, targetAiId, 300)
+                                    : client.unmuteVoiceParticipant(selectedConversationId, targetAiId);
+                            JSONObject state = result.optJSONObject("voiceControl");
+                            String message = state == null
+                                    ? (mute ? "Comando de mute aceito." : "Comando de liberação aceito.")
+                                    : "Estado lógico atualizado para " + targetAiId
+                                      + (state.optBoolean("muted") ? " até " + state.optString("expiresAt") : ": liberado");
+                            runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show());
+                        } catch (Exception error) {
+                            runOnUiThread(() -> Toast.makeText(this,
+                                    "Comando de voz recusado/falhou: " + remoteError(error), Toast.LENGTH_LONG).show());
+                        }
+                    }).start();
+                }).show();
     }
 
     private JSONObject selectedConversation() {
@@ -393,11 +619,33 @@ public final class MessengerActivity extends Activity {
     private void verifyRemoteConnection() {
         new Thread(() -> {
             try {
-                JSONObject phone=remoteClient().getMyPhone();
-                String number=phone.optString("displayNumber","número não informado");
-                runOnUiThread(() -> Toast.makeText(this,"Identidade autenticada: "+number,Toast.LENGTH_LONG).show());
+                MessengerHttpClient client = remoteClient();
+                if (client.isFirebaseTransport()) {
+                    try {
+                        JSONObject identity = client.getMyIdentity();
+                        String aiId = identity.optString("aiId", "AI_ID não informado");
+                        runOnUiThread(() -> Toast.makeText(this,
+                                "Firebase autenticado: " + aiId, Toast.LENGTH_LONG).show());
+                    } catch (Exception identityError) {
+                        FirebaseMessengerClient firebase = new FirebaseMessengerClient(
+                                this,
+                                getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("base_url", ""),
+                                new AiPhoneCredentialVault().load(this),
+                                getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("ai_id", ""));
+                        String uid = firebase.getLocalUid();
+                        runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
+                                .setTitle("Firebase · identidade ainda não provisionada")
+                                .setMessage("UID deste AI-PHONE:\n\n" + uid +
+                                        "\n\nRegistre este UID para o AI_ID configurado em messenger/identities e messenger/identitiesByUid no Firebase. Depois toque em Verificar novamente.")
+                                .setPositiveButton("OK", null).show());
+                    }
+                } else {
+                    JSONObject identity=client.getMyIdentity();
+                    String aiId=identity.optString("aiId","AI_ID não informado");
+                    runOnUiThread(() -> Toast.makeText(this,"Identidade autenticada: "+aiId,Toast.LENGTH_LONG).show());
+                }
             } catch(Exception e) {
-                runOnUiThread(() -> Toast.makeText(this,"Servidor/credencial não validado: "+remoteError(e),Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> Toast.makeText(this,"Transporte/credencial não validado: "+remoteError(e),Toast.LENGTH_LONG).show());
             }
         }).start();
     }
@@ -461,7 +709,7 @@ public final class MessengerActivity extends Activity {
         }
     }
 
-    private void sendRemoteMessage(String body,JSONObject conversation) {
+    private void sendRemoteMessage(String body,JSONObject conversation, boolean mission) {
         JSONArray members=conversation.optJSONArray("remoteMemberAiIds");
         if(members==null) { Toast.makeText(this,"Lista de participantes remotos ausente.",Toast.LENGTH_LONG).show(); return; }
         String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");
@@ -473,7 +721,7 @@ public final class MessengerActivity extends Activity {
         final String cid=selectedConversationId;
         new Thread(() -> {
             try {
-                JSONObject response=remoteClient().sendMessage(cid,recipients,body);
+                JSONObject response=remoteClient().sendMessage(cid,recipients,body, mission ? MessengerRetentionPolicy.MESSAGE_MISSION : MessengerRetentionPolicy.MESSAGE_NORMAL);
                 runOnUiThread(() -> {
                     try {
                         JSONObject item=new JSONObject();
@@ -482,9 +730,15 @@ public final class MessengerActivity extends Activity {
                         item.put("body",body); item.put("createdAtEpochMs",System.currentTimeMillis());
                         item.put("sequence",response.optInt("sequence")); item.put("status","QUEUED_ON_SERVER");
                         item.put("localState","SERVER_ACCEPTED");
+                        item.put("messageKind", mission ? MessengerRetentionPolicy.MESSAGE_MISSION : MessengerRetentionPolicy.MESSAGE_NORMAL);
+                        item.put("senderAvatar", "🤖");
+                        item.put("expiresAtEpochMs", MessengerRetentionPolicy.expiresAt(
+                                item.optLong("createdAtEpochMs"),
+                                item.optString("messageKind"),
+                                conversation.optString("kind", MessengerRetentionPolicy.CONVERSATION_GROUP)));
                         JSONArray all=readMessages(); all.put(item);
                         prefs().edit().putString(KEY_MESSAGES,all.toString()).apply();
-                        composer.setText(""); renderMessages(); renderTransportSummary();
+                        composer.setText(""); if (missionToggle != null) missionToggle.setChecked(false); renderMessages(); renderTransportSummary();
                         Toast.makeText(this,"Mensagem enfileirada no servidor. Ainda não confirma leitura.",Toast.LENGTH_LONG).show();
                     } catch(JSONException error) {
                         Toast.makeText(this,"Mensagem enfileirada, mas o histórico local falhou.",Toast.LENGTH_LONG).show();
@@ -521,15 +775,22 @@ public final class MessengerActivity extends Activity {
                         item.put("senderLabel",remote.optString("senderAiId","AI"));
                         item.put("body",remote.optString("body",""));
                         item.put("sequence",remote.optInt("sequence"));
-                        item.put("createdAtEpochMs",System.currentTimeMillis());
-                        item.put("status","RECEIVED_FROM_SERVER"); item.put("localState","SERVER_RECEIVED");
+                        item.put("messageKind",remote.optString("messageKind",MessengerRetentionPolicy.MESSAGE_NORMAL));
+                        item.put("senderAvatar",remote.optString("senderAvatar","🤖"));
+                        item.put("createdAtEpochMs",remote.optLong("createdAtEpochMs",System.currentTimeMillis()));
+                        item.put("expiresAtEpochMs",remote.optLong("expiresAtEpochMs",
+                                MessengerRetentionPolicy.expiresAt(
+                                        item.optLong("createdAtEpochMs"),
+                                        item.optString("messageKind"),
+                                        conversation.optString("kind", MessengerRetentionPolicy.CONVERSATION_GROUP))));
+                        item.put("status","RECEIVED_FROM_SERVER"); item.put("localState","SERVER_RECEIVED"); item.put("remoteMessage",true);
                         all.put(item);
                         boolean persisted=prefs().edit().putString(KEY_MESSAGES,all.toString()).commit();
                         if(!persisted) throw new IllegalStateException("local_message_persistence_failed_before_ack");
                         added++;
                     }
                     // ACK only after the message is durably stored locally.
-                    remoteClient().acknowledge(messageId); acked++;
+                    remoteClient().acknowledgeFirebase(cid, messageId); acked++;
                 }
                 final int newCount=added,ackCount=acked;
                 runOnUiThread(() -> {
@@ -556,7 +817,7 @@ public final class MessengerActivity extends Activity {
         android.content.SharedPreferences existing = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
         EditText server = new EditText(this);
         server.setSingleLine(true);
-        server.setHint("https://servidor.example");
+        server.setHint("https://seu-servidor-https");
         server.setText(existing.getString("base_url", ""));
         EditText ai = new EditText(this);
         ai.setSingleLine(true);
@@ -567,7 +828,7 @@ public final class MessengerActivity extends Activity {
         token.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
         form.addView(server); form.addView(ai); form.addView(token);
         new android.app.AlertDialog.Builder(this).setTitle("Conexão do AI Messenger")
-                .setMessage("Use HTTPS e um AI_ID provisionado. O token será criptografado pelo Android Keystore.")
+                .setMessage("Use a URL HTTPS do Realtime Database. Em Firebase, informe a Web API Key; no modo servidor, informe o Bearer token. A credencial fica no Android Keystore.")
                 .setView(form).setNegativeButton("Cancelar", null)
                 .setPositiveButton("Salvar", (dialog, which) -> {
                     try {
@@ -628,6 +889,160 @@ public final class MessengerActivity extends Activity {
                 }).show();
     }
 
+    private InviteParts parseInviteLink(String value) {
+        try {
+            android.net.Uri uri = android.net.Uri.parse(value);
+            java.util.List<String> path = uri.getPathSegments();
+            if ("aibridge".equalsIgnoreCase(uri.getScheme()) && "invite".equalsIgnoreCase(uri.getHost()) && path.size() == 2)
+                return validInviteParts(path.get(0), path.get(1));
+            if ("https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null
+                    && uri.getHost().endsWith(".web.app") && path.size() == 3
+                    && "i".equalsIgnoreCase(path.get(0)))
+                return validInviteParts(path.get(1), path.get(2));
+        } catch (Exception ignored) { }
+        return null;
+    }
+
+    private InviteParts validInviteParts(String conversationId, String token) {
+        if (conversationId == null || conversationId.trim().isEmpty()
+                || token == null || !token.matches("[A-Za-z0-9_-]{20,64}")) return null;
+        return new InviteParts(conversationId, token);
+    }
+
+    private void redeemInviteDirect(String conversationId, String token) {
+        new Thread(() -> {
+            try {
+                MessengerHttpClient client = remoteClient();
+                if (!client.isFirebaseTransport()) throw new IllegalStateException("convites_de_grupo_exigem_firebase");
+                client.redeemGroupInvite(conversationId, token);
+                JSONObject roomData = client.getConversation(conversationId);
+                JSONObject meta = roomData == null ? null : roomData.optJSONObject("meta");
+                JSONObject members = roomData == null ? null : roomData.optJSONObject("members");
+                if (meta == null || !"GROUP".equals(meta.optString("kind", ""))) throw new IllegalArgumentException("convite_nao_e_de_grupo");
+                if (members == null || members.length() < 1 || members.length() > 20) throw new IllegalStateException("grupo_excede_20_ias");
+                saveRemoteGroupConversation(conversationId, members);
+                runOnUiThread(() -> {
+                    selectedConversationId = conversationId;
+                    renderConversations();
+                    renderConversationMembersSummary();
+                    renderMessages();
+                    renderTransportSummary();
+                    Toast.makeText(this, "Você entrou no grupo. Sala salva no AI Messenger.", Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Não foi possível entrar no grupo: " + remoteError(error), Toast.LENGTH_LONG).show());
+            }
+        }, "ai-messenger-direct-invite").start();
+    }
+
+    private void saveRemoteGroupConversation(String conversationId, JSONObject members) throws Exception {
+        JSONArray conversations = readConversations();
+        for (int i = 0; i < conversations.length(); i++) {
+            JSONObject item = conversations.optJSONObject(i);
+            if (item != null && conversationId.equals(item.optString("conversationId", ""))) return;
+        }
+        JSONObject item = new JSONObject();
+        item.put("conversationId", conversationId);
+        item.put("title", "AI Messenger — Sala Principal");
+        item.put("createdAtEpochMs", System.currentTimeMillis());
+        item.put("kind", MessengerRetentionPolicy.CONVERSATION_GROUP);
+        item.put("status", "REMOTE_ACTIVE");
+        item.put("remote", true);
+        item.put("memberAiIds", members.toString());
+        conversations.put(item);
+        prefs().edit().putString(KEY_CONVERSATIONS, conversations.toString()).apply();
+    }
+
+    private static final class InviteParts {
+        final String conversationId;
+        final String token;
+        InviteParts(String conversationId, String token) {
+            this.conversationId = conversationId;
+            this.token = token;
+        }
+    }
+
+    private void renderPendingInvites() {
+        if (pendingInviteList == null) return;
+        pendingInviteList.removeAllViews();
+        JSONArray invites = readArray(KEY_PENDING_INVITES);
+        if (invites.length() == 0) {
+            pendingInviteList.addView(text("Nenhum convite pendente.", 11, MUTED, false));
+            return;
+        }
+        for (int i=0;i<invites.length();i++) {
+            JSONObject invite = invites.optJSONObject(i);
+            if (invite == null) continue;
+            String cid = invite.optString("conversationId","");
+            Button enter = new Button(this);
+            enter.setAllCaps(false);
+            enter.setText("🔗 Grupo " + cid + " · ENTRAR NO GRUPO");
+            enter.setOnClickListener(v -> redeemPendingInvite(cid));
+            pendingInviteList.addView(enter);
+        }
+    }
+
+    private void redeemPendingInvite(String conversationId) {
+        JSONArray invites = readArray(KEY_PENDING_INVITES);
+        JSONObject target = null;
+        for (int i=0;i<invites.length();i++) {
+            JSONObject item=invites.optJSONObject(i);
+            if (item != null && conversationId.equals(item.optString("conversationId",""))) { target=item; break; }
+        }
+        if (target == null) {
+            Toast.makeText(this,"Convite não encontrado.",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final String token=target.optString("token","");
+        new Thread(() -> {
+            try {
+                MessengerHttpClient client=remoteClient();
+                client.redeemGroupInvite(conversationId, token);
+                JSONObject roomData=client.getConversation(conversationId);
+                JSONObject members=roomData == null ? null : roomData.optJSONObject("members");
+                JSONArray conversations=readConversations();
+                boolean exists=false;
+                for(int i=0;i<conversations.length();i++) {
+                    JSONObject c=conversations.optJSONObject(i);
+                    if(c != null && conversationId.equals(c.optString("conversationId",""))) {
+                        exists=true; break;
+                    }
+                }
+                if(!exists) {
+                    JSONObject c=new JSONObject();
+                    c.put("conversationId",conversationId);
+                    c.put("title","Grupo AI Messenger");
+                    c.put("createdAtEpochMs",System.currentTimeMillis());
+                    c.put("kind",MessengerRetentionPolicy.CONVERSATION_GROUP);
+                    c.put("status","REMOTE_ACTIVE");
+                    c.put("remote",true);
+                    c.put("memberAiIds",members == null ? "[]" : members.toString());
+                    conversations.put(c);
+                }
+                prefs().edit().putString(KEY_CONVERSATIONS,conversations.toString()).apply();
+                JSONArray remaining=new JSONArray();
+                for(int i=0;i<invites.length();i++) {
+                    JSONObject item=invites.optJSONObject(i);
+                    if(item != null && conversationId.equals(item.optString("conversationId",""))) continue;
+                    if(item != null) remaining.put(item);
+                }
+                prefs().edit().putString(KEY_PENDING_INVITES,remaining.toString()).apply();
+                runOnUiThread(() -> {
+                    selectedConversationId=conversationId;
+                    renderPendingInvites();
+                    renderConversations();
+                    renderConversationMembersSummary();
+                    renderMessages();
+                    renderTransportSummary();
+                    Toast.makeText(this,"Você entrou no grupo. Ele ficou salvo no AI Messenger.",Toast.LENGTH_LONG).show();
+                });
+            } catch(Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,"Não foi possível entrar no grupo: "+remoteError(error),Toast.LENGTH_LONG).show());
+            }
+        },"ai-messenger-invite-redeem").start();
+    }
+
     private void renderConversations() {
         conversationList.removeAllViews();
         JSONArray items = readConversations();
@@ -666,6 +1081,7 @@ public final class MessengerActivity extends Activity {
     }
 
     private void saveLocalMessage() {
+        purgeExpiredLocalMessages(System.currentTimeMillis());
         String body = composer.getText().toString().trim();
         if (body.isEmpty()) {
             Toast.makeText(this, "Digite uma mensagem primeiro.", Toast.LENGTH_SHORT).show();
@@ -673,7 +1089,7 @@ public final class MessengerActivity extends Activity {
         }
         JSONObject selected = selectedConversation();
         if (selected != null && selected.optBoolean("remote", false)) {
-            sendRemoteMessage(body, selected);
+            sendRemoteMessage(body, selected, missionToggle != null && missionToggle.isChecked());
             return;
         }
         try {
@@ -684,10 +1100,17 @@ public final class MessengerActivity extends Activity {
             item.put("messageId", message.getMessageId());
             item.put("conversationId", message.getConversationId());
             item.put("senderLabel", message.getSenderLabel());
+            item.put("senderAvatar", "🤖");
             item.put("body", message.getBody());
             item.put("createdAtEpochMs", message.getCreatedAtEpochMs());
             item.put("status", MessengerMessage.STATUS_LOCAL_ONLY);
             item.put("localState", MessengerLocalState.SAVED_LOCAL);
+            item.put("messageKind", missionToggle != null && missionToggle.isChecked()
+                    ? MessengerRetentionPolicy.MESSAGE_MISSION : MessengerRetentionPolicy.MESSAGE_NORMAL);
+            item.put("expiresAtEpochMs", MessengerRetentionPolicy.expiresAt(
+                    message.getCreatedAtEpochMs(),
+                    item.optString("messageKind"),
+                    selected.optString("kind", MessengerRetentionPolicy.CONVERSATION_GROUP)));
             messages.put(item);
             prefs().edit().putString(KEY_MESSAGES, messages.toString()).apply();
             MessengerTransportRecord transport = new MessengerTransportRecord(
@@ -706,6 +1129,7 @@ public final class MessengerActivity extends Activity {
             transportRecords.put(transportItem);
             prefs().edit().putString(KEY_TRANSPORT_RECORDS, transportRecords.toString()).apply();
             composer.setText("");
+            if (missionToggle != null) missionToggle.setChecked(false);
             renderMessages();
             renderTransportSummary();
         } catch (JSONException error) {
@@ -752,6 +1176,7 @@ public final class MessengerActivity extends Activity {
     }
 
     private void renderMessages() {
+        purgeExpiredLocalMessages(System.currentTimeMillis());
         messageList.removeAllViews();
         JSONArray messages = readMessages();
         int visible = 0;
@@ -766,6 +1191,11 @@ public final class MessengerActivity extends Activity {
             shape.setColor(SURFACE);
             shape.setCornerRadius(dp(14));
             bubble.setBackground(shape);
+            String sender = item.optString("senderLabel", "Participante");
+            String avatar = item.optString("senderAvatar", "🤖");
+            String kind = item.optString("messageKind", MessengerRetentionPolicy.MESSAGE_NORMAL);
+            String marker = MessengerRetentionPolicy.MESSAGE_MISSION.equals(kind) ? "🎯 MISSÃO · " : "";
+            bubble.addView(text(marker + avatar + "  " + sender, 13, ACCENT, true));
             bubble.addView(text(item.optString("body", ""), 15, TEXT, false));
             long time = item.optLong("createdAtEpochMs", 0);
             String stamp = time > 0 ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
@@ -773,7 +1203,19 @@ public final class MessengerActivity extends Activity {
             String localState = item.optString("localState", MessengerLocalState.SAVED_LOCAL);
             String transportLabel = item.optString("status", "").contains("SERVER") ||
                     item.optString("status", "").contains("QUEUED") ? "SERVIDOR" : "LOCAL";
-            bubble.addView(text(stamp + " · " + transportLabel + " · " + localState, 11, ACCENT, true));
+            long expiresAt = item.optLong("expiresAtEpochMs", 0);
+            String retention = expiresAt > 0
+                    ? " · expira " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                        .format(new Date(expiresAt))
+                    : "";
+            bubble.addView(text(stamp + " · " + transportLabel + " · " + localState + retention, 11, ACCENT, true));
+            if (item.optString("messageId", "").length() > 0 && item.optBoolean("remoteMessage", false)) {
+                Button audio = new Button(this);
+                audio.setText("▶ Buscar e reproduzir áudio");
+                audio.setAllCaps(false);
+                audio.setOnClickListener(v -> fetchAndPlayRemoteAudio(item.optString("messageId", "")));
+                bubble.addView(audio);
+            }
             if (MessengerLocalState.SAVED_LOCAL.equals(localState)) {
                 Button read = new Button(this);
                 read.setText("Marcar como lida localmente");
@@ -786,11 +1228,63 @@ public final class MessengerActivity extends Activity {
             lp.bottomMargin = dp(9);
             messageList.addView(bubble, lp);
         }
+        messageList.post(() -> { if (messageList.getParent() instanceof ScrollView) ((ScrollView) messageList.getParent()).fullScroll(android.view.View.FOCUS_DOWN); });
         if (visible == 0) {
             TextView empty = text("Esta conversa ainda não tem mensagens.", 14, MUTED, false);
             empty.setPadding(0, dp(18), 0, dp(18));
             messageList.addView(empty);
         }
+    }
+
+    private void purgeExpiredLocalMessages(long nowEpochMs) {
+        JSONArray all = readMessages();
+        JSONArray kept = new JSONArray();
+        boolean changed = false;
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject item = all.optJSONObject(i);
+            if (item == null) continue;
+            String cid = item.optString("conversationId", "");
+            String kind = item.optString("messageKind", MessengerRetentionPolicy.MESSAGE_NORMAL);
+            String conversationKind = MessengerRetentionPolicy.CONVERSATION_GROUP;
+            JSONArray conversations = readConversations();
+            for (int j = 0; j < conversations.length(); j++) {
+                JSONObject conversation = conversations.optJSONObject(j);
+                if (conversation != null && cid.equals(conversation.optString("conversationId", ""))) {
+                    conversationKind = conversation.optString("kind", MessengerRetentionPolicy.CONVERSATION_GROUP);
+                    break;
+                }
+            }
+            long created = item.optLong("createdAtEpochMs", 0);
+            long expires = item.optLong("expiresAtEpochMs", 0);
+            if (expires <= 0 && created > 0) {
+                expires = MessengerRetentionPolicy.expiresAt(created, kind, conversationKind);
+                try { item.put("expiresAtEpochMs", expires); } catch (JSONException ignored) {}
+            }
+            if (MessengerRetentionPolicy.isExpired(created, kind, conversationKind, nowEpochMs)) {
+                changed = true;
+            } else {
+                kept.put(item);
+            }
+        }
+        if (changed) prefs().edit().putString(KEY_MESSAGES, kept.toString()).apply();
+    }
+
+    private void fetchAndPlayRemoteAudio(String messageId) {
+        new Thread(() -> {
+            try {
+                JSONArray attachments = remoteClient().listAudioAttachments(messageId);
+                if (attachments.length() == 0) throw new IllegalStateException("audio_not_found");
+                JSONObject a = attachments.getJSONObject(0);
+                String objectId = a.optString("objectId", "");
+                if (objectId.isEmpty()) throw new IllegalStateException("audio_object_id_missing");
+                java.io.File target = new java.io.File(getCacheDir(), "voice_notes/remote-" + objectId + ".m4a");
+                java.io.File downloaded = remoteClient().downloadAudio(messageId, objectId, target);
+                audioPlayback.play(downloaded);
+                runOnUiThread(() -> Toast.makeText(this, "Áudio remoto reproduzido.", Toast.LENGTH_SHORT).show());
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this, "Áudio remoto indisponível: " + remoteError(error), Toast.LENGTH_LONG).show());
+            }
+        }).start();
     }
 
     private void markMessageRead(String messageId) {
