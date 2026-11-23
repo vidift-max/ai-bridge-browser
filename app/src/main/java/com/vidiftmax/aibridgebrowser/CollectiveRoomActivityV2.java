@@ -35,6 +35,16 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private TextView remoteStatus;
     private TextView callStatus;
     private String activeVoiceCallId = "";
+    private volatile WebRtcVoiceEngine webRtcVoiceEngine;
+    private volatile boolean voiceSignalPolling;
+    private volatile boolean voiceOfferCreated;
+    private volatile boolean remoteSdpReady;
+    private volatile boolean voiceCallConnected;
+    private volatile long lastVoiceSignalId;
+    private final java.util.ArrayDeque<VoiceSignalPayload.IceCandidateData> pendingRemoteIce =
+            new java.util.ArrayDeque<>();
+    private String pendingVoicePermissionAction = "";
+    private int previousAudioMode = -1;
     private volatile boolean remoteOperationRunning;
     private static final int BG=0xFF101827,SURFACE=0xFF1B293B,TEXT=0xFFF4F7FB,MUTED=0xFFB5C2D1,ACCENT=0xFF55D6BE;
     private LinearLayout presenceList,messageList;
@@ -226,6 +236,12 @@ public final class CollectiveRoomActivityV2 extends Activity {
         if(grantResults.length>0 && grantResults[0]==android.content.pm.PackageManager.PERMISSION_GRANTED){
             if(requestCode==7001) toggleMicrophone();
             else if(requestCode==7101) startVoiceNote();
+            else if(requestCode==7201) {
+                String action = pendingVoicePermissionAction;
+                pendingVoicePermissionAction = "";
+                if ("start".equals(action)) startVoiceCall();
+                else if ("accept".equals(action)) answerVoiceCall();
+            }
         }
     }
 
@@ -238,6 +254,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
     @Override protected void onDestroy(){
         if(audioMonitor!=null) audioMonitor.stop();
         microphoneOpen=false;
+        stopVoiceMedia();
         super.onDestroy();
     }
 
@@ -490,30 +507,45 @@ public final class CollectiveRoomActivityV2 extends Activity {
         }
     }
 
+    private boolean hasVoiceMicrophonePermission() {
+        return android.os.Build.VERSION.SDK_INT < 23
+                || checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
     private void startVoiceCall() {
+        if (!hasVoiceMicrophonePermission()) {
+            pendingVoicePermissionAction = "start";
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 7201);
+            return;
+        }
         if (remoteConversationId.isEmpty() || remoteMemberAiIds.length() != 2) {
-            Toast.makeText(this, "Ligações exigem uma conversa privada remota com exatamente dois AI_IDs.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Ligações exigem conversa privada remota com exatamente dois AI_IDs.", Toast.LENGTH_LONG).show();
             return;
         }
         String own = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("ai_id", "");
-        String target = "";
+        String callee = "";
         for (int i=0;i<remoteMemberAiIds.length();i++) {
             String candidate = remoteMemberAiIds.optString(i, "");
-            if (!own.equals(candidate)) target = candidate;
+            if (!own.equals(candidate)) callee = candidate;
         }
-        if (target.isEmpty()) {
-            Toast.makeText(this, "Destinatário privado não identificado.", Toast.LENGTH_LONG).show();
+        if (own.trim().isEmpty() || callee.isEmpty()) {
+            Toast.makeText(this, "Identidade do destinatário privado não identificada.", Toast.LENGTH_LONG).show();
             return;
         }
-        final String callee = target;
+        final String target = callee;
         new Thread(() -> {
             try {
-                JSONObject call = remoteClient().createVoiceCall(remoteConversationId, callee);
+                JSONObject call = remoteClient().createVoiceCall(remoteConversationId, target);
                 activeVoiceCallId = call.optString("call_id", "");
+                if (activeVoiceCallId.isEmpty()) throw new IllegalStateException("server_call_id_missing");
+                voiceOfferCreated = false;
+                remoteSdpReady = false;
+                lastVoiceSignalId = 0;
+                startVoiceSignalPolling();
                 runOnUiThread(() -> {
-                    callStatus.setText("CHAMANDO " + callee + " · " + activeVoiceCallId
-                            + " · sinalização somente; áudio ao vivo ainda não conectado");
-                    Toast.makeText(this, "Convite de chamada enviado. O outro aparelho precisa aceitar.", Toast.LENGTH_LONG).show();
+                    callStatus.setText("CHAMANDO " + target + " · aguardando aceite para iniciar WebRTC.");
+                    Toast.makeText(this, "Convite enviado. O microfone será usado após o aceite.", Toast.LENGTH_LONG).show();
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> Toast.makeText(this, "Não foi possível iniciar chamada: " + error.getMessage(), Toast.LENGTH_LONG).show());
@@ -532,8 +564,10 @@ public final class CollectiveRoomActivityV2 extends Activity {
                         callStatus.setText("Nenhuma chamada ativa.");
                     } else {
                         activeVoiceCallId = call.optString("call_id", "");
-                        callStatus.setText("CHAMADA " + call.optString("state", "UNKNOWN")
-                                + " · " + activeVoiceCallId + " · mídia WebRTC ainda não conectada");
+                        String state = call.optString("state", "UNKNOWN");
+                        callStatus.setText("CHAMADA " + state + " · " + activeVoiceCallId);
+                        if ("ACCEPTED".equals(state) || "CONNECTING".equals(state) || "CONNECTED".equals(state))
+                            startVoiceSignalPolling();
                     }
                 });
             } catch (Exception error) {
@@ -542,7 +576,15 @@ public final class CollectiveRoomActivityV2 extends Activity {
         }, "ai-voice-call-refresh").start();
     }
 
-    private void answerVoiceCall() { applyVoiceCallAction("accept"); }
+    private void answerVoiceCall() {
+        if (!hasVoiceMicrophonePermission()) {
+            pendingVoicePermissionAction = "accept";
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 7201);
+            return;
+        }
+        applyVoiceCallAction("accept");
+    }
+
     private void rejectVoiceCall() { applyVoiceCallAction("reject"); }
     private void endVoiceCall() {
         if (activeVoiceCallId.isEmpty()) refreshVoiceCall();
@@ -555,20 +597,199 @@ public final class CollectiveRoomActivityV2 extends Activity {
             Toast.makeText(this, "Atualize a chamada para carregar o convite pendente.", Toast.LENGTH_LONG).show();
             return;
         }
+        final String callId = activeVoiceCallId;
         new Thread(() -> {
             try {
-                JSONObject call = remoteClient().voiceCallAction(activeVoiceCallId, action);
+                JSONObject call = remoteClient().voiceCallAction(callId, action);
+                String state = call.optString("state", "UNKNOWN");
+                if ("accept".equals(action)) {
+                    prepareVoiceAudioRoute();
+                    ensureVoicePeer();
+                    startVoiceSignalPolling();
+                } else if ("reject".equals(action) || "end".equals(action) || "cancel".equals(action)) {
+                    stopVoiceMedia();
+                }
                 runOnUiThread(() -> {
-                    callStatus.setText("CHAMADA " + call.optString("state", "UNKNOWN")
-                            + " · " + activeVoiceCallId + " · sinalização somente; sem áudio ao vivo");
-                    if ("accept".equals(action)) {
-                        Toast.makeText(this, "Convite aceito. A mídia ao vivo ainda não está conectada.", Toast.LENGTH_LONG).show();
-                    }
+                    callStatus.setText("CHAMADA " + state + " · " + callId);
+                    if ("accept".equals(action))
+                        Toast.makeText(this, "Convite aceito. Estabelecendo áudio WebRTC…", Toast.LENGTH_LONG).show();
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> Toast.makeText(this, "Ação de chamada falhou: " + error.getMessage(), Toast.LENGTH_LONG).show());
             }
         }, "ai-voice-call-action").start();
+    }
+
+    private void prepareVoiceAudioRoute() {
+        android.media.AudioManager manager =
+                (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (manager == null) return;
+        if (previousAudioMode < 0) previousAudioMode = manager.getMode();
+        manager.setMode(android.media.AudioManager.MODE_IN_COMMUNICATION);
+        manager.setSpeakerphoneOn(false);
+        if (audioMonitor != null && microphoneOpen) {
+            audioMonitor.stop();
+            microphoneOpen = false;
+            prefs().edit().putBoolean("microphone_open", false).apply();
+        }
+    }
+
+    private synchronized void ensureVoicePeer() {
+        if (webRtcVoiceEngine != null) return;
+        if (!hasVoiceMicrophonePermission()) throw new SecurityException("record_audio_permission_required");
+        prepareVoiceAudioRoute();
+        webRtcVoiceEngine = new WebRtcVoiceEngine(this,
+                java.util.Collections.emptyList(), new WebRtcVoiceEngine.Listener() {
+            @Override public void onLocalDescription(String type, String sdp) {
+                String kind = "offer".equals(type) ? "OFFER" : "ANSWER";
+                try {
+                    JSONObject payload = VoiceSignalPayload.sessionDescription(type, sdp);
+                    sendVoiceSignalAsync(kind, payload);
+                } catch (Exception error) {
+                    showVoiceError("local_sdp_invalid");
+                }
+            }
+            @Override public void onLocalIceCandidate(org.webrtc.IceCandidate candidate) {
+                try {
+                    JSONObject payload = VoiceSignalPayload.iceCandidate(candidate.sdp,
+                            candidate.sdpMid, candidate.sdpMLineIndex, null);
+                    sendVoiceSignalAsync("ICE_CANDIDATE", payload);
+                } catch (Exception error) {
+                    showVoiceError("local_ice_invalid");
+                }
+            }
+            @Override public void onLocalIceComplete() {
+                try { sendVoiceSignalAsync("ICE_COMPLETE", VoiceSignalPayload.iceComplete()); }
+                catch (Exception error) { showVoiceError("ice_complete_invalid"); }
+            }
+            @Override public void onIceState(String state) {
+                if ("CONNECTED".equals(state) || "COMPLETED".equals(state)) {
+                    if (!voiceCallConnected) {
+                        voiceCallConnected = true;
+                        new Thread(() -> {
+                            try { remoteClient().voiceCallAction(activeVoiceCallId, "connected"); }
+                            catch (Exception error) { showVoiceError("server_connected_state_failed"); }
+                        }, "ai-voice-call-connected").start();
+                    }
+                    runOnUiThread(() -> callStatus.setText("ÁUDIO WEBRTC CONECTADO · " + activeVoiceCallId));
+                } else if ("FAILED".equals(state)) {
+                    runOnUiThread(() -> callStatus.setText("WEBRTC FALHOU · verifique STUN/TURN e conectividade."));
+                } else {
+                    runOnUiThread(() -> callStatus.setText("WEBRTC · " + state));
+                }
+            }
+            @Override public void onRemoteAudioTrack(org.webrtc.AudioTrack track) {
+                runOnUiThread(() -> callStatus.setText("ÁUDIO REMOTO RECEBIDO · " + activeVoiceCallId));
+            }
+            @Override public void onRemoteDescriptionSet(String type) {
+                remoteSdpReady = true;
+                while (!pendingRemoteIce.isEmpty()) {
+                    VoiceSignalPayload.IceCandidateData candidate = pendingRemoteIce.removeFirst();
+                    WebRtcVoiceEngine engine = webRtcVoiceEngine;
+                    if (engine != null) engine.addRemoteIceCandidate(candidate);
+                }
+                if ("offer".equals(type)) {
+                    WebRtcVoiceEngine engine = webRtcVoiceEngine;
+                    if (engine != null) engine.createAnswer();
+                }
+            }
+            @Override public void onError(String code) { showVoiceError(code); }
+        });
+    }
+
+    private void sendVoiceSignalAsync(String kind, JSONObject payload) {
+        final String callId = activeVoiceCallId;
+        if (callId == null || callId.isEmpty()) return;
+        new Thread(() -> {
+            try {
+                remoteClient().sendVoiceSignal(callId, kind, payload);
+                if ("OFFER".equals(kind)) {
+                    try { remoteClient().voiceCallAction(callId, "connecting"); }
+                    catch (Exception ignored) { }
+                }
+            } catch (Exception error) {
+                showVoiceError("signal_send_failed_" + kind);
+            }
+        }, "ai-voice-signal-send").start();
+    }
+
+    private void startVoiceSignalPolling() {
+        if (voiceSignalPolling || activeVoiceCallId.isEmpty()) return;
+        voiceSignalPolling = true;
+        final String callId = activeVoiceCallId;
+        new Thread(() -> {
+            while (voiceSignalPolling && callId.equals(activeVoiceCallId)) {
+                try {
+                    MessengerHttpClient client = remoteClient();
+                    JSONObject call = client.getVoiceCall(callId);
+                    String state = call.optString("state", "UNKNOWN");
+                    String own = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("ai_id", "");
+                    String caller = call.optString("caller_ai_id", "");
+                    if ("ACCEPTED".equals(state) && own.equals(caller)
+                            && !voiceOfferCreated) {
+                        ensureVoicePeer();
+                        voiceOfferCreated = true;
+                        webRtcVoiceEngine.createOffer();
+                    }
+                    if ("REJECTED".equals(state) || "CANCELLED".equals(state)
+                            || "TIMED_OUT".equals(state) || "ENDED".equals(state)) {
+                        runOnUiThread(() -> callStatus.setText("CHAMADA " + state));
+                        stopVoiceMedia();
+                        break;
+                    }
+                    org.json.JSONArray signals = client.fetchVoiceSignals(callId, lastVoiceSignalId);
+                    for (int i = 0; i < signals.length(); i++) {
+                        JSONObject signal = signals.optJSONObject(i);
+                        if (signal == null) continue;
+                        long signalId = signal.optLong("signalId", 0);
+                        if (signalId > lastVoiceSignalId) lastVoiceSignalId = signalId;
+                        String kind = signal.optString("kind", "");
+                        JSONObject payload = signal.optJSONObject("payload");
+                        if (payload == null) continue;
+                        if ("OFFER".equals(kind) || "ANSWER".equals(kind)) {
+                            ensureVoicePeer();
+                            webRtcVoiceEngine.setRemoteDescription(
+                                    payload.optString("type", ""), payload.optString("sdp", ""));
+                        } else if ("ICE_CANDIDATE".equals(kind)) {
+                            VoiceSignalPayload.IceCandidateData candidate =
+                                    VoiceSignalPayload.readIceCandidate(payload);
+                            if (remoteSdpReady) webRtcVoiceEngine.addRemoteIceCandidate(candidate);
+                            else synchronized (pendingRemoteIce) { pendingRemoteIce.addLast(candidate); }
+                        }
+                    }
+                } catch (Exception error) {
+                    showVoiceError("voice_signaling_poll_failed");
+                }
+                try { Thread.sleep(1000); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
+            }
+            voiceSignalPolling = false;
+        }, "ai-voice-signal-poll").start();
+    }
+
+    private void stopVoiceMedia() {
+        voiceSignalPolling = false;
+        voiceOfferCreated = false;
+        remoteSdpReady = false;
+        voiceCallConnected = false;
+        synchronized (pendingRemoteIce) { pendingRemoteIce.clear(); }
+        WebRtcVoiceEngine engine = webRtcVoiceEngine;
+        webRtcVoiceEngine = null;
+        if (engine != null) engine.close();
+        android.media.AudioManager manager =
+                (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (manager != null && previousAudioMode >= 0) {
+            manager.setSpeakerphoneOn(false);
+            manager.setMode(previousAudioMode);
+            previousAudioMode = -1;
+        }
+    }
+
+    private void showVoiceError(String code) {
+        runOnUiThread(() -> {
+            if (callStatus != null) callStatus.setText("CHAMADA: " + code);
+            Toast.makeText(this, "Áudio WebRTC: " + code, Toast.LENGTH_LONG).show();
+        });
     }
 
     private void syncRemoteRoom(){
