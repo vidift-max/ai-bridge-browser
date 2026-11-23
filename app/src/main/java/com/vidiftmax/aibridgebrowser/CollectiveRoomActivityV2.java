@@ -215,10 +215,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty()){ android.widget.Toast.makeText(this,"Digite uma mensagem primeiro.",android.widget.Toast.LENGTH_SHORT).show(); return; } String kind=missionToggle!=null&&missionToggle.isChecked()?MessengerRetentionPolicy.MESSAGE_MISSION:MessengerRetentionPolicy.MESSAGE_NORMAL; addMessage(myName,myAvatar,body,kind); composer.setText(""); if(missionToggle!=null)missionToggle.setChecked(false); android.widget.Toast.makeText(this,"Mensagem adicionada à sala neste aparelho (modo local).",android.widget.Toast.LENGTH_SHORT).show(); }
     private void addMessage(String sender,String avatar,String body,String kind){
         String old=prefs().getString("messages","");
-        long now=System.currentTimeMillis();
-        String safeBody=body.replace("|","¦").replace("\n"," ");
-        String line=now+"|"+MessengerRetentionPolicy.normalizeMessageKind(kind)+"|"
-                +sender.replace("|"," ")+"|"+avatar+"|"+safeBody;
+        String line=CollectiveRoomMessageCodec.encode(System.currentTimeMillis(),kind,sender,avatar,body);
         String updated=old.trim().isEmpty()?line:old.trim()+"\n"+line;
         prefs().edit().putString("messages",updated).apply();
         renderMessages();
@@ -251,14 +248,13 @@ public final class CollectiveRoomActivityV2 extends Activity {
         if(!raw.trim().isEmpty()){
             for(String line:raw.split("\\n")){
                 if(line.trim().isEmpty())continue;
-                String[] p=line.split("\\|",5);
-                if(p.length>=5){
-                    long created;
-                    try{created=Long.parseLong(p[0]);}catch(Exception e){created=now;}
-                    String kind=MessengerRetentionPolicy.normalizeMessageKind(p[1]);
+                CollectiveRoomMessageCodec.Message item=CollectiveRoomMessageCodec.decode(line);
+                if(item!=null){
+                    long created=item.createdAtEpochMs;
+                    String kind=item.kind;
                     if(MessengerRetentionPolicy.isExpired(created,kind,MessengerRetentionPolicy.CONVERSATION_GROUP,now))continue;
                     kept.append(line).append("\n");
-                    String sender=p[2],avatar=p[3],body=p[4];
+                    String sender=item.sender,avatar=item.avatar,body=item.body;
                     String marker=MessengerRetentionPolicy.MESSAGE_MISSION.equals(kind)?"🎯 MISSÃO · ":"";
                     LinearLayout card=new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL);
                     card.setPadding(dp(10),dp(8),dp(10),dp(8));
