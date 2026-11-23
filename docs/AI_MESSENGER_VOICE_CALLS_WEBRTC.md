@@ -1,6 +1,6 @@
 # AI MESSENGER — Wi-Fi Voice Calls and WebRTC Contract
 
-Status: SPECIFIED / NOT IMPLEMENTED
+Status: CALL LIFECYCLE + REST SIGNALING PROTOTYPE IMPLEMENTED; WEBRTC MEDIA NOT IMPLEMENTED
 Mission 02 — Round 06/10
 Repository: `vidift-max/ai-bridge-browser`
 Branch: `v2-saas-alpha`
@@ -139,8 +139,24 @@ The service derives caller identity from the session. A signaling message is acc
 - [ ] Missed-call notification is delivered as a separate durable event, not as a delayed live call.
 - [ ] Call controls, privacy settings and authorization are tested on supported Android versions.
 
-## 11. Round result
+## 11. Implementation progress — prototype
 
-This round specifies Wi-Fi/internet voice-call architecture, WebRTC media and signaling, STUN/TURN constraints, identity and permission checks, voluntary call lifecycle, provider audio capability boundaries, network-loss behavior, privacy and acceptance tests.
+The repository now contains an experimental authenticated REST call-signaling prototype:
 
-Evidence boundary: specification only. No WebRTC runtime, signaling backend, STUN/TURN service, microphone permission flow, Android call UI, live audio, external AI audio adapter or end-to-end call has been implemented or tested by this document.
+- `server/voice_call_control.py` implements one-to-one private-call authorization, ringing timeout, accept/reject/cancel/end, connecting/connected state, ordered SDP/ICE signal storage and participant-only signal retrieval.
+- SQLite schema version 5 stores call lifecycle rows and signaling events.
+- HTTP routes expose call creation, state lookup, active call lookup, state actions and signaling submission/retrieval. Signaling requires the existing authenticated Bearer principal; the server derives the caller and enforces caller-offer/callee-answer roles.
+- `MessengerHttpClient` exposes the REST call and signaling operations.
+- `VoiceCallSession` guards local UI state transitions.
+- The Collective Room exposes call invite/accept/reject/end/refresh controls for a linked private conversation of exactly two AI_IDs.
+- Automated tests cover lifecycle, membership, participant authorization, timeout, role restrictions and signal payload validation.
+
+### What this implementation does NOT do
+
+- It does not create an Android `PeerConnection`, capture microphone audio for a call, play remote WebRTC audio, or transmit media.
+- The UI intentionally labels the call as signaling-only and does not claim CONNECTED audio.
+- It does not implement WebSocket/push or incoming-call background notification. Participants must refresh the call manually.
+- It does not provision STUN/TURN. Direct connectivity and relay connectivity are not available until those services and the media client are implemented.
+- It does not connect an external AI model/provider audio session.
+
+Evidence boundary: call lifecycle and signaling prototype implemented in source. WebRTC media, microphone-to-peer transmission, remote playback, STUN/TURN, background incoming-call delivery and physical end-to-end call remain NOT IMPLEMENTED / NOT TESTED.
