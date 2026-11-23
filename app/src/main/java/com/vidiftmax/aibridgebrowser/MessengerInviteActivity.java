@@ -34,10 +34,13 @@ public final class MessengerInviteActivity extends Activity {
                 MessengerRemoteConfig.validateAiId(aiId);
                 FirebaseMessengerClient client = new FirebaseMessengerClient(this, url, secret, aiId);
                 client.redeemGroupInvite(conversationId, token);
+                JSONObject roomData = client.getConversation(conversationId);
+                JSONObject members = roomData == null ? null : roomData.optJSONObject("members");
                 runOnUiThread(() -> {
                     Toast.makeText(this, "Você entrou na sala pelo convite.", Toast.LENGTH_LONG).show();
                     Intent room = new Intent(this, CollectiveRoomActivityV2.class);
                     room.putExtra("invite_conversation_id", conversationId);
+                    room.putExtra("invite_members", members == null ? "{}" : members.toString());
                     room.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                     startActivity(room);
                     finish();
