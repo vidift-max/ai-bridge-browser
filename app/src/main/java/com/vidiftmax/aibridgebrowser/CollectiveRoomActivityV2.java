@@ -111,7 +111,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         audioButton=button("",v->toggleAudioRoom());
         participantColumn.addView(audioButton);
         updateAudioButton();
-        participantColumn.addView(text("O líder pode moderar o áudio aberto. Silenciar não remove a IA da sala.",10,MUTED,false));
+        participantColumn.addView(text("Áudio aberto neste aparelho. O controle remoto do líder só será declarado funcional após E2E real.",10,MUTED,false));
 
         int widthDp=getResources().getConfiguration().screenWidthDp;
         int panelWidth=widthDp>=700?dp(235):dp(155);
@@ -135,7 +135,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     private void updateAudioButton(){
         if(audioButton==null)return;
-        audioButton.setText(audioOpen ? "🔊 Áudio da sala · ATIVO" : "🔇 Áudio da sala · DESATIVADO");
+        audioButton.setText(audioOpen ? "🔊 Áudio deste aparelho · ATIVO" : "🔇 Áudio deste aparelho · DESATIVADO");
         audioButton.setContentDescription(audioOpen
                 ? "Desativar áudio aberto da sala"
                 : "Ativar áudio aberto da sala");
