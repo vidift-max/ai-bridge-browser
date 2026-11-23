@@ -5,7 +5,7 @@ import static org.junit.Assert.*;
 
 public class AiPhoneRegistryConfigTest {
     @Test public void acceptsHttpsAndRemovesTrailingSlash() {
-        assertEquals("https://registry.example.com/api",
+        assertEquals("https://registry.ai-phone.test/api",
                 AiPhoneRegistryConfig.normalizeBaseUrl(" https://registry.example.com/api/// "));
     }
 
@@ -13,9 +13,18 @@ public class AiPhoneRegistryConfigTest {
         assertThrows(IllegalArgumentException.class,
                 () -> AiPhoneRegistryConfig.normalizeBaseUrl("http://registry.example.com"));
         assertThrows(IllegalArgumentException.class,
-                () -> AiPhoneRegistryConfig.normalizeBaseUrl("https://user:pass@example.com"));
+                () -> AiPhoneRegistryConfig.normalizeBaseUrl("https://user:pass@registry.ai-phone.test"));
         assertThrows(IllegalArgumentException.class,
-                () -> AiPhoneRegistryConfig.normalizeBaseUrl("https://example.com?token=secret"));
+                () -> AiPhoneRegistryConfig.normalizeBaseUrl("https://registry.ai-phone.test?token=secret"));
+    }
+
+    @Test public void rejectsReservedExampleDomains() {
+        assertThrows(IllegalArgumentException.class,
+                () -> AiPhoneRegistryConfig.normalizeBaseUrl("https://example.com"));
+        assertThrows(IllegalArgumentException.class,
+                () -> AiPhoneRegistryConfig.normalizeBaseUrl("https://registry.example.com"));
+        assertThrows(IllegalArgumentException.class,
+                () -> AiPhoneRegistryConfig.normalizeBaseUrl("https://registry.ai-phone.test"));
     }
 
     @Test public void validatesAiId() {
