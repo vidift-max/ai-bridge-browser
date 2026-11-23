@@ -10,6 +10,9 @@ if (-not $keytool) {
 }
 
 $keystore = Join-Path $PWD "ai-phone-release.keystore"
+if (Test-Path $keystore) {
+  throw "O arquivo $keystore já existe. Não sobrescreva uma chave existente; escolha outro diretório ou remova conscientemente o arquivo." 
+}
 $storePassword = Read-Host "Senha do keystore"
 $keyPassword = Read-Host "Senha da chave"
 if ([string]::IsNullOrWhiteSpace($storePassword) -or [string]::IsNullOrWhiteSpace($keyPassword)) {
@@ -32,6 +35,7 @@ $bytes = [System.IO.File]::ReadAllBytes($keystore)
 $b64 = [Convert]::ToBase64String($bytes)
 $b64Path = Join-Path $PWD "ai-phone-release-keystore.b64"
 [System.IO.File]::WriteAllText($b64Path, $b64)
+Write-Host "Guarde o keystore original em local seguro e separado do repositório."
 
 Write-Host ""
 Write-Host "KEYSTORE criado: $keystore"
