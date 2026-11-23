@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
 }
@@ -11,7 +13,7 @@ android {
     val releaseKeyAlias = System.getenv("AI_PHONE_RELEASE_KEY_ALIAS")
     val releaseKeyPassword = System.getenv("AI_PHONE_RELEASE_KEY_PASSWORD")
     val releaseSigningReady = !releaseKeystorePath.isNullOrBlank()
-        && java.io.File(releaseKeystorePath).isFile
+        && File(releaseKeystorePath).isFile
         && !releaseStorePassword.isNullOrBlank()
         && !releaseKeyAlias.isNullOrBlank()
         && !releaseKeyPassword.isNullOrBlank()
@@ -19,7 +21,7 @@ android {
     signingConfigs {
         create("release") {
             if (releaseSigningReady) {
-                storeFile = java.io.File(releaseKeystorePath!!)
+                storeFile = File(releaseKeystorePath!!)
                 storePassword = releaseStorePassword
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyPassword
