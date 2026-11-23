@@ -30,6 +30,20 @@ public final class MessengerRemoteConfig {
         return value.trim();
     }
 
+    public static void validateConversationMemberCount(String kind, int memberCount) {
+        if (!"PRIVATE".equals(kind) && !"GROUP".equals(kind))
+            throw new IllegalArgumentException("invalid_conversation_kind");
+        if (memberCount < 2 || memberCount > 20)
+            throw new IllegalArgumentException("invalid_member_count");
+        if ("PRIVATE".equals(kind) && memberCount != 2)
+            throw new IllegalArgumentException("invalid_conversation_members");
+    }
+
+    public static void validateMessageBody(String bodyText) {
+        if (bodyText == null || bodyText.trim().isEmpty() || bodyText.length() > 5000)
+            throw new IllegalArgumentException("invalid_message_body");
+    }
+
     public static Set<String> parseMemberIds(String value, String ownAiId) {
         String own = validateAiId(ownAiId);
         if (value == null || value.trim().isEmpty()) throw new IllegalArgumentException("members_required");
