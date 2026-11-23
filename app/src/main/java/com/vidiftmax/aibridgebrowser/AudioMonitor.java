@@ -45,6 +45,15 @@ public final class AudioMonitor {
                 AudioFormat.ENCODING_PCM_16BIT,
                 buffer,
                 AudioTrack.MODE_STREAM);
+        if (r.getState() != AudioRecord.STATE_INITIALIZED) {
+            r.release();
+            throw new IllegalStateException("audio_input_initialization_failed");
+        }
+        if (p.getState() != AudioTrack.STATE_INITIALIZED) {
+            r.release();
+            p.release();
+            throw new IllegalStateException("audio_output_initialization_failed");
+        }
         recorder = r;
         player = p;
         running = true;
@@ -74,7 +83,16 @@ public final class AudioMonitor {
 
     public synchronized void stop() {
         running = false;
+        AudioRecord activeRecorder = recorder;
+        AudioTrack activePlayer = player;
         Thread t = worker;
+        if (activeRecorder != null) {
+            try { activeRecorder.stop(); } catch (RuntimeException ignored) { }
+        }
+        if (activePlayer != null) {
+            try { activePlayer.pause(); } catch (RuntimeException ignored) { }
+            try { activePlayer.flush(); } catch (RuntimeException ignored) { }
+        }
         worker = null;
         if (t != null) t.interrupt();
     }
