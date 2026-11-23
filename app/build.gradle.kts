@@ -6,6 +6,28 @@ android {
     namespace = "com.vidiftmax.aibridgebrowser"
     compileSdk = 37
 
+    val releaseKeystorePath = System.getenv("AI_PHONE_RELEASE_KEYSTORE_PATH")
+    val releaseStorePassword = System.getenv("AI_PHONE_RELEASE_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("AI_PHONE_RELEASE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("AI_PHONE_RELEASE_KEY_PASSWORD")
+    val releaseSigningReady = listOf(
+        releaseKeystorePath,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword
+    ).all { !it.isNullOrBlank() && java.io.File(it!!).isFile }
+
+    signingConfigs {
+        create("release") {
+            if (releaseSigningReady) {
+                storeFile = java.io.File(releaseKeystorePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.vidiftmax.aibridgebrowser"
         minSdk = 29
