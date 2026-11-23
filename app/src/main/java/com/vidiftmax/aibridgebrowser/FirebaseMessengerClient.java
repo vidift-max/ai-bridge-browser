@@ -35,6 +35,8 @@ public final class FirebaseMessengerClient {
         this.aiId = MessengerRemoteConfig.validateAiId(aiId);
     }
 
+    public String getLocalUid() throws Exception { return session().uid; }
+
     public JSONObject getMyIdentity() throws Exception {
         JSONObject identity = databaseRequest("GET", "/identities/" + path(aiId), null);
         if (identity == null || !aiId.equals(identity.optString("aiId", ""))) {
