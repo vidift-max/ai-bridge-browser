@@ -208,7 +208,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         if (cid == null || cid.trim().isEmpty()) return;
         remoteConversationId = cid.trim();
         try {
-            JSONObject members = new JSONObject(intent.getStringExtra("invite_members", "{}"));
+            JSONObject members = new JSONObject(intent.getStringExtra("invite_members") == null ? "{}" : intent.getStringExtra("invite_members"));
             JSONArray ids = new JSONArray();
             java.util.Iterator<String> keys = members.keys();
             while (keys.hasNext()) ids.put(keys.next());
