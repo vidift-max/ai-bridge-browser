@@ -91,6 +91,16 @@ public final class MessengerHttpClient {
         return request("GET", path, null).getJSONArray("messages");
     }
 
+    public JSONObject createGroupInvite(String conversationId, long expiresAtEpochMs) throws Exception {
+        if (firebase == null) throw new IllegalStateException("group_invites_require_firebase_transport");
+        return firebase.createGroupInvite(conversationId, expiresAtEpochMs);
+    }
+
+    public JSONObject redeemGroupInvite(String conversationId, String token) throws Exception {
+        if (firebase == null) throw new IllegalStateException("group_invites_require_firebase_transport");
+        return firebase.redeemGroupInvite(conversationId, token);
+    }
+
     public JSONObject createVoiceCall(String conversationId, String calleeAiId) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty())
             throw new IllegalArgumentException("conversation_id_required");
