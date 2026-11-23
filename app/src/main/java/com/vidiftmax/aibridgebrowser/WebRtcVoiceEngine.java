@@ -34,6 +34,8 @@ public final class WebRtcVoiceEngine implements AutoCloseable {
         void onLocalIceCandidate(IceCandidate candidate);
         void onIceState(String state);
         void onRemoteAudioTrack(AudioTrack track);
+        void onRemoteDescriptionSet(String type);
+        void onLocalIceComplete();
         void onError(String code);
     }
 
@@ -79,7 +81,10 @@ public final class WebRtcVoiceEngine implements AutoCloseable {
                 listener.onIceState(state.name());
             }
             @Override public void onIceConnectionReceivingChange(boolean receiving) { }
-            @Override public void onIceGatheringChange(PeerConnection.IceGatheringState state) { }
+            @Override public void onIceGatheringChange(PeerConnection.IceGatheringState state) {
+                if (!closed && state == PeerConnection.IceGatheringState.COMPLETE)
+                    listener.onLocalIceComplete();
+            }
             @Override public void onIceCandidate(IceCandidate candidate) {
                 if (!closed) listener.onLocalIceCandidate(candidate);
             }
@@ -136,7 +141,9 @@ public final class WebRtcVoiceEngine implements AutoCloseable {
         }
         peer.setRemoteDescription(new SdpObserver() {
             @Override public void onCreateSuccess(SessionDescription value) { }
-            @Override public void onSetSuccess() { }
+            @Override public void onSetSuccess() {
+                if (!closed) listener.onRemoteDescriptionSet(descriptionType.canonicalForm());
+            }
             @Override public void onCreateFailure(String error) { listener.onError("remote_sdp_create_failed"); }
             @Override public void onSetFailure(String error) { listener.onError("remote_sdp_rejected"); }
         }, new SessionDescription(descriptionType, sdp));
