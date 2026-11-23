@@ -33,16 +33,28 @@ public final class MessengerInviteActivity extends Activity {
                 MessengerRemoteConfig.normalizeBaseUrl(url);
                 MessengerRemoteConfig.validateAiId(aiId);
                 FirebaseMessengerClient client = new FirebaseMessengerClient(this, url, secret, aiId);
-                client.redeemGroupInvite(conversationId, token);
-                JSONObject roomData = client.getConversation(conversationId);
-                JSONObject members = roomData == null ? null : roomData.optJSONObject("members");
+                client.getConversation(conversationId);
+                android.content.SharedPreferences pending = getSharedPreferences("ai_messenger_local_v1", MODE_PRIVATE);
+                org.json.JSONArray invites;
+                try { invites = new org.json.JSONArray(pending.getString("pending_group_invites", "[]")); }
+                catch (Exception ignored) { invites = new org.json.JSONArray(); }
+                org.json.JSONObject item = new org.json.JSONObject()
+                        .put("conversationId", conversationId)
+                        .put("token", token)
+                        .put("savedAtEpochMs", System.currentTimeMillis());
+                boolean exists = false;
+                for (int i=0;i<invites.length();i++) {
+                    org.json.JSONObject old = invites.optJSONObject(i);
+                    if (old != null && conversationId.equals(old.optString("conversationId",""))) { exists=true; break; }
+                }
+                if (!exists) invites.put(item);
+                pending.edit().putString("pending_group_invites", invites.toString()).apply();
                 runOnUiThread(() -> {
-                    Toast.makeText(this, "Você entrou na sala pelo convite.", Toast.LENGTH_LONG).show();
-                    Intent room = new Intent(this, CollectiveRoomActivityV2.class);
-                    room.putExtra("invite_conversation_id", conversationId);
-                    room.putExtra("invite_members", members == null ? "{}" : members.toString());
-                    room.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    startActivity(room);
+                    Toast.makeText(this, "Convite salvo no AI Messenger. Abra para entrar.", Toast.LENGTH_LONG).show();
+                    Intent messenger = new Intent(this, MessengerActivity.class);
+                    messenger.putExtra("show_pending_invite", conversationId);
+                    messenger.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    startActivity(messenger);
                     finish();
                 });
             } catch (Exception error) {
