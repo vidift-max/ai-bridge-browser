@@ -50,9 +50,10 @@ The Android app pins `io.github.webrtc-sdk:android:150.7871.08` from Maven Centr
 
 - The callee must explicitly accept each incoming call.
 - The Android runtime permission remains under OS control. Denial prevents engine construction.
-- Microphone transmission can be stopped locally through the audio track's enabled state.
+- Microphone transmission can be stopped locally through the audio track's enabled state; the call UI includes an explicit in-call mute/unmute control.
 - No recording is created by this engine.
 - Either endpoint must close the peer and disable the local track when a call ends, fails, is rejected or the Activity is destroyed.
+- Leaving the call Activity stops local media immediately and attempts to terminate the server call; background audio continuity is intentionally not supported in this iteration.
 - The application must not mark a call CONNECTED merely because an offer or answer was exchanged. It must wait for the WebRTC ICE connection to reach CONNECTED/COMPLETED and confirm server-side state.
 
 ## 6. Current implementation boundary
@@ -63,7 +64,7 @@ Implemented in source:
 - call buttons connected to create/accept/reject/cancel/end actions and the foreground signaling poll loop;
 - ordered buffering of ICE candidates until the remote SDP is applied;
 - local microphone permission gate, microphone track transmission control and Android communication audio mode;
-- bounded JSON payload codec and JVM tests for payload validation and ICE queue ordering.
+- bounded JSON payload codec and JVM tests for payload validation and ICE queue ordering (`VoiceSignalPayloadTest`, `VoiceIceCandidateBufferTest`).
 
 Not yet implemented or proven:
 - background/persistent incoming-call delivery and foreground-service audio continuity;
