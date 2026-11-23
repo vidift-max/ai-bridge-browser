@@ -15,7 +15,7 @@ class FirebaseRulesContractTest(unittest.TestCase):
         conversations = self.rules["conversations"]["$conversationId"]
         self.assertIn("<= 20", conversations[".validate"])
         self.assertIn("newData.child('memberCount').val() <= 20", conversations[".write"])
-        self.assertIn("newData.child('memberCount').val() + 1", conversations[".write"])
+        self.assertIn("newData.child('memberCount').val() === data.child('memberCount').val() + 1", conversations[".write"])
 
     def test_invite_claim_is_required_for_join(self):
         join_rule = self.rules["conversations"]["$conversationId"][".write"]
