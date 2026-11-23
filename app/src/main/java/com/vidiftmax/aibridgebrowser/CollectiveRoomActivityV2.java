@@ -209,7 +209,10 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults);
-        if(requestCode==7001 && grantResults.length>0 && grantResults[0]==android.content.pm.PackageManager.PERMISSION_GRANTED) toggleMicrophone();
+        if(grantResults.length>0 && grantResults[0]==android.content.pm.PackageManager.PERMISSION_GRANTED){
+            if(requestCode==7001) toggleMicrophone();
+            else if(requestCode==7101) startVoiceNote();
+        }
     }
 
     @Override protected void onPause(){
@@ -420,14 +423,6 @@ public final class CollectiveRoomActivityV2 extends Activity {
             String safeId = Integer.toHexString(messageId.hashCode()) + "-" + Integer.toHexString(objectId.hashCode());
             File destination = new File(dir, "voice-" + safeId + ".m4a");
             lastRemoteVoiceNote = client.downloadAudio(messageId, objectId, destination);
-        }
-    }
-
-    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 7101 && grantResults.length > 0
-                && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            startVoiceNote();
         }
     }
 
