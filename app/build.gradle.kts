@@ -30,6 +30,9 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            isMinifyEnabled = false
+        }
         release {
             isMinifyEnabled = false
             if (releaseSigningReady) {
