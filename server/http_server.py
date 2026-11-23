@@ -109,6 +109,26 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         parsed = urlsplit(self.path)
         call_parts = parsed.path.split("/")
+        if (len(call_parts) == 6 and call_parts[1:3] == ["v1", "conversations"]
+                and call_parts[4:] == ["calls", "active"] and call_parts[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.voice_calls is None:
+                    self._json(503, {"error": "voice_call_service_unavailable"})
+                    return
+                call = self.voice_calls.active_for_conversation(principal.ai_id, call_parts[3])
+                self._json(200, {"call": call, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+            return
         if len(call_parts) == 4 and call_parts[1:3] == ["v1", "calls"] and call_parts[3]:
             try:
                 identity = self._principal()
