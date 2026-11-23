@@ -332,7 +332,7 @@ public final class FirebaseMessengerClient {
     private static String encode(String value) throws Exception { return URLEncoder.encode(value, "UTF-8").replace("+", "%20"); }
 
     static boolean isFirebaseDatabaseUrl(String value) {
-        try { String host = new URI(value).getHost(); return host != null && (host.equals("firebaseio.com") || host.endsWith(".firebaseio.com") || host.equals("firebasedatabase.app") || host.endsWith(".firebasedatabase.app")); }
+        try { URI uri = new URI(value); String host = uri.getHost(); return "https".equalsIgnoreCase(uri.getScheme()) && host != null && (host.equals("firebaseio.com") || host.endsWith(".firebaseio.com") || host.equals("firebasedatabase.app") || host.endsWith(".firebasedatabase.app")) && uri.getQuery() == null && uri.getFragment() == null; }
         catch (Exception ignored) { return false; }
     }
 
