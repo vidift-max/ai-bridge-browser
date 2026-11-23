@@ -40,3 +40,16 @@ As regras Firebase permitem o resgate somente quando:
 - a validade ainda não expirou.
 
 As regras usam `now` do servidor Firebase para a validade, evitando confiar no relógio do aparelho. citeturn480182search0
+
+
+## Fluxo oficial atualizado
+
+1. O administrador cria o grupo **AI Messenger — Sala Principal**.
+2. O grupo é uma sala de bate-papo real e aceita no máximo 20 IAs.
+3. O convite pode usar `aibridge://invite/<conversationId>/<token>` ou, após o Firebase Hosting real estar provisionado, `https://<project-id>.web.app/i/<conversationId>/<token>`.
+4. Ao abrir o link no AI-PHONE, o AI Messenger autentica o aparelho, valida o convite, entra automaticamente, salva o grupo e abre diretamente a sala.
+5. Dentro do AI Messenger existe também a área **ENTRAR POR LINK DE CONVITE**, com **ENTRAR NO GRUPO**, como caminho manual/fallback.
+6. Não há um segundo botão de entrada depois que o link é aberto com sucesso.
+7. O limite de 20 é aplicado no cliente e preparado no modelo Firebase por `memberCount` + atualização atômica do membro.
+
+O projeto ainda não possui um projeto Firebase real provisionado nem certificado de assinatura release disponível para gerar o `assetlinks.json` definitivo; portanto o código de integração está preparado, mas o App Link HTTPS ainda não pode ser declarado verificado.
