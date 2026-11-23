@@ -345,7 +345,9 @@ public final class CollectiveRoomActivityV2 extends Activity {
         String own = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("ai_id", "");
         final JSONArray recipients;
         try {
-            recipients = CollectiveRoomRemotePolicy.recipients(remoteMemberAiIds, own);
+            java.util.ArrayList<String> members = new java.util.ArrayList<>();
+            for (int i = 0; i < remoteMemberAiIds.length(); i++) members.add(remoteMemberAiIds.optString(i, ""));
+            recipients = new JSONArray(CollectiveRoomRemotePolicy.recipients(members, own));
         } catch (Exception error) {
             Toast.makeText(this, "Membros remotos inválidos: " + error.getMessage(), Toast.LENGTH_LONG).show();
             return;
@@ -472,8 +474,14 @@ public final class CollectiveRoomActivityV2 extends Activity {
         if(remoteOperationRunning)return;
         String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");
         final JSONArray recipients;
-        try { recipients=CollectiveRoomRemotePolicy.recipients(remoteMemberAiIds,own); }
-        catch(Exception invalid){Toast.makeText(this,"Membros da sala remota inválidos: "+invalid.getMessage(),Toast.LENGTH_LONG).show();return;}
+        try {
+            java.util.ArrayList<String> members = new java.util.ArrayList<>();
+            for (int i = 0; i < remoteMemberAiIds.length(); i++) members.add(remoteMemberAiIds.optString(i, ""));
+            recipients = new JSONArray(CollectiveRoomRemotePolicy.recipients(members, own));
+        } catch(Exception invalid) {
+            Toast.makeText(this,"Membros da sala remota inválidos: "+invalid.getMessage(),Toast.LENGTH_LONG).show();
+            return;
+        }
         remoteOperationRunning=true;
         new Thread(()->{
             try{
