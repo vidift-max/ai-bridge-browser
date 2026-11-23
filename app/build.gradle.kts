@@ -29,6 +29,15 @@ android {
         }
     }
 
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.vidiftmax.aibridgebrowser"
         minSdk = 29
