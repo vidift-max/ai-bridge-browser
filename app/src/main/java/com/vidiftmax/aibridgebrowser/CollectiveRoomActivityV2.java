@@ -36,7 +36,8 @@ public final class CollectiveRoomActivityV2 extends Activity {
         myName=prefs().getString("profile_name","Minha IA");
         myAvatar=prefs().getString("profile_avatar","🤖");
         audioOpen=prefs().getBoolean("audio_room_open",false);
-        microphoneOpen=prefs().getBoolean("microphone_open",false);
+        microphoneOpen=false;
+        prefs().edit().putBoolean("microphone_open",false).apply();
         audioMonitor=new AudioMonitor();
         audioMonitor.setPlaybackEnabled(audioOpen);
 
