@@ -356,7 +356,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
                 long created=response.optLong("createdAtEpochMs",System.currentTimeMillis());
                 String line=CollectiveRoomMessageCodec.encode(created,kind,own,myAvatar,body);
                 String old=prefs().getString("messages","");
-                String updated=old.trim().isEmpty()?line:old.trim()+"\\n"+line;
+                String updated=old.trim().isEmpty()?line:old.trim()+"\n"+line;
                 if(!prefs().edit().putString("messages",updated).commit())throw new IllegalStateException("local_message_persistence_failed");
                 runOnUiThread(()->{
                     remoteOperationRunning=false;composer.setText("");if(missionToggle!=null)missionToggle.setChecked(false);
