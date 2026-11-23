@@ -54,14 +54,22 @@ public final class AudioMonitor {
             p.release();
             throw new IllegalStateException("audio_output_initialization_failed");
         }
+        try {
+            r.startRecording();
+            if (r.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING)
+                throw new IllegalStateException("audio_input_start_failed");
+            p.play();
+        } catch (RuntimeException startupFailure) {
+            try { r.release(); } catch (RuntimeException ignored) { }
+            try { p.release(); } catch (RuntimeException ignored) { }
+            throw startupFailure;
+        }
         recorder = r;
         player = p;
         running = true;
         worker = new Thread(() -> {
             byte[] data = new byte[buffer];
             try {
-                r.startRecording();
-                p.play();
                 while (running) {
                     int read = r.read(data, 0, data.length);
                     if (read < 0) break;
