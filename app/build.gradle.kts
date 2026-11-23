@@ -58,5 +58,7 @@ android {
 dependencies {
     implementation("androidx.core:core:1.17.0")
     implementation("androidx.webkit:webkit:1.18.0")
+    // Pinned WebRTC native SDK; do not use a dynamic version selector.
+    implementation("io.github.webrtc-sdk:android:150.7871.08")
     testImplementation("junit:junit:4.13.2")
 }
