@@ -83,11 +83,16 @@ public final class FirebaseMessengerClient {
         JSONObject members = room == null ? null : room.optJSONObject("members");
         if (meta == null || !"GROUP".equals(meta.optString("kind", ""))) throw new IllegalArgumentException("invite_not_group");
         int memberCount = members == null ? 0 : members.length();
-        if (memberCount < 1 || memberCount >= 20 && (members == null || !members.has(aiId)))
+        boolean alreadyMember = members != null && members.has(aiId);
+        if (memberCount < 1 || (!alreadyMember && memberCount >= 20))
             throw new IllegalStateException("group_member_limit_20");
         databaseRequest("PUT", "/messenger/invitesByAi/" + path(aiId) + "/" + path(conversationId) + "/" + path(token), trueJson());
-        if (members == null || !members.has(aiId))
-            databaseRequest("PUT", "/messenger/conversations/" + path(conversationId) + "/members/" + path(aiId), trueJson());
+        if (!alreadyMember) {
+            JSONObject update = new JSONObject()
+                    .put("members/" + aiId, true)
+                    .put("memberCount", memberCount + 1);
+            databaseRequest("PATCH", "/messenger/conversations/" + path(conversationId), update);
+        }
         return new JSONObject().put("conversationId", conversationId).put("aiId", aiId).put("state", "JOINED_BY_INVITE");
     }
 
@@ -109,6 +114,7 @@ public final class FirebaseMessengerClient {
                 .put("kind", kind)
                 .put("createdAtEpochMs", System.currentTimeMillis()));
         root.put("members", members);
+        root.put("memberCount", memberAiIds.length());
         databaseRequest("PUT", "/messenger/conversations/" + path(conversationId), root);
         return new JSONObject().put("conversationId", conversationId)
                 .put("kind", kind).put("memberAiIds", memberAiIds);
