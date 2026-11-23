@@ -207,6 +207,15 @@ public final class CollectiveRoomActivityV2 extends Activity {
         String cid = intent.getStringExtra("invite_conversation_id");
         if (cid == null || cid.trim().isEmpty()) return;
         remoteConversationId = cid.trim();
+        try {
+            JSONObject members = new JSONObject(intent.getStringExtra("invite_members", "{}"));
+            JSONArray ids = new JSONArray();
+            java.util.Iterator<String> keys = members.keys();
+            while (keys.hasNext()) ids.put(keys.next());
+            remoteMemberAiIds = ids;
+            prefs().edit().putString("remote_conversation_id", remoteConversationId)
+                    .putString("remote_member_ai_ids", ids.toString()).apply();
+        } catch (Exception ignored) { }
         remoteStatus.setText("Sala remota vinculada pelo convite · " + remoteConversationId);
         syncRemoteRoom();
     }
