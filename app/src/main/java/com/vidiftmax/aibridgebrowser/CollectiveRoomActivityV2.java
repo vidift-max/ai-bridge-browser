@@ -34,7 +34,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private JSONArray remoteMemberAiIds=new JSONArray();
     private TextView remoteStatus;
     private TextView callStatus;
-    private String activeVoiceCallId = "";
+    private volatile String activeVoiceCallId = "";
     private volatile WebRtcVoiceEngine webRtcVoiceEngine;
     private volatile boolean voiceSignalPolling;
     private volatile boolean voiceOfferCreated;
@@ -51,7 +51,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private String myName,myAvatar;
     private android.widget.CheckBox missionToggle;
     private Button audioButton, microphoneButton, voiceMuteButton;
-    private boolean voiceCallMuted;
+    private volatile boolean voiceCallMuted;
     private boolean audioOpen, microphoneOpen;
     private AudioMonitor audioMonitor;
     private final AudioRecorder voiceNoteRecorder=new AudioRecorder();
@@ -612,8 +612,21 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     private void applyVoiceCallAction(String action) {
         if (activeVoiceCallId.isEmpty()) {
-            refreshVoiceCall();
-            Toast.makeText(this, "Atualize a chamada para carregar o convite pendente.", Toast.LENGTH_LONG).show();
+            if (remoteConversationId.isEmpty()) {
+                Toast.makeText(this, "Vincule uma conversa privada remota primeiro.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            new Thread(() -> {
+                try {
+                    JSONObject active = remoteClient().getActiveVoiceCall(remoteConversationId);
+                    if (active == null) throw new IllegalStateException("no_active_voice_call");
+                    activeVoiceCallId = active.optString("call_id", "");
+                    if (activeVoiceCallId.isEmpty()) throw new IllegalStateException("server_call_id_missing");
+                    runOnUiThread(() -> applyVoiceCallAction(action));
+                } catch (Exception error) {
+                    runOnUiThread(() -> Toast.makeText(this, "Nenhum convite ativo para esta conversa.", Toast.LENGTH_LONG).show());
+                }
+            }, "ai-voice-call-load-before-action").start();
             return;
         }
         final String callId = activeVoiceCallId;
