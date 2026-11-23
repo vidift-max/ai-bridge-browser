@@ -41,8 +41,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private volatile boolean remoteSdpReady;
     private volatile boolean voiceCallConnected;
     private volatile long lastVoiceSignalId;
-    private final java.util.ArrayDeque<VoiceSignalPayload.IceCandidateData> pendingRemoteIce =
-            new java.util.ArrayDeque<>();
+    private final VoiceIceCandidateBuffer pendingRemoteIce = new VoiceIceCandidateBuffer();
     private String pendingVoicePermissionAction = "";
     private int previousAudioMode = -1;
     private volatile boolean remoteOperationRunning;
@@ -98,7 +97,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         callRow.addView(button("Desligar",v->endVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
         callRow.addView(button("↻ Chamada",v->refreshVoiceCall()),new LinearLayout.LayoutParams(0,-2,1));
         header.addView(callRow);
-        callStatus = text("Chamadas ao vivo: aguardando implementação do transporte de mídia.",10,MUTED,false);
+        callStatus = text("Chamadas WebRTC de áudio · requer microfone autorizado e conectividade ICE.",10,MUTED,false);
         header.addView(callStatus);
 
         LinearLayout quickActions=new LinearLayout(this);
@@ -587,8 +586,24 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     private void rejectVoiceCall() { applyVoiceCallAction("reject"); }
     private void endVoiceCall() {
-        if (activeVoiceCallId.isEmpty()) refreshVoiceCall();
-        else applyVoiceCallAction("end");
+        if (activeVoiceCallId.isEmpty()) { refreshVoiceCall(); return; }
+        final String callId = activeVoiceCallId;
+        new Thread(() -> {
+            try {
+                MessengerHttpClient client = remoteClient();
+                JSONObject call = client.getVoiceCall(callId);
+                String state = call.optString("state", "UNKNOWN");
+                String own = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("ai_id", "");
+                String caller = call.optString("caller_ai_id", "");
+                String action = "RINGING".equals(state)
+                        ? (own.equals(caller) ? "cancel" : "reject") : "end";
+                JSONObject updated = client.voiceCallAction(callId, action);
+                stopVoiceMedia();
+                runOnUiThread(() -> callStatus.setText("CHAMADA " + updated.optString("state", "ENDED")));
+            } catch (Exception error) {
+                showVoiceError("call_end_failed");
+            }
+        }, "ai-voice-call-end").start();
     }
 
     private void applyVoiceCallAction(String action) {
@@ -683,10 +698,10 @@ public final class CollectiveRoomActivityV2 extends Activity {
             }
             @Override public void onRemoteDescriptionSet(String type) {
                 remoteSdpReady = true;
-                while (!pendingRemoteIce.isEmpty()) {
-                    VoiceSignalPayload.IceCandidateData candidate = pendingRemoteIce.removeFirst();
-                    WebRtcVoiceEngine engine = webRtcVoiceEngine;
-                    if (engine != null) engine.addRemoteIceCandidate(candidate);
+                WebRtcVoiceEngine engine = webRtcVoiceEngine;
+                if (engine != null) {
+                    for (VoiceSignalPayload.IceCandidateData candidate : pendingRemoteIce.drain())
+                        engine.addRemoteIceCandidate(candidate);
                 }
                 if ("offer".equals(type)) {
                     WebRtcVoiceEngine engine = webRtcVoiceEngine;
@@ -754,7 +769,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
                             VoiceSignalPayload.IceCandidateData candidate =
                                     VoiceSignalPayload.readIceCandidate(payload);
                             if (remoteSdpReady) webRtcVoiceEngine.addRemoteIceCandidate(candidate);
-                            else synchronized (pendingRemoteIce) { pendingRemoteIce.addLast(candidate); }
+                            else pendingRemoteIce.add(candidate);
                         }
                     }
                 } catch (Exception error) {
@@ -772,7 +787,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         voiceOfferCreated = false;
         remoteSdpReady = false;
         voiceCallConnected = false;
-        synchronized (pendingRemoteIce) { pendingRemoteIce.clear(); }
+        pendingRemoteIce.clear();
         WebRtcVoiceEngine engine = webRtcVoiceEngine;
         webRtcVoiceEngine = null;
         if (engine != null) engine.close();
