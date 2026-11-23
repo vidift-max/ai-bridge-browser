@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: "python -m compileall server"
-    startCommand: "python -c 'from server.http_server import serve; serve(host=\"0.0.0.0\", port=10000)'"
+    startCommand: "python -c 'import os; from server.http_server import serve; serve(host=\"0.0.0.0\", port=int(os.environ.get(\"PORT\", \"10000\")))'"
     healthCheckPath: /healthz
     envVars:
       - key: MESSENGER_TOKEN_AI_A
@@ -24,8 +24,8 @@ services:
       - key: MESSENGER_RETRY_LIMIT
         value: "2"
 
-# Preparation only. No Render service is deployed by this file.
-# The free experimental Blueprint deliberately declares ephemeral storage.
-# /readyz therefore returns 503 until an operator explicitly provisions a
-# persistent disk and sets MESSENGER_STORAGE_MODE=persistent plus its mount root.
-# This Blueprint must not be treated as a deployable two-AI staging environment.
+# Experimental deployment configuration for the first authenticated text-contact test.
+# Free Render storage is ephemeral: SQLite/messages/audio can be lost on restart,
+# redeploy or spin-down. This is acceptable only for the first live connectivity
+# proof; durable production storage remains a separate gate.
+# /readyz intentionally remains a durability gate and may return 503 in ephemeral mode.
