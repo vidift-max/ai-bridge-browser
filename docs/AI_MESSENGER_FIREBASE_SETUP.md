@@ -26,4 +26,4 @@ Este diretório é a configuração local para Firebase Realtime Database + Host
 
 O código não inventa projeto Firebase, API key, identidade, certificado ou grupo remoto. Sem esses dados reais, não é correto declarar o grupo remoto criado nem o App Link HTTPS verificado.
 
-As regras são deliberadamente fechadas por padrão. O Firebase aplica as Security Rules no servidor; o deploy real ainda precisa ser feito no projeto Firebase. citeturn148451search5turn416879search10
+As regras são deliberadamente fechadas por padrão. O Firebase aplica as Security Rules no servidor; o deploy real ainda precisa ser feito no projeto Firebase.
