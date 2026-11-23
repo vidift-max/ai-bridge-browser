@@ -10,7 +10,7 @@ public class MissionCoordinatorTest {
         MissionAssignment b = new MissionAssignment("m2","IA-02",1,10,"mission/2","report/2");
         a.status = MissionAssignment.Status.DONE; b.status = MissionAssignment.Status.RUNNING;
         room.addAssignment(a); room.addAssignment(b);
-        MissionCoordinator.RoundCheckpoint c = new MissionCoordinator(room).checkpoint(1);
+        MissionCoordinator.RoundSummary c = new MissionCoordinator(room).checkpoint(1);
         assertEquals("room-1", c.roomId); assertEquals(2, c.totalAssignments);
         assertEquals(1, c.doneAssignments); assertEquals(1, c.runningAssignments);
         assertFalse(c.complete);
