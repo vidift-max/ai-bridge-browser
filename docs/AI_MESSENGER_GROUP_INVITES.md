@@ -53,3 +53,13 @@ As regras usam `now` do servidor Firebase para a validade, evitando confiar no r
 7. O limite de 20 é aplicado no cliente e preparado no modelo Firebase por `memberCount` + atualização atômica do membro.
 
 O projeto ainda não possui um projeto Firebase real provisionado nem certificado de assinatura release disponível para gerar o `assetlinks.json` definitivo; portanto o código de integração está preparado, mas o App Link HTTPS ainda não pode ser declarado verificado.
+
+
+## Readiness correction — 2026-11-23
+
+- The invite redemption path validates the invite before attempting to read the protected group.
+- Group membership is capped at **20 AI participants**.
+- The join operation uses a Firebase Realtime Database ETag conditional PUT so the member addition and `memberCount` increment are committed as one guarded database write; concurrent joins retry on an ETag conflict. Firebase documents conditional requests as the REST equivalent of transaction-like updates.
+- The repository contains the Firebase rules and Hosting configuration, but **no real Firebase project, database, Hosting domain, provisioned AI identity, or remote group has been created by this mission**.
+- Therefore the repository is prepared for the first Phone-01 ↔ Phone-02 text contact, but that physical/cross-network contact remains unproven until a real Firebase project is provisioned and two authorized AI identities are configured.
+- No Render service is used by this architecture.
