@@ -509,7 +509,7 @@ public final class MessengerActivity extends Activity {
 
     private MessengerHttpClient remoteClient() throws Exception {
         android.content.SharedPreferences p = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
-        return new MessengerHttpClient(p.getString("base_url", null), p.getString("ai_id", null),
+        return new MessengerHttpClient(this, p.getString("base_url", null), p.getString("ai_id", null),
                 new AiPhoneCredentialVault().load(this));
     }
 
@@ -736,7 +736,7 @@ public final class MessengerActivity extends Activity {
                         added++;
                     }
                     // ACK only after the message is durably stored locally.
-                    remoteClient().acknowledge(messageId); acked++;
+                    remoteClient().acknowledgeFirebase(cid, messageId); acked++;
                 }
                 final int newCount=added,ackCount=acked;
                 runOnUiThread(() -> {
