@@ -51,7 +51,7 @@ public class VoiceSignalPayloadTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void rejectsMalformedRemoteCandidate() {
+    public void rejectsMalformedRemoteCandidate() throws Exception {
         VoiceSignalPayload.readIceCandidate(new JSONObject().put("candidate", "candidate:1"));
     }
 }
