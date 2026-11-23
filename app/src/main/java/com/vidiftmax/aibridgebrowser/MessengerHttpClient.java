@@ -85,6 +85,12 @@ public final class MessengerHttpClient {
         return request("POST", "/v1/calls", body).getJSONObject("call");
     }
 
+    public JSONObject getActiveVoiceCall(String conversationId) throws Exception {
+        JSONObject response = request("GET", "/v1/conversations/" + encodePath(conversationId)
+                + "/calls/active", null);
+        return response.isNull("call") ? null : response.getJSONObject("call");
+    }
+
     public JSONObject getVoiceCall(String callId) throws Exception {
         return request("GET", "/v1/calls/" + encodePath(callId), null).getJSONObject("call");
     }
