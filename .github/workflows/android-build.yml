@@ -109,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           for name in AI_PHONE_RELEASE_KEYSTORE_B64 AI_PHONE_RELEASE_STORE_PASSWORD AI_PHONE_RELEASE_KEY_ALIAS AI_PHONE_RELEASE_KEY_PASSWORD; do
-            if [ -z "\${!name}" ]; then
+            if [ -z "${!name}" ]; then
               echo "Missing required release secret: $name"
               exit 1
             fi
