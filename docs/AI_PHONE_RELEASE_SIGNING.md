@@ -74,3 +74,10 @@ O checksum serve para comparar o arquivo baixado com o arquivo efetivamente prod
 ## Critério de segurança do repositório
 
 O CI também verifica que nenhum arquivo de keystore, JKS ou Base64 do keystore está versionado. Se material de assinatura for encontrado no índice Git, o job final falha.
+
+
+## Instalação no tablet de desenvolvimento
+
+O APK Release será assinado com uma chave diferente da chave de debug usada pelos APKs de desenvolvimento. Portanto, uma instalação Release pode exigir a remoção do APK Debug anterior antes da primeira instalação Release. Depois disso, futuras versões Release devem manter a mesma chave para atualização normal.
+
+A assinatura Release não desativa o Play Protect e não deve ser usada para contornar os mecanismos de segurança do Android.
