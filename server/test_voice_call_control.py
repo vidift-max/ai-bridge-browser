@@ -88,6 +88,18 @@ class VoiceCallControlTest(unittest.TestCase):
                          offer["signalId"])
         self.assertEqual(self.control.pending_signals("AI-01", call["call_id"]), [])
 
+    def test_offer_and_answer_must_come_from_their_call_roles(self):
+        call = self.create()
+        self.control.transition("AI-02", call["call_id"], "accept")
+        with self.assertRaisesRegex(PermissionError, "voice_signal_role_mismatch"):
+            self.control.add_signal("AI-02", call["call_id"], "OFFER",
+                                    {"type": "offer", "sdp": "v=0"})
+        self.control.add_signal("AI-01", call["call_id"], "OFFER",
+                                {"type": "offer", "sdp": "v=0"})
+        with self.assertRaisesRegex(PermissionError, "voice_signal_role_mismatch"):
+            self.control.add_signal("AI-01", call["call_id"], "ANSWER",
+                                    {"type": "answer", "sdp": "v=0"})
+
     def test_invalid_signal_payload_is_rejected(self):
         call = self.create()
         self.control.transition("AI-02", call["call_id"], "accept")
