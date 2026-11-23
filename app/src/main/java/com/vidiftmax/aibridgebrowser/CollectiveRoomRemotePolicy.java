@@ -1,31 +1,30 @@
 package com.vidiftmax.aibridgebrowser;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /** Pure validation rules for linking the collective room to an authenticated group. */
 public final class CollectiveRoomRemotePolicy {
     private CollectiveRoomRemotePolicy() { }
 
-    public static JSONArray recipients(JSONArray members, String ownAiId) throws JSONException {
+    public static List<String> recipients(List<String> members, String ownAiId) {
         String own = MessengerRemoteConfig.validateAiId(ownAiId);
-        if (members == null || members.length() < 2 || members.length() > 20) {
+        if (members == null || members.size() < 2 || members.size() > 20) {
             throw new IllegalArgumentException("remote_room_member_count_invalid");
         }
         Set<String> seen = new HashSet<>();
-        JSONArray recipients = new JSONArray();
+        List<String> recipients = new ArrayList<>();
         boolean includesSelf = false;
-        for (int i = 0; i < members.length(); i++) {
-            String member = MessengerRemoteConfig.validateAiId(members.optString(i, ""));
+        for (String raw : members) {
+            String member = MessengerRemoteConfig.validateAiId(raw);
             if (!seen.add(member)) throw new IllegalArgumentException("remote_room_duplicate_member");
             if (own.equals(member)) includesSelf = true;
-            else recipients.put(member);
+            else recipients.add(member);
         }
         if (!includesSelf) throw new IllegalArgumentException("remote_room_own_identity_missing");
-        if (recipients.length() == 0) throw new IllegalArgumentException("remote_room_recipients_missing");
+        if (recipients.isEmpty()) throw new IllegalArgumentException("remote_room_recipients_missing");
         return recipients;
     }
 
