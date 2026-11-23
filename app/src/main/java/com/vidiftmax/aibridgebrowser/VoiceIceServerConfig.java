@@ -64,7 +64,7 @@ public final class VoiceIceServerConfig {
                 || url.regionMatches(true, 0, "stuns:", 0, 6)
                 || url.regionMatches(true, 0, "turn:", 0, 5)
                 || url.regionMatches(true, 0, "turns:", 0, 6);
-        if (!valid || url.indexOf(' ') >= 0 || url.indexOf('\\n') >= 0 || url.indexOf('\\r') >= 0)
+        if (!valid || url.indexOf(' ') >= 0 || url.indexOf('\n') >= 0 || url.indexOf('\r') >= 0)
             throw new IllegalArgumentException("ice_url_scheme_invalid");
     }
 
