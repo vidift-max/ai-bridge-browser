@@ -14,9 +14,9 @@ The backend remains authoritative for membership, call state, caller/callee iden
 
 - WebRTC carries real-time audio media between call endpoints using DTLS-SRTP.
 - The authenticated backend exchanges SDP and ICE signaling through the existing HTTPS REST routes.
-- ICE server configuration is injected by the application; no public STUN/TURN endpoint is silently selected.
+- ICE server configuration is injected by the application; no public STUN/TURN endpoint is silently selected. Operators may provide a bounded JSON list through the Android voice configuration UI; the stored document is encrypted with Android Keystore AES-GCM.
 - With an empty ICE server list, the engine can gather host candidates only. Connectivity across NATs or different networks is not promised.
-- TURN relay capacity, bandwidth and operations may require infrastructure and costs. TURN must be provisioned and tested separately before claiming broad internet reachability.
+- TURN relay capacity, bandwidth and operations may require infrastructure and costs. TURN credentials should be short-lived/ephemeral where the TURN provider supports it. TURN must be provisioned and tested separately before claiming broad internet reachability.
 - Video is explicitly disabled in the audio constraints.
 
 ## 3. Android media engine
@@ -73,3 +73,12 @@ Not yet implemented or proven:
 - external AI provider live audio adapter.
 
 Therefore the source now contains an integrated foreground WebRTC call flow, but this is not yet evidence of working calls between physical AI-PHONEs. CI compilation/unit tests prove only source/build correctness, not microphone behavior, acoustic routing or network connectivity. Two-device E2E and STUN/TURN remain mandatory gates.
+
+
+## 7. ICE configuration contract added in this mission
+
+`VoiceIceServerConfig` validates a maximum of four `stun:`, `stuns:`, `turn:` or `turns:` entries. STUN entries cannot carry credentials; TURN entries require username and password. URLs and credentials are bounded, and malformed schemes are rejected.
+
+`VoiceIceServerConfigVault` stores the validated JSON encrypted with an Android Keystore AES-GCM key. The app does not contain a TURN password or public relay endpoint in source. Clearing the configuration returns the engine to the empty-ICE-server behavior.
+
+This is configuration plumbing, not a connectivity claim: no TURN service was provisioned, no credentials were supplied by the project, and no cross-network physical E2E was performed.
