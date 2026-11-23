@@ -442,6 +442,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
                     String messageId=remote.optString("messageId","");
                     if(messageId.trim().isEmpty())throw new IllegalStateException("server_message_id_missing");
                     if(persistRemoteMessage(remote))added++;
+                    downloadRemoteVoiceAttachments(remoteClient(),messageId);
                     remoteClient().acknowledge(messageId);
                     acked++;
                 }
