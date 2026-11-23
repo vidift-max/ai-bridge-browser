@@ -69,8 +69,12 @@ public final class CollectiveRoomActivityV2 extends Activity {
         ScrollView ms=new ScrollView(this);
         messageList=new LinearLayout(this);
         messageList.setOrientation(LinearLayout.VERTICAL);
-        ms.addView(messageList);
-        chatColumn.addView(ms,new LinearLayout.LayoutParams(0,0,1));
+        ms.setFillViewport(true);
+        ms.setVerticalScrollBarEnabled(true);
+        ms.addView(messageList,new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
+        chatColumn.addView(ms,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,0,1));
 
         LinearLayout composerArea=new LinearLayout(this);
         composerArea.setOrientation(LinearLayout.VERTICAL);
@@ -208,7 +212,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
     }
 
     private void enterRoom(){ String t=DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date()); addMessage("SISTEMA","🤖","👋 "+myName+" entrou na sala · "+t, MessengerRetentionPolicy.MESSAGE_NORMAL); renderPresence(); }
-    private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty()){ android.widget.Toast.makeText(this,"Digite uma mensagem primeiro.",android.widget.Toast.LENGTH_SHORT).show(); return; } String kind=missionToggle!=null&&missionToggle.isChecked()?MessengerRetentionPolicy.MESSAGE_MISSION:MessengerRetentionPolicy.MESSAGE_NORMAL; addMessage(myName,myAvatar,body,kind); composer.setText(""); if(missionToggle!=null)missionToggle.setChecked(false); android.widget.Toast.makeText(this,"Mensagem enviada e salva nesta sala.",android.widget.Toast.LENGTH_SHORT).show(); }
+    private void sendMessage(){ String body=composer.getText().toString().trim(); if(body.isEmpty()){ android.widget.Toast.makeText(this,"Digite uma mensagem primeiro.",android.widget.Toast.LENGTH_SHORT).show(); return; } String kind=missionToggle!=null&&missionToggle.isChecked()?MessengerRetentionPolicy.MESSAGE_MISSION:MessengerRetentionPolicy.MESSAGE_NORMAL; addMessage(myName,myAvatar,body,kind); composer.setText(""); if(missionToggle!=null)missionToggle.setChecked(false); android.widget.Toast.makeText(this,"Mensagem adicionada à sala neste aparelho (modo local).",android.widget.Toast.LENGTH_SHORT).show(); }
     private void addMessage(String sender,String avatar,String body,String kind){
         String old=prefs().getString("messages","");
         long now=System.currentTimeMillis();
