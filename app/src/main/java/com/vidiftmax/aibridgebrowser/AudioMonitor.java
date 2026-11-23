@@ -6,6 +6,8 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 
 public final class AudioMonitor {
+    private static final int SAMPLE_RATE_HZ = 16000;
+    private static final int FRAME_BYTES = 640; // 20 ms at 16 kHz, mono, 16-bit PCM.
     private AudioRecord recorder;
     private AudioTrack player;
     private Thread worker;
@@ -36,16 +38,16 @@ public final class AudioMonitor {
         int minPlay = AudioTrack.getMinBufferSize(
                 16000, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
         if (minRecord <= 0 || minPlay <= 0) throw new IllegalStateException("audio_monitor_unavailable");
-        int buffer = Math.max(minRecord, minPlay) * 2;
+        int buffer = Math.max(Math.max(minRecord, minPlay), FRAME_BYTES * 2);
         AudioRecord r = new AudioRecord(
                 MediaRecorder.AudioSource.MIC,
-                16000,
+                SAMPLE_RATE_HZ,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
                 buffer);
         AudioTrack p = new AudioTrack(
                 android.media.AudioManager.STREAM_MUSIC,
-                16000,
+                SAMPLE_RATE_HZ,
                 AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
                 buffer,
@@ -73,7 +75,7 @@ public final class AudioMonitor {
         player = p;
         running = true;
         worker = new Thread(() -> {
-            byte[] data = new byte[buffer];
+            byte[] data = new byte[FRAME_BYTES];
             try {
                 while (running) {
                     int read = r.read(data, 0, data.length);
