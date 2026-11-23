@@ -346,12 +346,9 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private void sendRemoteRoomMessage(String body,String kind){
         if(remoteOperationRunning)return;
         String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");
-        JSONArray recipients=new JSONArray();
-        for(int i=0;i<remoteMemberAiIds.length();i++){
-            String id=remoteMemberAiIds.optString(i,"");
-            if(!own.equals(id))recipients.put(id);
-        }
-        if(recipients.length()==0){Toast.makeText(this,"A conversa remota não tem destinatários válidos.",Toast.LENGTH_LONG).show();return;}
+        final JSONArray recipients;
+        try { recipients=CollectiveRoomRemotePolicy.recipients(remoteMemberAiIds,own); }
+        catch(Exception invalid){Toast.makeText(this,"Membros da sala remota inválidos: "+invalid.getMessage(),Toast.LENGTH_LONG).show();return;}
         remoteOperationRunning=true;
         new Thread(()->{
             try{
