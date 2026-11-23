@@ -29,7 +29,7 @@ public final class CollectiveRoomMessageCodec {
 
     private static String safe(String value) {
         if (value == null) return "";
-        return value.replace("|", "¦").replace("\\r", " ").replace("\\n", " ");
+        return value.replace("|", "¦").replace("\r", " ").replace("\n", " ");
     }
 
     public static final class Message {
