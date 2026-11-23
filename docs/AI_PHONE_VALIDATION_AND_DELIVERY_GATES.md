@@ -142,3 +142,14 @@ GitHub Actions não é servidor 24/7 nem TURN. Comunicação remota entre redes 
 - APK: 3.790.334 bytes; SHA-256 `83264079149d61721b24c3674b79701b7b0ebd4ed4ede2014261156449d601f5`.
 - Este gate confirma CI diretamente associado ao HEAD, geração/publicação/recuperação do APK e integridade do arquivo baixado. Não confirma instalação física, comunicação entre dois aparelhos, push/background ou WebRTC.
 - Próximo gate físico permanece: instalar o APK em Android real, confirmar HomeActivity, documentos, segundo ícone do AI Messenger, Wi-Fi e permissões; depois provar comunicação autenticada entre dois aparelhos.
+
+
+## Atualização — controles locais de voz e Sala Coletiva — 2026-11-23
+
+- Os controles 🎙️ Microfone e 🔊 Ouvir voz são controles locais deste aparelho.
+- Para testar retorno da própria voz: conceder permissão de microfone, ativar os dois controles e usar fones para reduzir microfonia.
+- O retorno usa captura PCM local e reprodução local; não transmite áudio para outros participantes.
+- O código deve confirmar que AudioRecord e AudioTrack inicializaram antes de apresentar o microfone como ativo e deve encerrar a captura em pausa/destruição da Activity.
+- A Sala Coletiva persiste mensagens localmente no aparelho. O codec de linha preserva texto como OI, valida timestamp/estrutura e normaliza o tipo da mensagem.
+- A mensagem de que o texto foi adicionado à sala neste aparelho não é confirmação de entrega remota, leitura ou sincronização.
+- Aprovação de CI e APK Debug não substituem teste físico de gravação/retorno de voz, nem teste E2E entre dois aparelhos.
