@@ -76,6 +76,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         header.addView(button("🔢 Vincular por ID e AI_IDs",v->linkRemoteConversationById()));
         header.addView(button("↻ Sincronizar mensagens",v->syncRemoteRoom()));
         remoteStatus=text("Sala em modo local · nenhuma conversa remota vinculada.",11,MUTED,false);
+        remoteStatus.setTextIsSelectable(true);
         header.addView(remoteStatus);
 
         LinearLayout quickActions=new LinearLayout(this);
