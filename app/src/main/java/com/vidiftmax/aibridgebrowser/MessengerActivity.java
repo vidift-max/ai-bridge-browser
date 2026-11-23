@@ -119,6 +119,31 @@ public final class MessengerActivity extends Activity {
         pendingInviteList = new LinearLayout(this);
         pendingInviteList.setOrientation(LinearLayout.VERTICAL);
         page.addView(pendingInviteList);
+
+        page.addView(text("ENTRAR POR LINK DE CONVITE", 12, ACCENT, true));
+        EditText inviteLinkInput = new EditText(this);
+        inviteLinkInput.setHint("Cole o link de convite aqui");
+        inviteLinkInput.setSingleLine(true);
+        inviteLinkInput.setTextColor(TEXT);
+        inviteLinkInput.setHintTextColor(MUTED);
+        page.addView(inviteLinkInput);
+        Button enterInvite = new Button(this);
+        enterInvite.setText("ENTRAR NO GRUPO");
+        enterInvite.setAllCaps(false);
+        enterInvite.setOnClickListener(v -> {
+            String value = inviteLinkInput.getText().toString().trim();
+            if (value.isEmpty()) {
+                Toast.makeText(this, "Cole o link de convite primeiro.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            InviteParts parsed = parseInviteLink(value);
+            if (parsed == null) {
+                Toast.makeText(this, "Link de convite inválido.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            redeemInviteDirect(parsed.conversationId, parsed.token);
+        });
+        page.addView(enterInvite);
         page.addView(text("CONVERSAS DESTE APARELHO", 12, ACCENT, true));
         page.addView(directoryScroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(132)));
@@ -862,6 +887,80 @@ public final class MessengerActivity extends Activity {
                         Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 }).show();
+    }
+
+    private InviteParts parseInviteLink(String value) {
+        try {
+            android.net.Uri uri = android.net.Uri.parse(value);
+            java.util.List<String> path = uri.getPathSegments();
+            if ("aibridge".equalsIgnoreCase(uri.getScheme()) && "invite".equalsIgnoreCase(uri.getHost()) && path.size() == 2)
+                return validInviteParts(path.get(0), path.get(1));
+            if ("https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null
+                    && uri.getHost().endsWith(".web.app") && path.size() == 3
+                    && "i".equalsIgnoreCase(path.get(0)))
+                return validInviteParts(path.get(1), path.get(2));
+        } catch (Exception ignored) { }
+        return null;
+    }
+
+    private InviteParts validInviteParts(String conversationId, String token) {
+        if (conversationId == null || conversationId.trim().isEmpty()
+                || token == null || !token.matches("[A-Za-z0-9_-]{20,64}")) return null;
+        return new InviteParts(conversationId, token);
+    }
+
+    private void redeemInviteDirect(String conversationId, String token) {
+        new Thread(() -> {
+            try {
+                MessengerHttpClient client = remoteClient();
+                if (!client.isFirebaseTransport()) throw new IllegalStateException("convites_de_grupo_exigem_firebase");
+                JSONObject roomData = client.getConversation(conversationId);
+                JSONObject meta = roomData == null ? null : roomData.optJSONObject("meta");
+                JSONObject members = roomData == null ? null : roomData.optJSONObject("members");
+                if (meta == null || !"GROUP".equals(meta.optString("kind", ""))) throw new IllegalArgumentException("convite_nao_e_de_grupo");
+                if (members == null || members.length() < 1 || members.length() > 20) throw new IllegalStateException("grupo_excede_20_ias");
+                client.redeemGroupInvite(conversationId, token);
+                saveRemoteGroupConversation(conversationId, members);
+                runOnUiThread(() -> {
+                    selectedConversationId = conversationId;
+                    renderConversations();
+                    renderConversationMembersSummary();
+                    renderMessages();
+                    renderTransportSummary();
+                    Toast.makeText(this, "Você entrou no grupo. Sala salva no AI Messenger.", Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Não foi possível entrar no grupo: " + remoteError(error), Toast.LENGTH_LONG).show());
+            }
+        }, "ai-messenger-direct-invite").start();
+    }
+
+    private void saveRemoteGroupConversation(String conversationId, JSONObject members) throws Exception {
+        JSONArray conversations = readConversations();
+        for (int i = 0; i < conversations.length(); i++) {
+            JSONObject item = conversations.optJSONObject(i);
+            if (item != null && conversationId.equals(item.optString("conversationId", ""))) return;
+        }
+        JSONObject item = new JSONObject();
+        item.put("conversationId", conversationId);
+        item.put("title", "AI Messenger — Sala Principal");
+        item.put("createdAtEpochMs", System.currentTimeMillis());
+        item.put("kind", MessengerRetentionPolicy.CONVERSATION_GROUP);
+        item.put("status", "REMOTE_ACTIVE");
+        item.put("remote", true);
+        item.put("memberAiIds", members.toString());
+        conversations.put(item);
+        prefs().edit().putString(KEY_CONVERSATIONS, conversations.toString()).apply();
+    }
+
+    private static final class InviteParts {
+        final String conversationId;
+        final String token;
+        InviteParts(String conversationId, String token) {
+            this.conversationId = conversationId;
+            this.token = token;
+        }
     }
 
     private void renderPendingInvites() {
