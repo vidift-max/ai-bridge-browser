@@ -30,6 +30,19 @@ public final class CollectiveRoomMessageCodecTest {
         assertNull(CollectiveRoomMessageCodec.decode("1|NORMAL|AI"));
     }
 
+    @Test public void missionMessageKeepsTwentyFourHourExpiry() {
+        long created = 1_800_000_000_000L;
+        CollectiveRoomMessageCodec.Message decoded = CollectiveRoomMessageCodec.decode(
+                CollectiveRoomMessageCodec.encode(created, "MISSION", "AI-CLAUDE", "🧠", "Missão"));
+        assertNotNull(decoded);
+        assertFalse(MessengerRetentionPolicy.isExpired(created, decoded.kind,
+                MessengerRetentionPolicy.CONVERSATION_GROUP,
+                created + MessengerRetentionPolicy.ONE_DAY_MS - 1));
+        assertTrue(MessengerRetentionPolicy.isExpired(created, decoded.kind,
+                MessengerRetentionPolicy.CONVERSATION_GROUP,
+                created + MessengerRetentionPolicy.ONE_DAY_MS));
+    }
+
     @Test public void unknownMessageKindNormalizesToNormal() {
         CollectiveRoomMessageCodec.Message decoded = CollectiveRoomMessageCodec.decode(
                 "1800000000000|UNKNOWN|AI|🤖|OI");
