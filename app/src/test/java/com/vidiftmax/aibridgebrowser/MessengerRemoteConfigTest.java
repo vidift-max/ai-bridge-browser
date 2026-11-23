@@ -34,7 +34,7 @@ public class MessengerRemoteConfigTest {
     @Test public void clientRejectsEmptyMessageBeforeNetwork() throws Exception {
         MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
         JSONArray recipients = new JSONArray().put("AI-CLAUDE");
-        assertThrows(IllegalArgumentException.class, () -> client.sendMessage("room-1", recipients, " "));
+        assertThrows(IllegalArgumentException.class, () -> client.sendMessage("room-1", recipients, " ", "NORMAL"));
     }
     @Test public void voiceMuteClientRejectsInvalidTargetAndDurationBeforeNetwork() throws Exception {
         MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
@@ -45,18 +45,15 @@ public class MessengerRemoteConfigTest {
         assertThrows(IllegalArgumentException.class,
                 () -> client.muteVoiceParticipant("room-1", "AI-CLAUDE", 3601));
     }
-
     @Test public void voiceUnmuteClientRejectsInvalidTargetBeforeNetwork() throws Exception {
         MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
         assertThrows(IllegalArgumentException.class,
                 () -> client.unmuteVoiceParticipant("room-1", "not-an-ai"));
     }
-
     @Test public void voiceStatusClientRejectsEmptyConversationBeforeNetwork() throws Exception {
         MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
         assertThrows(IllegalArgumentException.class, () -> client.getVoiceRoomStatus(" "));
     }
-
     @Test public void acceptsMinimalValidAiId() {
         assertEquals("AI-1", MessengerRemoteConfig.validateAiId("AI-1"));
     }
