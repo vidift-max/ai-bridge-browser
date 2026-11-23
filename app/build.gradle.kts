@@ -10,12 +10,11 @@ android {
     val releaseStorePassword = System.getenv("AI_PHONE_RELEASE_STORE_PASSWORD")
     val releaseKeyAlias = System.getenv("AI_PHONE_RELEASE_KEY_ALIAS")
     val releaseKeyPassword = System.getenv("AI_PHONE_RELEASE_KEY_PASSWORD")
-    val releaseSigningReady = listOf(
-        releaseKeystorePath,
-        releaseStorePassword,
-        releaseKeyAlias,
-        releaseKeyPassword
-    ).all { !it.isNullOrBlank() && java.io.File(it!!).isFile }
+    val releaseSigningReady = !releaseKeystorePath.isNullOrBlank()
+        && java.io.File(releaseKeystorePath).isFile
+        && !releaseStorePassword.isNullOrBlank()
+        && !releaseKeyAlias.isNullOrBlank()
+        && !releaseKeyPassword.isNullOrBlank()
 
     signingConfigs {
         create("release") {
