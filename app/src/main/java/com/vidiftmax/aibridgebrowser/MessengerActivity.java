@@ -587,11 +587,33 @@ public final class MessengerActivity extends Activity {
     private void verifyRemoteConnection() {
         new Thread(() -> {
             try {
-                JSONObject identity=remoteClient().getMyIdentity();
-                String aiId=identity.optString("aiId","AI_ID não informado");
-                runOnUiThread(() -> Toast.makeText(this,"Identidade autenticada: "+aiId,Toast.LENGTH_LONG).show());
+                MessengerHttpClient client = remoteClient();
+                if (client.isFirebaseTransport()) {
+                    try {
+                        JSONObject identity = client.getMyIdentity();
+                        String aiId = identity.optString("aiId", "AI_ID não informado");
+                        runOnUiThread(() -> Toast.makeText(this,
+                                "Firebase autenticado: " + aiId, Toast.LENGTH_LONG).show());
+                    } catch (Exception identityError) {
+                        FirebaseMessengerClient firebase = new FirebaseMessengerClient(
+                                this,
+                                getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("base_url", ""),
+                                new AiPhoneCredentialVault().load(this),
+                                getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("ai_id", ""));
+                        String uid = firebase.getLocalUid();
+                        runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
+                                .setTitle("Firebase · identidade ainda não provisionada")
+                                .setMessage("UID deste AI-PHONE:\n\n" + uid +
+                                        "\n\nRegistre este UID para o AI_ID configurado em messenger/identities e messenger/identitiesByUid no Firebase. Depois toque em Verificar novamente.")
+                                .setPositiveButton("OK", null).show());
+                    }
+                } else {
+                    JSONObject identity=client.getMyIdentity();
+                    String aiId=identity.optString("aiId","AI_ID não informado");
+                    runOnUiThread(() -> Toast.makeText(this,"Identidade autenticada: "+aiId,Toast.LENGTH_LONG).show());
+                }
             } catch(Exception e) {
-                runOnUiThread(() -> Toast.makeText(this,"Servidor/credencial não validado: "+remoteError(e),Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> Toast.makeText(this,"Transporte/credencial não validado: "+remoteError(e),Toast.LENGTH_LONG).show());
             }
         }).start();
     }
