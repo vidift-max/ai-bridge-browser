@@ -311,7 +311,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     private MessengerHttpClient remoteClient() throws Exception {
         android.content.SharedPreferences config=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE);
-        return new MessengerHttpClient(config.getString("base_url",null),config.getString("ai_id",null),
+        return new MessengerHttpClient(this, config.getString("base_url",null),config.getString("ai_id",null),
                 new AiPhoneCredentialVault().load(this));
     }
 
