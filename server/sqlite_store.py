@@ -1,9 +1,10 @@
 import sqlite3
+import json
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -123,6 +124,90 @@ class SQLiteMessengerStore:
         return self._connection.execute(
             """SELECT conversation_id,ai_id,muted_by_ai_id,expires_at
                FROM voice_mutes WHERE expires_at>?""", (now,)).fetchall()
+
+        if version < 5:
+            self._connection.executescript("""
+                CREATE TABLE IF NOT EXISTS voice_calls (
+                    call_id TEXT PRIMARY KEY,
+                    conversation_id TEXT NOT NULL,
+                    caller_ai_id TEXT NOT NULL,
+                    callee_ai_id TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    expires_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_voice_calls_conversation_state
+                    ON voice_calls(conversation_id,state);
+                CREATE TABLE IF NOT EXISTS voice_call_signals (
+                    signal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    call_id TEXT NOT NULL,
+                    sender_ai_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_voice_call_signals_call
+                    ON voice_call_signals(call_id,signal_id);
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','5')")
+            self._connection.commit()
+            version = 5
+
+    def save_voice_call(self, call):
+        self._connection.execute(
+            """INSERT INTO voice_calls(call_id,conversation_id,caller_ai_id,callee_ai_id,
+               state,created_at,expires_at,updated_at) VALUES(?,?,?,?,?,?,?,?)""",
+            tuple(call[key] for key in ("call_id","conversation_id","caller_ai_id",
+                "callee_ai_id","state","created_at","expires_at","updated_at")))
+        self._connection.commit()
+
+    def update_voice_call(self, call):
+        cursor = self._connection.execute(
+            """UPDATE voice_calls SET state=?,expires_at=?,updated_at=? WHERE call_id=?""",
+            (call["state"],call["expires_at"],call["updated_at"],call["call_id"]))
+        self._connection.commit()
+        if cursor.rowcount != 1:
+            raise ValueError("voice_call_not_found")
+
+    @staticmethod
+    def _voice_call_row(row):
+        if row is None:
+            return None
+        return {key: row[key] for key in ("call_id","conversation_id","caller_ai_id",
+            "callee_ai_id","state","created_at","expires_at","updated_at")}
+
+    def get_voice_call(self, call_id):
+        row = self._connection.execute(
+            "SELECT * FROM voice_calls WHERE call_id=?", (call_id,)).fetchone()
+        return self._voice_call_row(row)
+
+    def find_active_voice_call(self, conversation_id):
+        row = self._connection.execute(
+            """SELECT * FROM voice_calls WHERE conversation_id=?
+               AND state IN ('RINGING','ACCEPTED','CONNECTING','CONNECTED')
+               ORDER BY created_at DESC LIMIT 1""", (conversation_id,)).fetchone()
+        return self._voice_call_row(row)
+
+    def append_voice_signal(self, call_id, sender_ai_id, kind, payload, created_at):
+        cursor = self._connection.execute(
+            """INSERT INTO voice_call_signals(call_id,sender_ai_id,kind,payload_json,created_at)
+               VALUES(?,?,?,?,?)""",
+            (call_id,sender_ai_id,kind,json.dumps(payload,separators=(",",":")),created_at))
+        self._connection.commit()
+        return {"signalId":cursor.lastrowid,"callId":call_id,"senderAiId":sender_ai_id,
+                "kind":kind,"payload":payload,"createdAt":created_at}
+
+    def load_voice_signals(self, call_id, recipient_ai_id, after_id, limit):
+        rows = self._connection.execute(
+            """SELECT signal_id,call_id,sender_ai_id,kind,payload_json,created_at
+               FROM voice_call_signals WHERE call_id=? AND signal_id>? AND sender_ai_id<>?
+               ORDER BY signal_id LIMIT ?""",
+            (call_id,after_id,recipient_ai_id,limit)).fetchall()
+        return [{"signalId":row["signal_id"],"callId":row["call_id"],
+                 "senderAiId":row["sender_ai_id"],"kind":row["kind"],
+                 "payload":json.loads(row["payload_json"]),
+                 "createdAt":row["created_at"]} for row in rows]
 
     def close(self):
         self._connection.close()
