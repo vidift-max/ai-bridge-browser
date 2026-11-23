@@ -189,6 +189,12 @@ public final class CollectiveRoomActivityV2 extends Activity {
         if(microphoneOpen){ microphoneOpen=false; audioMonitor.stop(); prefs().edit().putBoolean("microphone_open",false).apply(); updateMicrophoneButton(); }
     }
 
+    @Override protected void onDestroy(){
+        if(audioMonitor!=null) audioMonitor.stop();
+        microphoneOpen=false;
+        super.onDestroy();
+    }
+
     private void updateAudioButton(){
         if(audioButton==null)return;
         audioButton.setText(audioOpen ? "🔊 Ouvir voz · ON" : "🔊 Ouvir voz · OFF");
