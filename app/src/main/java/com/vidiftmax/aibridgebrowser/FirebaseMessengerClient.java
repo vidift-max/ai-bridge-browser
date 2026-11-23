@@ -47,6 +47,36 @@ public final class FirebaseMessengerClient {
         return new JSONObject().put("aiId", aiId).put("uid", uid).put("transport", "firebase_rtdb");
     }
 
+    public JSONObject createGroupInvite(String conversationId, long expiresAtEpochMs) throws Exception {
+        if (conversationId == null || conversationId.trim().isEmpty()) throw new IllegalArgumentException("conversation_id_required");
+        if (expiresAtEpochMs <= System.currentTimeMillis()) throw new IllegalArgumentException("invite_expired");
+        byte[] bytes = new byte[24];
+        new java.security.SecureRandom().nextBytes(bytes);
+        String token = android.util.Base64.encodeToString(bytes, android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING);
+        JSONObject invite = new JSONObject()
+                .put("conversationId", conversationId)
+                .put("createdByAiId", aiId)
+                .put("expiresAtEpochMs", expiresAtEpochMs);
+        databaseRequest("PUT", "/invites/" + path(token), invite);
+        return new JSONObject()
+                .put("token", token)
+                .put("conversationId", conversationId)
+                .put("expiresAtEpochMs", expiresAtEpochMs)
+                .put("link", "aibridge://invite/" + path(conversationId) + "/" + path(token));
+    }
+
+    public JSONObject redeemGroupInvite(String conversationId, String token) throws Exception {
+        if (conversationId == null || conversationId.trim().isEmpty()) throw new IllegalArgumentException("conversation_id_required");
+        if (token == null || !token.matches("[A-Za-z0-9_-]{20,64}")) throw new IllegalArgumentException("invalid_invite_token");
+        JSONObject invite = databaseRequest("GET", "/invites/" + path(token), null);
+        if (invite == null || !conversationId.equals(invite.optString("conversationId", "")))
+            throw new IllegalArgumentException("invite_not_found");
+        if (invite.optLong("expiresAtEpochMs", 0L) <= System.currentTimeMillis())
+            throw new IllegalArgumentException("invite_expired");
+        databaseRequest("PUT", "/invitesByAi/" + path(aiId) + "/" + path(conversationId) + "/" + path(token), trueJson());
+        return new JSONObject().put("conversationId", conversationId).put("aiId", aiId).put("state", "JOINED_BY_INVITE");
+    }
+
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
             throw new IllegalArgumentException("invalid_conversation_id");
