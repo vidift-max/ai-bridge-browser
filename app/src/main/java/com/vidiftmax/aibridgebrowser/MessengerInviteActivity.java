@@ -38,6 +38,7 @@ public final class MessengerInviteActivity extends Activity {
             MessengerRemoteConfig.validateAiId(aiId);
             MessengerHttpClient client = new MessengerHttpClient(this, url, aiId, secret);
             if (!client.isFirebaseTransport()) throw new IllegalStateException("convites_de_grupo_exigem_firebase");
+            client.redeemGroupInvite(parts.conversationId, parts.token);
             JSONObject room = client.getConversation(parts.conversationId);
             if (room == null) throw new IllegalArgumentException("grupo_nao_encontrado");
             String kind = room.optJSONObject("meta") == null ? "" : room.optJSONObject("meta").optString("kind", "");
@@ -45,7 +46,6 @@ public final class MessengerInviteActivity extends Activity {
             JSONObject members = room.optJSONObject("members");
             int memberCount = members == null ? 0 : members.length();
             if (memberCount < 1 || memberCount > 20) throw new IllegalStateException("grupo_excede_20_ias");
-            client.redeemGroupInvite(parts.conversationId, parts.token);
             saveConversation(parts.conversationId, members);
             runOnUiThread(() -> {
                 Intent roomIntent = new Intent(this, CollectiveRoomActivityV2.class);
