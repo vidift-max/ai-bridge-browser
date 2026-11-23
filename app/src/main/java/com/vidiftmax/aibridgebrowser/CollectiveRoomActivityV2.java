@@ -236,15 +236,22 @@ public final class CollectiveRoomActivityV2 extends Activity {
 
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if (requestCode == 7201) {
+            String action = pendingVoicePermissionAction;
+            pendingVoicePermissionAction = "";
+            if (grantResults.length > 0
+                    && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                if ("start".equals(action)) startVoiceCall();
+                else if ("accept".equals(action)) answerVoiceCall();
+            } else {
+                Toast.makeText(this, "Permissão do microfone negada. A chamada não foi iniciada.",
+                        Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
         if(grantResults.length>0 && grantResults[0]==android.content.pm.PackageManager.PERMISSION_GRANTED){
             if(requestCode==7001) toggleMicrophone();
             else if(requestCode==7101) startVoiceNote();
-            else if(requestCode==7201) {
-                String action = pendingVoicePermissionAction;
-                pendingVoicePermissionAction = "";
-                if ("start".equals(action)) startVoiceCall();
-                else if ("accept".equals(action)) answerVoiceCall();
-            }
         }
     }
 
@@ -252,6 +259,24 @@ public final class CollectiveRoomActivityV2 extends Activity {
         super.onPause();
         if(microphoneOpen){ microphoneOpen=false; audioMonitor.stop(); prefs().edit().putBoolean("microphone_open",false).apply(); updateMicrophoneButton(); }
         voiceNoteRecorder.cancel();
+        if (webRtcVoiceEngine != null) {
+            final String callId = activeVoiceCallId;
+            stopVoiceMedia(); // Always stop local capture immediately when leaving the call screen.
+            if (callId != null && !callId.isEmpty()) {
+                new Thread(() -> {
+                    try {
+                        MessengerHttpClient client = remoteClient();
+                        JSONObject call = client.getVoiceCall(callId);
+                        String state = call.optString("state", "UNKNOWN");
+                        String own = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).getString("ai_id", "");
+                        String caller = call.optString("caller_ai_id", "");
+                        String action = "RINGING".equals(state)
+                                ? (own.equals(caller) ? "cancel" : "reject") : "end";
+                        client.voiceCallAction(callId, action);
+                    } catch (Exception ignored) { /* Local microphone is already closed. */ }
+                }, "ai-voice-call-background-stop").start();
+            }
+        }
     }
 
     @Override protected void onDestroy(){
