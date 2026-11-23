@@ -546,7 +546,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         EditText input = new EditText(this);
         input.setSingleLine(false);
         input.setMinLines(5);
-        input.setHint("[{\\"url\\":\\"stun:stun.example.invalid\\"}]");
+        input.setHint("[{\"url\":\"stun:stun.example.invalid\"}]");
         String existing = null;
         try { existing = new VoiceIceServerConfigVault().load(this); } catch (Exception ignored) { }
         if (existing != null) input.setText(existing);
