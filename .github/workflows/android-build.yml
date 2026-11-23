@@ -114,6 +114,13 @@ jobs:
               exit 1
             fi
           done
+      - name: Check repository for signing material
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -E '(^|/)(.*\.(keystore|jks)|ai-phone-release-keystore\.b64)$'; then
+            echo "Signing material must not be tracked in git."
+            exit 1
+          fi
       - name: Decode protected keystore
         env:
           AI_PHONE_RELEASE_KEYSTORE_B64: ${{ secrets.AI_PHONE_RELEASE_KEYSTORE_B64 }}
@@ -121,31 +128,22 @@ jobs:
           set -euo pipefail
           printf '%s' "$AI_PHONE_RELEASE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/ai-phone-release.keystore"
           test -s "$RUNNER_TEMP/ai-phone-release.keystore"
-      - name: Check repository for signing material
-        run: |
-          set -euo pipefail
-          if git ls-files | grep -E '(^|/)(.*\.(keystore|jks)|ai-phone-release-keystore\.b64)        env:
+      - name: Build signed release APK
+        env:
           AI_PHONE_RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/ai-phone-release.keystore
           AI_PHONE_RELEASE_STORE_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_STORE_PASSWORD }}
           AI_PHONE_RELEASE_KEY_ALIAS: ${{ secrets.AI_PHONE_RELEASE_KEY_ALIAS }}
           AI_PHONE_RELEASE_KEY_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_KEY_PASSWORD }}
         run: gradle :app:assembleRelease
-      - name: Verify APK signature
+      - name: Verify APK signature and identity
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           test -x "$APKSIGNER"
-          "$APKSIGNER" verify --verbose "$APK"
-      - name: Verify APK identity and checksum
-        run: |
-          set -euo pipefail
-          APK="app/build/outputs/apk/release/app-release.apk"
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee app-release-signature.txt
           sha256sum "$APK" | tee app-release.apk.sha256
-          unzip -p "$APK" META-INF/MANIFEST.MF | head -40 || true
       - name: Upload signed release APK
         uses: actions/upload-artifact@v4
         with:
@@ -159,44 +157,4 @@ jobs:
           path: |
             app-release.apk.sha256
             app-release-signature.txt
-          if-no-files-found: error
-; then
-            echo "Signing material must not be tracked in git."
-            exit 1
-          fi
-
-      - name: Build signed release APK
-        env:
-          AI_PHONE_RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/ai-phone-release.keystore
-          AI_PHONE_RELEASE_STORE_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_STORE_PASSWORD }}
-          AI_PHONE_RELEASE_KEY_ALIAS: ${{ secrets.AI_PHONE_RELEASE_KEY_ALIAS }}
-          AI_PHONE_RELEASE_KEY_PASSWORD: ${{ secrets.AI_PHONE_RELEASE_KEY_PASSWORD }}
-        run: gradle :app:assembleRelease
-      - name: Verify APK signature
-        run: |
-          set -euo pipefail
-          APK="app/build/outputs/apk/release/app-release.apk"
-          test -s "$APK"
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          test -x "$APKSIGNER"
-          "$APKSIGNER" verify --verbose "$APK"
-      - name: Verify APK identity and checksum
-        run: |
-          set -euo pipefail
-          APK="app/build/outputs/apk/release/app-release.apk"
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          "$APKSIGNER" verify --verbose --print-certs "$APK"
-          sha256sum "$APK" | tee app-release.apk.sha256
-          unzip -p "$APK" META-INF/MANIFEST.MF | head -40 || true
-      - name: Upload signed release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-phone-release-apk
-          path: app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-      - name: Upload release verification record
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-phone-release-verification
-          path: app-release.apk.sha256
           if-no-files-found: error
