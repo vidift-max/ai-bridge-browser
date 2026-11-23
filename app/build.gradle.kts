@@ -61,4 +61,6 @@ dependencies {
     // Pinned WebRTC native SDK; do not use a dynamic version selector.
     implementation("io.github.webrtc-sdk:android:150.7871.08")
     testImplementation("junit:junit:4.13.2")
+    // Use real JSON in local JVM tests instead of Android's mocked stubs.
+    testImplementation("org.json:json:20260814")
 }
