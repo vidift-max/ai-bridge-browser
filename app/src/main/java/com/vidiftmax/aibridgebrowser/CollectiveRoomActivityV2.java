@@ -356,20 +356,31 @@ public final class CollectiveRoomActivityV2 extends Activity {
         new Thread(() -> {
             try {
                 MessengerHttpClient client = remoteClient();
-                JSONObject sent = client.sendMessage(remoteConversationId, recipients,
-                        "🎙️ Nota de voz", MessengerRetentionPolicy.MESSAGE_NORMAL);
-                String messageId = sent.optString("messageId", "");
-                if (messageId.trim().isEmpty()) throw new IllegalStateException("voice_message_id_missing");
-                client.uploadAudio(messageId, file);
+                String messageId = prefs().getString("pending_voice_message_id", "");
+                long createdAt = System.currentTimeMillis();
+                if (messageId.trim().isEmpty()) {
+                    JSONObject sent = client.sendMessage(remoteConversationId, recipients,
+                            "🎙️ Nota de voz", MessengerRetentionPolicy.MESSAGE_NORMAL);
+                    messageId = sent.optString("messageId", "");
+                    createdAt = sent.optLong("createdAtEpochMs", createdAt);
+                    if (messageId.trim().isEmpty()) throw new IllegalStateException("voice_message_id_missing");
+                    if (!prefs().edit().putString("pending_voice_message_id", messageId)
+                            .putLong("pending_voice_created_at", createdAt).commit()) {
+                        throw new IllegalStateException("voice_message_retry_state_not_persisted");
+                    }
+                } else {
+                    createdAt = prefs().getLong("pending_voice_created_at", createdAt);
+                }
+                if (client.listAudioAttachments(messageId).length() == 0) client.uploadAudio(messageId, file);
                 String line = CollectiveRoomMessageCodec.encode(
-                        sent.optLong("createdAtEpochMs", System.currentTimeMillis()),
-                        MessengerRetentionPolicy.MESSAGE_NORMAL, own, "🎙️", "Nota de voz enviada");
+                        createdAt, MessengerRetentionPolicy.MESSAGE_NORMAL, own, "🎙️", "Nota de voz enviada");
                 String old = prefs().getString("messages", "");
                 String updated = old.trim().isEmpty() ? line : old.trim() + "\n" + line;
                 if (!prefs().edit().putString("messages", updated).commit()) {
                     throw new IllegalStateException("voice_message_local_persistence_failed");
                 }
-                prefs().edit().remove("pending_voice_note").apply();
+                prefs().edit().remove("pending_voice_note").remove("pending_voice_message_id")
+                        .remove("pending_voice_created_at").apply();
                 runOnUiThread(() -> {
                     remoteOperationRunning = false;
                     renderMessages();
@@ -515,6 +526,10 @@ public final class CollectiveRoomActivityV2 extends Activity {
         presenceList.removeAllViews();
         addPresence("👑","Luiz Carlos Silva das Dores","Administrador / responsável");
         addPresence(myAvatar,myName,"Meu perfil · AI_ID separado do ícone");
+        for (int i = 0; i < remoteMemberAiIds.length(); i++) {
+            String member = remoteMemberAiIds.optString(i, "");
+            if (!member.isEmpty()) addPresence("🤖", member, "Membro remoto · presença online não verificada");
+        }
         for(String row:prefs().getString("extra_participants","").split("\n")){ if(row.trim().isEmpty())continue; String[] p=row.split("\\|",2); if(p.length==2)addPresence(p[0],p[1],"Participante"); }
         presenceList.addView(button("＋ Adicionar participante local",v->addParticipant()));
     }
