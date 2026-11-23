@@ -231,9 +231,14 @@ public final class FirebaseMessengerClient {
         }
     }
 
-    private static JSONObject trueJson() { return new JSONObject().put("value", true); }
+    private static Boolean trueJson() { return Boolean.TRUE; }
     private static String path(String value) throws Exception { return encode(value.replace("~","%7E")); }
     private static String encode(String value) throws Exception { return URLEncoder.encode(value, "UTF-8").replace("+", "%20"); }
+
+    static boolean isFirebaseDatabaseUrl(String value) {
+        try { String host = new URI(value).getHost(); return host != null && (host.endsWith(".firebaseio.com") || host.endsWith(".firebasedatabase.app")); }
+        catch (Exception ignored) { return false; }
+    }
 
     static String normalizeDatabaseUrl(String value) {
         if (value == null || value.trim().isEmpty()) throw new IllegalArgumentException("firebase_database_url_required");
