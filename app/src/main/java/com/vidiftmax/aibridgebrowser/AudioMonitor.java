@@ -10,6 +10,19 @@ public final class AudioMonitor {
     private AudioTrack player;
     private Thread worker;
     private volatile boolean running;
+    private volatile boolean playbackEnabled;
+
+    public AudioMonitor() {
+        playbackEnabled = true;
+    }
+
+    public synchronized void setPlaybackEnabled(boolean enabled) {
+        playbackEnabled = enabled;
+    }
+
+    public synchronized boolean isPlaybackEnabled() {
+        return playbackEnabled;
+    }
 
     public synchronized void start() {
         if (running) return;
@@ -42,7 +55,7 @@ public final class AudioMonitor {
                 p.play();
                 while (running) {
                     int read = r.read(data, 0, data.length);
-                    if (read > 0 && running) p.write(data, 0, read);
+                    if (read > 0 && running && playbackEnabled) p.write(data, 0, read);
                 }
             } finally {
                 try { r.stop(); } catch (RuntimeException ignored) {}
