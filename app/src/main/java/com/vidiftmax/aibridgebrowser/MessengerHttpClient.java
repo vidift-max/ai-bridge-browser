@@ -16,17 +16,30 @@ public final class MessengerHttpClient {
     private final String baseUrl;
     private final String aiId;
     private final String token;
+    private final FirebaseMessengerClient firebase;
+    private final android.content.Context context;
 
     public MessengerHttpClient(String baseUrl, String aiId, String token) {
+        this(null, baseUrl, aiId, token);
+    }
+
+    public MessengerHttpClient(android.content.Context context, String baseUrl, String aiId, String token) {
         this.baseUrl = MessengerRemoteConfig.normalizeBaseUrl(baseUrl);
         this.aiId = MessengerRemoteConfig.validateAiId(aiId);
         if (token == null || token.trim().isEmpty()) throw new IllegalArgumentException("bearer_token_required");
         this.token = token.trim();
+        this.context = context == null ? null : context.getApplicationContext();
+        this.firebase = this.context != null && FirebaseMessengerClient.isFirebaseDatabaseUrl(this.baseUrl)
+                ? new FirebaseMessengerClient(this.context, this.baseUrl, this.token, this.aiId) : null;
     }
 
-    public JSONObject getMyIdentity() throws Exception { return request("GET", "/v1/me/identity", null).getJSONObject("identity"); }
+    public JSONObject getMyIdentity() throws Exception {
+        if (firebase != null) return firebase.getMyIdentity();
+        return request("GET", "/v1/me/identity", null).getJSONObject("identity");
+    }
 
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
+        if (firebase != null) return firebase.createConversation(conversationId, memberAiIds, kind);
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
             throw new IllegalArgumentException("invalid_conversation_id");
         if (memberAiIds == null) throw new IllegalArgumentException("invalid_member_count");
@@ -48,6 +61,7 @@ public final class MessengerHttpClient {
     }
 
     public JSONObject sendMessage(String conversationId, JSONArray recipients, String bodyText, String messageKind) throws Exception {
+        if (firebase != null) return firebase.sendMessage(conversationId, recipients, bodyText, messageKind);
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
             throw new IllegalArgumentException("invalid_conversation_id");
         MessengerRemoteConfig.validateMessageBody(bodyText);
@@ -71,6 +85,7 @@ public final class MessengerHttpClient {
     }
 
     public JSONArray fetchPending(String conversationId, int afterSequence, int limit) throws Exception {
+        if (firebase != null) return firebase.fetchPending(conversationId, afterSequence, limit);
         String path = "/v1/conversations/" + encodePath(conversationId)
                 + "/messages?after=" + Math.max(0, afterSequence) + "&limit=" + Math.max(1, Math.min(100, limit));
         return request("GET", path, null).getJSONArray("messages");
@@ -154,6 +169,7 @@ public final class MessengerHttpClient {
     }
 
     public JSONObject acknowledge(String messageId) throws Exception {
+        if (firebase != null) throw new UnsupportedOperationException("firebase_ack_requires_conversation_id");
         return request("POST", "/v1/messages/" + encodePath(messageId) + "/ack", new JSONObject());
     }
 
@@ -247,6 +263,13 @@ public final class MessengerHttpClient {
     }
 
     public String getAiId() { return aiId; }
+
+    public boolean isFirebaseTransport() { return firebase != null; }
+
+    public JSONObject acknowledgeFirebase(String conversationId, String messageId) throws Exception {
+        if (firebase == null) return acknowledge(messageId);
+        return firebase.acknowledge(conversationId, messageId);
+    }
 
     private JSONObject request(String method, String path, JSONObject payload) throws Exception {
         HttpURLConnection connection = null;
