@@ -64,3 +64,38 @@ A free implementation can still proceed through simulator adapters and test fixt
 OpenAI side: API capability confirmed; current ChatGPT session is not directly attachable; Realtime API is a separate paid API session.
 Bridge: BLOCKED for real two-provider audio until the second provider contract and cost/hosting authorization are known.
 APK: no new binary generated.
+
+
+## Follow-up verification: GPT-Live primary WebSocket
+
+A second official-documentation pass on 2026-11-23 verified that GPT-Live is a distinct, documented server-side option. This section supplements the Realtime research above; it does not replace or silently change the original recommendation.
+
+Official references:
+- GPT-Live WebSocket guide: https://developers.openai.com/api/docs/guides/voice-websockets
+- GPT-Live primary WebSocket reference: https://developers.openai.com/api/reference/resources/live/primary-websocket
+- GPT-Live session management: https://developers.openai.com/api/docs/guides/live-conversations
+
+Confirmed protocol details:
+- Connect to `wss://api.openai.com/v1/live/sessions` with `Authorization: Bearer $OPENAI_API_KEY`; no query parameters.
+- Send `session.start` first and wait for `session.started` before sending audio or application commands.
+- The model shown in the official example is `gpt-live-1.1`.
+- Select the audio format at session startup. The same format applies to input and output for that WebSocket session.
+- Supported documented formats: mono signed PCM16LE at 24 kHz or 16 kHz; G.711 PCMU or PCMA at 8 kHz.
+- Audio is raw bytes Base64-encoded in JSON events; do not include a WAV/container header. PCM16 chunks must have even byte length and preserve continuous ordering.
+- Input event: `session.input_audio.append`.
+- Output audio event: `session.output_audio.delta`; decode and queue deltas in delivery order.
+- The guide explicitly says the primary WebSocket output has no timing fields and no output-audio-done event. Do not invent or wait for `session.output_audio.done`.
+- Close using `session.close` and wait for `session.closed` before releasing the connection.
+- The API key remains on the trusted backend. The official guide recommends WebRTC for GPT-Live audio connections, including server-to-server; WebSocket is supported as an alternative.
+
+Architecture implications for this project:
+1. GPT-Live WebSocket is a valid backend-owned digital-audio candidate, but the current report's event list must be corrected: do not assume `session.output_audio.done` exists.
+2. Because the documented Live flow manages continuous listening/speaking, exact A/B turn boundaries and deterministic completion need a separate coordinator strategy. Transcript fragments are not a reliable substitute for a definitive audio-drained event.
+3. Realtime and GPT-Live must remain separate adapters with separate event parsers, session lifecycle handling, and capability declarations.
+4. No API call was made, no credentials were used, and no paid session was opened.
+
+Updated assessment:
+- GPT-Live API availability and PCM16/24 kHz transport: DOCUMENTED.
+- GPT-Live exact strict turn-completion signal for an audio relay: NOT ESTABLISHED by the primary WebSocket guide; requires further design/validation.
+- Realtime remains a strong candidate when explicit response lifecycle control is required.
+- Final provider choice remains OPEN until the second AI provider's input/output contract is known and cost authorization is resolved.
