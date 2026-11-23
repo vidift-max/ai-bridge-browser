@@ -17,7 +17,7 @@ public final class CollectiveRoomMessageCodecTest {
 
     @Test public void safelyKeepsMessageOnOneStorageLine() {
         String line = CollectiveRoomMessageCodec.encode(
-                1_800_000_000_000L, "MISSION", "AI|NAME", "🤖", "OI|\nTUDO BEM?");
+                1_800_000_000_000L, "MISSION", "AI|NAME", "🤖", "OI|\nTUDO\rBEM?");
         assertFalse(line.contains("\n"));
         assertEquals("AI¦NAME", CollectiveRoomMessageCodec.decode(line).sender);
         assertEquals("OI¦ TUDO BEM?", CollectiveRoomMessageCodec.decode(line).body);
