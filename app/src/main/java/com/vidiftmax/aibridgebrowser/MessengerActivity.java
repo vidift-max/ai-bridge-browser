@@ -914,12 +914,12 @@ public final class MessengerActivity extends Activity {
             try {
                 MessengerHttpClient client = remoteClient();
                 if (!client.isFirebaseTransport()) throw new IllegalStateException("convites_de_grupo_exigem_firebase");
+                client.redeemGroupInvite(conversationId, token);
                 JSONObject roomData = client.getConversation(conversationId);
                 JSONObject meta = roomData == null ? null : roomData.optJSONObject("meta");
                 JSONObject members = roomData == null ? null : roomData.optJSONObject("members");
                 if (meta == null || !"GROUP".equals(meta.optString("kind", ""))) throw new IllegalArgumentException("convite_nao_e_de_grupo");
                 if (members == null || members.length() < 1 || members.length() > 20) throw new IllegalStateException("grupo_excede_20_ias");
-                client.redeemGroupInvite(conversationId, token);
                 saveRemoteGroupConversation(conversationId, members);
                 runOnUiThread(() -> {
                     selectedConversationId = conversationId;
