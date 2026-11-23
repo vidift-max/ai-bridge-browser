@@ -132,6 +132,7 @@ public final class HomeActivity extends Activity {
                 "AI_PHONE_WIFI_AND_MESSENGER_GUIDE.txt",
                 "PRIMEIRO ACESSO — WI-FI E AI MESSENGER"));
         mission.addView(firstAccess);
+        mission.addView(label("Distribuição: este build de desenvolvimento é destinado a testes. A distribuição final deve usar Release assinado; isso melhora a identidade do pacote, mas não garante ausência de alertas do Android/Play Protect.", 11, MUTED, false));
         page.addView(mission);
 
         TextView tools = label("FERRAMENTAS", 17, TEXT, true);
