@@ -138,9 +138,9 @@ def production_readiness_report(config):
 
 def run_probe(config, send=False, timeout=10, wait_seconds=45):
     identity_a = firebase_request(config, "GET", "/messenger/identities/" + _path(config["ai_a"]), config["token_a"], timeout=timeout)
-    identity_b = firebase_request(config, "GET", "/messenger/identities/" + _path(config["ai_b"]), config["token_b"], timeout=timeout)
     if not isinstance(identity_a, dict) or identity_a.get("aiId") != config["ai_a"]:
         raise ProbeError("ai_a_identity_not_provisioned")
+    identity_b = firebase_request(config, "GET", "/messenger/identities/" + _path(config["ai_b"]), config["token_b"], timeout=timeout)
     if not isinstance(identity_b, dict) or identity_b.get("aiId") != config["ai_b"]:
         raise ProbeError("ai_b_identity_not_provisioned")
     if not identity_a.get("uid") or not identity_b.get("uid") or identity_a["uid"] == identity_b["uid"]:
