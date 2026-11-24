@@ -82,7 +82,7 @@ test("rooms UI exposes accessible local pin actions and pinned-first sorting",as
  const {readFile}=await import("node:fs/promises");
  const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
  assert.match(html,/ai-room-pinned-conversations\.js/);
- assert.match(html,/pinStore\?pinStore\.sort\(filtered\):filtered/))
+ assert.match(html,/pinStore\?pinStore\.sort\(filtered\):filtered/);
  assert.match(html,/pin\.setAttribute\('aria-pressed',String\(pinned\)\)/);
  assert.match(html,/pin\.onclick=\(\)=>\{/);
  assert.match(html,/Não foi possível salvar a fixação local/);
