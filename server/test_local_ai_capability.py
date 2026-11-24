@@ -30,6 +30,12 @@ class LocalAICapabilityContractTest(unittest.TestCase):
         self.assertIn("nav.gpu.requestAdapter", self.script)
         self.assertIn("WEBGPU_ADAPTER_UNAVAILABLE", self.script)
 
+    def test_probe_never_downloads_or_contacts_external_model_services(self):
+        self.assertNotIn("fetch(", self.script)
+        self.assertNotIn("XMLHttpRequest", self.script)
+        self.assertNotIn("WebSocket", self.script)
+        self.assertNotIn("SpeechRecognition.install(", self.script)
+
     def test_probe_never_claims_model_loaded_or_inference(self):
         self.assertIn("modelLoaded: false", self.script)
         self.assertIn("downloadStarted: false", self.script)
