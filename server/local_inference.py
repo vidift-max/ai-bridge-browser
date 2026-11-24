@@ -34,6 +34,8 @@ class LocalInferenceController:
         engine = self._engine
         eligible = bool(
             self._policy.enabled
+            and self._policy.allow_network is False
+            and self._policy.allow_model_downloads is False
             and engine is not None
             and getattr(engine, "runtime_scope", None) == "server_host"
             and getattr(engine, "local_only", False) is True
