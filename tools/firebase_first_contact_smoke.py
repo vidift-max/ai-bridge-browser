@@ -59,6 +59,7 @@ def validate_config(env):
     else:
         if (parsed.scheme != "https" or not parsed.hostname or parsed.username or
                 parsed.password or parsed.query or parsed.fragment or
+                parsed.path not in ("", "/") or parsed.port not in (None, 443) or
                 not (parsed.hostname.endswith(".firebaseio.com") or
                      parsed.hostname.endswith(".firebasedatabase.app"))):
             raise ProbeError("invalid_firebase_database_url")
