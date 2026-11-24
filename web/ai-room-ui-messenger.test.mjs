@@ -60,7 +60,7 @@ test("UI messenger rejects a sender outside the active room",async()=>{
 test("Rooms page loads and uses the UI messenger adapter for send and receive",async()=>{
  const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
  assert.match(html,/<script src="\/ai-room-ui-messenger\.js"><\/script>/);
- assert.match(html,/ensureRoomMessenger\(\)\.send\(body\)/);
+ assert.match(html,/ensureRoomMessenger\(\)\.send\(body,\{messageId:attempt\.messageId,clientRequestId:attempt\.clientRequestId\}\)/);
  assert.match(html,/ensureRoomMessenger\(\)\.load\(\)/);
  assert.match(html,/body\.textContent=message\.body/);
 });
@@ -69,4 +69,34 @@ test("HTTP server exposes the UI messenger asset without weakening cache or cont
  assert.match(server,/def _room_ui_messenger_script\(self\)/);
  assert.match(server,/if self\.path == "\/ai-room-ui-messenger\.js":/);
  assert.match(server,/Content-Type", "text\/javascript; charset=utf-8"/);
+});
+
+test("UI messenger preserves caller-supplied idempotency keys for safe retries",async()=>{
+ const f=fixture(),payloads=[];let attempts=0;
+ f.api=async(path,options={})=>{
+  if(path==="/v1/messages"){
+   payloads.push(JSON.parse(options.body));attempts++;
+   if(attempts===1)throw new Error("response_lost");
+   return {sequence:10};
+  }
+  return {};
+ };
+ const scope={window:{},crypto:{randomUUID:()=>"generated"}};
+ vm.runInNewContext(source,scope);
+ const m=scope.window.AIBridgeRoomUIMessenger.create({api:f.api,getContext:()=>({room:{conversationId:"room-a",memberAiIds:["AI-GPT6","AI-CLAUDE"]},identity:{aiId:"AI-GPT6"}}),onMessage:()=>{}});
+ const ids={messageId:"msg-stable",clientRequestId:"request-stable"};
+ await assert.rejects(m.send("retry me",ids),/response_lost/);
+ await m.send("retry me",ids);
+ assert.equal(payloads.length,2);
+ assert.deepEqual(payloads[0],payloads[1]);
+ assert.equal(payloads[1].messageId,"msg-stable");
+ assert.equal(payloads[1].clientRequestId,"request-stable");
+});
+test("Rooms composer retains one idempotency pair across unconfirmed retries and blocks concurrent submits",async()=>{
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.match(html,/pendingMessageAttempt=\{roomId,body,messageId:'msg-'\+crypto\.randomUUID\(\),clientRequestId:'web-'\+crypto\.randomUUID\(\)\}/);
+ assert.match(html,/send\(body,\{messageId:attempt\.messageId,clientRequestId:attempt\.clientRequestId\}\)/);
+ assert.match(html,/messageSubmitBusy\)return/);
+ assert.match(html,/Envio não confirmado\. Tente novamente para repetir com segurança/);
+ assert.match(html,/pendingMessageAttempt===attempt\)pendingMessageAttempt=null/);
 });

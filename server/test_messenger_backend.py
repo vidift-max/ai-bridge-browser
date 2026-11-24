@@ -141,6 +141,15 @@ class MessengerBackendTest(unittest.TestCase):
         with self.assertRaises(PermissionError):
             self.backend.submit("bad","m-1","room-1",["AI-B"],"hello","req-1")
 
+    def test_exact_message_retry_returns_original_message_without_new_sequence(self):
+        first = self.backend.submit("opaque-a", "retry-message", "room-1",
+                                    ["AI-B"], "same body", "retry-request")
+        second = self.backend.submit("opaque-a", "retry-message", "room-1",
+                                     ["AI-B"], "same body", "retry-request")
+        self.assertIs(second, first)
+        self.assertEqual(second.sequence, first.sequence)
+        self.assertEqual(self.backend.pending("opaque-b", "room-1"), [first])
+
     def test_idempotency_conflict_rejected(self):
         self.backend.submit("opaque-a","m-1","room-1",["AI-B"],"hello","req-1")
         with self.assertRaises(ValueError):
