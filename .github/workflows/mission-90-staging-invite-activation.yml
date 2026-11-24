@@ -4,7 +4,7 @@ on:
   push:
     branches: ["feat/mission-91-render-staging-plan", "feat/mission-92-staging-preflight", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger", "feat/mission-96-verifier-response-hardening", "feat/mission-97-fix-android-ci-checkout", "feat/mission-99-ai01-ai02-message-audit", "feat/mission-100-free-ephemeral-staging-gate", "feat/mission-101-first-contact-runner"]
   pull_request:
-    branches: ["feat/mission-90-staging-invite-activation", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger", "feat/mission-96-verifier-response-hardening", "feat/mission-97-fix-android-ci-checkout", "feat/mission-99-ai01-ai02-message-audit", "feat/mission-100-free-ephemeral-staging-gate"]
+    branches: ["feat/mission-90-staging-invite-activation", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger", "feat/mission-96-verifier-response-hardening", "feat/mission-97-fix-android-ci-checkout", "feat/mission-99-ai01-ai02-message-audit", "feat/mission-100-free-ephemeral-staging-gate", "feat/mission-101-first-contact-runner"]
 
 permissions:
   contents: read
