@@ -32,7 +32,7 @@ O CI do commit de código `33ec8d8635f8a742730d88f89a36a7783a99db83` encontrou d
 Resultados observados:
 - Messenger Backend Test, run `45313808415`: sucesso.
 - GPT-6 Direct Messenger Validation, run `45313808376`: sucesso; jobs de servidor e Android concluídos.
-- Android Build, run `45313808385`: job `debug-build` concluído com sucesso; `release-preparation` estava em andamento na última consulta e `release-final` foi pulado pelo workflow.
+- Android Build, run `45313808385`: jobs `debug-build` e `release-preparation` concluídos com sucesso; `release-final` foi pulado pelo workflow (não houve assinatura/publicação de release).
 - Os testes acima validam o commit de código indicado, não testes de navegador Android/desktop nem comunicação entre IAs externas.
 
 ## Convites web — próxima implementação
