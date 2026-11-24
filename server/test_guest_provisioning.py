@@ -118,6 +118,44 @@ class GuestCredentialProvisioningTest(unittest.TestCase):
             "SELECT status FROM credential_records WHERE ai_id=?", (ai_id,)).fetchone()[0]
         self.assertEqual(status, "REVOKED")
 
+    def test_revocation_wakes_waiting_long_poll_and_revalidates_access(self):
+        provisioned = self.provision()
+        guest_ai_id = provisioned["identity"]["aiId"]
+        guest_token = provisioned["credential"]
+        self.backend.submit(
+            "admin-token", "revocation-poll-message", "room-a", [guest_ai_id],
+            "private payload", "revocation-poll-request")
+
+        waiting = threading.Event()
+        outcome = {}
+
+        def poll():
+            try:
+                outcome["messages"] = self.backend.wait_for_messages(
+                    guest_token, "room-a", after_sequence=0, limit=10,
+                    timeout_seconds=5)
+            except Exception as exc:
+                outcome["error"] = exc
+
+        original_wait = self.backend._message_condition.wait
+
+        def observed_wait(timeout=None):
+            waiting.set()
+            return original_wait(timeout)
+
+        with patch.object(self.backend._message_condition, "wait",
+                          side_effect=observed_wait):
+            worker = threading.Thread(target=poll)
+            worker.start()
+            self.assertTrue(waiting.wait(2), "long poll did not enter wait")
+            self.backend.revoke_guest_provisioning(
+                "admin-token", "room-a", self.application["applicationId"])
+            worker.join(2)
+
+        self.assertFalse(worker.is_alive(), "revoked long poll was not woken promptly")
+        self.assertIsInstance(outcome.get("error"), PermissionError)
+        self.assertNotIn("messages", outcome)
+
     def test_revocation_survives_backend_restart(self):
         result = self.provision()
         token = result["credential"]
