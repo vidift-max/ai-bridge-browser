@@ -182,3 +182,25 @@ test("long-poll request uses negotiated timeout and batch size", () => {
     "/v1/conversations/room-a/messages/wait?after=17&limit=100&timeout=20");
 });
 
+
+test("long-poll request honors a server-advertised narrower profile and encodes room IDs", () => {
+  const transport = {minWaitSeconds: 0, maxWaitSeconds: 12, defaultWaitSeconds: 7, maxBatchSize: 25};
+  assert.equal(buildGuestLongPollPath("room/a b", 0, transport),
+    "/v1/conversations/room%2Fa%20b/messages/wait?after=0&limit=25&timeout=7");
+});
+
+test("long-poll request builder rejects invalid cursor and out-of-contract limits", () => {
+  const valid = {minWaitSeconds: 0, maxWaitSeconds: 25, defaultWaitSeconds: 20, maxBatchSize: 100};
+  for (const [room, cursor, config] of [
+    ["room-a", -1, valid],
+    ["room-a", 1.5, valid],
+    ["room-a", Number.MAX_SAFE_INTEGER + 1, valid],
+    ["room-a", 0, {...valid, defaultWaitSeconds: 26}],
+    ["room-a", 0, {...valid, maxWaitSeconds: 26}],
+    ["room-a", 0, {...valid, maxBatchSize: 101}],
+    ["", 0, valid]
+  ]) {
+    assert.throws(() => buildGuestLongPollPath(room, cursor, config), /guest_transport_unavailable/);
+  }
+});
+
