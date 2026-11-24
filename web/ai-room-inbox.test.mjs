@@ -33,6 +33,21 @@ test("page merge rejects malformed pages and records",()=>{
 test("empty cursor marks the end of the inbox",()=>{
  assert.deepEqual(inbox.mergePage([],{conversations:[],nextCursor:null}),{rooms:[],nextCursor:null});
 });
+
+test("inbox search includes the latest authorized message preview",()=>{
+ const withPreview=[{...rooms[0],lastMessage:{body:"deployment ready"}}];
+ assert.deepEqual(inbox.filterRooms(withPreview,"DEPLOYMENT","ALL").map(x=>x.conversationId),["team-alpha"]);
+});
+test("rooms UI renders preview text and unread badges without HTML injection",async()=>{
+ const {readFile}=await import("node:fs/promises");
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.match(html,/room\.lastMessage&&typeof room\.lastMessage\.body==='string'/);
+ assert.match(html,/preview\.textContent=/);
+ assert.match(html,/room\.unreadCount/);
+ assert.match(html,/unread\.hidden=unreadCount===0/);
+ assert.match(html,/id="refreshRooms"/);
+ assert.doesNotMatch(html,/preview\.innerHTML/);
+});
 test("room page API uses bounded server cursor pagination and safe UI rendering",async()=>{
  const {readFile}=await import("node:fs/promises");
  const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
