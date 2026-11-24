@@ -172,26 +172,39 @@
     }
     async function startCall(conversationId, calleeAiId) {
       if (call) throw new Error("CALL_ALREADY_ACTIVE");
-      await prepareMedia();
-      var response = await request("POST", "/v1/calls", {
-        conversationId: conversationId, calleeAiId: calleeAiId
-      });
-      call = response.call;
-      offerSent = false;
-      state("RINGING");
-      startPolling();
-      return call;
+      try {
+        await prepareMedia();
+        var response = await request("POST", "/v1/calls", {
+          conversationId: conversationId, calleeAiId: calleeAiId
+        });
+        call = response.call;
+        offerSent = false;
+        state("RINGING");
+        startPolling();
+        return call;
+      } catch (error) {
+        await closeMedia();
+        call = null;
+        throw error;
+      }
     }
     async function acceptCall(incomingCall) {
       if (call) throw new Error("CALL_ALREADY_ACTIVE");
       call = incomingCall;
-      if (call.callee_ai_id !== options.aiId) throw new Error("ONLY_CALLEE_CAN_ACCEPT");
-      await prepareMedia();
-      var response = await request("POST", "/v1/calls/" + encodeURIComponent(call.call_id) + "/accept", {});
-      call = response.call || call;
-      state("ACCEPTED");
-      startPolling();
-      return call;
+      if (call.callee_ai_id !== options.aiId) { call = null; throw new Error("ONLY_CALLEE_CAN_ACCEPT"); }
+      try {
+        await prepareMedia();
+        var response = await request("POST", "/v1/calls/" + encodeURIComponent(call.call_id) + "/accept", {});
+        call = response.call || call;
+        state("ACCEPTED");
+        startPolling();
+        return call;
+      } catch (error) {
+        await closeMedia();
+        call = null;
+        try { await request("POST", "/v1/calls/" + encodeURIComponent(incomingCall.call_id) + "/reject", {}); } catch (_) {}
+        throw error;
+      }
     }
     async function refreshIncoming(conversationId) {
       var response = await request("GET", "/v1/conversations/" +
