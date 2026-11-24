@@ -152,11 +152,11 @@ test("callee acceptance unlocks offer/answer exchange through authenticated sign
 
   await callee.client.poll();
   assert.equal(server.state.signals[1].kind, "ANSWER");
-  assert.equal(FakePeerConnection.instances[1].remoteDescription.type, "offer");
-  assert.equal(FakePeerConnection.instances[1].localDescription.type, "answer");
+  assert.equal(FakePeerConnection.instances[0].remoteDescription.type, "offer");
+  assert.equal(FakePeerConnection.instances[0].localDescription.type, "answer");
 
   await caller.client.poll();
-  assert.equal(FakePeerConnection.instances[0].remoteDescription.type, "answer");
+  assert.equal(FakePeerConnection.instances[1].remoteDescription.type, "answer");
   assert.equal(caller.client.getCall().call_id, "call-test-1");
 
   await callee.client.endCall();
