@@ -53,7 +53,7 @@
    const message=input.message,localAiId=input.localAiId,localSessionId=input.localSessionId;
    if(!message||!validId(message.messageId)||!validId(message.roomId)||!validId(message.senderAiId)||
       !validId(localAiId)||!validId(localSessionId)||!Array.isArray(message.recipientAiIds)||
-      !message.recipientAiIds.includes(localAiId)||typeof message.body!=="string"||
+      !message.recipientAiIds.includes(localAiId)||new Set(message.recipientAiIds).size!==message.recipientAiIds.length||message.recipientAiIds.some(id=>!validId(id))||typeof message.body!=="string"||
       !message.body.trim()||message.body.length>MAX_BODY||!Number.isSafeInteger(message.sequence)||message.sequence<0)
     throw new Error("INBOUND_MESSAGE_INVALID");
    const dedupeKey=message.roomId+":"+message.messageId;
@@ -73,7 +73,7 @@
      senderAiId:message.senderAiId,recipientAiIds:Object.freeze([...message.recipientAiIds]),
      body:message.body,sequence:message.sequence}));
     admission.authorizeMessage({roomId:message.roomId,aiId:message.senderAiId,sessionId:member.sessionId});
-    admission.authorizeMessage({roomId:message.roomId,aiId:localAiId,sessionId:localSessionId});
+    admission.authorizeRead({roomId:message.roomId,aiId:localAiId,sessionId:localSessionId});
     await acknowledge({messageId:message.messageId,roomId:message.roomId,sequence:message.sequence});
     seen.add(dedupeKey);
     return Object.freeze({status:"DELIVERED_AND_ACKNOWLEDGED",messageId:message.messageId});
