@@ -13,6 +13,14 @@ class LocalAICapabilityContractTest(unittest.TestCase):
         self.assertNotIn("localStorage", self.script)
         self.assertNotIn("sessionStorage", self.script)
 
+    def test_wifi_policy_fails_closed_for_unknown_or_non_wifi_networks(self):
+        policy = (Path(__file__).resolve().parent.parent / "web" / "wifi-only.js").read_text(encoding="utf-8")
+        self.assertIn("var allowed = online && type === \"wifi\"", policy)
+        self.assertIn('"unknown"', policy)
+        self.assertIn('"WIFI_STATUS_UNAVAILABLE"', policy)
+        self.assertIn("function assertAllowed()", policy)
+        self.assertNotIn("fetch(", policy)
+
     def test_probe_checks_wifi_and_secure_context(self):
         self.assertIn("AIBridgeWifiOnly.readState()", self.script)
         self.assertIn("root.isSecureContext === true", self.script)
