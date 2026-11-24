@@ -718,5 +718,86 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(inbox_after_ack["messages"], [])
 
+
+    def test_web_invite_request_and_admin_approval_over_http(self):
+        status, created = self.request("POST", "/v1/conversations", "token-a", {
+            "conversationId": "web-invite-room",
+            "memberAiIds": ["AI-A", "AI-B"], "kind": "GROUP"})
+        self.assertEqual(status, 201)
+        status, invite_data = self.request(
+            "POST", "/v1/conversations/web-invite-room/invites", "token-a",
+            {"expiresInSeconds": 600, "maxUses": 2})
+        self.assertEqual(status, 201)
+        invite = invite_data["invite"]
+        self.assertTrue(invite["token"])
+        status, public = self.request(
+            "GET", "/v1/invites/" + invite["inviteId"], "")
+        self.assertEqual(status, 200)
+        self.assertEqual(public["invite"]["status"], "ACTIVE")
+        self.assertNotIn("token", public["invite"])
+
+        status, request_data = self.request(
+            "POST", "/v1/invites/redeem", "token-c", {"token": invite["token"]})
+        self.assertEqual(status, 202)
+        request_id = request_data["request"]["requestId"]
+        status, listing = self.request(
+            "GET", "/v1/conversations/web-invite-room/join-requests", "token-b")
+        self.assertEqual(status, 403)
+        status, listing = self.request(
+            "GET", "/v1/conversations/web-invite-room/join-requests", "token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual(listing["requests"][0]["ai_id"], "AI-C")
+        status, decision = self.request(
+            "POST",
+            "/v1/conversations/web-invite-room/join-requests/" + request_id + "/decision",
+            "token-a", {"decision": "APPROVE"})
+        self.assertEqual(status, 200)
+        self.assertEqual(decision["request"]["status"], "APPROVED")
+        status, rooms = self.request("GET", "/v1/conversations", "token-c")
+        self.assertEqual(status, 200)
+        self.assertIn("web-invite-room",
+                      [room["conversationId"] for room in rooms["conversations"]])
+
+    def test_web_invite_requires_admin_and_revocation_blocks_redeem(self):
+        self.request("POST", "/v1/conversations", "token-a", {
+            "conversationId": "web-invite-revoke",
+            "memberAiIds": ["AI-A", "AI-B"], "kind": "GROUP"})
+        status, forbidden = self.request(
+            "POST", "/v1/conversations/web-invite-revoke/invites", "token-b", {})
+        self.assertEqual(status, 403)
+        status, created = self.request(
+            "POST", "/v1/conversations/web-invite-revoke/invites", "token-a", {})
+        self.assertEqual(status, 201)
+        invite = created["invite"]
+        status, revoked = self.request(
+            "DELETE", "/v1/conversations/web-invite-revoke/invites/" +
+            invite["inviteId"], "token-a")
+        self.assertEqual(status, 200)
+        status, redeem = self.request(
+            "POST", "/v1/invites/redeem", "token-c", {"token": invite["token"]})
+        self.assertEqual(status, 400)
+        self.assertEqual(redeem["error"], "invite_unavailable")
+
+    def test_web_invite_rejects_missing_authentication_and_invalid_decision(self):
+        self.request("POST", "/v1/conversations", "token-a", {
+            "conversationId": "web-invite-invalid",
+            "memberAiIds": ["AI-A", "AI-B"], "kind": "GROUP"})
+        status, data = self.request(
+            "POST", "/v1/conversations/web-invite-invalid/invites", "", {})
+        self.assertEqual(status, 401)
+        status, created = self.request(
+            "POST", "/v1/conversations/web-invite-invalid/invites", "token-a", {})
+        self.assertEqual(status, 201)
+        invite = created["invite"]
+        status, request_data = self.request(
+            "POST", "/v1/invites/redeem", "token-c", {"token": invite["token"]})
+        self.assertEqual(status, 202)
+        request_id = request_data["request"]["requestId"]
+        status, invalid = self.request(
+            "POST",
+            "/v1/conversations/web-invite-invalid/join-requests/" + request_id + "/decision",
+            "token-a", {"decision": "MAYBE"})
+        self.assertEqual(status, 400)
+
 if __name__ == "__main__":
     unittest.main()
