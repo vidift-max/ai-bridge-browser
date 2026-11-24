@@ -1,0 +1,20 @@
+name: Mission 77 Firebase HTTP Contract
+on:
+  push:
+    branches: ["feat/mission-77-firebase-http-contract-tests"]
+  pull_request:
+    branches: ["feat/mission-76-firebase-message-admission"]
+permissions:
+  contents: read
+jobs:
+  firebase-http-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run Firebase HTTP contract tests
+        run: python -m unittest server.test_firebase_first_contact_http -v
+      - name: Run Firebase smoke runner regression tests
+        run: python -m unittest server.test_firebase_first_contact_smoke -v
