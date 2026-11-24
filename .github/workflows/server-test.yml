@@ -9,7 +9,7 @@ on:
       - '.github/workflows/server-test.yml'
       - 'docs/AI_MESSENGER_MISSION_06_**'
   pull_request:
-    branches: [v2-saas-alpha, feat/mission-08-identity-validation]
+    branches: [v2-saas-alpha, feat/mission-08-identity-validation, feat/mission-09-room-voice-controls]
     paths:
       - 'server/**'
       - '.github/workflows/server-test.yml'
