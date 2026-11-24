@@ -223,6 +223,39 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 self._json(400, {"error": "invalid_conversation_query"})
             return
+        invite_parts = parsed.path.split("/")
+        if len(invite_parts) == 4 and invite_parts[1:3] == ["v1", "invites"] and invite_parts[3]:
+            try:
+                result = self.backend.get_public_invite(invite_parts[3])
+                self._json(200, {"invite": result})
+            except ValueError:
+                self._json(404, {"error": "invite_unavailable"})
+            return
+        if (len(invite_parts) == 5 and invite_parts[1:3] == ["v1", "conversations"]
+                and invite_parts[4] in ("invites", "join-requests") and invite_parts[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if invite_parts[4] == "invites":
+                    items = self.backend.list_room_invites(self._auth(), invite_parts[3])
+                    self._audit(identity, "ROOM_INVITES_LISTED", invite_parts[3],
+                                count=str(len(items)))
+                    self._json(200, {"invites": items,
+                                     "correlationId": identity.correlation_id})
+                else:
+                    items = self.backend.list_join_requests(self._auth(), invite_parts[3])
+                    self._audit(identity, "JOIN_REQUESTS_LISTED", invite_parts[3],
+                                count=str(len(items)))
+                    self._json(200, {"requests": items,
+                                     "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            return
         call_parts = parsed.path.split("/")
         if (len(call_parts) == 6 and call_parts[1:3] == ["v1", "conversations"]
                 and call_parts[4:] == ["calls", "active"] and call_parts[3]):
@@ -377,6 +410,71 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        invite_path = urlsplit(self.path).path.split("/")
+        if len(invite_path) == 4 and invite_path[1:3] == ["v1", "invites"] and invite_path[3] == "redeem":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                payload = self._read_json(max_length=2000)
+                result = self.backend.redeem_room_invite(self._auth(), payload.get("token"))
+                self._audit(identity, "ROOM_JOIN_REQUESTED", result["requestId"],
+                            conversation_id=result["conversationId"])
+                self._json(202, {"request": result, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError):
+                self._json(400, {"error": "invite_unavailable"})
+            return
+        if (len(invite_path) == 5 and invite_path[1:3] == ["v1", "conversations"]
+                and invite_path[4] == "invites" and invite_path[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                payload = self._read_json()
+                result = self.backend.create_room_invite(
+                    self._auth(), invite_path[3],
+                    payload.get("expiresInSeconds", 86400),
+                    payload.get("maxUses", 5))
+                self._audit(identity, "ROOM_INVITE_CREATED", result["inviteId"],
+                            conversation_id=invite_path[3],
+                            expires_at=str(result["expiresAt"]))
+                self._json(201, {"invite": result, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError):
+                self._json(400, {"error": "invalid_invite_request"})
+            return
+        if (len(invite_path) == 7 and invite_path[1:3] == ["v1", "conversations"]
+                and invite_path[4] == "join-requests" and invite_path[6] == "decision"):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                payload = self._read_json()
+                result = self.backend.decide_join_request(
+                    self._auth(), invite_path[3], invite_path[5], payload.get("decision"))
+                self._audit(identity, "ROOM_JOIN_REQUEST_DECIDED", invite_path[5],
+                            decision=result["status"], invited_ai_id=result["aiId"])
+                self._json(200, {"request": result, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError):
+                self._json(400, {"error": "invalid_join_request"})
+            return
         call_path = urlsplit(self.path).path.split("/")
         if urlsplit(self.path).path == "/v1/calls" or (
                 len(call_path) == 4 and call_path[1:3] == ["v1", "calls"] and call_path[3]) or (
@@ -623,6 +721,31 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             return
         self._json(404,{"error":"not_found"})
+
+    def do_DELETE(self):
+        parts = urlsplit(self.path).path.split("/")
+        if (len(parts) == 6 and parts[1:3] == ["v1", "conversations"]
+                and parts[4] == "invites" and parts[3] and parts[5]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                result = self.backend.revoke_room_invite(
+                    self._auth(), parts[3], parts[5])
+                self._audit(identity, "ROOM_INVITE_REVOKED", parts[5],
+                            conversation_id=parts[3])
+                self._json(200, {"invite": result,
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except ValueError:
+                self._json(404, {"error": "invite_not_found"})
+            return
+        self._json(404, {"error": "not_found"})
 
     def log_message(self,*_args): return
 
