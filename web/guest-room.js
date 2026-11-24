@@ -111,6 +111,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   let sessionToken = null;
   let principalAiId = null;
   let room = null;
+  let transportConfig = null;
   let sequence = 0;
   let timer = null;
   let polling = false;
@@ -191,7 +192,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     if (!room.memberAiIds.includes(principalAiId)) throw new Error("guest_room_scope_invalid");
     const transport = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) + "/transport",
       {headers: authHeaders({Accept:"application/json"})});
-    validateGuestTransportContract(transport, room.conversationId);
+    transportConfig = validateGuestTransportContract(transport, room.conversationId);
     const directory = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) + "/identities",
       {headers: authHeaders({Accept:"application/json"})});
     const participants = Array.isArray(directory.participants) ? directory.participants : [];
