@@ -1,0 +1,39 @@
+name: Mission 46 Guest Session Failure Safety
+on:
+  push:
+    branches: ["feat/mission-46-guest-session-failure-safety"]
+  pull_request:
+    branches: ["feat/mission-45-provisioning-failure-safety"]
+permissions:
+  contents: read
+jobs:
+  backend-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest server.test_guest_web_session server.test_guest_provisioning -v
+      - run: python -m unittest discover -s server -p 'test_*.py' -v
+  browser-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test web/*.test.mjs
+  android-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - uses: actions/checkout@v4
+      - run: gradle :app:testDebugUnitTest
+      - run: gradle :app:assembleDebug
