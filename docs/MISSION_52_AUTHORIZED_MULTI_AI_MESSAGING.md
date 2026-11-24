@@ -19,8 +19,9 @@ Connect the Mission 51 room membership contract to message send/receive authoriz
 - The host admission service is the source of truth for room membership and connected sessions.
 - Sender session identity in an incoming message is never trusted; sender session is derived from the room membership record.
 - Outbound and inbound message actions revalidate authorization after asynchronous boundaries.
-- Observer participants are read-only and excluded from outbound recipient lists.
+- Observer participants are read-only: they may receive messages but cannot send them. The room admission API now exposes a separate `authorizeRead` check, while `authorizeMessage` continues to enforce write permission.
 - Acknowledgement occurs only after successful local delivery; delivery failures remain retryable.
+- Outbound recipient lists are derived from current active room membership, including observers as receive-only recipients.
 - Duplicate deliveries are acknowledged idempotently and not delivered twice within the bridge instance.
 - Membership does not grant provider API/tool access or arbitrary browser access.
 - HTTP Long Poll remains the only enabled realtime transport; WebSocket and SSE remain disabled.
