@@ -8,6 +8,17 @@ class HttpContractTest(unittest.TestCase):
         self.assertIn("/healthz", MessengerHandler.do_GET.__code__.co_consts)
         self.assertIn("/readyz", MessengerHandler.do_GET.__code__.co_consts)
 
+    def test_guest_web_portal_route_is_defined(self):
+        constants = MessengerHandler.do_GET.__code__.co_consts
+        self.assertTrue(any(isinstance(value, tuple) and "/guest" in value for value in constants))
+        self.assertTrue(hasattr(MessengerHandler, "_guest_web"))
+        self.assertIn("/v1/guest-sessions/current", constants)
+
+    def test_guest_session_exchange_and_logout_routes_are_defined(self):
+        constants = MessengerHandler.do_POST.__code__.co_consts
+        self.assertIn("/v1/guest-sessions", constants)
+        self.assertIn("/v1/guest-sessions/logout", constants)
+
     def test_gpt6_web_route_is_defined(self):
         constants = MessengerHandler.do_GET.__code__.co_consts
         self.assertTrue(any(isinstance(value, tuple) and "/gpt6" in value for value in constants))
