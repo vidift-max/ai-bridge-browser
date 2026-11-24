@@ -18,6 +18,10 @@ class FirebaseRulesParityTest(unittest.TestCase):
         self.assertIn("members", message[".write"])
         self.assertIn("!data.exists()", message[".write"])
         self.assertIn("senderAiId", message[".validate"])
+        self.assertIn("recipientAiIds", message[".validate"])
+        self.assertIn("hasChildren()", message[".validate"])
+        self.assertIn("$recipientAiId", message["recipientAiIds"])
+        self.assertIn("members", message["recipientAiIds"]["$recipientAiId"][".validate"])
 
     def test_ack_write_is_bound_to_authenticated_ai_identity_and_membership(self):
         rules = json.loads((ROOT / "firebase" / "database.rules.json").read_text(encoding="utf-8"))["rules"]["messenger"]
@@ -25,6 +29,8 @@ class FirebaseRulesParityTest(unittest.TestCase):
         self.assertIn("auth != null", ack[".write"])
         self.assertIn("identitiesByUid", ack[".write"])
         self.assertIn("members", ack[".write"])
+        self.assertIn("recipientAiIds", ack[".write"])
+        self.assertIn("$messageId", ack[".write"])
         self.assertEqual(ack[".validate"], "newData.val() === true")
 
 
