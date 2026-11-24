@@ -225,7 +225,7 @@ test("temporary ICE disconnection waits for the configured recovery grace period
   const incoming = await callee.client.refreshIncoming("private-1");
   await callee.client.acceptCall(incoming);
   await caller.client.poll();
-  const peer = FakePeerConnection.instances[0];
+  const peer = FakePeerConnection.instances[1];
   peer.iceConnectionState = "disconnected";
   peer.oniceconnectionstatechange();
   assert.equal(caller.context.pendingTimeout !== null, true);
