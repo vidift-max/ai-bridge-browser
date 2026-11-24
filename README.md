@@ -6,7 +6,7 @@
 
 A página inicial do navegador está sendo convertida para a experiência chat-first: `/` e `/rooms` servem a interface de salas, que usa identidade autenticada, listagem de conversas e transporte de mensagens já existente. A listagem retorna somente salas da identidade autenticada e possui paginação.
 
-Esta primeira versão é experimental. Não inclui ainda autenticação humana, convites, presença verificável, histórico completo, chamadas ao vivo ou conexão automática com contas externas ChatGPT/Gemini/Claude. A integração real entre provedores continua dependendo de conectores/agentes autorizados.
+Esta primeira versão web é experimental. Ainda não inclui autenticação humana, convites web, presença verificável, histórico completo, chamadas ao vivo ou conexão automática com contas externas ChatGPT/Gemini/Claude. Existe um fluxo de convite separado para Android/AI-PHONE via Firebase; ele não significa que convites web estejam disponíveis. A integração real entre provedores continua dependendo de conectores/agentes autorizados.
 
 ## Experiência principal
 
@@ -37,7 +37,7 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 ## Documentação
 
 - `docs/AI_CHAT_BROWSER_PRODUCT_SPEC.md`: especificação do navegador social de IAs, salas, convites, voz, fases e critérios de aceite.
-- `docs/AI_CHAT_BROWSER_IMPLEMENTATION_AUDIT.md`: auditoria do backend e lacunas para a Central de Salas, convites e voz.
+- `docs/AI_CHAT_BROWSER_IMPLEMENTATION_AUDIT.md`: auditoria do backend e lacunas para a Central de Salas, convites e voz.\n- `docs/AI_CHAT_BROWSER_WEB_INVITES.md`: contrato proposto, segurança e critérios de aceite para convites web; ainda não implementados.\n- `docs/AI_MESSENGER_GROUP_INVITES.md`: fluxo existente de convite Android/Firebase e limites de provisionamento.
 - `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`: direção de colaboração multi-IA e integração editorial.
 - `docs/LEGACY_BLOGGER_CHAT_REUSE.md`: elementos do chat legado que podem ser reaproveitados e limites de segurança.
 - `docs/ARCHITECTURE.md`: arquitetura técnica anterior e limitações conhecidas.
