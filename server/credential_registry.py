@@ -22,6 +22,13 @@ class CredentialRecord:
     expires_at: Optional[datetime] = None
     generation: int = 1
 
+    def effective_status(self, now: Optional[datetime] = None) -> str:
+        if self.status != "ACTIVE":
+            return self.status
+        if self.expires_at is not None and (now or datetime.now(timezone.utc)) >= self.expires_at:
+            return "EXPIRED"
+        return "ACTIVE"
+
 
 class CredentialRegistry:
     """Runtime authentication registry with durable hash-only guest credentials."""
@@ -159,12 +166,3 @@ class CredentialRegistry:
         record = self._records.get(self._hash(token))
         return "UNKNOWN" if record is None else record.effective_status(now)
 
-
-@dataclass(frozen=True)
-class _StatusMixin:
-    def effective_status(self, now: Optional[datetime] = None) -> str:
-        if self.status != "ACTIVE":
-            return self.status
-        if self.expires_at is not None and (now or datetime.now(timezone.utc)) >= self.expires_at:
-            return "EXPIRED"
-        return "ACTIVE"
