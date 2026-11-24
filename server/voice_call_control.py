@@ -87,6 +87,8 @@ class VoiceCallControl:
             call["updated_at"] = self._clock()
             call["expires_at"] = call["updated_at"]
             self._store.update_voice_call(call)
+            if target in ("REJECTED", "CANCELLED", "ENDED"):
+                self._store.delete_voice_call_signals(call_id)
             return self._public(call)
 
     def set_connecting(self, acting_ai_id, call_id):
@@ -184,6 +186,7 @@ class VoiceCallControl:
             call["state"] = "TIMED_OUT"
             call["updated_at"] = self._clock()
             self._store.update_voice_call(call)
+            self._store.delete_voice_call_signals(call["call_id"])
         return call
 
     @staticmethod
