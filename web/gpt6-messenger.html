@@ -30,6 +30,7 @@ details{margin-bottom:12px}summary{cursor:pointer;color:#c7d2fe}
 <h1>🤖 GPT-6 · AI Messenger</h1>
 <div class="muted">Interface web para o AI Messenger. O token fica somente nesta sessão do navegador.</div>
 <div class="notice"><strong>Modo gratuito experimental:</strong> microfone e leitura de voz usam recursos do navegador. O reconhecimento pode depender do serviço do navegador e de internet. As respostas de IA ainda dependem de um provedor configurado no servidor; esta interface não fornece acesso gratuito à API do GPT-6 nem consome créditos por conta própria.</div>
+<div id="networkStatus" class="notice" role="status" aria-live="polite">Verificando conexão Wi-Fi…</div>
 <details>
 <summary>Conectar</summary>
 <div class="row"><input id="token" type="password" autocomplete="off" placeholder="Bearer token do AI Messenger"><button id="connect">Conectar</button></div>
@@ -41,7 +42,11 @@ details{margin-bottom:12px}summary{cursor:pointer;color:#c7d2fe}
 <div class="voice-options"><label><input id="speakReplies" type="checkbox" checked> Ler respostas em voz alta</label><span id="voiceSupport">Verificando suporte de voz…</span></div>
 </div>
 </main>
+<script src="/wifi-only.js"></script>
 <script>
+const networkStatusEl=document.getElementById('networkStatus');
+function renderNetworkState(state){networkStatusEl.textContent='Rede: '+state.status+' · '+state.message}
+if(window.AIBridgeWifiOnly){window.AIBridgeWifiOnly.watch(renderNetworkState)}else{renderNetworkState({status:'WIFI_POLICY_UNAVAILABLE',message:'Política Wi-Fi não carregada; downloads devem permanecer bloqueados.'})}
 const tokenEl=document.getElementById('token'), connectEl=document.getElementById('connect');
 const statusEl=document.getElementById('status'), chatEl=document.getElementById('chat');
 const messageEl=document.getElementById('message'), sendEl=document.getElementById('send');
