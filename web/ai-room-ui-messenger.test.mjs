@@ -60,7 +60,7 @@ test("UI messenger rejects a sender outside the active room",async()=>{
 test("Rooms page loads and uses the UI messenger adapter for send and receive",async()=>{
  const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
  assert.match(html,/<script src="\/ai-room-ui-messenger\.js"><\/script>/);
- assert.match(html,/ensureRoomMessenger\(\)\.send\(body\)/);
+ assert.match(html,/ensureRoomMessenger\(\)\.send\(body,\{messageId:attempt\.messageId,clientRequestId:attempt\.clientRequestId\}\)/);
  assert.match(html,/ensureRoomMessenger\(\)\.load\(\)/);
  assert.match(html,/body\.textContent=message\.body/);
 });
