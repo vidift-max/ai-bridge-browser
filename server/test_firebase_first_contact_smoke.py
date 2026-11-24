@@ -144,9 +144,6 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
 
 
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_production_readiness_report_is_sanitized_and_explicitly_non_operational(self):
         from tools.firebase_first_contact_smoke import production_readiness_report
         report = production_readiness_report(validate_config(BASE))
@@ -173,3 +170,7 @@ if __name__ == "__main__":
             report = production_readiness_report(validate_config(BASE))
         request.assert_not_called()
         self.assertEqual(report["message_send"], "NOT_RUN")
+
+
+if __name__ == "__main__":
+    unittest.main()
