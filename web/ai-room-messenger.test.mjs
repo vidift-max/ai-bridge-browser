@@ -106,7 +106,7 @@ test("read-only observer may receive and acknowledge but cannot send",async()=>{
  const f=fixture();
  f.admission.issueInvitation({roomId:"room",invitationId:"obs2",aiId:"AI-OBSERVER",role:"OBSERVER",expiresAt:5000,issuedByAiId:"AI-GPT-6"});
  f.admission.admit({roomId:"room",invitationId:"obs2",aiId:"AI-OBSERVER",sessionId:"s3"});
- const result=await f.messenger.receive({localAiId:"AI-OBSERVER",localSessionId:"s2",message:{
+ const result=await f.messenger.receive({localAiId:"AI-OBSERVER",localSessionId:"s3",message:{
   messageId:"to-observer",roomId:"room",senderAiId:"AI-CLAUDE",recipientAiIds:["AI-OBSERVER"],body:"read-only",sequence:22
  }});
  assert.equal(result.status,"DELIVERED_AND_ACKNOWLEDGED");
