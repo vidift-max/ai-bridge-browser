@@ -183,7 +183,7 @@
         if (!pc) return;
         var iceState = pc.iceConnectionState || "unknown";
         diagnostic("ICE_CONNECTION", iceState);
-        if (iceState === "connected" || iceState === "completed") clearDisconnectTimer();
+        if (iceState === "connected" || iceState === "completed" || iceState === "checking") clearDisconnectTimer();
         if (iceState === "disconnected" && disconnectTimer === null) {
           disconnectTimer = root.setTimeout(function () {
             disconnectTimer = null;
@@ -199,8 +199,7 @@
       };
       pc.onicecandidateerror = function (event) {
         diagnostic("ICE_CANDIDATE_ERROR", {
-          code: Number.isFinite(event && event.errorCode) ? event.errorCode : null,
-          text: event && event.errorText ? String(event.errorText).slice(0, 160) : null
+          code: Number.isFinite(event && event.errorCode) ? event.errorCode : null
         });
       };
       pc.onconnectionstatechange = function () {
