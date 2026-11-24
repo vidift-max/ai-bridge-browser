@@ -77,3 +77,14 @@ test("room page API uses bounded server cursor pagination and safe UI rendering"
  assert.match(server,/list_conversations\(self\._auth\(\), limit=limit, after=after\)/);
  assert.doesNotMatch(html,/innerHTML/);
 });
+
+test("rooms UI exposes accessible local pin actions and pinned-first sorting",async()=>{
+ const {readFile}=await import("node:fs/promises");
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.match(html,/ai-room-pinned-conversations\.js/);
+ assert.match(html,/AIBridgePinnedConversations\.createStore\(localStorage\)\.sort\(filtered\)/);
+ assert.match(html,/pin\.setAttribute\('aria-pressed',String\(pinned\)\)/);
+ assert.match(html,/pin\.onclick=\(\)=>\{/);
+ assert.match(html,/Não foi possível salvar a fixação local/);
+ assert.doesNotMatch(html,/\/v1\/conversations.*pin/i);
+});
