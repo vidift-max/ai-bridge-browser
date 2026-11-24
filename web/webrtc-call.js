@@ -41,10 +41,13 @@
     function state(value, detail) {
       onState(value, detail || null);
     }
-    function request(method, path, body) {
+    function request(method, path, body, keepalive) {
       if (typeof api !== "function") return Promise.reject(new Error("CALL_API_REQUIRED"));
-      return api(path, { method: method, headers: body ? { "Content-Type": "application/json" } : {},
-        body: body ? JSON.stringify(body) : undefined });
+      var requestOptions = { method: method,
+        headers: body ? { "Content-Type": "application/json" } : {},
+        body: body ? JSON.stringify(body) : undefined };
+      if (keepalive) requestOptions.keepalive = true;
+      return api(path, requestOptions);
     }
     function requireSecureContext() {
       if (root.isSecureContext !== true) throw new Error("SECURE_CONTEXT_REQUIRED");
@@ -252,6 +255,13 @@
       pendingCandidates = [];
     }
     function dispose() {
+      if (call) {
+        var current = call;
+        var action = current.state === "RINGING" ?
+          (current.caller_ai_id === options.aiId ? "cancel" : "reject") : "end";
+        request("POST", "/v1/calls/" + encodeURIComponent(current.call_id) + "/" + action, {}, true)
+          .catch(function () {});
+      }
       closed = true;
       stopPolling();
       closeMedia();
