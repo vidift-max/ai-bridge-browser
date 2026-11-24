@@ -40,7 +40,7 @@ test("refresh is room-scoped and ignores late responses from a previously select
  assert.match(html,/finally\{button\.disabled=false\}/);
 });
 test("directory refresh continues using authenticated server-owned membership identities",()=>{
- assert.match(html,/self\.backend\.list_conversation_identities\(/);
+ assert.match(server,/self\.backend\.list_conversation_identities\(/);
  assert.match(server,/self\.backend\.assert_authenticated_principal\(self\._auth\(\), principal\)/);
  assert.match(backend,/def list_conversation_identities[\s\S]{0,240}self\.authorize_member\(ai_id, conversation_id\)/);
  assert.match(backend,/self\._identities\.list_members\(members\)/);
