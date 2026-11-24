@@ -8,7 +8,8 @@ function fixture(){
  const sessions=new Map([
   ["s0",{sessionId:"s0",providerId:"openai",state:"CONNECTED"}],
   ["s1",{sessionId:"s1",providerId:"anthropic",state:"CONNECTED"}],
-  ["s2",{sessionId:"s2",providerId:"google",state:"CONNECTED"}],\n  ["s3",{sessionId:"s3",providerId:"google",state:"CONNECTED"}]
+  ["s2",{sessionId:"s2",providerId:"google",state:"CONNECTED"}],
+  ["s3",{sessionId:"s3",providerId:"google",state:"CONNECTED"}]
  ]);
  const context={window:{},URL,crypto:{randomUUID:()=> "generated-id"}};
  vm.runInNewContext(admissionSource,context);
