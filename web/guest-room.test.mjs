@@ -204,3 +204,11 @@ test("long-poll request builder rejects invalid cursor and out-of-contract limit
   }
 });
 
+
+test("guest polling consumes negotiated configuration and clears it on session teardown", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /transportConfig = validateGuestTransportContract\(transport, room\.conversationId\)/);
+  assert.match(source, /buildGuestLongPollPath\(room\.conversationId, sequence, transportConfig\)/);
+  assert.match(source, /transportConfig = null/);
+  assert.doesNotMatch(source, /messages\/wait\?after=" \+ sequence \+ "&limit=100&timeout=20/);
+});
