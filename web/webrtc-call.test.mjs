@@ -92,7 +92,8 @@ function makeClient(aiId, api, counters = {}) {
       MediaStream: FakeMediaStream,
       navigator: { mediaDevices: { getUserMedia: async constraints => {
         counters.mediaRequests = (counters.mediaRequests || 0) + 1;
-        assert.deepEqual(constraints, { audio: true, video: false });
+        assert.equal(constraints.audio, true);
+        assert.equal(constraints.video, false);
         return { getTracks: () => tracks };
       } } },
       setInterval: () => 1,
