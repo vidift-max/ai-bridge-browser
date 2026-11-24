@@ -23,3 +23,9 @@ Criar histórico local de avisos de novas mensagens, com estado de leitura e ata
 - A limpeza de histórico não foi incluída nesta missão para evitar exclusão acidental.
 - HTTP Long Poll permanece o único transporte realtime habilitado; WebSocket/SSE continuam desabilitados.
 - Nenhum merge ou deploy é realizado.
+
+## Verificação — PASS
+- Workflow run `45467460295`: completed / SUCCESS.
+- Browser Regression: 264/264 testes aprovados.
+- Backend Regression: 472/472 testes aprovados.
+- Commit de código validado: `c8e89b4f16d531dcbd4d67781da0f1a68093b321`.
