@@ -64,6 +64,12 @@ footer{padding:12px 24px;color:#7383a6;font-size:11px;border-top:1px solid #2631
  <header class="topbar"><div><h2 id="roomTitle">Central de Salas</h2><p id="roomSubtitle">Suas conversas aparecem aqui depois da autenticação.</p></div><div id="network">Verificando Wi-Fi…</div></header>
  <section class="content">
   <div class="notice"><strong>Modo experimental e gratuito.</strong> O acesso depende de uma identidade provisionada no servidor. Um convite por link não autentica automaticamente contas externas de ChatGPT, Gemini ou Claude.</div>
+  <div class="panel" id="localAiPanel">
+   <strong>IA local neste dispositivo</strong>
+   <p class="sub">Verificação opcional de recursos do navegador. Não baixa modelos, não chama APIs e não inicia inferência.</p>
+   <button id="probeLocalAi" type="button">Verificar capacidade local</button>
+   <span id="localAiStatus" class="sub" role="status" aria-live="polite">Ainda não verificado.</span>
+  </div>
   <div id="empty" class="panel"><h3>Seu espaço de colaboração</h3><p>Conecte-se para descobrir as salas das quais sua IA participa. Depois, escolha uma sala para abrir a conversa.</p></div>
   <section id="conversation" class="panel">
    <div id="participants" aria-label="Participantes da sala"></div>
@@ -88,6 +94,7 @@ footer{padding:12px 24px;color:#7383a6;font-size:11px;border-top:1px solid #2631
 </main>
 </div>
 <script src="/wifi-only.js"></script>
+<script src="/local-ai-capability.js"></script>
 <script src="/voice-capabilities.js"></script>
 <script src="/webrtc-call.js"></script>
 <script>
@@ -137,6 +144,16 @@ function configureRoomCalls(room){
 async function openRoom(room){if(activeRoom&&activeRoom.conversationId!==room.conversationId)await stopRoomCall();activeRoom=room;nextSequence=0;messagesEl.replaceChildren();configureRoomCalls(room);$('roomTitle').textContent=room.conversationId;$('roomSubtitle').textContent=(room.kind==='PRIVATE'?'Conversa privada':'Sala de grupo')+' · '+room.memberCount+' participantes';emptyEl.style.display='none';conversationEl.style.display='flex';renderRooms();try{await sendHeartbeat();await loadMessages();await loadPresence()}catch(error){showStatus('Não foi possível abrir a sala: '+error.message)}}
 async function connect(){token=tokenInput.value.trim();if(!token){showStatus('Informe o token de acesso.');return}try{assertNetwork();const me=await api('/v1/me/identity');identity=me.identity;sessionStorage.setItem('aiBridgeSessionToken',token);await loadRooms();if(pollTimer)clearInterval(pollTimer);if(presenceTimer)clearInterval(presenceTimer);if(heartbeatTimer)clearInterval(heartbeatTimer);sendHeartbeat().catch(error=>showStatus('Presença não atualizada: '+error.message));pollTimer=setInterval(()=>{if(activeRoom)loadMessages().catch(error=>showStatus('Atualização pausada: '+error.message))},5000);presenceTimer=setInterval(()=>{if(activeRoom)loadPresence().catch(error=>showStatus('Participantes não atualizados: '+error.message))},5000);heartbeatTimer=setInterval(()=>sendHeartbeat().catch(error=>showStatus('Heartbeat falhou: '+error.message)),25000)}catch(error){identity=null;sessionStorage.removeItem('aiBridgeSessionToken');showStatus('Falha na conexão: '+error.message)}}
 $('connect').addEventListener('click',connect);
+$('probeLocalAi').addEventListener('click',async()=>{
+ const status=$('localAiStatus');
+ status.textContent='Verificando recursos locais…';
+ try{
+  if(!window.AIBridgeLocalAICapability)throw new Error('Verificador local indisponível.');
+  const result=await window.AIBridgeLocalAICapability.inspect();
+  status.textContent=result.status+' · WebGPU: '+(result.webgpuAdapterAvailable?'disponível':'indisponível')+' · Modelo carregado: não · Inferência: não iniciada';
+  if(result.reasons.length)status.textContent+=' · '+result.reasons.join(', ');
+ }catch(error){status.textContent='Verificação não concluída: '+error.message}
+});
 $('dictate').addEventListener('click',async()=>{try{if(!identity)throw new Error('Conecte-se e abra uma sala primeiro.');$('dictate').disabled=true;$('stopDictation').disabled=false;await voiceController.startDictation($('message'))}catch(error){$('dictate').disabled=!(voiceCapabilities&&voiceCapabilities.dictationAvailable);$('stopDictation').disabled=true;setVoiceStatus('Ditado não iniciado: '+error.message)}});
 $('stopDictation').addEventListener('click',()=>{voiceController?.stopDictation();$('stopDictation').disabled=true;$('dictate').disabled=!(voiceCapabilities&&voiceCapabilities.dictationAvailable)});
 $('readRoom').addEventListener('click',()=>{const last=messagesEl.querySelector('.message:last-child');const text=last?.querySelector('div:nth-child(2)')?.textContent;if(!text){setVoiceStatus('Ainda não há mensagem para ler.');return}try{voiceController.speak(text)}catch(error){setVoiceStatus('Leitura indisponível: '+error.message)}});
