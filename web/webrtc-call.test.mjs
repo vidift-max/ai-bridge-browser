@@ -199,7 +199,7 @@ test("RTC configuration is passed to the browser peer connection and diagnostics
   const incoming = await callee.client.refreshIncoming("private-1");
   await callee.client.acceptCall(incoming);
   await caller.client.poll();
-  const peer = FakePeerConnection.instances[0];
+  const peer = FakePeerConnection.instances[1];
   assert.deepEqual(peer.configuration, rtcConfiguration);
   peer.iceGatheringState = "gathering";
   peer.onicegatheringstatechange();
