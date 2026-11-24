@@ -653,6 +653,7 @@ class MessengerBackend:
         self._validate_long_poll_cursor_and_limit(0, limit)
         candidates = [message for message in self._messages.values()
                       if message.conversation_id == conversation_id
+                      and (message.sender_ai_id == ai_id or ai_id in message.recipient_ai_ids)
                       and (before_sequence == 0 or message.sequence < before_sequence)]
         page = sorted(candidates, key=lambda message: message.sequence, reverse=True)[:limit]
         return list(reversed(page))
