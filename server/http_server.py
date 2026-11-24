@@ -236,6 +236,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(200, {
                     "engines": LocalAIRegistry.list_engines(),
                     "messenger": LocalAIRegistry.messenger_capabilities(),
+                    "inferenceContract": LocalAIRegistry.inference_contract(),
                     "correlationId": identity.correlation_id,
                 })
             except RateLimitExceeded:
