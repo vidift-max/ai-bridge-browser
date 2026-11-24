@@ -23,7 +23,7 @@ Adicionar ditado com garantia explícita de processamento local quando o navegad
 - Os controles de ditado não representam chamada ao vivo. WebRTC de grupo permanece fora do escopo.
 
 ## Testes automatizados
-- `web/voice-capabilities.test.mjs`: detecção estrita de localidade, bloqueio fora de contexto seguro ou quando pacote local não está disponível, configuração `processLocally`, transcrição final, parada, síntese e rejeição de entrada vazia. Execução local: 6/6 testes passaram com Node 22.
+- `web/voice-capabilities.test.mjs`: detecção estrita de localidade, bloqueio fora de contexto seguro, API ausente, ausência de pacote local e ausência da flag `processLocally`, transcrição final, parada, síntese e rejeição de entrada vazia. Execução local: 8/8 testes passaram com Node 22.
 - `server/test_http_e2e.py`: rota de entrega do módulo com cabeçalhos de cache e MIME.
 - Workflow `AI Bridge Browser Voice UI Tests`: executa `node --test web/voice-capabilities.test.mjs`.
 
