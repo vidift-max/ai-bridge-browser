@@ -2,9 +2,9 @@ name: Mission 90 Staging Invite Activation
 
 on:
   push:
-    branches: ["feat/mission-91-render-staging-plan", "feat/mission-92-staging-preflight", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger"]
+    branches: ["feat/mission-91-render-staging-plan", "feat/mission-92-staging-preflight", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger", "feat/mission-96-verifier-response-hardening"]
   pull_request:
-    branches: ["feat/mission-90-staging-invite-activation", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger"]
+    branches: ["feat/mission-90-staging-invite-activation", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger", "feat/mission-96-verifier-response-hardening"]
 
 permissions:
   contents: read
