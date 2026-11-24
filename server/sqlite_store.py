@@ -474,10 +474,11 @@ class SQLiteMessengerStore:
                     self._connection.execute(
                         "UPDATE conversations SET member_ai_ids=? WHERE conversation_id=?",
                         (",".join(sorted(current_members)),conversation_id))
+            final_status = "APPROVED" if decision == "APPROVE" else "REJECTED"
             self._connection.execute(
                 """UPDATE join_requests SET status=?,decided_at=?,decided_by_ai_id=?
                    WHERE request_id=? AND status='PENDING'""",
-                (decision,decided_at,decided_by_ai_id,request_id))
+                (final_status,decided_at,decided_by_ai_id,request_id))
             self._connection.commit()
             result = self._connection.execute(
                 "SELECT * FROM join_requests WHERE request_id=?", (request_id,)).fetchone()
