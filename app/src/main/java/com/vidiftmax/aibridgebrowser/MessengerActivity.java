@@ -75,6 +75,11 @@ public final class MessengerActivity extends Activity {
         verifyRemote.setAllCaps(false);
         verifyRemote.setOnClickListener(v -> verifyRemoteConnection());
         page.addView(verifyRemote);
+        Button gpt6 = new Button(this);
+        gpt6.setText("🤖 Conversar diretamente com GPT-6");
+        gpt6.setAllCaps(false);
+        gpt6.setOnClickListener(v -> startActivity(new android.content.Intent(this, Gpt6Activity.class)));
+        page.addView(gpt6);
         Button remoteCreate = new Button(this);
         remoteCreate.setText("＋ Criar conversa remota");
         remoteCreate.setAllCaps(false);
