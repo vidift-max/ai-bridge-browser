@@ -424,7 +424,7 @@ class MessengerBackendTest(unittest.TestCase):
 
 
     def test_long_poll_rejects_non_finite_and_over_limit_timeouts(self):
-        for timeout in (float("nan"), float("inf"), float("-inf"), 25.01):
+        for timeout in (float("nan"), float("inf"), float("-inf"), 25.01, 10 ** 1000):
             with self.subTest(timeout=timeout):
                 with self.assertRaisesRegex(ValueError, "invalid_wait_timeout"):
                     self.backend.wait_for_messages(
