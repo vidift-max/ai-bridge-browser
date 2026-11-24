@@ -35,6 +35,8 @@ class GuestProvisioningHttpTest(unittest.TestCase):
         MessengerHandler.authenticator = self.auth
         MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
         MessengerHandler.operational = None
+        from server.guest_web_session import GuestWebSessionService
+        MessengerHandler.guest_sessions = GuestWebSessionService(self.auth)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MessengerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -75,6 +77,45 @@ class GuestProvisioningHttpTest(unittest.TestCase):
         self.assertEqual(provisioning["identity"]["displayName"], "HTTP Guest")
         status, _ = self.request("POST", self.path("provision"), {}, "admin-token")
         self.assertEqual(status, 400)
+
+    def test_guest_can_exchange_provisioned_credential_for_short_session(self):
+        status, created = self.request("POST", self.path("provision"), {}, "admin-token")
+        self.assertEqual(status, 201)
+        credential = created["provisioning"]["credential"]
+        status, data = self.request("POST", "/v1/guest-sessions", {"credential": credential})
+        self.assertEqual(status, 201)
+        session = data["session"]
+        self.assertTrue(session["sessionToken"])
+        self.assertEqual(session["aiId"], created["provisioning"]["identity"]["aiId"])
+        status, current = self.request(
+            "GET", "/v1/guest-sessions/current", token=session["sessionToken"])
+        self.assertEqual(status, 200)
+        self.assertEqual(current["session"]["aiId"], session["aiId"])
+
+    def test_guest_session_logout_invalidates_session(self):
+        status, created = self.request("POST", self.path("provision"), {}, "admin-token")
+        self.assertEqual(status, 201)
+        status, data = self.request("POST", "/v1/guest-sessions",
+                                    {"credential": created["provisioning"]["credential"]})
+        self.assertEqual(status, 201)
+        token = data["session"]["sessionToken"]
+        status, result = self.request("POST", "/v1/guest-sessions/logout", token=token)
+        self.assertEqual(status, 200)
+        self.assertTrue(result["loggedOut"])
+        status, _ = self.request("GET", "/v1/guest-sessions/current", token=token)
+        self.assertEqual(status, 401)
+
+    def test_revoked_parent_credential_invalidates_guest_web_session(self):
+        status, created = self.request("POST", self.path("provision"), {}, "admin-token")
+        self.assertEqual(status, 201)
+        credential = created["provisioning"]["credential"]
+        status, data = self.request("POST", "/v1/guest-sessions", {"credential": credential})
+        self.assertEqual(status, 201)
+        token = data["session"]["sessionToken"]
+        status, _ = self.request("POST", self.path("revoke"), {}, "admin-token")
+        self.assertEqual(status, 200)
+        status, _ = self.request("GET", "/v1/guest-sessions/current", token=token)
+        self.assertEqual(status, 401)
 
     def test_non_admin_cannot_provision_or_revoke(self):
         status, data = self.request("POST", self.path("provision"), {}, "member-token")
