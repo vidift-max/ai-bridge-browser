@@ -220,8 +220,8 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     const controller = new AbortController();
     activePollController = controller;
     try {
-      const data = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) +
-        "/messages/wait?after=" + sequence + "&limit=100&timeout=20",
+      if (!transportConfig) throw new Error("guest_transport_unavailable");
+      const data = await request(buildGuestLongPollPath(room.conversationId, sequence, transportConfig),
         {headers: authHeaders({Accept:"application/json"}), signal: controller.signal});
       if (generation !== sessionGeneration || !sessionToken || !room) return;
       const messages = Array.isArray(data.messages) ? data.messages : [];
