@@ -28,7 +28,7 @@ window.AIBridgeRtcConfiguration = {
 Não inserir credenciais TURN permanentes no repositório, HTML estático, logs ou histórico. TURN exige credenciais temporárias emitidas por serviço autorizado e aprovado. Esta missão não cria conta, servidor, chave, gasto ou infraestrutura TURN/STUN gerenciada.
 
 ## Privacidade e segurança
-- Diagnósticos registram apenas nomes de eventos e estados, código e texto curto de erro ICE; não incluem SDP nem objeto de candidato.
+- Diagnósticos registram apenas nomes de eventos e estados e código de erro ICE; não incluem SDP, texto livre de erro nem objeto de candidato.
 - A configuração ICE é fornecida ao navegador e, por definição, pode ser inspecionada pelo cliente. Credenciais TURN, quando adotadas, devem ter curta validade e escopo restrito.
 - Microfone continua dependendo de ação explícita e contexto seguro.
 - A mídia continua peer-to-peer; o backend transporta apenas sinalização.
