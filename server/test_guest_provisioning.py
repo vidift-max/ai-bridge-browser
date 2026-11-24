@@ -170,6 +170,59 @@ class GuestCredentialProvisioningTest(unittest.TestCase):
         finally:
             new_backend.close()
 
+    def test_revocation_wakes_all_concurrent_long_polls(self):
+        provisioned = self.provision()
+        guest_token = provisioned["credential"]
+        waiter_count = 8
+        waiting_count = 0
+        count_lock = threading.Lock()
+        all_waiting = threading.Event()
+        outcomes = [{} for _ in range(waiter_count)]
+
+        def poll(index):
+            try:
+                outcomes[index]["messages"] = self.backend.wait_for_messages(
+                    guest_token, "room-a", after_sequence=0, limit=10,
+                    timeout_seconds=5)
+            except Exception as exc:
+                outcomes[index]["error"] = exc
+
+        original_wait = self.backend._message_condition.wait
+
+        def observed_wait(timeout=None):
+            nonlocal waiting_count
+            with count_lock:
+                waiting_count += 1
+                if waiting_count == waiter_count:
+                    all_waiting.set()
+            return original_wait(timeout)
+
+        with patch.object(self.backend._message_condition, "wait",
+                          side_effect=observed_wait):
+            workers = [
+                threading.Thread(target=poll, args=(index,))
+                for index in range(waiter_count)
+            ]
+            for worker in workers:
+                worker.start()
+            self.assertTrue(
+                all_waiting.wait(3),
+                "not all long polls entered the condition wait",
+            )
+            self.backend.revoke_guest_provisioning(
+                "admin-token", "room-a", self.application["applicationId"])
+            for worker in workers:
+                worker.join(2)
+
+        self.assertTrue(
+            all(not worker.is_alive() for worker in workers),
+            "revocation did not wake every waiting long poll",
+        )
+        self.assertEqual(len(outcomes), waiter_count)
+        for outcome in outcomes:
+            self.assertIsInstance(outcome.get("error"), PermissionError)
+            self.assertNotIn("messages", outcome)
+
     def test_credential_expiry_is_enforced(self):
         result = self.provision()
         token = result["credential"]
