@@ -57,13 +57,21 @@ def validate_config(env):
             raise ProbeError("invalid_firebase_emulator_url")
         database_url = "http://" + parsed.netloc
     else:
+        try:
+            port = parsed.port
+        except ValueError:
+            raise ProbeError("invalid_firebase_database_url") from None
         if (parsed.scheme != "https" or not parsed.hostname or parsed.username or
                 parsed.password or parsed.query or parsed.fragment or
+                parsed.path not in ("", "/") or port not in (None, 443) or
                 not (parsed.hostname.endswith(".firebaseio.com") or
                      parsed.hostname.endswith(".firebasedatabase.app"))):
             raise ProbeError("invalid_firebase_database_url")
         database_url = "https://" + parsed.netloc
         namespace = []
+    for token_name in ("MESSENGER_FIREBASE_AI_A_ID_TOKEN", "MESSENGER_FIREBASE_AI_B_ID_TOKEN"):
+        if any(character.isspace() for character in env[token_name]):
+            raise ProbeError("invalid_identity_token_format")
     return {
         "database_url": database_url,
         "database_namespace": namespace[0] if namespace else None,
@@ -193,12 +201,28 @@ def run_probe(config, send=False, timeout=10, wait_seconds=45):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Validate and optionally run a two-identity Firebase text round trip.")
+    parser.add_argument("--production-readiness", action="store_true",
+                        help="validate production configuration only; performs no network requests or sends")
     parser.add_argument("--send", action="store_true", help="send one nonce message and wait for the other identity to ACK it")
     parser.add_argument("--allow-production-send", action="store_true", help="second explicit opt-in; also requires MESSENGER_FIREBASE_ALLOW_PRODUCTION_SEND=true")
     parser.add_argument("--timeout", type=int, default=10)
     parser.add_argument("--wait-seconds", type=int, default=45)
     args = parser.parse_args(argv)
     try:
+        if args.production_readiness:
+            if args.send or args.allow_production_send:
+                raise ProbeError("production_readiness_is_read_only")
+            config = validate_config(os.environ)
+            print(json.dumps({
+                "state": "CONFIG_READY",
+                "ai_a": config["ai_a"],
+                "ai_b": config["ai_b"],
+                "conversation_id": config["conversation"],
+                "network_requests": "NONE",
+                "message_round_trip": "NOT_RUN",
+                "production_send": "NOT_AUTHORIZED",
+            }, sort_keys=True))
+            return 0
         config = validate_config(os.environ)
         authorize_send(config, os.environ, args.send, args.allow_production_send)
         result = run_probe(config, send=args.send, timeout=max(1, min(args.timeout, 30)),

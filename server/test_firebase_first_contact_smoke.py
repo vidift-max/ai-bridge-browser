@@ -1,7 +1,10 @@
+import contextlib
+import io
+import os
 import unittest
 from unittest.mock import patch
 
-from tools.firebase_first_contact_smoke import ProbeError, validate_config, run_probe, authorize_send
+from tools.firebase_first_contact_smoke import ProbeError, validate_config, run_probe, authorize_send, main
 
 
 BASE = {
@@ -137,6 +140,55 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
                    MESSENGER_FIREBASE_EMULATOR="true")
         config = validate_config(env)
         authorize_send(config, env, send=True, allow_production_send=False)
+
+
+    def test_production_readiness_cli_is_network_free_and_redacts_tokens(self):
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, BASE, clear=True):
+            with patch("tools.firebase_first_contact_smoke.firebase_request") as request:
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                    code = main(["--production-readiness"])
+        self.assertEqual(code, 0)
+        request.assert_not_called()
+        output = stdout.getvalue()
+        self.assertIn('"state": "CONFIG_READY"', output)
+        self.assertIn('"network_requests": "NONE"', output)
+        self.assertIn('"message_round_trip": "NOT_RUN"', output)
+        self.assertIn('"production_send": "NOT_AUTHORIZED"', output)
+        self.assertNotIn("token-a-secret", output)
+        self.assertNotIn("token-b-secret", output)
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_production_readiness_rejects_send_flags(self):
+        stderr = io.StringIO()
+        with patch.dict(os.environ, BASE, clear=True):
+            with contextlib.redirect_stderr(stderr):
+                code = main(["--production-readiness", "--send"])
+        self.assertEqual(code, 2)
+        self.assertIn("production_readiness_is_read_only", stderr.getvalue())
+
+    def test_production_readiness_fails_closed_on_missing_configuration_without_network(self):
+        env = dict(BASE)
+        del env["MESSENGER_FIREBASE_AI_B_ID_TOKEN"]
+        stderr = io.StringIO()
+        with patch.dict(os.environ, env, clear=True):
+            with patch("tools.firebase_first_contact_smoke.firebase_request") as request:
+                with contextlib.redirect_stderr(stderr):
+                    code = main(["--production-readiness"])
+        self.assertEqual(code, 2)
+        request.assert_not_called()
+        self.assertIn("missing_configuration:MESSENGER_FIREBASE_AI_B_ID_TOKEN", stderr.getvalue())
+
+    def test_production_url_rejects_path_and_nonstandard_port(self):
+        for url in ("https://demo-default-rtdb.firebaseio.com/custom", "https://demo-default-rtdb.firebaseio.com:8443"):
+            with self.subTest(url=url):
+                with self.assertRaisesRegex(ProbeError, "invalid_firebase_database_url"):
+                    validate_config(dict(BASE, MESSENGER_FIREBASE_DATABASE_URL=url))
+
+    def test_identity_tokens_reject_whitespace(self):
+        env = dict(BASE, MESSENGER_FIREBASE_AI_A_ID_TOKEN="token with spaces")
+        with self.assertRaisesRegex(ProbeError, "invalid_identity_token_format"):
+            validate_config(env)
 
     def test_preflight_never_requires_production_send_opt_in(self):
         config = validate_config(BASE)
