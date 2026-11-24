@@ -24,7 +24,7 @@ const fixture = {
       meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: 1000 },
       members: { "AI-01": true, "AI-02": true, "AI-03": true },
       memberCount: 3,
-      messages: {}
+      messages: { "existing-message": { senderAiId: "AI-01", recipientAiIds: { "AI-02": true }, body: "seeded-message", messageKind: "NORMAL", createdAtEpochMs: 1500 } }
     }
   }
 };
@@ -87,22 +87,22 @@ try {
     await assertFails(set(ref(dbOut(), room + "/messages/message-3"), { ...validMessage, senderAiId: "AI-OUT" }));
   });
   await check("recipient can write its own ACK", async () => {
-    await assertSucceeds(set(ref(dbB(), room + "/acks/message-1/AI-02"), true));
+    await assertSucceeds(set(ref(dbB(), room + "/acks/existing-message/AI-02"), true));
   });
   await check("sender cannot write ACK as recipient", async () => {
-    await assertFails(set(ref(dbA(), room + "/acks/message-1/AI-02"), true));
+    await assertFails(set(ref(dbA(), room + "/acks/existing-message/AI-02"), true));
   });
   await check("room member who was not addressed cannot write ACK", async () => {
-    await assertFails(set(ref(dbC(), room + "/acks/message-1/AI-03"), true));
+    await assertFails(set(ref(dbC(), room + "/acks/existing-message/AI-03"), true));
   });
   await check("recipient cannot ACK a nonexistent message", async () => {
     await assertFails(set(ref(dbB(), room + "/acks/missing-message/AI-02"), true));
   });
   await check("non-member cannot write ACK", async () => {
-    await assertFails(set(ref(dbOut(), room + "/acks/message-1/AI-OUT"), true));
+    await assertFails(set(ref(dbOut(), room + "/acks/existing-message/AI-OUT"), true));
   });
   await check("ACK must be boolean true", async () => {
-    await assertFails(set(ref(dbB(), room + "/acks/message-1/AI-02"), "yes"));
+    await assertFails(set(ref(dbB(), room + "/acks/existing-message/AI-02"), "yes"));
   });
 } finally {
   await env.cleanup();
