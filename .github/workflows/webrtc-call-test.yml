@@ -2,6 +2,14 @@ name: AI Bridge Browser WebRTC Client Tests
 # Keeps stacked Mission 10 pull requests under automated validation and reruns tests after revisions.
 
 on:
+  push:
+    branches:
+      - feat/mission-11-webrtc-reliability
+    paths:
+      - 'web/webrtc-call.js'
+      - 'web/webrtc-call.test.mjs'
+      - 'web/rooms.html'
+      - '.github/workflows/webrtc-call-test.yml'
   pull_request:
     branches:
       - feat/mission-09-room-voice-controls
