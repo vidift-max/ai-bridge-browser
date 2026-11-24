@@ -45,7 +45,7 @@ class GuestWebSessionService:
         with self._lock:
             self._sessions[token_hash] = GuestWebSession(
                 token_hash, principal.ai_id, guest_credential, now, expires_at)
-        self._authenticator.provision_ephemeral_credential(token, principal.ai_id, expires_at)
+        self._authenticator.provision_ephemeral_credential(token, principal.ai_id, expires_at, guest_credential)
         return {"sessionToken": token, "aiId": principal.ai_id,
                 "expiresAt": int(expires_at.timestamp()), "expiresInSeconds": int(self._ttl.total_seconds())}
 
