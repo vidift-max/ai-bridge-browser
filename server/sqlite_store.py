@@ -268,7 +268,7 @@ class SQLiteMessengerStore:
             raise
 
 
-    def provision_guest_application(self, application_id, ai_id, display_name,
+    def provision_guest_application(self, conversation_id, application_id, ai_id, display_name,
                                      token_hash, expires_at, provisioned_at):
         """Atomically add one approved guest identity, room membership and credential digest."""
         self._connection.execute("BEGIN IMMEDIATE")
@@ -276,7 +276,8 @@ class SQLiteMessengerStore:
             app = self._connection.execute(
                 """SELECT * FROM guest_applications WHERE application_id=?""",
                 (application_id,)).fetchone()
-            if (app is None or app["status"] != "APPROVED_AWAITING_PROVISIONING"
+            if (app is None or app["conversation_id"] != conversation_id
+                    or app["status"] != "APPROVED_AWAITING_PROVISIONING"
                     or app["provisioning_status"] != "NOT_STARTED"):
                 self._connection.rollback()
                 return None
