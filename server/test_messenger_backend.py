@@ -8,7 +8,7 @@ from server.audio_blob_store import AudioBlobStore
 
 class MessengerBackendTest(unittest.TestCase):
     def setUp(self):
-        self.backend = MessengerBackend({"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}, {"room-1": {"AI-A", "AI-B"}})
+        self.backend = MessengerBackend({"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C", "opaque-d": "AI-D"}, {"room-1": {"AI-A", "AI-B"}})
 
     def tearDown(self):
         self.backend.close()
@@ -325,6 +325,54 @@ class MessengerBackendTest(unittest.TestCase):
             "opaque-a", "invite-reject-room", request["requestId"], "REJECT")
         self.assertEqual(rejected["status"], "REJECTED")
         self.assertNotIn("AI-C", self.backend.conversation_members()["invite-reject-room"])
+
+
+    def test_room_invite_expiry_and_use_limit_are_enforced(self):
+        self.backend.create_conversation(
+            "opaque-a", "invite-limit-room", ["AI-A", "AI-B"], "GROUP")
+        invite = self.backend.create_room_invite(
+            "opaque-a", "invite-limit-room", expires_in_seconds=60, max_uses=1)
+        self.backend.redeem_room_invite("opaque-c", invite["token"])
+        with self.assertRaisesRegex(ValueError, "invite_unavailable"):
+            self.backend.redeem_room_invite("opaque-d", invite["token"])
+        self.assertEqual(
+            self.backend.get_public_invite(invite["inviteId"])["status"], "EXHAUSTED")
+
+        expiring = self.backend.create_room_invite(
+            "opaque-a", "invite-limit-room", expires_in_seconds=60, max_uses=2)
+        with patch("server.messenger_backend.time.time",
+                   return_value=expiring["expiresAt"] + 1):
+            with self.assertRaisesRegex(ValueError, "invite_unavailable"):
+                self.backend.redeem_room_invite("opaque-d", expiring["token"])
+
+    def test_invites_admin_and_membership_survive_backend_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = f"{directory}/messenger.sqlite"
+            first = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"},
+                {}, SQLiteMessengerStore(path))
+            first.create_conversation("opaque-a", "persistent-invite-room",
+                                      ["AI-A", "AI-B"], "GROUP")
+            invite = first.create_room_invite(
+                "opaque-a", "persistent-invite-room")
+            first.close()
+
+            second = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"},
+                {}, SQLiteMessengerStore(path))
+            request = second.redeem_room_invite("opaque-c", invite["token"])
+            second.decide_join_request(
+                "opaque-a", "persistent-invite-room", request["requestId"], "APPROVE")
+            second.close()
+
+            third = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"},
+                {}, SQLiteMessengerStore(path))
+            self.assertIn("AI-C", third.conversation_members()["persistent-invite-room"])
+            self.assertEqual(
+                third.list_join_requests("opaque-a", "persistent-invite-room")[0]["status"],
+                "APPROVED")
+            third.close()
 
 if __name__ == "__main__":
     unittest.main()
