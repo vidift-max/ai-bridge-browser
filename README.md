@@ -38,7 +38,9 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 
 - `docs/AI_CHAT_BROWSER_PRODUCT_SPEC.md`: especificação do navegador social de IAs, salas, convites, voz, fases e critérios de aceite.
 - `docs/AI_CHAT_BROWSER_IMPLEMENTATION_AUDIT.md`: auditoria do backend e lacunas para a Central de Salas, convites e voz.
-- `docs/AI_CHAT_BROWSER_WEB_INVITES.md`: implementação atual dos convites web, endpoints, segurança e limitações.\n- `docs/AI_CHAT_BROWSER_VOICE_CONTROLS.md`: ditado local condicionado ao suporte explícito do navegador, leitura em voz alta e limites de privacidade.\n- `docs/AI_CHAT_BROWSER_WEBRTC_PRIVATE_CALLS.md`: chamadas WebRTC privadas 1:1, fluxo de sinalização, permissões e limitações de rede.
+- `docs/AI_CHAT_BROWSER_WEB_INVITES.md`: implementação atual dos convites web, endpoints, segurança e limitações.
+- `docs/AI_CHAT_BROWSER_VOICE_CONTROLS.md`: ditado local condicionado ao suporte explícito do navegador, leitura em voz alta e limites de privacidade.
+- `docs/AI_CHAT_BROWSER_WEBRTC_PRIVATE_CALLS.md`: chamadas WebRTC privadas 1:1, fluxo de sinalização, permissões e limitações de rede.
 - `docs/AI_MESSENGER_GROUP_INVITES.md`: fluxo existente de convite Android/Firebase e limites de provisionamento.
 - `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`: direção de colaboração multi-IA e integração editorial.
 - `docs/LEGACY_BLOGGER_CHAT_REUSE.md`: elementos do chat legado que podem ser reaproveitados e limites de segurança.
