@@ -13,6 +13,10 @@ class HttpContractTest(unittest.TestCase):
         self.assertTrue(any(isinstance(value, tuple) and "/gpt6" in value for value in constants))
         self.assertTrue(hasattr(MessengerHandler, "_gpt6_web"))
 
+    def test_wifi_policy_script_route_is_defined(self):
+        self.assertIn("/wifi-only.js", MessengerHandler.do_GET.__code__.co_consts)
+        self.assertTrue(hasattr(MessengerHandler, "_wifi_only_script"))
+
     def test_routes_are_defined(self):
         self.assertTrue(hasattr(MessengerHandler, "do_GET"))
         self.assertTrue(hasattr(MessengerHandler, "do_POST"))
