@@ -61,11 +61,18 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   let polling = false;
   let pollFailures = 0;
   let presenceTimer = null;
+  let activePollController = null;
+  let sessionGeneration = 0;
   const deduper = createMessageDeduper();
 
   const byId = id => doc.getElementById(id);
   const status = message => { byId("status").textContent = message; };
   const authHeaders = extra => ({...extra, Authorization: "Bearer " + sessionToken});
+
+  function abortActivePoll() {
+    if (activePollController !== null) activePollController.abort();
+    activePollController = null;
+  }
 
   async function request(path, options = {}) {
     const response = await fetcher(path, {cache: "no-store", ...options});
@@ -86,6 +93,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   function stopPolling() {
     if (timer !== null) clearTimeout(timer);
     if (presenceTimer !== null) clearInterval(presenceTimer);
+    abortActivePoll();
     timer = null;
     presenceTimer = null;
     polling = false;
@@ -149,10 +157,14 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   async function pollMessages() {
     if (polling || !sessionToken || !room || doc.visibilityState !== "visible") return;
     polling = true;
+    const generation = sessionGeneration;
+    const controller = new AbortController();
+    activePollController = controller;
     try {
       const data = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) +
         "/messages/wait?after=" + sequence + "&limit=100&timeout=20",
-        {headers: authHeaders({Accept:"application/json"})});
+        {headers: authHeaders({Accept:"application/json"}), signal: controller.signal});
+      if (generation !== sessionGeneration || !sessionToken || !room) return;
       const messages = Array.isArray(data.messages) ? data.messages : [];
       for (const message of messages) {
         const added = appendMessage(message);
@@ -165,16 +177,19 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
       pollFailures = 0;
       schedulePolling(BASE_POLL_DELAY_MS);
     } catch (error) {
+      if (error && error.name === "AbortError") return;
       pollFailures += 1;
       schedulePolling(nextPollingDelayMs(pollFailures));
       throw error;
     } finally {
+      if (activePollController === controller) activePollController = null;
       polling = false;
     }
   }
 
   async function enter() {
     byId("enter").disabled = true;
+    sessionGeneration += 1;
     try {
       if (!globalThis.AIBridgeWifiOnly) throw new Error("wifi_policy_unavailable");
       globalThis.AIBridgeWifiOnly.assertAllowed();
@@ -202,6 +217,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   async function send() {
     const button = byId("send");
     button.disabled = true;
+    const generation = sessionGeneration;
     try {
       if (!sessionToken || !room) throw new Error("guest_session_not_active");
       const field = byId("message");
@@ -210,6 +226,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
         method:"POST", headers:authHeaders({"Content-Type":"application/json","Accept":"application/json"}),
         body:JSON.stringify(payload)
       });
+      if (generation !== sessionGeneration || !sessionToken || !room) return;
       appendMessage({messageId:payload.messageId,senderAiId:principalAiId,body:payload.body,sequence:result.sequence});
       field.value = "";
       status("Mensagem enviada.");
@@ -219,6 +236,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   }
 
   async function logout() {
+    sessionGeneration += 1;
     stopPolling();
     await leavePresence();
     try {
@@ -249,9 +267,10 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     if (doc.visibilityState === "visible") {
       heartbeatPresence().catch(error => status(error.message));
       schedulePolling(0);
-    } else if (timer !== null) {
-      clearTimeout(timer);
+    } else {
+      if (timer !== null) clearTimeout(timer);
       timer = null;
+      abortActivePoll();
     }
   });
   return {enter, send, logout, pollMessages};
