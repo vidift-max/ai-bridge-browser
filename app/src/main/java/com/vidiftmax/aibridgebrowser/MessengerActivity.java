@@ -75,6 +75,11 @@ public final class MessengerActivity extends Activity {
         verifyRemote.setAllCaps(false);
         verifyRemote.setOnClickListener(v -> verifyRemoteConnection());
         page.addView(verifyRemote);
+        Button firstContact = new Button(this);
+        firstContact.setText("Diagnóstico de primeiro contato Firebase");
+        firstContact.setAllCaps(false);
+        firstContact.setOnClickListener(v -> runFirebaseFirstContactDiagnostics());
+        page.addView(firstContact);
         Button gpt6 = new Button(this);
         gpt6.setText("🤖 Conversar diretamente com GPT-6");
         gpt6.setAllCaps(false);
@@ -653,6 +658,48 @@ public final class MessengerActivity extends Activity {
                 runOnUiThread(() -> Toast.makeText(this,"Transporte/credencial não validado: "+remoteError(e),Toast.LENGTH_LONG).show());
             }
         }).start();
+    }
+
+    private void runFirebaseFirstContactDiagnostics() {
+        JSONObject conversation = selectedConversation();
+        if (conversation == null || !conversation.optBoolean("remote", false)) {
+            Toast.makeText(this, "Selecione uma conversa remota Firebase antes do diagnóstico.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                android.content.SharedPreferences config = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
+                String databaseUrl = config.getString("base_url", "");
+                String aiId = config.getString("ai_id", "");
+                String apiKey = new AiPhoneCredentialVault().load(this);
+                FirebaseMessengerClient firebase = new FirebaseMessengerClient(this, databaseUrl, apiKey, aiId);
+                JSONObject identity = firebase.getMyIdentity();
+                String authenticatedUid = firebase.getLocalUid();
+                JSONObject room = firebase.getConversation(selectedConversationId);
+                JSONObject result = FirebaseFirstContactDiagnostics.evaluate(
+                        aiId, authenticatedUid, identity, room);
+                runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
+                        .setTitle("Firebase · diagnóstico do cliente")
+                        .setMessage("Estado: PASS\nAI_ID: " + result.optString("aiId") +
+                                "\nAutenticação: válida\nMapeamento AI_ID ↔ sessão: válido" +
+                                "\nParticipação na conversa: PASS" +
+                                "\nCredenciais exibidas/exportadas: NÃO" +
+                                "\n\nEste resultado valida somente este cliente. Repita no segundo AI-PHONE; ainda não comprova troca de mensagens.")
+                        .setPositiveButton("OK", null).show());
+            } catch (Exception error) {
+                String reason = error.getMessage() == null ? "" : error.getMessage();
+                String safeReason = reason.contains("firebase_identity_not_provisioned") ? "Identidade Firebase ainda não provisionada."
+                        : reason.contains("firebase_identity_uid_mismatch") ? "A sessão autenticada não corresponde ao UID registrado."
+                        : reason.contains("firebase_room_membership_missing") ? "Este AI_ID não pertence à conversa selecionada."
+                        : reason.contains("firebase_conversation_not_found") ? "Conversa não encontrada ou sem acesso."
+                        : reason.contains("firebase_http_401") || reason.contains("firebase_http_403") ? "Firebase recusou a autenticação ou a leitura."
+                        : "Configuração ou conexão Firebase não validada.";
+                runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
+                        .setTitle("Firebase · diagnóstico NO-GO")
+                        .setMessage(safeReason + "\n\nNenhum token foi exibido. Verifique a configuração e as permissões sem flexibilizar as regras.")
+                        .setPositiveButton("OK", null).show());
+            }
+        }, "firebase-first-contact-diagnostics").start();
     }
 
     private void chooseRemoteConversationKind() {
