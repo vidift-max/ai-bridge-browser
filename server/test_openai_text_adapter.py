@@ -32,6 +32,30 @@ class OpenAITextAdapterTest(unittest.TestCase):
         self.assertEqual(result["text"], "Olá, eu estou no Messenger.")
 
     @patch("server.openai_text_adapter.urllib.request.urlopen")
+    def test_realtime_client_secret_request_is_server_side(self, urlopen):
+        class FakeResponse:
+            def __enter__(self): return self
+            def __exit__(self, *args): return None
+            def read(self):
+                return json.dumps({
+                    "value": "ek_test",
+                    "expires_at": 1234567890,
+                    "session": {"type": "realtime"}
+                }).encode()
+
+        urlopen.return_value = FakeResponse()
+        adapter = OpenAITextAdapter(api_key="test-key")
+        result = adapter.create_realtime_client_secret()
+        request = urlopen.call_args.args[0]
+        payload = json.loads(request.data.decode())
+        self.assertEqual(request.full_url, "https://api.openai.com/v1/realtime/client_secrets")
+        self.assertEqual(request.get_header("Authorization"), "Bearer test-key")
+        self.assertEqual(payload["session"]["type"], "realtime")
+        self.assertEqual(payload["session"]["output_modalities"], ["audio"])
+        self.assertEqual(result["clientSecret"], "ek_test")
+        self.assertEqual(result["expiresAt"], 1234567890)
+
+    @patch("server.openai_text_adapter.urllib.request.urlopen")
     def test_previous_response_is_forwarded(self, urlopen):
         class FakeResponse:
             def __enter__(self): return self
