@@ -52,6 +52,13 @@ class LocalInferenceContractTest(unittest.TestCase):
         with self.assertRaisesRegex(LocalInferenceError, "LOCAL_ENGINE_NOT_CONFIGURED"):
             controller.execute("hello", user_opt_in=True)
 
+    def test_rejects_policy_that_allows_network_or_downloads(self):
+        engine = FakeLocalEngine()
+        network_policy = LocalInferencePolicy(enabled=True, allow_network=True)
+        self.assertFalse(LocalInferenceController(engine, network_policy).status()["inferenceAvailable"])
+        download_policy = LocalInferencePolicy(enabled=True, allow_model_downloads=True)
+        self.assertFalse(LocalInferenceController(engine, download_policy).status()["inferenceAvailable"])
+
     def test_rejects_download_enabled_engine(self):
         engine = FakeLocalEngine()
         engine.downloads_allowed = True
@@ -74,6 +81,15 @@ class LocalInferenceContractTest(unittest.TestCase):
         engine.generate = lambda *args, **kwargs: {"unexpected": "object"}
         controller = LocalInferenceController(engine, LocalInferencePolicy(enabled=True))
         with self.assertRaisesRegex(LocalInferenceError, "LOCAL_ENGINE_INVALID_RESULT"):
+            controller.execute("hello", user_opt_in=True)
+
+    def test_rejects_oversized_engine_output(self):
+        engine = FakeLocalEngine()
+        engine.generate = lambda *args, **kwargs: "x" * 10
+        controller = LocalInferenceController(
+            engine, LocalInferencePolicy(enabled=True, max_output_chars=5)
+        )
+        with self.assertRaisesRegex(LocalInferenceError, "LOCAL_ENGINE_OUTPUT_TOO_LARGE"):
             controller.execute("hello", user_opt_in=True)
 
     def test_does_not_leak_engine_exception_details(self):
