@@ -37,9 +37,15 @@
           ".write": "auth != null && ((!data.exists() && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === newData.child('meta').child('ownerAiId').val()) || (data.exists() && data.child('meta').child('kind').val() === 'GROUP' && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() !== '' && root.child('messenger/invitesByAi').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).child($conversationId).hasChildren() && !data.child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).exists() && newData.child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true && newData.child('memberCount').val() === data.child('memberCount').val() + 1 && newData.child('memberCount').val() <= 20))",
           ".validate": "newData.hasChildren(['meta','members','memberCount']) && newData.child('meta').hasChildren(['ownerAiId','kind','createdAtEpochMs']) && (newData.child('meta').child('kind').val() === 'GROUP' || newData.child('meta').child('kind').val() === 'PRIVATE') && newData.child('memberCount').isNumber() && newData.child('memberCount').val() >= 2 && newData.child('memberCount').val() <= 20 && newData.child('members').child(newData.child('meta').child('ownerAiId').val()).val() === true",
           "meta": {
-            "ownerAiId": { ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())" },
-            "kind": { ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())" },
-            "createdAtEpochMs": { ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val())" }
+            "ownerAiId": {
+              ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+            },
+            "kind": {
+              ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+            },
+            "createdAtEpochMs": {
+              ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val())"
+            }
           },
           "memberCount": {
             ".validate": "newData.isNumber() && (!data.exists() ? newData.val() >= 2 && newData.val() <= 20 : newData.val() === data.val() + 1 && newData.val() <= 20)"
@@ -54,7 +60,8 @@
               ".read": "auth != null && data.parent().parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true",
               ".write": "auth != null && data.parent().parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true && !data.exists()",
               ".validate": "newData.hasChildren(['senderAiId','recipientAiIds','body','messageKind','createdAtEpochMs']) && newData.child('senderAiId').val() === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && newData.child('body').isString() && newData.child('body').val().length <= 5000"
-            }
+            },
+            ".read": "auth != null && data.parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true"
           },
           "acks": {
             "$messageId": {
