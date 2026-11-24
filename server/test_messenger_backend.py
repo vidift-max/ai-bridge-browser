@@ -425,9 +425,14 @@ class MessengerBackendTest(unittest.TestCase):
 
     def test_transport_capabilities_are_authorized_and_conservative(self):
         capabilities = self.backend.transport_capabilities("opaque-b", "room-1")
+        self.assertEqual(capabilities["contractVersion"], 1)
+        self.assertEqual(capabilities["conversationId"], "room-1")
+        self.assertTrue(capabilities["authorized"])
         self.assertEqual(capabilities["defaultTransport"], "HTTP_LONG_POLL")
+        self.assertEqual(capabilities["transports"]["httpLongPoll"]["minWaitSeconds"], 0)
         self.assertEqual(capabilities["transports"]["httpLongPoll"]["maxWaitSeconds"], 25)
         self.assertEqual(capabilities["transports"]["httpLongPoll"]["defaultWaitSeconds"], 20)
+        self.assertEqual(capabilities["transports"]["httpLongPoll"]["maxBatchSize"], 100)
         self.assertFalse(capabilities["transports"]["webSocket"]["enabled"])
         self.assertFalse(capabilities["transports"]["serverPush"]["enabled"])
         self.assertEqual(capabilities["cursor"], {"type": "sequence", "ackRequired": True})
@@ -435,6 +440,17 @@ class MessengerBackendTest(unittest.TestCase):
     def test_transport_capabilities_fail_closed_for_non_member(self):
         with self.assertRaisesRegex(PermissionError, "authorization_denied"):
             self.backend.transport_capabilities("opaque-c", "room-1")
+
+    def test_transport_capabilities_require_valid_credentials(self):
+        with self.assertRaises(PermissionError):
+            self.backend.transport_capabilities("not-a-valid-token", "room-1")
+
+    def test_transport_contract_limits_match_long_poll_enforcement(self):
+        capabilities = self.backend.transport_capabilities("opaque-b", "room-1")
+        poll = capabilities["transports"]["httpLongPoll"]
+        self.assertLessEqual(poll["maxWaitSeconds"], 25)
+        self.assertLessEqual(poll["maxBatchSize"], 100)
+        self.assertLessEqual(poll["defaultWaitSeconds"], poll["maxWaitSeconds"])
 
 if __name__ == "__main__":
     unittest.main()

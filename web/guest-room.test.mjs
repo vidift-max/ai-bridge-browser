@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import guestRoom from "./guest-room.js";
-const {buildGuestMessagePayload, requireSingleGuestRoom, createMessageDeduper, nextPollingDelayMs} = guestRoom;
+const {buildGuestMessagePayload, requireSingleGuestRoom, createMessageDeduper, nextPollingDelayMs, validateGuestTransportContract} = guestRoom;
 
 test("guest room contract accepts exactly one room", () => {
   const room = requireSingleGuestRoom({conversations:[{
@@ -102,11 +102,76 @@ test("guest messenger ignores late responses from an older session generation", 
 });
 
 
-test("guest messenger negotiates the authorized transport contract before opening the room", async () => {
+test("guest messenger negotiates and validates the authorized transport contract before opening the room", async () => {
   const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
   assert.match(source, /\/v1\/conversations\/.*\/transport/);
-  assert.match(source, /transport\.authorized/);
-  assert.match(source, /transport\.transports\?\.httpLongPoll\?\.enabled/);
-  assert.match(source, /transport\.defaultTransport !== "HTTP_LONG_POLL"/);
+  assert.match(source, /validateGuestTransportContract\(transport, room\.conversationId\)/);
+  assert.match(source, /payload\.authorized !== true/);
+  assert.match(source, /payload\.defaultTransport !== "HTTP_LONG_POLL"/);
   assert.match(source, /guest_transport_unavailable/);
+});
+
+function validTransportContract(overrides = {}) {
+  return {
+    contractVersion: 1,
+    conversationId: "room-a",
+    authorized: true,
+    defaultTransport: "HTTP_LONG_POLL",
+    transports: {
+      httpLongPoll: {enabled: true, minWaitSeconds: 0, maxWaitSeconds: 25,
+        defaultWaitSeconds: 20, maxBatchSize: 100},
+      webSocket: {enabled: false},
+      serverPush: {enabled: false}
+    },
+    cursor: {type: "sequence", ackRequired: true},
+    ...overrides
+  };
+}
+
+test("transport validator accepts the versioned bounded long-poll contract", () => {
+  assert.deepEqual(validateGuestTransportContract(validTransportContract(), "room-a"), {
+    maxWaitSeconds: 25, defaultWaitSeconds: 20, maxBatchSize: 100
+  });
+});
+
+
+test("transport validator rejects wrong room, version, authorization, and transport", () => {
+  const cases = [
+    [validTransportContract({conversationId: "room-b"}), "room-a"],
+    [validTransportContract({contractVersion: 2}), "room-a"],
+    [validTransportContract({authorized: false}), "room-a"],
+    [validTransportContract({defaultTransport: "WEBSOCKET"}), "room-a"]
+  ];
+  for (const [contract, roomId] of cases) {
+    assert.throws(() => validateGuestTransportContract(contract, roomId), /guest_transport_unavailable/);
+  }
+});
+
+test("transport validator rejects unsafe bounds, cursor changes, and unimplemented transports", () => {
+  const mutations = [
+    value => { value.transports.httpLongPoll.maxWaitSeconds = 26; },
+    value => { value.transports.httpLongPoll.defaultWaitSeconds = 30; },
+    value => { value.transports.httpLongPoll.maxBatchSize = 101; },
+    value => { value.transports.httpLongPoll.minWaitSeconds = -1; },
+    value => { value.cursor.ackRequired = false; },
+    value => { value.cursor.type = "opaque"; },
+    value => { value.transports.webSocket.enabled = true; },
+    value => { value.transports.serverPush.enabled = true; }
+  ];
+  for (const mutate of mutations) {
+    const contract = structuredClone(validTransportContract());
+    mutate(contract);
+    assert.throws(() => validateGuestTransportContract(contract, "room-a"), /guest_transport_unavailable/);
+  }
+});
+
+
+test("guest room entry uses strict transport validation for the exact room", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /validateGuestTransportContract\(transport, room\.conversationId\)/);
+  assert.match(source, /payload\.contractVersion !== 1/);
+  assert.match(source, /payload\.conversationId !== conversationId/);
+  assert.match(source, /poll\.maxWaitSeconds > 25/);
+  assert.match(source, /poll\.maxBatchSize > 100/);
+  assert.match(source, /cursor\.ackRequired !== true/);
 });
