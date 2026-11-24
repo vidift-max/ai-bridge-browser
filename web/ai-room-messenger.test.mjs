@@ -8,7 +8,7 @@ function fixture(){
  const sessions=new Map([
   ["s0",{sessionId:"s0",providerId:"openai",state:"CONNECTED"}],
   ["s1",{sessionId:"s1",providerId:"anthropic",state:"CONNECTED"}],
-  ["s2",{sessionId:"s2",providerId:"google",state:"CONNECTED"}]
+  ["s2",{sessionId:"s2",providerId:"google",state:"CONNECTED"}],\n  ["s3",{sessionId:"s3",providerId:"google",state:"CONNECTED"}]
  ]);
  const context={window:{},URL,crypto:{randomUUID:()=> "generated-id"}};
  vm.runInNewContext(admissionSource,context);
@@ -59,8 +59,8 @@ test("inbound rejects spoofed sender, unauthorized recipient, and local session 
 test("observer cannot send and cannot be accepted as a sender",async()=>{
  const f=fixture();
  f.admission.issueInvitation({roomId:"room",invitationId:"obs",aiId:"AI-OBSERVER",role:"OBSERVER",expiresAt:5000,issuedByAiId:"AI-GPT-6"});
- f.admission.admit({roomId:"room",invitationId:"obs",aiId:"AI-OBSERVER",sessionId:"s2"});
- assert.throws(()=>f.messenger.createPayload({roomId:"room",aiId:"AI-OBSERVER",sessionId:"s2",body:"x"}),/ROOM_ROLE_READ_ONLY/);
+ f.admission.admit({roomId:"room",invitationId:"obs",aiId:"AI-OBSERVER",sessionId:"s3"});
+ assert.throws(()=>f.messenger.createPayload({roomId:"room",aiId:"AI-OBSERVER",sessionId:"s3",body:"x"}),/ROOM_ROLE_READ_ONLY/);
  await assert.rejects(f.messenger.receive({localAiId:"AI-GPT-6",localSessionId:"s0",message:{messageId:"obs-m",roomId:"room",senderAiId:"AI-OBSERVER",recipientAiIds:["AI-GPT-6"],body:"x",sequence:1}}),/SENDER_ROLE_READ_ONLY/);
 });
 test("revoked sender or recipient cannot send or receive",async()=>{
@@ -98,13 +98,13 @@ test("message body and sequence are strictly bounded",async()=>{
 test("source documents room-scoped authorization and long-poll transport boundary",async()=>{
  const doc=await readFile(new URL("../docs/MISSION_52_AUTHORIZED_MULTI_AI_MESSAGING.md",import.meta.url),"utf8");
  assert.match(doc,/HTTP Long Poll remains the only enabled realtime transport/);
- assert.match(doc,/Acknowledgement follows successful local delivery/);
+ assert.match(doc,/Acknowledgement occurs only after successful local delivery/);
 });
 
 test("read-only observer may receive and acknowledge but cannot send",async()=>{
  const f=fixture();
  f.admission.issueInvitation({roomId:"room",invitationId:"obs2",aiId:"AI-OBSERVER",role:"OBSERVER",expiresAt:5000,issuedByAiId:"AI-GPT-6"});
- f.admission.admit({roomId:"room",invitationId:"obs2",aiId:"AI-OBSERVER",sessionId:"s2"});
+ f.admission.admit({roomId:"room",invitationId:"obs2",aiId:"AI-OBSERVER",sessionId:"s3"});
  const result=await f.messenger.receive({localAiId:"AI-OBSERVER",localSessionId:"s2",message:{
   messageId:"to-observer",roomId:"room",senderAiId:"AI-CLAUDE",recipientAiIds:["AI-OBSERVER"],body:"read-only",sequence:22
  }});
@@ -121,7 +121,7 @@ test("inbound recipients must be unique valid identities",async()=>{
 test("outbound messages include active observers as read-only recipients",()=>{
  const f=fixture();
  f.admission.issueInvitation({roomId:"room",invitationId:"obs3",aiId:"AI-OBSERVER",role:"OBSERVER",expiresAt:5000,issuedByAiId:"AI-GPT-6"});
- f.admission.admit({roomId:"room",invitationId:"obs3",aiId:"AI-OBSERVER",sessionId:"s2"});
+ f.admission.admit({roomId:"room",invitationId:"obs3",aiId:"AI-OBSERVER",sessionId:"s3"});
  const payload=f.messenger.createPayload({roomId:"room",aiId:"AI-CLAUDE",sessionId:"s1",body:"hello"});
  assert.ok(payload.recipientAiIds.includes("AI-OBSERVER"));
 });
