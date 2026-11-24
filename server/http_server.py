@@ -96,6 +96,23 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _guest_web(self):
+        page = Path(__file__).resolve().parent.parent / "web" / "guest.html"
+        try:
+            data = page.read_bytes()
+        except OSError:
+            self._json(404, {"error": "guest_web_not_found"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def _invite_web(self):
         page = Path(__file__).resolve().parent.parent / "web" / "invite.html"
         try:
@@ -172,6 +189,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
+        if self.path in ("/guest", "/guest/"):
+            self._guest_web()
+            return
         if self.path in ("/invite", "/invite/"):
             self._invite_web()
             return
