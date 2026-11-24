@@ -27,7 +27,10 @@ Extend the existing per-AI notification center to surface incoming 1:1 calls, pe
 - No server push transport was added. HTTP Long Poll remains the only enabled realtime transport; this feature uses bounded authenticated polling.
 
 ## Verification
-Pending GitHub Actions results for the final branch HEAD.
+- Workflow run `45469868266`: SUCCESS on the implementation/documentation HEAD `204a9f3a060988aca463980efc292b1702617263`.
+- Browser Regression: 280/280 tests PASS.
+- Backend Regression: 473 tests PASS, including `test_room_event_notification_script_route_is_defined`.
+- Both jobs completed successfully.
 
 ## Limits
 Monitoring covers currently loaded conversations only. Admin-only room endpoints may return 403 and are intentionally ignored. No merge or deployment is performed.
