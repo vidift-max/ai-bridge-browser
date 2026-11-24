@@ -133,14 +133,14 @@ class GuestWebSessionServiceTest(unittest.TestCase):
                 self.expire_calls += 1
                 super().expire(token)
                 if self.expire_calls == 1:
-                    raise OSError("credential expiry persistence failed")
+                    raise OSError("credential expiry transition failed")
 
         auth = PartiallyFailingExpiryAuthenticator()
         service = GuestWebSessionService(auth)
         session = service.exchange("guest-bearer")["sessionToken"]
         token_hash = self._expire_session_now(service, session)
 
-        with self.assertRaisesRegex(OSError, "credential expiry persistence failed"):
+        with self.assertRaisesRegex(OSError, "credential expiry transition failed"):
             service.authenticate(session)
         self.assertEqual(service._sessions[token_hash].status, "ACTIVE")
         self.assertEqual(auth.ephemeral[session][1], "EXPIRED")
