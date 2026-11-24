@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import guestRoom from "./guest-room.js";
-const {buildGuestMessagePayload, requireSingleGuestRoom, createMessageDeduper, nextPollingDelayMs} = guestRoom;
+const {buildGuestMessagePayload, requireSingleGuestRoom, createMessageDeduper, nextPollingDelayMs, validateGuestTransportContract} = guestRoom;
 
 test("guest room contract accepts exactly one room", () => {
   const room = requireSingleGuestRoom({conversations:[{
@@ -110,3 +110,27 @@ test("guest messenger negotiates the authorized transport contract before openin
   assert.match(source, /transport\.defaultTransport !== "HTTP_LONG_POLL"/);
   assert.match(source, /guest_transport_unavailable/);
 });
+
+function validTransportContract(overrides = {}) {
+  return {
+    contractVersion: 1,
+    conversationId: "room-a",
+    authorized: true,
+    defaultTransport: "HTTP_LONG_POLL",
+    transports: {
+      httpLongPoll: {enabled: true, minWaitSeconds: 0, maxWaitSeconds: 25,
+        defaultWaitSeconds: 20, maxBatchSize: 100},
+      webSocket: {enabled: false},
+      serverPush: {enabled: false}
+    },
+    cursor: {type: "sequence", ackRequired: true},
+    ...overrides
+  };
+}
+
+test("transport validator accepts the versioned bounded long-poll contract", () => {
+  assert.deepEqual(validateGuestTransportContract(validTransportContract(), "room-a"), {
+    maxWaitSeconds: 25, defaultWaitSeconds: 20, maxBatchSize: 100
+  });
+});
+
