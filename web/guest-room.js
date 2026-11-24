@@ -36,6 +36,29 @@ function validateGuestTransportContract(payload, conversationId) {
   });
 }
 
+function buildGuestLongPollPath(conversationId, afterSequence, transport) {
+  if (typeof conversationId !== "string" || !conversationId ||
+      !Number.isSafeInteger(afterSequence) || afterSequence < 0 ||
+      !transport || !Number.isInteger(transport.minWaitSeconds) ||
+      !Number.isInteger(transport.maxWaitSeconds) ||
+      !Number.isInteger(transport.defaultWaitSeconds) ||
+      !Number.isInteger(transport.maxBatchSize) ||
+      transport.minWaitSeconds !== 0 ||
+      transport.maxWaitSeconds < 1 || transport.maxWaitSeconds > 25 ||
+      transport.defaultWaitSeconds < transport.minWaitSeconds ||
+      transport.defaultWaitSeconds > transport.maxWaitSeconds ||
+      transport.maxBatchSize < 1 || transport.maxBatchSize > 100) {
+    throw new Error("guest_transport_unavailable");
+  }
+  const query = new URLSearchParams({
+    after: String(afterSequence),
+    limit: String(transport.maxBatchSize),
+    timeout: String(transport.defaultWaitSeconds)
+  });
+  return "/v1/conversations/" + encodeURIComponent(conversationId) +
+    "/messages/wait?" + query.toString();
+}
+
 function requireSingleGuestRoom(payload) {
   const rooms = payload && Array.isArray(payload.conversations) ? payload.conversations : [];
   if (rooms.length !== 1) throw new Error("guest_room_scope_invalid");
