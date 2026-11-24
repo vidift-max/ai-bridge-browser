@@ -131,6 +131,27 @@ class CredentialRegistry:
         return record.ai_id, record.generation
 
     @_synchronized
+    def revoke_hash(self, token_hash: str) -> None:
+        record = self._records.get(token_hash)
+        if record is None:
+            if self._connection is None:
+                raise KeyError("credential_unknown")
+            row = self._connection.execute(
+                "SELECT token_hash,ai_id,status,expires_at,generation FROM credential_records WHERE token_hash=?",
+                (token_hash,)).fetchone()
+            if row is None:
+                raise KeyError("credential_unknown")
+            expires_at = (datetime.fromtimestamp(row["expires_at"], timezone.utc)
+                          if row["expires_at"] is not None else None)
+            record = CredentialRecord(row["token_hash"], row["ai_id"], row["status"],
+                                      expires_at, row["generation"])
+        updated = CredentialRecord(record.token_hash, record.ai_id, "REVOKED",
+                                   record.expires_at, record.generation)
+        self._records[token_hash] = updated
+        self._persistent_hashes.add(token_hash)
+        self._persist(updated)
+
+    @_synchronized
     def revoke(self, token: str) -> None:
         token_hash = self._hash(token)
         record = self._records.get(token_hash)
