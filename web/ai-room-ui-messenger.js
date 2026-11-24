@@ -55,8 +55,36 @@
    }
    return cursor;
   }
+  async function loadHistory(beforeSequence=0,limit=50){
+   const current=context(),roomId=current.room.conversationId;
+   if(!Number.isSafeInteger(beforeSequence)||beforeSequence<0||
+      !Number.isSafeInteger(limit)||limit<1||limit>100)
+    throw new Error("ROOM_UI_HISTORY_CURSOR_INVALID");
+   const data=await options.api("/v1/conversations/"+encodeURIComponent(roomId)+
+    "/history?before="+beforeSequence+"&limit="+limit);
+   if(!data||!Array.isArray(data.messages))throw new Error("ROOM_UI_HISTORY_BATCH_INVALID");
+   let previous=0;
+   for(const message of data.messages){
+    if(!message||typeof message.messageId!=="string"||!message.messageId||
+       message.conversationId!==roomId||typeof message.senderAiId!=="string"||
+       !current.room.memberAiIds.includes(message.senderAiId)||
+       typeof message.body!=="string"||!message.body.trim()||message.body.length>MAX_BODY||
+       !Number.isSafeInteger(message.sequence)||message.sequence<=previous||
+       (beforeSequence>0&&message.sequence>=beforeSequence))
+     throw new Error("ROOM_UI_HISTORY_MESSAGE_INVALID");
+    previous=message.sequence;
+   }
+   if(options.getContext()?.room?.conversationId!==roomId)return {messages:[],hasMore:false};
+   for(const message of data.messages){
+    if(seen.has(message.messageId))continue;
+    options.onMessage(message,message.senderAiId===current.identity.aiId,true);
+    seen.add(message.messageId);
+   }
+   return {messages:data.messages,hasMore:data.messages.length===limit,
+    nextBeforeSequence:data.messages.length?data.messages[0].sequence:beforeSequence};
+  }
   function reset(){cursor=0;seen.clear();}
-  return Object.freeze({send,load,reset,getCursor:()=>cursor});
+  return Object.freeze({send,load,loadHistory,reset,getCursor:()=>cursor});
  }
  root.AIBridgeRoomUIMessenger=Object.freeze({create});
 })(typeof window!=="undefined"?window:globalThis);
