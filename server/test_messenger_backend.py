@@ -8,7 +8,7 @@ from server.audio_blob_store import AudioBlobStore
 
 class MessengerBackendTest(unittest.TestCase):
     def setUp(self):
-        self.backend = MessengerBackend({"opaque-a": "AI-A", "opaque-b": "AI-B"}, {"room-1": {"AI-A", "AI-B"}})
+        self.backend = MessengerBackend({"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}, {"room-1": {"AI-A", "AI-B"}})
 
     def tearDown(self):
         self.backend.close()
@@ -277,6 +277,54 @@ class MessengerBackendTest(unittest.TestCase):
                     self.backend.list_conversations("opaque-a", limit=limit)
         with self.assertRaisesRegex(ValueError, "invalid_conversation_cursor"):
             self.backend.list_conversations("opaque-a", after=None)
+
+
+    def test_room_invite_requires_creator_admin_and_approval_before_membership(self):
+        self.backend.create_conversation(
+            "opaque-a", "invite-room", ["AI-A", "AI-B"], "GROUP")
+        with self.assertRaisesRegex(PermissionError, "room_admin_required"):
+            self.backend.create_room_invite("opaque-b", "invite-room")
+        invite = self.backend.create_room_invite(
+            "opaque-a", "invite-room", expires_in_seconds=600, max_uses=2)
+        self.assertNotIn("token", self.backend.get_public_invite(invite["inviteId"]))
+        self.assertEqual(
+            self.backend.get_public_invite(invite["inviteId"])["status"], "ACTIVE")
+        request = self.backend.redeem_room_invite("opaque-c", invite["token"])
+        self.assertEqual(request["status"], "PENDING")
+        self.assertNotIn("AI-C", self.backend.conversation_members()["invite-room"])
+        repeated = self.backend.redeem_room_invite("opaque-c", invite["token"])
+        self.assertEqual(repeated["requestId"], request["requestId"])
+        pending = self.backend.list_join_requests("opaque-a", "invite-room")
+        self.assertEqual([item["ai_id"] for item in pending], ["AI-C"])
+        approved = self.backend.decide_join_request(
+            "opaque-a", "invite-room", request["requestId"], "APPROVE")
+        self.assertEqual(approved["status"], "APPROVED")
+        self.assertIn("AI-C", self.backend.conversation_members()["invite-room"])
+
+    def test_room_invite_reject_revocation_and_token_hash_storage(self):
+        self.backend.create_conversation(
+            "opaque-a", "invite-revoke-room", ["AI-A", "AI-B"], "GROUP")
+        invite = self.backend.create_room_invite("opaque-a", "invite-revoke-room")
+        stored = self.backend._store.get_room_invite(invite["inviteId"])
+        self.assertNotEqual(stored["token_hash"], invite["token"])
+        self.assertEqual(len(stored["token_hash"]), 64)
+        revoked = self.backend.revoke_room_invite(
+            "opaque-a", "invite-revoke-room", invite["inviteId"])
+        self.assertEqual(revoked["status"], "REVOKED")
+        self.assertEqual(
+            self.backend.get_public_invite(invite["inviteId"])["status"], "REVOKED")
+        with self.assertRaisesRegex(ValueError, "invite_unavailable"):
+            self.backend.redeem_room_invite("opaque-c", invite["token"])
+
+    def test_join_request_rejection_does_not_add_member(self):
+        self.backend.create_conversation(
+            "opaque-a", "invite-reject-room", ["AI-A", "AI-B"], "GROUP")
+        invite = self.backend.create_room_invite("opaque-a", "invite-reject-room")
+        request = self.backend.redeem_room_invite("opaque-c", invite["token"])
+        rejected = self.backend.decide_join_request(
+            "opaque-a", "invite-reject-room", request["requestId"], "REJECT")
+        self.assertEqual(rejected["status"], "REJECTED")
+        self.assertNotIn("AI-C", self.backend.conversation_members()["invite-reject-room"])
 
 if __name__ == "__main__":
     unittest.main()
