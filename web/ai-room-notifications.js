@@ -46,7 +46,11 @@
    for(const event of events){
     if(!event||typeof event.conversationId!=="string"||!event.conversationId.trim()||!Number.isSafeInteger(event.newCount)||event.newCount<1)continue;
     serial+=1;
-    items.unshift({id:"notice-"+Date.now()+"-"+serial,conversationId:event.conversationId,newCount:event.newCount,createdAt,read:false});
+    const item={id:"notice-"+Date.now()+"-"+serial,conversationId:event.conversationId,newCount:event.newCount,createdAt,read:false};
+    if(typeof event.type==="string")item.type=event.type;
+    if(typeof event.title==="string")item.title=event.title.slice(0,120);
+    if(typeof event.detail==="string")item.detail=event.detail.slice(0,240);
+    items.unshift(item);
    }
    return Object.freeze(write(items).map(item=>Object.freeze({...item})));
   }
