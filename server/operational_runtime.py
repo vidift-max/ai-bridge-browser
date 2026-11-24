@@ -75,3 +75,6 @@ class OperationalRuntime:
 
     def snapshot(self):
         return self.events.snapshot()
+
+    def summary(self):
+        return self.events.summary()
