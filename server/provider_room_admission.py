@@ -59,17 +59,20 @@ class ProviderRoomAdmissionService:
               authorization, now=None):
         conversation_id = self._text(conversation_id, "invalid_conversation_id")
         provider_id = self._text(provider_id, "invalid_provider_id")
-        if role not in ROLES:
+        session_id = self._text(session_id, "invalid_session_id")
+        if not isinstance(role, str) or role not in ROLES:
             raise ValueError("invalid_room_role")
+        principal = self._authenticate(session_id, credential_generation, None)
         if not authorization or self._authorize(
                 session_id=session_id, action="ADMIT_PROVIDER_SESSION",
                 conversation_id=conversation_id, provider_id=provider_id,
                 role=role, authorization=authorization) is not True:
             raise PermissionError("provider_room_admission_not_authorized")
+        if isinstance(now, bool):
+            raise ValueError("invalid_admission_timestamp")
         timestamp = time.time() if now is None else float(now)
         if timestamp <= 0:
             raise ValueError("invalid_admission_timestamp")
-        principal = self._authenticate(session_id, credential_generation, None)
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
             try:
