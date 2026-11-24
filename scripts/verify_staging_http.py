@@ -1,54 +1,66 @@
 #!/usr/bin/env python3
-"""Verify a deployed AI Bridge Browser staging URL without credentials.
-
-This script is intentionally read-only. It checks only public health/readiness
-endpoints and never sends invitation, authentication, or message data.
-"""
-
+"""Read-only HTTPS health/readiness verifier for AI Bridge Browser staging."""
 from __future__ import annotations
-
 import json
 import sys
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 
+def normalize_base_url(value: str) -> str:
+    """Accept only an HTTPS origin; reject credentials, paths and query data."""
+    try:
+        parsed = urlsplit(value)
+        _ = parsed.port
+    except ValueError as exc:
+        raise ValueError("invalid_staging_url") from exc
+    if (parsed.scheme.lower() != "https" or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or parsed.path not in ("", "/") or parsed.query or parsed.fragment):
+        raise ValueError("invalid_staging_url")
+    return urlunsplit(("https", parsed.netloc, "", "", ""))
+
+
 def check(base_url: str, path: str) -> tuple[int, dict]:
-    url = base_url.rstrip("/") + path
-    request = Request(url, method="GET", headers={"Accept": "application/json"})
+    request = Request(base_url + path, method="GET", headers={"Accept": "application/json"})
     try:
         with urlopen(request, timeout=10) as response:
-            body = response.read().decode("utf-8")
-            return response.status, json.loads(body)
+            payload = json.loads(response.read().decode("utf-8"))
+            return response.status, payload if isinstance(payload, dict) else {"error": "json_object_required"}
     except HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
         try:
-            payload = json.loads(body)
+            payload = json.loads(exc.read().decode("utf-8", errors="replace"))
+            if not isinstance(payload, dict):
+                payload = {"error": "json_object_required"}
         except json.JSONDecodeError:
-            payload = {"raw": body}
+            payload = {"error": "invalid_json_response"}
         return exc.code, payload
-    except URLError as exc:
-        return 0, {"error": str(exc.reason)}
+    except (URLError, TimeoutError, OSError) as exc:
+        return 0, {"error": type(exc).__name__}
+
+
+def verify(base_url: str) -> tuple[int, dict]:
+    normalized = normalize_base_url(base_url)
+    hs, health = check(normalized, "/healthz")
+    rs, ready = check(normalized, "/readyz")
+    result = {"baseUrl": normalized, "healthz": {"status": hs, "body": health},
+              "readyz": {"status": rs, "body": ready}}
+    ok = hs == 200 and health.get("status") == "ok" and rs == 200 and ready.get("status") == "ready"
+    return (0 if ok else 1), result
 
 
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: verify_staging_http.py https://staging.example")
         return 2
-
-    base_url = sys.argv[1]
-    health_status, health = check(base_url, "/healthz")
-    ready_status, ready = check(base_url, "/readyz")
-
-    print(json.dumps({
-        "baseUrl": base_url.rstrip("/"),
-        "healthz": {"status": health_status, "body": health},
-        "readyz": {"status": ready_status, "body": ready},
-    }, sort_keys=True))
-
-    health_ok = health_status == 200 and health.get("status") == "ok"
-    ready_ok = ready_status == 200 and ready.get("status") == "ready"
-    return 0 if health_ok and ready_ok else 1
+    try:
+        code, result = verify(sys.argv[1])
+    except ValueError:
+        print(json.dumps({"error": "invalid_staging_url"}))
+        return 2
+    print(json.dumps(result, sort_keys=True))
+    return code
 
 
 if __name__ == "__main__":
