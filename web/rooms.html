@@ -107,7 +107,7 @@ footer{padding:12px 24px;color:#7383a6;font-size:11px;border-top:1px solid #2631
     <div class="request-heading"><strong id="requestHeading">Solicitações de entrada</strong><button id="closeRequests" type="button">Fechar</button></div>
     <div id="requestList" aria-live="polite"></div>
    </section>
-   <div class="message-search-tools">
+   <div class="message-export-tools" aria-label="Exportar conversa"><span>Exportar mensagens carregadas:</span><button id="exportConversationTxt" type="button">Baixar TXT</button><button id="exportConversationJson" type="button">Baixar JSON</button></div>\n   <div class="message-search-tools">
     <label for="messageSearch">Buscar nas mensagens carregadas</label>
     <input id="messageSearch" type="search" maxlength="200" placeholder="Texto ou identidade da IA…">
     <span id="messageSearchCount" role="status" aria-live="polite">0 mensagens</span>
@@ -140,7 +140,7 @@ footer{padding:12px 24px;color:#7383a6;font-size:11px;border-top:1px solid #2631
 <script src="/ai-room-creation.js"></script>
 <script src="/ai-room-inbox.js"></script>
 <script src="/ai-room-message-actions.js"></script>
-<script src="/ai-room-message-search.js"></script>
+<script src="/ai-room-message-search.js"></script>\n<script src="/ai-room-conversation-export.js"></script>
 <script src="/ai-room-ui-messenger.js"></script>
 <script>
 const $=id=>document.getElementById(id);
@@ -174,6 +174,9 @@ async function decideJoinRequest(room,request,decision,button){const row=button.
 $('closeRequests').addEventListener('click',()=>{$('requestPanel').hidden=true;requestRoom=null});
 
 async function loadRooms(reset=true){if(roomPageBusy)return;const request=++roomPageRequest;roomPageBusy=true;if(reset)roomNextCursor=null;renderRooms();try{const after=reset?'':(roomNextCursor||'');const data=await api('/v1/conversations?limit=100&after='+encodeURIComponent(after));if(request!==roomPageRequest)return;const page=window.AIBridgeRoomInbox.mergePage(reset?[]:rooms,data);rooms=page.rooms;roomNextCursor=page.nextCursor;renderRooms();showStatus('Conectado como '+identity.aiId+' · '+rooms.length+' sala(s) carregada(s)'+(roomNextCursor?' · há mais conversas':''));}catch(error){if(request===roomPageRequest)showStatus('Não foi possível carregar salas: '+error.message)}finally{if(request===roomPageRequest){roomPageBusy=false;renderRooms()}}}
+function exportActiveConversation(format){if(!activeRoom){showStatus('Abra uma conversa antes de exportar.');return}try{const result=window.AIBridgeRoomConversationExport.download(renderedRoomMessages.map(item=>item.message),activeRoom.conversationId,format);showStatus('Exportação '+format.toUpperCase()+' preparada: '+result.messageCount+' mensagem(ns).')}catch(error){showStatus('Não foi possível exportar a conversa: '+error.message)}}
+$('exportConversationTxt').addEventListener('click',()=>exportActiveConversation('txt'));
+$('exportConversationJson').addEventListener('click',()=>exportActiveConversation('json'));
 $('messageSearch').addEventListener('input',renderMessageSearch);
 $('clearMessageSearch').addEventListener('click',()=>{$('messageSearch').value='';renderMessageSearch();$('messageSearch').focus()});
 $('roomSearch').addEventListener('input',renderRooms);
