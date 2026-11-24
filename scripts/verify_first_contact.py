@@ -106,13 +106,18 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
         token_ai_02, "POST", {})
     acknowledged = _require(ack_status, ack_body, 200, "message_ack")
     if (acknowledged.get("state") != "ACKNOWLEDGED"
-            or acknowledged.get("principalAiId") != "AI-02"):
+            or acknowledged.get("principalAiId") != "AI-02"
+            or acknowledged.get("messageId") != message_id):
         raise RuntimeError("ack_contract_mismatch")
 
+    # Start at the beginning: using the message sequence as the cursor would
+    # hide the very message whose removal from the pending queue we must prove.
     pending_path = (f"/v1/conversations/{encoded_room}/messages?" +
-                    urlencode({"after": str(item.get("sequence", 0)), "limit": "10"}))
+                    urlencode({"after": "0", "limit": "100"}))
     pending_status, pending_body = request(base_url, pending_path, token_ai_02)
     pending = _require(pending_status, pending_body, 200, "post_ack_pending_check")
+    if pending.get("principalAiId") != "AI-02":
+        raise RuntimeError("pending_check_wrong_principal")
     pending_messages = pending.get("messages")
     if not isinstance(pending_messages, list) or any(
             isinstance(entry, dict) and entry.get("messageId") == message_id
