@@ -17,3 +17,7 @@ O teste usa tokens efêmeros do Firebase Authentication Emulator e chamadas HTTP
 
 ## Estado
 Implementação registrada em PR Draft; aguardar CI final para declarar PASS de validação.
+
+
+## Correção de fixture após revisão do CI
+O cenário de negação de leitura usa agora AI-04, identidade autenticada que não pertence à conversa. AI-03 permanece membro da sala, mas não destinatário da mensagem, para testar separadamente a regra de ACK. Essa separação evita uma expectativa contraditória no teste HTTP.
