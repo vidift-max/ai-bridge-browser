@@ -250,6 +250,8 @@ def validate_send_plan(plan, config, now_ms=None):
     if not isinstance(plan, dict) or plan.get("schema_version") != 2:
         raise ProbeError("send_plan_schema_invalid")
     if (plan.get("state") != "SEND_PLAN_READY" or
+            plan.get("preflight") != "PREFLIGHT_PASS" or
+            plan.get("operation") != "ONE_TEXT_MESSAGE" or
             plan.get("sender") != config["ai_a"] or
             plan.get("recipient") != config["ai_b"] or
             plan.get("conversation_id") != config["conversation"]):
@@ -414,8 +416,11 @@ def main(argv=None):
             validate_send_plan(plan, config)
             result = {"state": "SEND_PLAN_VALID", "sender": plan["sender"],
                       "recipient": plan["recipient"], "conversation_id": plan["conversation_id"],
-                      "payload_sha256": plan["payload_sha256"], "firebase_requests": "NONE",
-                      "send_operation": "NOT_EXECUTED", "acknowledgement": "NOT_RUN"}
+                      "payload_sha256": plan["payload_sha256"], "plan_sha256": plan["plan_sha256"],
+                      "created_at_epoch_ms": plan["created_at_epoch_ms"],
+                      "expires_at_epoch_ms": plan["expires_at_epoch_ms"],
+                      "firebase_requests": "NONE", "send_operation": "NOT_EXECUTED",
+                      "acknowledgement": "NOT_RUN"}
         else:
             if args.plan_output and not args.prepare_send:
                 raise ProbeError("plan_output_requires_prepare_send")
