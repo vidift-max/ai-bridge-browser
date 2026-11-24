@@ -30,7 +30,7 @@ test("challenge is one-time and replay is rejected",async()=>{
  await assert.rejects(f.h.verifyResponse(f.response()),/CHALLENGE_NOT_FOUND/);
 });
 test("nonce factory rejects reuse",()=>{
- const context={window:{}};vm.runInNewContext(source,context);const h=context.window.AIBridgeProviderHandshake.create({nonceFactory:()=>"a".repeat(32)});
+ const context={window:{},URL};vm.runInNewContext(source,context);const h=context.window.AIBridgeProviderHandshake.create({nonceFactory:()=>"a".repeat(32)});
  h.issue({challengeId:"c1",sessionId:"s1",providerId:"p1",origin:"https://provider.example"});
  assert.throws(()=>h.issue({challengeId:"c2",sessionId:"s2",providerId:"p1",origin:"https://provider.example"}),/NONCE_INVALID_OR_REUSED/);
 });
