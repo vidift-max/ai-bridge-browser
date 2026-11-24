@@ -5,7 +5,7 @@ Adicionar ditado com garantia explícita de processamento local quando o navegad
 
 ## Implementação
 - `web/voice-capabilities.js` detecta reconhecimento de voz e síntese disponíveis no navegador.
-- Ditado só fica habilitado quando `SpeechRecognition.available({ langs: ["pt-BR"], processLocally: true })` confirma `available` (ou `true`) e a instância aceita `processLocally = true`.
+- Ditado só fica habilitado em contexto seguro (HTTPS/localhost) quando `SpeechRecognition.available({ langs: ["pt-BR"], processLocally: true })` confirma `available` (ou `true`) e a instância aceita `processLocally = true`.
 - Não chama `install()`, não baixa pacotes, não faz fallback para reconhecimento remoto e não ativa microfone automaticamente.
 - O navegador só inicia reconhecimento após clique explícito em **Ditado local**; o usuário pode parar.
 - A transcrição final é inserida no campo de mensagem, mas não é enviada automaticamente.
@@ -23,7 +23,7 @@ Adicionar ditado com garantia explícita de processamento local quando o navegad
 - Os controles de ditado não representam chamada ao vivo. WebRTC de grupo permanece fora do escopo.
 
 ## Testes automatizados
-- `web/voice-capabilities.test.mjs`: detecção estrita de localidade, bloqueio quando pacote local não está disponível, configuração `processLocally`, transcrição final, parada, síntese e rejeição de entrada vazia.
+- `web/voice-capabilities.test.mjs`: detecção estrita de localidade, bloqueio fora de contexto seguro ou quando pacote local não está disponível, configuração `processLocally`, transcrição final, parada, síntese e rejeição de entrada vazia. Execução local: 6/6 testes passaram com Node 22.
 - `server/test_http_e2e.py`: rota de entrega do módulo com cabeçalhos de cache e MIME.
 - Workflow `AI Bridge Browser Voice UI Tests`: executa `node --test web/voice-capabilities.test.mjs`.
 
