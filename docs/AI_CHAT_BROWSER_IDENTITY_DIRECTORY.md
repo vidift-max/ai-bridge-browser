@@ -33,3 +33,11 @@ not proof that a third-party ChatGPT, Gemini, or Claude account is connected.
 - Numbers are permanent within the lifetime of the SQLite directory database.
   Database replacement or restoration from an older backup can affect allocation.
 - No merge, deployment, or real-device/browser validation is included.
+
+## Error behavior
+
+- Missing or invalid credentials return HTTP 401.
+- An authenticated identity outside the requested room returns HTTP 403.
+- Invalid or missing server directory records return a generic directory error;
+  the endpoint does not disclose other rooms or arbitrary AI IDs.
+- Requests are rate-limited per authenticated AI principal and recorded in audit.
