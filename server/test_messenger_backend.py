@@ -423,6 +423,44 @@ class MessengerBackendTest(unittest.TestCase):
                         "opaque-b", "room-1", 0, 10, timeout)
 
 
+    def test_long_poll_rejects_non_finite_and_over_limit_timeouts(self):
+        for timeout in (float("nan"), float("inf"), float("-inf"), 25.01):
+            with self.subTest(timeout=timeout):
+                with self.assertRaisesRegex(ValueError, "invalid_wait_timeout"):
+                    self.backend.wait_for_messages(
+                        "opaque-b", "room-1", 0, 10, timeout)
+
+    def test_long_poll_rejects_invalid_cursor_types_and_bounds(self):
+        invalid_cursors = (True, False, -1, 1.5, "1", 9007199254740992)
+        for cursor in invalid_cursors:
+            with self.subTest(cursor=cursor):
+                with self.assertRaisesRegex(ValueError, "invalid_cursor"):
+                    self.backend.wait_for_messages(
+                        "opaque-b", "room-1", cursor, 10, 0)
+
+    def test_long_poll_rejects_invalid_batch_types_and_bounds(self):
+        invalid_limits = (True, False, 0, -1, 101, 1.5, "10")
+        for limit in invalid_limits:
+            with self.subTest(limit=limit):
+                with self.assertRaisesRegex(ValueError, "invalid_cursor"):
+                    self.backend.wait_for_messages(
+                        "opaque-b", "room-1", 0, limit, 0)
+
+    def test_pending_uses_same_strict_cursor_and_batch_validation(self):
+        for cursor, limit in ((True, 10), (-1, 10), (0, True), (0, 101),
+                              (9007199254740992, 10)):
+            with self.subTest(cursor=cursor, limit=limit):
+                with self.assertRaisesRegex(ValueError, "invalid_cursor"):
+                    self.backend.pending(
+                        "opaque-b", "room-1", after_sequence=cursor, limit=limit)
+
+    def test_long_poll_accepts_maximum_safe_cursor_and_zero_wait(self):
+        self.assertEqual(
+            self.backend.wait_for_messages(
+                "opaque-b", "room-1", 9007199254740991, 1, 0),
+            [],
+        )
+
     def test_transport_capabilities_are_authorized_and_conservative(self):
         capabilities = self.backend.transport_capabilities("opaque-b", "room-1")
         self.assertEqual(capabilities["contractVersion"], 1)
