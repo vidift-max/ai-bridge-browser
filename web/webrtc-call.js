@@ -219,7 +219,7 @@
         } else if (connectionState === "failed") {
           state("MEDIA_FAILED");
         } else if (connectionState === "disconnected") {
-          state("MEDIA_DISCONNECTED");
+          diagnostic("PEER_DISCONNECTED", "waiting_for_ice_recovery");
         }
       };
     }
