@@ -153,6 +153,48 @@ class GuestCredentialProvisioningTest(unittest.TestCase):
         self.assertIsInstance(outcome.get("error"), PermissionError)
         self.assertNotIn("messages", outcome)
 
+    def test_revoked_guest_cannot_read_submit_or_acknowledge(self):
+        provisioned = self.provision()
+        guest_token = provisioned["credential"]
+        guest_ai_id = provisioned["identity"]["aiId"]
+        message = self.backend.submit(
+            "admin-token", "revocation-operation-message", "room-a",
+            [guest_ai_id], "message before revocation",
+            "revocation-operation-request")
+
+        revoked = self.backend.revoke_guest_provisioning(
+            "admin-token", "room-a", self.application["applicationId"])
+        self.assertEqual(revoked["status"], "REVOKED")
+
+        operations = (
+            ("read_pending", lambda: self.backend.pending(
+                guest_token, "room-a")),
+            ("submit_message", lambda: self.backend.submit(
+                guest_token, "revoked-guest-message", "room-a",
+                ["AI-ADMIN"], "must not be sent", "revoked-guest-request")),
+            ("acknowledge_message", lambda: self.backend.acknowledge(
+                guest_token, message.message_id)),
+            ("long_poll", lambda: self.backend.wait_for_messages(
+                guest_token, "room-a", after_sequence=0, limit=10,
+                timeout_seconds=0)),
+        )
+        for operation, invoke in operations:
+            with self.subTest(operation=operation):
+                with self.assertRaisesRegex(
+                        PermissionError, "authentication_required"):
+                    invoke()
+
+        stored = self.store._connection.execute(
+            "SELECT status FROM credential_records WHERE ai_id=?",
+            (guest_ai_id,),
+        ).fetchone()
+        self.assertEqual(stored["status"], "REVOKED")
+        self.assertNotIn(
+            "revoked-guest-message",
+            {row["message_id"] for row in self.store._connection.execute(
+                "SELECT message_id FROM messages").fetchall()},
+        )
+
     def test_revocation_survives_backend_restart(self):
         result = self.provision()
         token = result["credential"]
