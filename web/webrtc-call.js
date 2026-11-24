@@ -198,6 +198,12 @@
         encodeURIComponent(conversationId) + "/calls/active");
       return response.call || null;
     }
+    async function rejectCall(incomingCall) {
+      if (!incomingCall || !incomingCall.call_id || incomingCall.callee_ai_id !== options.aiId) {
+        throw new Error("ONLY_CALLEE_CAN_REJECT");
+      }
+      return request("POST", "/v1/calls/" + encodeURIComponent(incomingCall.call_id) + "/reject", {});
+    }
     async function endCall() {
       if (!call) return false;
       var current = call;
@@ -234,6 +240,7 @@
       startCall: startCall,
       acceptCall: acceptCall,
       refreshIncoming: refreshIncoming,
+      rejectCall: rejectCall,
       poll: pollOnce,
       endCall: endCall,
       dispose: dispose,
