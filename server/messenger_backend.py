@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import hashlib
+import math
 import secrets
 from functools import wraps
 from threading import Condition, RLock
@@ -54,6 +55,7 @@ class MessengerBackend:
     LONG_POLL_MAX_WAIT_SECONDS = 25
     LONG_POLL_DEFAULT_WAIT_SECONDS = 20
     LONG_POLL_MAX_BATCH_SIZE = 100
+    LONG_POLL_MAX_SEQUENCE = 9007199254740991
 
     def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None, identity_display_names=None):
         self._lock = RLock()
@@ -580,9 +582,27 @@ class MessengerBackend:
                 "cursor": {"type": "sequence", "ackRequired": True},
             }
 
-    def wait_for_messages(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50, timeout_seconds: float = 20.0) -> List[Message]:
-        if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)) or timeout_seconds < 0 or timeout_seconds > 25:
+    @classmethod
+    def _validate_long_poll_cursor_and_limit(cls, after_sequence, limit):
+        if (isinstance(after_sequence, bool) or not isinstance(after_sequence, int)
+                or after_sequence < 0 or after_sequence > cls.LONG_POLL_MAX_SEQUENCE):
+            raise ValueError("invalid_cursor")
+        if (isinstance(limit, bool) or not isinstance(limit, int)
+                or limit < 1 or limit > cls.LONG_POLL_MAX_BATCH_SIZE):
+            raise ValueError("invalid_cursor")
+
+    @classmethod
+    def _validate_long_poll_timeout(cls, timeout_seconds):
+        if (isinstance(timeout_seconds, bool)
+                or not isinstance(timeout_seconds, (int, float))
+                or not math.isfinite(timeout_seconds)
+                or timeout_seconds < 0
+                or timeout_seconds > cls.LONG_POLL_MAX_WAIT_SECONDS):
             raise ValueError("invalid_wait_timeout")
+
+    def wait_for_messages(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50, timeout_seconds: float = 20.0) -> List[Message]:
+        self._validate_long_poll_cursor_and_limit(after_sequence, limit)
+        self._validate_long_poll_timeout(timeout_seconds)
         deadline = time.monotonic() + float(timeout_seconds)
         with self._message_condition:
             self.authenticate(bearer_token)
@@ -602,8 +622,7 @@ class MessengerBackend:
         members = self._conversations.get(conversation_id)
         if not members or ai_id not in members:
             raise PermissionError("authorization_denied")
-        if after_sequence < 0 or limit < 1 or limit > 100:
-            raise ValueError("invalid_cursor")
+        self._validate_long_poll_cursor_and_limit(after_sequence, limit)
         pending = [m for m in self._messages.values() if m.conversation_id == conversation_id and m.sequence > after_sequence and ai_id in m.recipient_ai_ids and ai_id not in m.acknowledged_by]
         return sorted(pending, key=lambda m: m.sequence)[:limit]
 
