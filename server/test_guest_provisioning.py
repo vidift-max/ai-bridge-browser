@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from server.auth import Authenticator
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
+from server.recovery import verify_messenger_schema, verify_messenger_data_consistency
 
 
 class GuestCredentialProvisioningTest(unittest.TestCase):
@@ -118,6 +119,16 @@ class GuestCredentialProvisioningTest(unittest.TestCase):
         self.assertEqual(self.auth._registry.status(token, now=future), "EXPIRED")
         with self.assertRaisesRegex(PermissionError, "authentication_required"):
             self.auth._registry.authenticate(token, now=future)
+
+    def test_read_only_restore_validation_accepts_active_and_revoked_guest_records(self):
+        self.provision()
+        self.assertEqual(verify_messenger_schema(self.path), (True, "RESTORE_SCHEMA_COMPATIBLE"))
+        self.assertEqual(verify_messenger_data_consistency(self.path),
+                         (True, "RESTORE_DATA_CONSISTENT"))
+        self.backend.revoke_guest_provisioning(
+            "admin-token", "room-a", self.application["applicationId"])
+        self.assertEqual(verify_messenger_data_consistency(self.path),
+                         (True, "RESTORE_DATA_CONSISTENT"))
 
     def test_concurrent_provisioning_issues_at_most_one_credential(self):
         outcomes = []
