@@ -43,3 +43,11 @@ test("guest messenger renders untrusted content as text, not HTML", async () => 
   assert.match(source, /body\.textContent\s*=\s*message\.body/);
   assert.doesNotMatch(source, /\.innerHTML\s*=/);
 });
+
+test("guest messenger source contains bounded presence lifecycle", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /\/v1\/presence\/heartbeat/);
+  assert.match(source, /\/v1\/presence\/leave/);
+  assert.match(source, /visibilityState/);
+  assert.match(source, /presenceTimer/);
+});

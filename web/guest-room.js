@@ -43,6 +43,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   let sequence = 0;
   let timer = null;
   let polling = false;
+  let presenceTimer = null;
 
   const byId = id => doc.getElementById(id);
   const status = message => { byId("status").textContent = message; };
@@ -55,8 +56,24 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   }
   function stopPolling() {
     if (timer !== null) clearInterval(timer);
+    if (presenceTimer !== null) clearInterval(presenceTimer);
     timer = null;
+    presenceTimer = null;
     polling = false;
+  }
+  async function heartbeatPresence() {
+    if (!sessionToken || !room) return;
+    const activeConversationIds = doc.visibilityState === "visible" ? [room.conversationId] : [];
+    const result = await request("/v1/presence/heartbeat", {
+      method:"POST", headers:authHeaders({"Content-Type":"application/json","Accept":"application/json"}),
+      body:JSON.stringify({activeConversationIds})
+    });
+    const presence = result.presence || {};
+    status(presence.status === "ONLINE" ? "Conectado à sala autorizada · online" : "Conectado à sala autorizada.");
+  }
+  async function leavePresence() {
+    if (!sessionToken) return;
+    try { await request("/v1/presence/leave", {method:"POST", headers:authHeaders({Accept:"application/json"})}); } catch (_error) {}
   }
   function appendMessage(message) {
     const row = doc.createElement("article");
@@ -88,6 +105,8 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     byId("workspace").hidden = false;
     byId("login").hidden = true;
     await pollMessages();
+    await heartbeatPresence();
+    presenceTimer = setInterval(() => { heartbeatPresence().catch(error => status(error.message)); }, 15000);
     timer = setInterval(() => { pollMessages().catch(error => status(error.message)); }, 4000);
   }
   async function pollMessages() {
@@ -149,6 +168,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   }
   async function logout() {
     stopPolling();
+    await leavePresence();
     try {
       if (sessionToken) await request("/v1/guest-sessions/logout", {
         method:"POST", headers:authHeaders({Accept:"application/json"})
@@ -170,7 +190,8 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   byId("message").addEventListener("keydown", event => {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); }
   });
-  globalThis.addEventListener?.("pagehide", () => { stopPolling(); sessionToken = null; });
+  globalThis.addEventListener?.("pagehide", () => { stopPolling(); if (sessionToken) { void leavePresence(); } sessionToken = null; });
+  doc.addEventListener?.("visibilitychange", () => { if (sessionToken && room && doc.visibilityState === "visible") heartbeatPresence().catch(error => status(error.message)); });
   return {enter, send, logout, pollMessages};
 }
 const api = { requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp };
