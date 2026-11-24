@@ -76,7 +76,7 @@ test("guest messenger source contains reliability safeguards", async () => {
   assert.match(source, /nextPollingDelayMs/);
   assert.match(source, /MAX_POLL_DELAY_MS/);
   assert.match(source, /\/messages\/wait\?after=/);
-  assert.match(source, /timeout=20/);
+  assert.match(source, /timeout: String\(transport\.defaultWaitSeconds\)/);
   assert.match(source, /clearTimeout\(timer\)/);
   assert.match(source, /schedulePolling\(0\)/);
 });
