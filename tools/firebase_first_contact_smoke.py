@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""One-shot, credential-safe Firebase RTDB AI-AI text round-trip probe.
+
+All bearer ID tokens are read from the process environment and are never printed.
+This tool sends exactly one test message only when --send is explicitly supplied.
+"""
+import argparse
+import json
+import os
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+
+AI_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+CONVERSATION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+MAX_RESPONSE_BYTES = 1024 * 1024
+
+
+class ProbeError(RuntimeError):
+    pass
+
+
+def validate_config(env):
+    required = (
+        "MESSENGER_FIREBASE_DATABASE_URL",
+        "MESSENGER_FIREBASE_AI_A_ID",
+        "MESSENGER_FIREBASE_AI_B_ID",
+        "MESSENGER_FIREBASE_AI_A_ID_TOKEN",
+        "MESSENGER_FIREBASE_AI_B_ID_TOKEN",
+        "MESSENGER_FIREBASE_CONVERSATION_ID",
+    )
+    missing = [name for name in required if not env.get(name, "").strip()]
+    if missing:
+        raise ProbeError("missing_configuration:" + ",".join(missing))
+    if env["MESSENGER_FIREBASE_AI_A_ID"] == env["MESSENGER_FIREBASE_AI_B_ID"]:
+        raise ProbeError("identities_must_be_distinct")
+    if not AI_ID_RE.fullmatch(env["MESSENGER_FIREBASE_AI_A_ID"]):
+        raise ProbeError("invalid_ai_a_id")
+    if not AI_ID_RE.fullmatch(env["MESSENGER_FIREBASE_AI_B_ID"]):
+        raise ProbeError("invalid_ai_b_id")
+    if not CONVERSATION_RE.fullmatch(env["MESSENGER_FIREBASE_CONVERSATION_ID"]):
+        raise ProbeError("invalid_conversation_id")
+    parsed = urllib.parse.urlsplit(env["MESSENGER_FIREBASE_DATABASE_URL"].rstrip("/"))
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or
+            parsed.password or parsed.query or parsed.fragment or
+            not (parsed.hostname.endswith(".firebaseio.com") or
+                 parsed.hostname.endswith(".firebasedatabase.app"))):
+        raise ProbeError("invalid_firebase_database_url")
+    return {
+        "database_url": "https://" + parsed.netloc,
+        "ai_a": env["MESSENGER_FIREBASE_AI_A_ID"],
+        "ai_b": env["MESSENGER_FIREBASE_AI_B_ID"],
+        "token_a": env["MESSENGER_FIREBASE_AI_A_ID_TOKEN"],
+        "token_b": env["MESSENGER_FIREBASE_AI_B_ID_TOKEN"],
+        "conversation": env["MESSENGER_FIREBASE_CONVERSATION_ID"],
+    }
+
+
+def _path(value):
+    return urllib.parse.quote(value, safe="")
+
+
+def firebase_request(config, method, path, token, payload=None, timeout=10):
+    query = urllib.parse.urlencode({"auth": token})
+    url = config["database_url"] + path + ".json?" + query
+    data = None if payload is None else json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    headers = {"Accept": "application/json"}
+    if data is not None:
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read(MAX_RESPONSE_BYTES + 1)
+            if len(raw) > MAX_RESPONSE_BYTES:
+                raise ProbeError("firebase_response_too_large")
+            if not raw:
+                return None
+            return json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        # Never include the request URL or response body: the URL contains the ID token.
+        raise ProbeError("firebase_http_status:" + str(exc.code)) from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise ProbeError("firebase_connection_failed") from None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ProbeError("firebase_invalid_json") from None
+
+
+def run_probe(config, send=False, timeout=10, wait_seconds=45):
+    identity_a = firebase_request(config, "GET", "/messenger/identities/" + _path(config["ai_a"]), config["token_a"], timeout=timeout)
+    identity_b = firebase_request(config, "GET", "/messenger/identities/" + _path(config["ai_b"]), config["token_b"], timeout=timeout)
+    if not isinstance(identity_a, dict) or identity_a.get("aiId") != config["ai_a"]:
+        raise ProbeError("ai_a_identity_not_provisioned")
+    if not isinstance(identity_b, dict) or identity_b.get("aiId") != config["ai_b"]:
+        raise ProbeError("ai_b_identity_not_provisioned")
+    if not identity_a.get("uid") or not identity_b.get("uid") or identity_a["uid"] == identity_b["uid"]:
+        raise ProbeError("firebase_uids_not_distinct")
+
+    room_path = "/messenger/conversations/" + _path(config["conversation"])
+    room = firebase_request(config, "GET", room_path, config["token_a"], timeout=timeout)
+    members = room.get("members", {}) if isinstance(room, dict) else {}
+    if members.get(config["ai_a"]) is not True or members.get(config["ai_b"]) is not True:
+        raise ProbeError("conversation_membership_not_ready")
+
+    result = {
+        "state": "PREFLIGHT_PASS",
+        "ai_a": config["ai_a"],
+        "ai_b": config["ai_b"],
+        "conversation_id": config["conversation"],
+        "uids_distinct": True,
+        "message_round_trip": "NOT_RUN",
+    }
+    if not send:
+        return result
+
+    nonce = "first-contact-" + uuid.uuid4().hex
+    message = {
+        "senderAiId": config["ai_a"],
+        "recipientAiIds": {config["ai_b"]: True},
+        "body": nonce,
+        "messageKind": "NORMAL",
+        "createdAtEpochMs": int(time.time() * 1000),
+    }
+    pushed = firebase_request(config, "POST", room_path + "/messages", config["token_a"], message, timeout)
+    message_id = pushed.get("name") if isinstance(pushed, dict) else None
+    if not isinstance(message_id, str) or not message_id:
+        raise ProbeError("firebase_message_key_missing")
+
+    deadline = time.monotonic() + max(1, min(wait_seconds, 180))
+    message_path = room_path + "/messages"
+    received = False
+    while time.monotonic() < deadline:
+        messages = firebase_request(
+            config, "GET", message_path + "?orderBy=%22$key%22&limitToLast=50",
+            config["token_b"], timeout=timeout
+        )
+        if isinstance(messages, dict):
+            candidate = messages.get(message_id)
+            if (isinstance(candidate, dict) and
+                    candidate.get("senderAiId") == config["ai_a"] and
+                    candidate.get("body") == nonce and
+                    candidate.get("recipientAiIds", {}).get(config["ai_b"]) is True):
+                received = True
+                break
+        time.sleep(1)
+    if not received:
+        raise ProbeError("recipient_did_not_receive_message_before_timeout")
+
+    ack_path = room_path + "/acks/" + _path(message_id) + "/" + _path(config["ai_b"])
+    firebase_request(config, "PUT", ack_path, config["token_b"], True, timeout)
+    ack = firebase_request(config, "GET", ack_path, config["token_a"], timeout=timeout)
+    if ack is not True:
+        raise ProbeError("sender_could_not_verify_recipient_ack")
+
+    result.update({
+        "state": "TEXT_ROUND_TRIP_PASS",
+        "message_round_trip": "PASS",
+        "message_id": message_id,
+        "acknowledgement": "VERIFIED",
+    })
+    return result
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Validate and optionally run a two-identity Firebase text round trip.")
+    parser.add_argument("--send", action="store_true", help="send one nonce message and wait for the other identity to ACK it")
+    parser.add_argument("--timeout", type=int, default=10)
+    parser.add_argument("--wait-seconds", type=int, default=45)
+    args = parser.parse_args(argv)
+    try:
+        config = validate_config(os.environ)
+        result = run_probe(config, send=args.send, timeout=max(1, min(args.timeout, 30)),
+                           wait_seconds=args.wait_seconds)
+        print(json.dumps(result, sort_keys=True))
+        return 0
+    except ProbeError as exc:
+        print(json.dumps({"state": "BLOCKED", "reason": str(exc)}, sort_keys=True), file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
