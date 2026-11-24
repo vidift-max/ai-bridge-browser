@@ -42,3 +42,38 @@ test("rooms UI integrates notification tracker and non-invasive browser notifica
  assert.match(html,/inboxPollTimer=setInterval/);
  assert.match(html,/id="inboxNotification"[^>]*aria-live="polite"/);
 });
+
+function memoryStorage(){const values=new Map();return{getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,String(value))};}
+test("notification center persists records and exposes unread count",()=>{
+ const center=api.createCenter(memoryStorage(),"history");
+ center.record([{conversationId:"room-a",newCount:2}], "2026-11-24T12:00:00.000Z");
+ assert.equal(center.list().length,1);assert.equal(center.unreadCount(),1);
+ assert.equal(center.list()[0].conversationId,"room-a");assert.equal(center.list()[0].newCount,2);
+});
+test("notification center marks one notification read without changing message counts",()=>{
+ const center=api.createCenter(memoryStorage(),"history");
+ const [item]=center.record([{conversationId:"room-a",newCount:3}]);
+ center.markRead(item.id);
+ assert.equal(center.unreadCount(),0);assert.equal(center.list()[0].newCount,3);assert.equal(center.list()[0].read,true);
+});
+test("notification center can mark all notices read",()=>{
+ const center=api.createCenter(memoryStorage(),"history");
+ center.record([{conversationId:"a",newCount:1},{conversationId:"b",newCount:2}]);
+ center.markAllRead();assert.equal(center.unreadCount(),0);assert.ok(center.list().every(item=>item.read));
+});
+test("notification center caps history and ignores malformed records",()=>{
+ const center=api.createCenter(memoryStorage(),"history",2);
+ center.record([{conversationId:"a",newCount:1},{conversationId:"b",newCount:1},{conversationId:"c",newCount:1},{conversationId:"",newCount:1}]);
+ assert.equal(center.list().length,2);assert.equal(center.list()[0].conversationId,"c");
+});
+test("notification center validates storage and limits",()=>{
+ assert.throws(()=>api.createCenter(null),/invalid_notification_storage/);
+ assert.throws(()=>api.createCenter(memoryStorage(),"x",501),/invalid_notification_limit/);
+});
+test("notification center is identity-scoped and UI exposes history actions",async()=>{
+ const storage=memoryStorage(),a=api.createCenter(storage,"identity-a"),b=api.createCenter(storage,"identity-b");
+ a.record([{conversationId:"private-a",newCount:1}]);assert.equal(b.list().length,0);
+ const {readFile}=await import("node:fs/promises");const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.match(html,/id="notificationCenter"/);assert.match(html,/id="notificationList"/);
+ assert.match(html,/id="markAllNotificationsRead"/);assert.match(html,/data-notification-open/);
+});
