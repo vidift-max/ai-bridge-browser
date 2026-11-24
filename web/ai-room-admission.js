@@ -134,7 +134,7 @@
    return snapshot(r);
   }
   return Object.freeze({createRoom:createRoom,issueInvitation:issueInvitation,admit:admit,
-   revoke:revoke,leave:leave,authorizeMessage:authorizeMessage,getRoom:getRoom,closeRoom:closeRoom});
+   revoke:revoke,leave:leave,authorizeRead:authorizeRead,authorizeMessage:authorizeMessage,getRoom:getRoom,closeRoom:closeRoom});
  }
  root.AIBridgeRoomAdmission=Object.freeze({create:create,roles:ROLES});
 })(typeof window!=="undefined"?window:globalThis);
