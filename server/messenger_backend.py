@@ -281,7 +281,17 @@ class MessengerBackend:
             expires_at.timestamp(), now.timestamp())
         if result is None or result["conversation_id"] != conversation_id:
             raise ValueError("guest_application_unavailable")
-        self._authenticator.activate_persisted_credential(token, ai_id, expires_at)
+        try:
+            self._authenticator.activate_persisted_credential(token, ai_id, expires_at)
+        except Exception:
+            # The SQLite transaction has already committed. Fail closed by
+            # revoking the persisted provisioning so a registry activation
+            # failure cannot leave an apparently active guest credential.
+            rollback = self._store.revoke_guest_provisioning(
+                conversation_id, application_id, time.time())
+            if rollback is not None and rollback["token_hash"]:
+                self._authenticator.revoke_credential_hash(rollback["token_hash"])
+            raise
         self._known_ai_ids.add(ai_id)
         self._conversations.setdefault(conversation_id, set()).add(ai_id)
         identity = self._identities.get(ai_id)
