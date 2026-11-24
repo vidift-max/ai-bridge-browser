@@ -8,6 +8,7 @@ import time
 from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
 from server.audio_blob_store import AudioBlobStore
+from server.presence_service import PresenceService
 from server.retention_policy import (MESSAGE_NORMAL, MESSAGE_MISSION, CONVERSATION_GROUP,
                                      expires_at, is_expired, normalize_message_kind, normalize_conversation_kind)
 
@@ -54,6 +55,7 @@ class MessengerBackend:
         self._known_ai_ids = set(tokens.values())
         self._authenticator = authenticator or Authenticator(tokens)
         self._store = store or SQLiteMessengerStore(":memory:")
+        self._presence = PresenceService(self._store._connection)
         self._conversations = self._store.load_conversations()
         self._conversation_kinds = self._store.load_conversation_kinds()
         for conversation_id, members in conversations.items():
@@ -279,6 +281,25 @@ class MessengerBackend:
             })
         next_cursor = page_ids[-1] if len(visible_ids) > len(page_ids) and page_ids else None
         return {"conversations": items, "nextCursor": next_cursor}
+
+    @_synchronized
+    def heartbeat_presence(self, bearer_token: str, active_conversation_ids):
+        ai_id = self.authenticate(bearer_token)
+        allowed = [conversation_id for conversation_id, members in self._conversations.items()
+                   if ai_id in members]
+        return self._presence.heartbeat(ai_id, active_conversation_ids, allowed)
+
+    @_synchronized
+    def leave_presence(self, bearer_token: str):
+        ai_id = self.authenticate(bearer_token)
+        return self._presence.leave(ai_id)
+
+    @_synchronized
+    def list_conversation_presence(self, bearer_token: str, conversation_id: str):
+        ai_id = self.authenticate(bearer_token)
+        self.authorize_member(ai_id, conversation_id)
+        members = sorted(self._conversations.get(conversation_id, set()))
+        return self._presence.list_room(conversation_id, members)
 
     @_synchronized
     def conversation_members(self):
