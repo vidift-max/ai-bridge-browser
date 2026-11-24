@@ -30,6 +30,13 @@ class HttpContractTest(unittest.TestCase):
         self.assertIn("/v1/providers", MessengerHandler.do_GET.__code__.co_consts)
         self.assertTrue(hasattr(MessengerHandler, "provider_registry"))
 
+
+    def test_gpt6_status_distinguishes_request_success_from_online_presence(self):
+        constants = MessengerHandler.do_GET.__code__.co_consts
+        self.assertIn("REQUEST_SUCCEEDED", constants)
+        self.assertIn("accountSessionConnected", constants)
+        self.assertIn("online", constants)
+
     def test_authentication_boundary_is_present(self):
         self.assertTrue(hasattr(MessengerHandler, "_principal"))
         self.assertIn("authentication_required", MessengerHandler.do_GET.__code__.co_consts)
@@ -43,3 +50,4 @@ class HttpContractTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
