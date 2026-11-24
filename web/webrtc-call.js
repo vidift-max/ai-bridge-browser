@@ -221,6 +221,11 @@
     async function endCall() {
       if (!call) return false;
       var current = call;
+      try {
+        var latest = await request("GET", "/v1/calls/" + encodeURIComponent(current.call_id));
+        current = latest.call || current;
+        call = current;
+      } catch (_) {}
       var action = current.state === "RINGING" ?
         (current.caller_ai_id === options.aiId ? "cancel" : "reject") : "end";
       try {
