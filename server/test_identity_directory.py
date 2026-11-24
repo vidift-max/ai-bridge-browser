@@ -61,7 +61,7 @@ class IdentityDirectoryTests(unittest.TestCase):
         reopened = IdentityDirectory(self.store._connection, self.tokens.values())
         self.assertEqual(reopened.get("AI-A")["internalNumber"],
                          first["internalNumber"])
-        self.assertEqual(reopened.get("AI-A")["displayName"], "AI-A")
+        self.assertEqual(reopened.get("AI-A")["displayName"], "Assistente Alfa")
 
     def test_client_cannot_choose_internal_number_or_display_name(self):
         identity = self.directory.get("AI-A")
