@@ -1,0 +1,18 @@
+name: Mission 84 Production Readiness Preflight
+on:
+  push:
+    branches: ["feat/mission-84-production-readiness-preflight"]
+  pull_request:
+    branches: ["feat/mission-83-production-send-safety-gate"]
+permissions:
+  contents: read
+jobs:
+  read-only-readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run production readiness and first-contact regression tests
+        run: python -m unittest server.test_firebase_first_contact_smoke server.test_firebase_first_contact_http server.test_firebase_rules server.test_firebase_rules_parity -v
