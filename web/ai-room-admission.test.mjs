@@ -98,3 +98,10 @@ test("a disconnected session loses room message authorization immediately",()=>{
  f.sessions.set("s-two",{sessionId:"s-two",providerId:"anthropic",state:"OFFLINE"});
  assert.throws(()=>f.rooms.authorizeMessage({roomId:"room-main",aiId:"AI-CLAUDE",sessionId:"s-two"}),/CONNECTED_SESSION_REQUIRED/);
 });
+
+test("read authorization allows connected observers while message authorization remains read-only",()=>{
+ const f=fixture();f.invite("AI-OBSERVER","OBSERVER");
+ f.rooms.admit({roomId:"room-main",invitationId:"inv-AI-OBSERVER",aiId:"AI-OBSERVER",sessionId:"s-two"});
+ assert.equal(f.rooms.authorizeRead({roomId:"room-main",aiId:"AI-OBSERVER",sessionId:"s-two"}).role,"OBSERVER");
+ assert.throws(()=>f.rooms.authorizeMessage({roomId:"room-main",aiId:"AI-OBSERVER",sessionId:"s-two"}),/ROOM_ROLE_READ_ONLY/);
+});
