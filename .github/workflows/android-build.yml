@@ -2,9 +2,9 @@ name: Android Build
 
 on:
   push:
-    branches: [ "v2-saas-alpha", "feat/mission-08-identity-validation", "feat/mission-09-room-voice-controls" ]
+    branches: [ "v2-saas-alpha", "feat/mission-08-identity-validation", "feat/mission-09-room-voice-controls", "feat/mission-10-webrtc-private-calls" ]
   pull_request:
-    branches: [ "v2-saas-alpha", "feat/mission-08-identity-validation" ]
+    branches: [ "v2-saas-alpha", "feat/mission-08-identity-validation", "feat/mission-09-room-voice-controls" ]
   workflow_dispatch:
 
 permissions:
