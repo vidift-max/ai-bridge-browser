@@ -10,7 +10,7 @@
 6. Implemented a concurrent recipient Long Poll followed by sender submission, checking the exact message ID, conversation, authenticated sender and body.
 7. Added recipient-only ACK verification and a post-ACK pending check; the runner returns PASS only when the message is no longer pending.
 8. Added credential-redaction behavior: tokens are read only from environment variables and are never emitted; HTTP error response bodies are not echoed.
-9. Added six focused unit tests for credential separation, identity mismatch, successful end-to-end protocol, wrong recipient, message mismatch, missing ACK removal, and malformed response handling.
+9. Added seven focused unit tests for credential separation, identity mismatch, successful end-to-end protocol, wrong recipient, message mismatch, missing ACK removal, and malformed response handling.
 10. Wired the tests and Python compilation into the existing CI workflow and added this mission's branch to push/PR triggers.
 
 ## Local invocation (only after staging is explicitly authorized)
