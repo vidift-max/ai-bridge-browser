@@ -116,6 +116,25 @@ def authorize_send(config, env, send, allow_production_send=False):
         raise ProbeError("production_send_requires_cli_and_environment_opt_in")
 
 
+def production_readiness_report(config):
+    """Return configuration-only readiness; never contacts Firebase or sends data."""
+    return {
+        "state": "CONFIGURATION_VALID",
+        "ai_pair": {"sender": config["ai_a"], "recipient": config["ai_b"]},
+        "conversation_id": config["conversation"],
+        "database_target": "PRODUCTION_FIREBASE",
+        "credentials": {
+            "ai_a_id_token": "PRESENT_NOT_VERIFIED",
+            "ai_b_id_token": "PRESENT_NOT_VERIFIED",
+        },
+        "network_check": "NOT_RUN",
+        "identity_provisioning": "NOT_VERIFIED",
+        "conversation_membership": "NOT_VERIFIED",
+        "message_send": "NOT_RUN",
+        "acknowledgement": "NOT_RUN",
+    }
+
+
 def run_probe(config, send=False, timeout=10, wait_seconds=45):
     identity_a = firebase_request(config, "GET", "/messenger/identities/" + _path(config["ai_a"]), config["token_a"], timeout=timeout)
     identity_b = firebase_request(config, "GET", "/messenger/identities/" + _path(config["ai_b"]), config["token_b"], timeout=timeout)
@@ -194,12 +213,19 @@ def run_probe(config, send=False, timeout=10, wait_seconds=45):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Validate and optionally run a two-identity Firebase text round trip.")
     parser.add_argument("--send", action="store_true", help="send one nonce message and wait for the other identity to ACK it")
+    parser.add_argument("--config-check", action="store_true",
+                        help="validate production environment configuration only; never contact Firebase")
     parser.add_argument("--allow-production-send", action="store_true", help="second explicit opt-in; also requires MESSENGER_FIREBASE_ALLOW_PRODUCTION_SEND=true")
     parser.add_argument("--timeout", type=int, default=10)
     parser.add_argument("--wait-seconds", type=int, default=45)
     args = parser.parse_args(argv)
     try:
         config = validate_config(os.environ)
+        if args.config_check:
+            if args.send or args.allow_production_send:
+                raise ProbeError("config_check_cannot_be_combined_with_send_options")
+            print(json.dumps(production_readiness_report(config), sort_keys=True))
+            return 0
         authorize_send(config, os.environ, args.send, args.allow_production_send)
         result = run_probe(config, send=args.send, timeout=max(1, min(args.timeout, 30)),
                            wait_seconds=args.wait_seconds)
