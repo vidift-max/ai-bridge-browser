@@ -25,6 +25,28 @@ def _unique_json_object(pairs):
 def _reject_json_constant(_value):
     raise ValueError("invalid_json_constant")
 
+def parse_long_poll_query(query_string):
+    try:
+        query = parse_qs(query_string, keep_blank_values=True,
+                         strict_parsing=True, max_num_fields=3)
+    except ValueError:
+        raise ValueError("invalid_long_poll_query")
+    if set(query) != {"after", "limit", "timeout"} or any(
+            len(values) != 1 or not values[0] for values in query.values()):
+        raise ValueError("invalid_long_poll_query")
+    values = {key: items[0] for key, items in query.items()}
+    if any(not value.isascii() or not value.isdecimal()
+           for value in values.values()):
+        raise ValueError("invalid_long_poll_query")
+    after_sequence = int(values["after"])
+    limit = int(values["limit"])
+    timeout_seconds = int(values["timeout"])
+    if (after_sequence > 9007199254740991 or
+            limit < 1 or limit > 100 or
+            timeout_seconds > 25):
+        raise ValueError("invalid_long_poll_query")
+    return after_sequence, limit, timeout_seconds
+
 
 class MessengerHandler(BaseHTTPRequestHandler):
     backend=None
@@ -618,10 +640,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 identity=self._principal()
                 principal=identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
-                query=parse_qs(parsed.query)
-                after_sequence=int(query.get("after", ["0"])[0])
-                limit=int(query.get("limit", ["50"])[0])
-                timeout=float(query.get("timeout", ["20"])[0])
+                after_sequence, limit, timeout = parse_long_poll_query(parsed.query)
                 self.rate_limiter.allow(principal.ai_id)
                 messages=self.backend.wait_for_messages(self._auth(),parts[3],after_sequence=after_sequence,limit=limit,timeout_seconds=timeout)
                 self._audit(identity, "MESSAGE_LONG_POLL", parts[3], count=str(len(messages)))
