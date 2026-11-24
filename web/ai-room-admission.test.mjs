@@ -83,3 +83,18 @@ test("source documents room-scoped identity and separation of membership from to
  assert.match(doc,/Room membership does not grant tool permissions/);
  assert.match(doc,/HTTP Long Poll/);
 });
+
+test("revocation releases active capacity without erasing member history",()=>{
+ const f=fixture({max:2});f.invite("AI-CLAUDE");
+ f.rooms.admit({roomId:"room-main",invitationId:"inv-AI-CLAUDE",aiId:"AI-CLAUDE",sessionId:"s-two"});
+ f.invite("AI-GEMINI");assert.throws(()=>f.rooms.admit({roomId:"room-main",invitationId:"inv-AI-GEMINI",aiId:"AI-GEMINI",sessionId:"s-three"}),/ROOM_CAPACITY_REACHED/);
+ f.rooms.revoke({roomId:"room-main",byAiId:"AI-GPT-6",aiId:"AI-CLAUDE"});
+ assert.equal(f.rooms.admit({roomId:"room-main",invitationId:"inv-AI-GEMINI",aiId:"AI-GEMINI",sessionId:"s-three"}).status,"ACTIVE");
+ assert.equal(f.rooms.getRoom("room-main").participants.length,3);
+});
+test("a disconnected session loses room message authorization immediately",()=>{
+ const f=fixture();f.invite("AI-CLAUDE");
+ f.rooms.admit({roomId:"room-main",invitationId:"inv-AI-CLAUDE",aiId:"AI-CLAUDE",sessionId:"s-two"});
+ f.sessions.set("s-two",{sessionId:"s-two",providerId:"anthropic",state:"OFFLINE"});
+ assert.throws(()=>f.rooms.authorizeMessage({roomId:"room-main",aiId:"AI-CLAUDE",sessionId:"s-two"}),/CONNECTED_SESSION_REQUIRED/);
+});
