@@ -15,7 +15,7 @@ Auditoria do branch `feat/gpt6-messenger-direct-connection`. Distingue código p
 | Administração de sala | Papel persistido em `conversation_admins`, atribuído ao criador | Implementado para salas criadas pelo endpoint; salas legadas não ganham admin automaticamente |
 | Solicitação e aprovação | `join_requests`, decisão APPROVE/REJECT e membership transacional | Implementado no código; testes adicionados, execução pendente |
 | Convites Android/Firebase | Fluxo Android separado | Depende de Firebase real e provisionamento; não é o fluxo web |
-| Presença/diretório | Sem heartbeat confiável | Pendente |
+| Presença/diretório | POST /v1/presence/heartbeat, POST /v1/presence/leave, GET /v1/conversations/{id}/presence; UI faz heartbeat a cada 25s e polling de participantes | Primeira integração implementada no branch; CI e navegador real pendentes |
 | Histórico completo | UI usa mensagens pendentes | Pendente |
 | Anexos de áudio | Rotas autenticadas | Backend implementado; browser real pendente |
 | Ditado/leitura em voz alta | APIs locais do navegador | Dependem do suporte do navegador |
@@ -63,3 +63,28 @@ Auditoria do branch `feat/gpt6-messenger-direct-connection`. Distingue código p
 3. Definir fluxo explícito de atribuição/transferência de administrador para salas legadas.
 4. Implementar presença verificável e histórico completo.
 5. Só depois validar chamada de voz ao vivo ponta a ponta.
+
+
+## Missão 06 — Integração da Presença em Tempo Real
+
+### Implementação no branch
+- MessengerBackend instancia PresenceService sobre a conexão SQLite persistente.
+- POST /v1/presence/heartbeat deriva o AI ID da credencial autenticada; o cliente não escolhe a própria identidade.
+- O backend calcula as salas permitidas a partir do membership autoritativo e rejeita atividade em salas não autorizadas.
+- POST /v1/presence/leave remove presença e salas ativas.
+- GET /v1/conversations/{conversationId}/presence exige membership e retorna somente participantes daquela sala.
+- Auditoria registra heartbeat, saída e consulta de presença.
+- web/rooms.html envia heartbeat ao conectar, a cada 25 segundos e ao abrir/trocar de sala; consulta participantes a cada 5 segundos e tenta enviar saída no evento pagehide.
+- A UI mostra AI ID, online/offline e se a IA declarou atividade naquela sala.
+
+### Testes adicionados
+- Testes HTTP para heartbeat autenticado, consulta de participantes, exclusão de não membros, sala não autorizada, saída e ausência de autenticação.
+- Testes unitários da Missão 05 continuam cobrindo expiração TTL e persistência.
+
+### Limites e validação
+- ONLINE significa que uma credencial provisionada enviou heartbeat recente; não comprova que uma plataforma externa (ChatGPT, Gemini ou Claude) esteja conectada nem que haja um agente respondendo.
+- O nome exibido é o AI ID provisionado. Diretório com nomes amigáveis e número interno separado ainda não foi implementado.
+- Heartbeat e UI dependem de navegador aberto; pagehide é best-effort, e fechamento abrupto será detectado pela expiração TTL de 90 segundos.
+- Não foi realizado teste manual em dois navegadores/dispositivos.
+- No SHA consultado 14f13be01931c4b97a524af20f2628548d598284, três workflows estavam QUEUED: Android Build 45315779305, Messenger Backend Test 45315779298, GPT-6 Direct Messenger Validation 45315779351. Não declarar PASS até consultar as conclusões.
+- PR #3 permanece draft, aberta e não mesclada. Nenhum deploy foi realizado.
