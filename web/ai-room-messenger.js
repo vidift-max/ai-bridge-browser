@@ -9,7 +9,7 @@
   const sendTransport=options.sendTransport;
   const acknowledge=options.acknowledge;
   const deliver=options.deliver;
-  if(!admission||typeof admission.getRoom!=="function"||typeof admission.authorizeMessage!=="function")
+  if(!admission||typeof admission.getRoom!=="function"||typeof admission.authorizeMessage!=="function"||typeof admission.authorizeRead!=="function")
    throw new Error("ROOM_ADMISSION_REQUIRED");
   if(typeof sendTransport!=="function"||typeof acknowledge!=="function"||typeof deliver!=="function")
    throw new Error("MESSAGING_CALLBACKS_REQUIRED");
@@ -68,7 +68,7 @@
     if(member.role==="OBSERVER")throw new Error("SENDER_ROLE_READ_ONLY");
     const local=admission.getRoom(message.roomId).participants.find(p=>p.aiId===localAiId&&p.status==="ACTIVE");
     if(!local||local.sessionId!==localSessionId)throw new Error("LOCAL_ROOM_MEMBERSHIP_REQUIRED");
-    admission.authorizeMessage({roomId:message.roomId,aiId:localAiId,sessionId:localSessionId});
+    admission.authorizeRead({roomId:message.roomId,aiId:localAiId,sessionId:localSessionId});
     await deliver(Object.freeze({messageId:message.messageId,roomId:message.roomId,
      senderAiId:message.senderAiId,recipientAiIds:Object.freeze([...message.recipientAiIds]),
      body:message.body,sequence:message.sequence}));
