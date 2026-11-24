@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import guestRoom from "./guest-room.js";\nconst {buildGuestMessagePayload, requireSingleGuestRoom} = guestRoom;
+import guestRoom from "./guest-room.js";
+const {buildGuestMessagePayload, requireSingleGuestRoom} = guestRoom;
 
 test("guest room contract accepts exactly one room", () => {
   const room = requireSingleGuestRoom({conversations:[{
