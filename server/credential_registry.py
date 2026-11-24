@@ -91,7 +91,15 @@ class CredentialRegistry:
     @_synchronized
     def activate_persisted(self, token: str, ai_id: str, expires_at: Optional[datetime] = None):
         token_hash = self._hash(token)
-        if not token_hash or token_hash not in self._persistent_hashes:
+        if not token_hash:
+            raise RuntimeError("persisted_credential_not_found")
+        if token_hash not in self._persistent_hashes and self._connection is not None:
+            row = self._connection.execute(
+                "SELECT token_hash,ai_id,status,expires_at,generation FROM credential_records WHERE token_hash=?",
+                (token_hash,)).fetchone()
+            if row is not None and row["ai_id"] == ai_id and row["status"] == "ACTIVE":
+                self._persistent_hashes.add(token_hash)
+        if token_hash not in self._persistent_hashes:
             raise RuntimeError("persisted_credential_not_found")
         record = CredentialRecord(token_hash, ai_id, "ACTIVE", expires_at, 1)
         self._records[token_hash] = record
