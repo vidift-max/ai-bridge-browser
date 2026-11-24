@@ -599,7 +599,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (ValueError,FileNotFoundError):
                 self._json(404,{"error":"not_found"})
             return
-        if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages" and parsed.path.endswith("/wait"):
+        if len(parts)==6 and parts[1:3]==["v1","conversations"] and parts[4]=="messages" and parts[5]=="wait":
             try:
                 identity=self._principal()
                 principal=identity.principal
