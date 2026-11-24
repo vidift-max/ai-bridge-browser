@@ -201,5 +201,77 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         self.assertIn("config_check_cannot_be_combined", errors.getvalue())
 
 
+    def test_readonly_preflight_reports_both_identity_mappings_and_memberships(self):
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies) as request:
+            result = run_probe(config, send=False)
+        self.assertEqual(result["identity_mappings"], {"AI-01": "VERIFIED", "AI-02": "VERIFIED"})
+        self.assertEqual(result["conversation_membership"], {
+            "AI-01": "VERIFIED_MEMBER", "AI-02": "VERIFIED_MEMBER"})
+        self.assertEqual(result["write_operations"], "NONE")
+        self.assertEqual(result["message_round_trip"], "NOT_RUN")
+        self.assertEqual([call.args[1] for call in request.call_args_list], ["GET", "GET", "GET"])
+
+    def test_preflight_rejects_identity_mapping_for_wrong_ai_id(self):
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-99", "uid": "uid-a"},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            with self.assertRaisesRegex(ProbeError, "ai_a_identity_not_provisioned"):
+                run_probe(config, send=False)
+
+    def test_preflight_rejects_shared_firebase_uid(self):
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "same-uid"},
+            {"aiId": "AI-02", "uid": "same-uid"},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            with self.assertRaisesRegex(ProbeError, "firebase_uids_not_distinct"):
+                run_probe(config, send=False)
+
+    def test_preflight_cli_outputs_verified_read_only_state(self):
+        import contextlib
+        import io
+        import json
+        from tools.firebase_first_contact_smoke import main
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        output = io.StringIO()
+        with patch.dict("os.environ", BASE, clear=True):
+            with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies) as request:
+                with contextlib.redirect_stdout(output):
+                    exit_code = main(["--preflight"])
+        result = json.loads(output.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(result["state"], "PREFLIGHT_PASS")
+        self.assertEqual(result["write_operations"], "NONE")
+        self.assertEqual(request.call_count, 3)
+        self.assertTrue(all(call.args[1] == "GET" for call in request.call_args_list))
+        self.assertNotIn("token-a-secret", output.getvalue())
+        self.assertNotIn("token-b-secret", output.getvalue())
+
+    def test_preflight_cli_rejects_send_options(self):
+        import contextlib
+        import io
+        from tools.firebase_first_contact_smoke import main
+        errors = io.StringIO()
+        with patch.dict("os.environ", BASE, clear=True):
+            with contextlib.redirect_stderr(errors):
+                exit_code = main(["--preflight", "--send"])
+        self.assertEqual(exit_code, 2)
+        self.assertIn("preflight_cannot_be_combined_with_send_options", errors.getvalue())
+
+
+
 if __name__ == "__main__":
     unittest.main()
