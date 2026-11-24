@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import guestRoom from "./guest-room.js";
-const {buildGuestMessagePayload, requireSingleGuestRoom, createMessageDeduper, nextPollingDelayMs, validateGuestTransportContract, buildGuestLongPollPath} = guestRoom;
+const {buildGuestMessagePayload, requireSingleGuestRoom, createMessageDeduper, nextPollingDelayMs, validateGuestTransportContract, buildGuestLongPollPath, processGuestMessageBatch} = guestRoom;
 
 test("guest room contract accepts exactly one room", () => {
   const room = requireSingleGuestRoom({conversations:[{
@@ -212,4 +212,54 @@ test("guest polling consumes negotiated configuration and clears it on session t
   assert.match(source, /buildGuestLongPollPath\(room\.conversationId, sequence, transportConfig\)/);
   assert.match(source, /transportConfig = null/);
   assert.doesNotMatch(source, /messages\/wait\?after=" \+ sequence \+ "&limit=100&timeout=20/);
+});
+
+
+test("message batch advances cursor only after each acknowledgement succeeds", async () => {
+  const rendered = [];
+  const acknowledged = [];
+  let sequence = 0;
+  await assert.rejects(async () => {
+    sequence = await processGuestMessageBatch([
+      {messageId:"m1",sequence:1},
+      {messageId:"m2",sequence:2}
+    ], sequence, message => rendered.push(message.messageId), async message => {
+      acknowledged.push(message.messageId);
+      if (message.messageId === "m2") throw new Error("ack_unavailable");
+    });
+  }, /ack_unavailable/);
+  assert.deepEqual(rendered, ["m1","m2"]);
+  assert.deepEqual(acknowledged, ["m1","m2"]);
+  assert.equal(sequence, 0);
+});
+
+test("duplicate rendered messages are still acknowledged before cursor advances", async () => {
+  const rendered = [];
+  const acknowledged = [];
+  const sequence = await processGuestMessageBatch(
+    [{messageId:"m1",sequence:1},{messageId:"m2",sequence:2}],
+    0,
+    message => { if (!rendered.includes(message.messageId)) rendered.push(message.messageId); },
+    async message => acknowledged.push(message.messageId)
+  );
+  assert.deepEqual(rendered, ["m1","m2"]);
+  assert.deepEqual(acknowledged, ["m1","m2"]);
+  assert.equal(sequence, 2);
+});
+
+test("stale session stops cursor advancement after acknowledgement", async () => {
+  let current = true;
+  const sequence = await processGuestMessageBatch(
+    [{messageId:"m1",sequence:1},{messageId:"m2",sequence:2}],
+    0, () => {}, async () => { current = false; }, () => current
+  );
+  assert.equal(sequence, 0);
+});
+
+test("message batch rejects unsafe sequence values without committing cursor", async () => {
+  await assert.rejects(
+    processGuestMessageBatch([{messageId:"m1",sequence:Number.MAX_SAFE_INTEGER + 1}],
+      0, () => {}, async () => {}),
+    /invalid_message_sequence/
+  );
 });
