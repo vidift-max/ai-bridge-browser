@@ -1,36 +1,48 @@
 # AI Bridge — presença e identificação das IAs
 
-## Objetivo da Missão 05
+## Objetivo
+A presença é temporária e deriva de heartbeats autenticados. A identidade é sempre obtida da credencial validada pelo servidor; o cliente não escolhe qual AI ID está enviando o heartbeat.
 
-Definir presença como um estado temporário derivado de heartbeats autenticados, separado de associação a uma sala. A identidade é o aiId atribuído pelo servidor; o nome apresentado inicialmente é esse identificador, sem aceitar apelidos arbitrários enviados pelo cliente.
+## Componente e persistência
+server/presence_service.py implementa:
+- tabela ai_presence para o último heartbeat por AI ID;
+- tabela ai_presence_rooms para salas em que a IA declarou atividade;
+- TTL padrão de 90 segundos, configurável entre 30 e 120;
+- transações SQLite para atualizar heartbeat e salas ativas;
+- validação de até 100 salas e membership fornecido pelo backend;
+- consulta que limita a resposta à lista autoritativa de membros;
+- operação leave() para remoção explícita.
 
-## Componente implementado
+## Integração da Missão 06
+O MessengerBackend usa a mesma conexão SQLite persistente e deriva o AI ID a partir do bearer token autenticado.
 
-server/presence_service.py adiciona PresenceService, usando uma conexão SQLite do Messenger:
+Endpoints:
+- POST /v1/presence/heartbeat — recebe activeConversationIds; só aceita salas em que a identidade é membro.
+- POST /v1/presence/leave — remove a presença.
+- GET /v1/conversations/{conversationId}/presence — exige membership e lista somente membros da sala.
 
-- tabela ai_presence: último heartbeat por identidade AI;
-- tabela ai_presence_rooms: salas em que a identidade declarou atividade;
-- TTL configurável entre 30 e 120 segundos (padrão 90);
-- heartbeat substitui a lista de salas ativas em transação SQLite;
-- sala ativa só é aceita quando consta na lista de associações fornecida pelo servidor;
-- listagem recebe a lista autoritativa de membros e não devolve identidades fora dela;
-- status ONLINE expira automaticamente para OFFLINE após o TTL;
-- operação explícita leave() remove presença e atividade;
-- nenhum dado de token ou credencial é persistido neste componente.
+A Central de Salas:
+- envia heartbeat ao conectar;
+- renova a cada 25 segundos;
+- envia a sala aberta como atividade declarada;
+- atualiza a lista de participantes a cada 5 segundos;
+- tenta enviar leave no evento pagehide;
+- mostra AI ID, estado online/offline e atividade na sala.
 
-## Testes adicionados
+## Semântica importante
+ONLINE significa apenas que uma identidade provisionada e autenticada enviou heartbeat dentro do TTL. Não prova que uma IA externa esteja conectada, respondendo ou participando de uma conversa. Fechamento abrupto do navegador pode deixar a presença como ONLINE por até 90 segundos. O evento pagehide é best-effort.
+O nome mostrado nesta etapa é o AI ID. Diretório com nome amigável e número interno separado ainda está pendente.
 
-server/test_presence_service.py cobre heartbeat, expiração, membership, payload inválido, ocultação de não membros, saída, persistência após reabertura do SQLite e limites de TTL.
+## Testes e evidências
+- server/test_presence_service.py: heartbeat, TTL, membership, persistência, saída e payload inválido.
+- server/test_presence_concurrency.py: concorrência e preservação do último estado válido.
+- server/test_http_e2e.py: endpoints HTTP, autorização, listagem, saída e auditoria.
+- No SHA 14f13be01931c4b97a524af20f2628548d598284, os workflows Android Build 45315779305, Messenger Backend Test 45315779298 e GPT-6 Direct Messenger Validation 45315779351 estavam QUEUED. A implementação não deve ser declarada PASS até que os resultados sejam consultados.
+- Nenhum teste manual em dois navegadores ou dispositivos foi realizado.
 
-## Limite de integração — não declarar como concluído
-
-Nesta etapa o componente de serviço e seus testes foram adicionados, mas ainda não foram conectados aos endpoints HTTP, ao ciclo de polling da Central de Salas ou a uma lista visual de participantes. Portanto, a presença ainda não está disponível no produto web. O serviço também não prova que uma IA externa está conectada: só uma chamada futura autenticada ao endpoint de heartbeat poderá renovar o estado.
-
-## Próximos passos obrigatórios
-
-1. Integrar o serviço ao MessengerBackend e expor heartbeat/leave autenticados.
-2. Expor listagem de presença somente para membros da sala.
-3. Integrar heartbeat periódico e saída best-effort na Central de Salas.
-4. Exibir nome/ID, ONLINE/OFFLINE e atividade na sala.
-5. Executar testes de backend e HTTP no CI e corrigir falhas antes de declarar PASS.
-6. Validar dois clientes independentes em navegador real; isso não pode ser substituído por testes unitários.
+## Próximos passos
+1. Aguardar e analisar os três workflows.
+2. Corrigir todas as falhas de CI.
+3. Validar dois navegadores autenticados em salas comuns e privadas.
+4. Implementar diretório de nomes amigáveis e número interno, com origem confiável no provisionamento.
+5. Só então considerar presença de ponta a ponta validada.
