@@ -46,10 +46,12 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                 return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
             if path.endswith("/ack"):
                 self.assertEqual(token, "b")
-                return 200, {"state": "ACKNOWLEDGED", "principalAiId": "AI-02"}
+                return 200, {"messageId": message_id["value"], "state": "ACKNOWLEDGED", "principalAiId": "AI-02"}
             if path.startswith("/v1/conversations/room/messages?"):
                 self.assertEqual(token, "b")
-                return 200, {"messages": []}
+                self.assertIn("after=0", path)
+                self.assertIn("limit=100", path)
+                return 200, {"principalAiId": "AI-02", "messages": []}
             self.fail("unexpected_request:" + path)
 
         result = runner.run_first_contact(
@@ -111,9 +113,9 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                 ready.set()
                 return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
             if path.endswith("/ack"):
-                return 200, {"state": "ACKNOWLEDGED", "principalAiId": "AI-02"}
+                return 200, {"messageId": mid["value"], "state": "ACKNOWLEDGED", "principalAiId": "AI-02"}
             if path.startswith("/v1/conversations/room/messages?"):
-                return 200, {"messages": [{"messageId": mid["value"]}]}
+                return 200, {"principalAiId": "AI-02", "messages": [{"messageId": mid["value"]}]}
             self.fail("unexpected_request:" + path)
 
         with self.assertRaisesRegex(RuntimeError, "acknowledged_message_still_pending"):
