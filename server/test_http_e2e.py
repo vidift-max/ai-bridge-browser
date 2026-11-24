@@ -690,5 +690,33 @@ class HttpE2ETest(unittest.TestCase):
                 self.assertIn("Central de Salas", body)
                 self.assertNotIn("href=\"http", body)
 
+    def test_rooms_flow_lists_reads_and_acknowledges_real_messages(self):
+        status, submitted = self.request("POST", "/v1/messages", "token-a", {
+            "messageId": "rooms-flow-message",
+            "conversationId": "room",
+            "recipientAiIds": ["AI-B"],
+            "body": "Mensagem de teste da sala",
+            "clientRequestId": "rooms-flow-request"})
+        self.assertEqual(status, 200)
+        status, listing = self.request("GET", "/v1/conversations", "token-b")
+        self.assertEqual(status, 200)
+        self.assertIn("room", [item["conversationId"]
+                               for item in listing["conversations"]])
+        status, inbox = self.request(
+            "GET", "/v1/conversations/room/messages?after=0&limit=50", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(inbox["messages"][0]["messageId"],
+                         "rooms-flow-message")
+        self.assertEqual(inbox["messages"][0]["body"],
+                         "Mensagem de teste da sala")
+        status, ack = self.request(
+            "POST", "/v1/messages/rooms-flow-message/ack", "token-b", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(ack["state"], "ACKNOWLEDGED")
+        status, inbox_after_ack = self.request(
+            "GET", "/v1/conversations/room/messages?after=0&limit=50", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(inbox_after_ack["messages"], [])
+
 if __name__ == "__main__":
     unittest.main()
