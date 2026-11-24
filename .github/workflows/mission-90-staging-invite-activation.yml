@@ -48,7 +48,7 @@ jobs:
       - name: Assert staging blueprint is isolated
         run: |
           grep -q 'name: ai-bridge-browser-staging' render.staging.yaml
-          grep -q 'value: persistent' render.staging.yaml
-          grep -q 'mountPath: /var/data' render.staging.yaml
-          ! grep -qi 'value: ephemeral' render.staging.yaml
+          grep -q 'plan: free' render.staging.yaml
+          grep -q 'value: ephemeral' render.staging.yaml
+          grep -q "value: ':memory:'" render.staging.yaml
           ! grep -qi 'token-a\|token-b' render.staging.yaml
