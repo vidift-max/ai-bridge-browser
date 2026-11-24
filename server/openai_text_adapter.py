@@ -16,6 +16,44 @@ class OpenAITextAdapter:
     def enabled(self) -> bool:
         return bool(self.api_key)
 
+    def create_realtime_client_secret(self) -> dict:
+        if not self.enabled():
+            raise RuntimeError("openai_api_not_configured")
+        payload = {
+            "expires_after": {"seconds": 600},
+            "session": {
+                "type": "realtime",
+                "model": RuntimeConfig.openai_realtime_model(),
+                "instructions": RuntimeConfig.openai_instructions(),
+                "output_modalities": ["audio"],
+            },
+        }
+        body = json.dumps(payload).encode("utf-8")
+        request = urllib.request.Request(
+            "https://api.openai.com/v1/realtime/client_secrets",
+            data=body,
+            headers={
+                "Authorization": "Bearer " + self.api_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=RuntimeConfig.openai_timeout_seconds()) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError("openai_http_" + str(exc.code)) from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise RuntimeError("openai_transport_error") from exc
+        if not data.get("value"):
+            raise RuntimeError("openai_client_secret_missing")
+        return {
+            "clientSecret": data["value"],
+            "expiresAt": data.get("expires_at"),
+            "session": data.get("session"),
+        }
+
     def respond(self, user_text: str, previous_response_id: Optional[str] = None) -> dict:
         if not self.enabled():
             raise RuntimeError("openai_api_not_configured")
