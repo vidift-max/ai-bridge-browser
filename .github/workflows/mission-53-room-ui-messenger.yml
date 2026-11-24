@@ -1,0 +1,39 @@
+name: Mission 53 Room UI Messenger Integration
+on:
+  push:
+    branches: ["feat/mission-53-room-ui-messenger-integration"]
+  pull_request:
+    branches: ["feat/mission-52-authorized-multi-ai-messaging"]
+permissions:
+  contents: read
+jobs:
+  browser-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test web/*.test.mjs
+      - run: node --test web/ai-room-admission.test.mjs web/ai-room-messenger.test.mjs web/ai-room-ui-messenger.test.mjs
+  backend-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest discover -s server -p 'test_*.py' -v
+  android-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - uses: actions/checkout@v4
+      - run: gradle :app:testDebugUnitTest
+      - run: gradle :app:assembleDebug
