@@ -202,6 +202,76 @@ class SQLiteMessengerStore:
             self._connection.commit()
             version = 8
 
+
+    def create_guest_application(self, application, token_hash):
+        """Atomically consume one invite use and persist an untrusted pending request."""
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            invite = self._connection.execute(
+                "SELECT * FROM room_invites WHERE token_hash=?", (token_hash,)).fetchone()
+            now = application["created_at"]
+            if (invite is None or invite["revoked_at"] is not None
+                    or invite["expires_at"] <= now or invite["uses"] >= invite["max_uses"]):
+                self._connection.rollback()
+                return None, "invite_unavailable"
+            existing = self._connection.execute(
+                """SELECT * FROM guest_applications
+                   WHERE invite_id=? AND display_name=?""",
+                (invite["invite_id"], application["display_name"])).fetchone()
+            if existing is not None:
+                self._connection.rollback()
+                return dict(existing), "request_exists"
+            self._connection.execute(
+                """INSERT INTO guest_applications(application_id,invite_id,conversation_id,
+                   display_name,provider_claim,provider_verified,status,created_at)
+                   VALUES(?,?,?,?,?,0,'PENDING',?)""",
+                (application["application_id"], invite["invite_id"],
+                 invite["conversation_id"], application["display_name"],
+                 application["provider_claim"], now))
+            self._connection.execute(
+                "UPDATE room_invites SET uses=uses+1 WHERE invite_id=?",
+                (invite["invite_id"],))
+            row = self._connection.execute(
+                "SELECT * FROM guest_applications WHERE application_id=?",
+                (application["application_id"],)).fetchone()
+            self._connection.commit()
+            return dict(row), "created"
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def list_guest_applications(self, conversation_id):
+        rows = self._connection.execute(
+            """SELECT application_id,conversation_id,display_name,provider_claim,
+               provider_verified,status,created_at,decided_at,decided_by_ai_id
+               FROM guest_applications WHERE conversation_id=?
+               ORDER BY created_at,application_id""", (conversation_id,)).fetchall()
+        return [dict(row) for row in rows]
+
+    def decide_guest_application(self, conversation_id, application_id, decision,
+                                 decided_by_ai_id, decided_at):
+        status = ("APPROVED_AWAITING_PROVISIONING" if decision == "APPROVE" else "REJECTED")
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            cursor = self._connection.execute(
+                """UPDATE guest_applications SET status=?,decided_at=?,decided_by_ai_id=?
+                   WHERE application_id=? AND conversation_id=? AND status='PENDING'""",
+                (status, decided_at, decided_by_ai_id, application_id, conversation_id))
+            if cursor.rowcount != 1:
+                self._connection.rollback()
+                return None
+            row = self._connection.execute(
+                "SELECT application_id,conversation_id,display_name,provider_claim,"
+                "provider_verified,status,created_at,decided_at,decided_by_ai_id "
+                "FROM guest_applications WHERE application_id=?",
+                (application_id,)).fetchone()
+            self._connection.commit()
+            return dict(row)
+        except Exception:
+            self._connection.rollback()
+            raise
+
+
     def save_voice_mute(self, conversation_id: str, ai_id: str,
                         muted_by_ai_id: str, expires_at: float):
         self._connection.execute(
