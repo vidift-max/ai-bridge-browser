@@ -348,7 +348,8 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         ]
         with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
             plan = prepare_send_plan(config)
-        self.assertEqual(plan["schema_version"], 1)
+        self.assertEqual(plan["schema_version"], 2)
+        self.assertEqual(len(plan["plan_sha256"]), 64)
         self.assertEqual(len(plan["payload_sha256"]), 64)
         self.assertTrue(validate_send_plan(plan, config))
         other_pair = dict(config, ai_b="AI-03")
@@ -508,6 +509,87 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
                 code = main(["--plan-output", "plan.json"])
         self.assertEqual(code, 2)
         self.assertIn("plan_output_requires_prepare_send", errors.getvalue())
+
+
+    def test_send_plan_is_valid_at_expiry_boundary_and_rejected_after(self):
+        from tools.firebase_first_contact_smoke import prepare_send_plan, validate_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            plan = prepare_send_plan(config)
+        self.assertTrue(validate_send_plan(plan, config, now_ms=plan["expires_at_epoch_ms"]))
+        with self.assertRaisesRegex(ProbeError, "send_plan_expired"):
+            validate_send_plan(plan, config, now_ms=plan["expires_at_epoch_ms"] + 1)
+
+    def test_send_plan_rejects_future_creation_timestamp(self):
+        import hashlib
+        import time
+        from tools.firebase_first_contact_smoke import (
+            prepare_send_plan, validate_send_plan, _canonical_payload_bytes,
+            _canonical_plan_bytes, PLAN_TTL_MS,
+        )
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            plan = prepare_send_plan(config)
+        future = int(time.time() * 1000) + 60_000
+        plan["created_at_epoch_ms"] = future
+        plan["expires_at_epoch_ms"] = future + PLAN_TTL_MS
+        plan["payload"]["createdAtEpochMs"] = future
+        plan["payload_sha256"] = hashlib.sha256(_canonical_payload_bytes(plan["payload"])).hexdigest()
+        plan["plan_sha256"] = hashlib.sha256(_canonical_plan_bytes(plan)).hexdigest()
+        with self.assertRaisesRegex(ProbeError, "send_plan_timestamp_in_future"):
+            validate_send_plan(plan, config, now_ms=future - 30_001)
+
+    def test_send_plan_expiry_is_bound_to_creation_time(self):
+        from tools.firebase_first_contact_smoke import prepare_send_plan, validate_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            plan = prepare_send_plan(config)
+        plan["expires_at_epoch_ms"] += 1
+        with self.assertRaisesRegex(ProbeError, "send_plan_expiry_invalid"):
+            validate_send_plan(plan, config)
+
+    def test_send_plan_full_envelope_metadata_is_integrity_protected(self):
+        from tools.firebase_first_contact_smoke import prepare_send_plan, validate_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            plan = prepare_send_plan(config)
+        plan["preflight"] = "SKIPPED"
+        with self.assertRaisesRegex(ProbeError, "send_plan_integrity_mismatch"):
+            validate_send_plan(plan, config)
+
+    def test_send_plan_rejects_boolean_timestamps(self):
+        from tools.firebase_first_contact_smoke import prepare_send_plan, validate_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            plan = prepare_send_plan(config)
+        plan["created_at_epoch_ms"] = True
+        with self.assertRaisesRegex(ProbeError, "send_plan_timestamp_invalid"):
+            validate_send_plan(plan, config)
 
 
 if __name__ == "__main__":
