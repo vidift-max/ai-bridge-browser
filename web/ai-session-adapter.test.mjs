@@ -26,7 +26,7 @@ test("provider origin allowlist is exact and HTTPS-only",()=>{
  assert.throws(()=>f.registry.attachTab({sessionId:"s",providerId:"provider-1",origin:"http://chat.example",explicitConsent:true}),/HTTPS_ORIGIN_REQUIRED/);
 });
 test("provider contract requires connect and read status capabilities",()=>{
- const context={window:{}};vm.runInNewContext(source,context);
+ const context={window:{},URL};vm.runInNewContext(source,context);
  const r=context.window.AIBridgeSessionAdapter.create({});
  assert.throws(()=>r.registerProvider({providerId:"p",allowedOrigins:["https://chat.example"],adapter:{connect(){}}}),/ADAPTER_CONTRACT_INCOMPLETE/);
 });
