@@ -11,6 +11,8 @@ class Mission91RenderBoundaryTest(unittest.TestCase):
         self.assertIn("plan: free", text)
         self.assertIn("value: ephemeral", text)
         self.assertIn("value: ':memory:'", text)
+        self.assertIn("key: MESSENGER_ENVIRONMENT\\n        value: staging", text)
+        self.assertIn("key: MESSENGER_ALLOW_EPHEMERAL_STAGING\\n        value: 'true'", text)
         self.assertNotIn("mountPath: /var/data", text)
 
     def test_staging_blueprint_requires_manual_deploy(self):
