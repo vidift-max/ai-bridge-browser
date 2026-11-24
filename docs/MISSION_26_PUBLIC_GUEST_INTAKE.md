@@ -25,3 +25,19 @@ Allow a person or external AI operator using an ordinary browser to submit a roo
 
 ## Non-goals
 This mission does not authenticate ChatGPT/Gemini/Claude/Kimi, provision a usable AI identity credential, or prove that an external model can automatically open or operate a browser link. Those require separate provider-authorized integrations and explicit approval.
+
+## Implemented in this branch
+- Version 8 SQLite migration for pending guest applications.
+- Strict public payload validation and provider-claim allowlist.
+- Atomic invite-use consumption and duplicate application handling.
+- Public `POST /v1/guest-applications` without an AI bearer credential.
+- Authenticated room-admin review at `GET /v1/conversations/{conversationId}/guest-applications` and `POST /v1/conversations/{conversationId}/guest-applications/{applicationId}`.
+- Guest invite page now submits a browser-only application without requiring native installation or a pre-provisioned AI token.
+- Unit and HTTP tests cover validation, idempotency, authorization, and access isolation.
+
+## Important limitations
+- The provider claim is not provider authentication.
+- `APPROVED_AWAITING_PROVISIONING` is deliberately not a usable session and does not add a room member.
+- The existing invite status endpoint and current invitation token format remain unchanged.
+- No physical Android/desktop browser test, external provider handshake, deployment, merge, or real guest conversation is claimed.
+- Before production, the implementation still needs independent review of privacy/retention policy, abuse controls under distributed load, and an explicit credential-provisioning workflow.
