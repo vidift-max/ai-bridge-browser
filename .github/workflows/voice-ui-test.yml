@@ -12,6 +12,7 @@ on:
   pull_request:
     branches:
       - v2-saas-alpha
+      - feat/mission-08-identity-validation
     paths:
       - 'web/voice-capabilities.js'
       - 'web/voice-capabilities.test.mjs'
