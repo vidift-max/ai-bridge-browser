@@ -1,68 +1,45 @@
 # AI Bridge Browser
 
-> **Prioridade atual:** colaboração entre IAs e execução de trabalho com Blogger. O sistema deve funcionar na nuvem por navegador e APIs; celular físico, APK e chamadas telefônicas não são requisitos para esta fase. Consulte `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`.
+> **Produto:** navegador social de Inteligências Artificiais, organizado por salas de conversa. A experiência principal deixa de ser abrir sites em abas e passa a conectar pessoas e IAs autorizadas em salas, conversas privadas e missões.
 
-Navegador Android experimental com até seis abas WebView e uma Central de Controle estrutural.
+## Experiência principal
 
-## Estado atual
+Ao abrir o AI Bridge, o usuário deve encontrar uma Central de Salas com:
+- Sala Geral para colaboração entre IAs.
+- Conversas privadas e salas de missão.
+- Convites por link com autorização.
+- Central de IAs com identidade e estado de conexão verificáveis.
+- Mensagens, anexos, áudio, ditado e leitura em voz alta.
+- Chamadas ao vivo como capacidade futura, somente após implementação e testes reais.
 
-A branch `v2-saas-alpha` contém um navegador Android com limite de seis abas, alternância, bloqueio/desbloqueio antes de fechar, título/host, navegação por endereço, voltar e recarregar. A Central de Controle apresenta até seis painéis estruturais e uma caixa local de coordenação GPT-6.
+O produto é web-first e não exige instalação para a experiência principal. O Android/WebView permanece opcional, sem bloquear o trabalho em nuvem.
 
-**O navegador ainda está em finalização.** Builds verdes não substituem testes em dispositivo. O Galaxy Tab A7 ainda não foi usado para validar o APK.
+## Regras do projeto
 
-## Tecnologia
+- Gratuito e somente por Wi-Fi; não ativar APIs, créditos ou infraestrutura pagos.
+- Se a rede não puder ser confirmada como permitida, bloquear operações de rede sensíveis em vez de presumir conexão Wi-Fi.
+- Convite por link não autentica automaticamente outra conta ChatGPT, Gemini ou Claude; cada plataforma exige integração compatível e autorizada.
+- Nunca exibir participante como online sem evidência real.
+- Tokens e credenciais ficam protegidos no servidor, nunca em URLs ou JavaScript público.
+- Ditado por voz deve ser local quando disponível; não usar reconhecimento remoto silenciosamente.
+- Nenhuma publicação no Blogger sem aprovação humana explícita.
 
-- Java 17
-- Android Gradle Plugin 9.5.0
-- Gradle 9.6.0
-- compileSdk 37 / targetSdk 35 / minSdk 29
-- Android WebView
+## Relação com Blogger SEO Intelligence
 
-## Segurança existente
-
-- Apenas URLs HTTP/HTTPS com host válido e sem userinfo.
-- Certificados TLS inválidos são rejeitados.
-- Acesso a arquivos/conteúdo local desativado.
-- Conteúdo misto bloqueado e Safe Browsing habilitado.
-- Popups/janelas múltiplas desativados.
-- Permissões de microfone/câmera negadas por padrão.
-
-## Limitações importantes
-
-- **Abas diferentes não garantem contas diferentes.** Na implementação de baseline, todas as WebViews usam o perfil padrão; os identificadores `profileId` eram apenas metadados.
-- A independência de sessões depende de suporte real do Android System WebView a perfis múltiplos e de validação no dispositivo.
-- Persistência atual não comprova restauração completa do histórico, formulários ou estado interno de cada página.
-- A caixa GPT-6 é local à interface; não está conectada a um serviço GPT-6.
-- Não existe envio automático de mensagens, controle remoto, integração externa ou ponte de áudio funcional.
-
-## Prioridade de desenvolvimento
-
-1. Consolidar a experiência web do AI Messenger e a identidade autenticada de cada IA.
-2. Implementar conversas, missões, tarefas, checkpoints, handoffs e entregáveis multi-IA na nuvem.
-3. Integrar o AI Messenger ao Blogger SEO Intelligence por API autenticada e versionada.
-4. Preparar o fluxo editorial: análise, criação/revisão, prévia e publicação somente após aprovação humana explícita.
-5. Validar segurança, autorização, auditoria, limites e funcionamento real entre agentes.
-
-O navegador Android/WebView é um cliente opcional e não deve bloquear o trabalho em nuvem. Dispositivos físicos, APKs e chamadas telefônicas ficam fora dos critérios de aceite desta fase.
+O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Intelligence continua responsável pelo trabalho editorial: análise, criação/revisão, pré-visualização e publicação aprovada. Os projetos se integram por APIs autenticadas e versionadas, sem compartilhar bancos ou credenciais no frontend.
 
 ## Documentação
 
-- `docs/BROWSER_FINALIZATION_AUDIT_01.md`: auditoria de partida desta missão.
+- `docs/AI_CHAT_BROWSER_PRODUCT_SPEC.md`: especificação do navegador social de IAs, salas, convites, voz, fases e critérios de aceite.
+- `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`: direção de colaboração multi-IA e integração editorial.
+- `docs/LEGACY_BLOGGER_CHAT_REUSE.md`: elementos do chat legado que podem ser reaproveitados e limites de segurança.
+- `docs/ARCHITECTURE.md`: arquitetura técnica anterior e limitações conhecidas.
 - `docs/BROWSER_TEST_MATRIX.md`: matriz de testes do navegador.
-- `docs/SESSION_ISOLATION.md`: decisão e requisitos de isolamento.
-- `docs/WEBVIEW_SECURITY.md`: baseline de segurança.
-- `docs/ARCHITECTURE.md`: arquitetura e limites.
+- `docs/SESSION_ISOLATION.md`: requisitos de isolamento de sessão.
+- `docs/WEBVIEW_SECURITY.md`: baseline de segurança WebView.
 
-## Build
+## Estado de implementação
 
-Com JDK 17, Android SDK API 37 e Gradle 9.6 instalados:
+A especificação de produto registra a direção desejada; não significa que toda a experiência esteja implementada. O backend possui partes de identidade, conversas, mensagens e anexos de áudio, mas a nova Central de Salas, o fluxo de convites e a chamada web ao vivo precisam ser implementados e validados separadamente. Não confundir build/CI com funcionamento entre IAs reais.
 
-```bash
-gradle :app:assembleDebug
-```
-
-O workflow GitHub Actions executa o build de debug em pushes e pull requests para `v2-saas-alpha`.
-
-## Prontidão
-
-O estado de cada recurso deve ser descrito como implementado, testado ou validado em dispositivo. Nenhum build de CI será tratado como prova de funcionamento no Galaxy Tab A7.
+Nenhum merge, deploy, gasto pago ou publicação no Blogger é autorizado por esta documentação.
