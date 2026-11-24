@@ -13,8 +13,8 @@ class AuthenticatedPrincipal:
 
 
 class Authenticator:
-    def __init__(self, token_to_ai_id: Dict[str, str], audit_log: Optional[AuditLog] = None):
-        self._registry = CredentialRegistry(token_to_ai_id)
+    def __init__(self, token_to_ai_id: Dict[str, str], audit_log: Optional[AuditLog] = None, connection=None):
+        self._registry = CredentialRegistry(token_to_ai_id, connection=connection)
         self.audit_log = audit_log or AuditLog()
 
     def authenticate(self, bearer_token: str, now: Optional[datetime] = None) -> AuthenticatedPrincipal:
@@ -23,6 +23,11 @@ class Authenticator:
         ai_id, generation = self._registry.authenticate_with_generation(bearer_token, now)
         self.audit_log.record("AUTHENTICATED", "credential", ai_id=ai_id)
         return AuthenticatedPrincipal(ai_id=ai_id, credential_generation=generation)
+
+    def provision_credential(self, bearer_token: str, ai_id: str, expires_at=None):
+        generation = self._registry.provision(bearer_token, ai_id, expires_at)
+        self.audit_log.record("CREDENTIAL_PROVISIONED", "credential", ai_id=ai_id)
+        return generation
 
     def revoke(self, bearer_token: str) -> None:
         self._registry.revoke(bearer_token)
