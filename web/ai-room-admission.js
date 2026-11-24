@@ -67,7 +67,7 @@
    if(!invitation||invitation.status!=="PENDING")throw new Error("INVITATION_NOT_AVAILABLE");
    if(now()>=invitation.expiresAt){invitation.status="EXPIRED";throw new Error("INVITATION_EXPIRED");}
    if(input.aiId!==invitation.aiId||!validId(input.sessionId))throw new Error("INVITATION_IDENTITY_MISMATCH");
-   if(r.members.size>=max)throw new Error("ROOM_CAPACITY_REACHED");
+   var activeCount=Array.from(r.members.values()).filter(function(member){return member.status==="ACTIVE";}).length;\n   if(activeCount>=max)throw new Error("ROOM_CAPACITY_REACHED");
    if(r.members.has(input.aiId))throw new Error("AI_ALREADY_IN_ROOM");
    for(var member of r.members.values()){
     if(member.status==="ACTIVE"&&member.sessionId===input.sessionId)throw new Error("SESSION_ALREADY_IN_ROOM");
