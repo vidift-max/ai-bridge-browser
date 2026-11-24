@@ -86,7 +86,7 @@ const emptyEl=$('empty'), conversationEl=$('conversation'), messagesEl=$('messag
 let token=sessionStorage.getItem('aiBridgeSessionToken')||'';
 let identity=null, rooms=[], activeRoom=null, nextSequence=0, pollTimer=null, presenceTimer=null, heartbeatTimer=null;
 let voiceController=null, voiceCapabilities=null;
-function setVoiceStatus(text){const el=$('voiceStatus');if(el)el.textContent=text}
+function setVoiceStatus(text){const el=$('voiceStatus');if(el)el.textContent=text;if(voiceCapabilities&&voiceCapabilities.dictationAvailable&&/^Ditado (encerrado|parado|interrompido)/.test(text)){$('dictate').disabled=!identity;$('stopDictation').disabled=true}}
 async function initializeVoice(){if(!window.AIBridgeVoice){setVoiceStatus('Controles de voz indisponíveis neste servidor.');return}voiceController=window.AIBridgeVoice.createController(setVoiceStatus);voiceCapabilities=await window.AIBridgeVoice.inspect();$('dictate').disabled=!voiceCapabilities.dictationAvailable;$('stopDictation').disabled=true;$('readRoom').disabled=!voiceCapabilities.synthesisAvailable;$('stopSpeech').disabled=!voiceCapabilities.synthesisAvailable;if(!voiceCapabilities.dictationAvailable){setVoiceStatus('Ditado desativado: o navegador não confirmou reconhecimento local em pt-BR. Nenhum áudio será enviado para reconhecimento remoto.')}else if(voiceCapabilities.synthesisAvailable){setVoiceStatus('Ditado local disponível após seu clique. Leitura usa a voz do navegador/sistema.')}else{setVoiceStatus('Ditado local disponível; leitura em voz alta não suportada.')}}
 if(token)tokenInput.value=token;
 function networkState(state){networkEl.textContent='Rede: '+state.status;if(state.status!=='WIFI_ALLOWED')networkEl.title=state.message||'Rede não confirmada'}
