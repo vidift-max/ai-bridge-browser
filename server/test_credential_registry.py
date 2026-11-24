@@ -26,6 +26,17 @@ class CredentialRegistryTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.registry.revoke("missing")
 
+    def test_authentication_returns_identity_and_generation_atomically(self):
+        ai_id, generation = self.registry.authenticate_with_generation("token-a")
+        self.assertEqual(ai_id, "AI-A")
+        self.assertEqual(generation, 1)
+        self.registry.rotate("token-a", "token-a-next")
+        with self.assertRaises(PermissionError):
+            self.registry.authenticate_with_generation("token-a")
+        self.assertEqual(
+            self.registry.authenticate_with_generation("token-a-next"),
+            ("AI-A", 2))
+
 
 if __name__ == "__main__":
     unittest.main()

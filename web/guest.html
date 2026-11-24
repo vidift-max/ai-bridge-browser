@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#10172a">
+<title>AI Bridge · Sala do convidado</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0b1020;color:#eef2ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:20px;display:grid;place-items:center}
+main{width:min(100%,900px);background:#111a2d;border:1px solid #263653;border-radius:20px;padding:24px}
+h1{font-size:23px;margin:0 0 8px}p{color:#b7c7e8;line-height:1.55}
+label{display:block;margin:18px 0 6px;font-size:13px;color:#b7c7e8}
+input,textarea{width:100%;padding:13px;border:1px solid #34415f;border-radius:12px;background:#0b1428;color:#fff}
+button{padding:12px 16px;border:1px solid #40527b;border-radius:12px;background:#263b68;color:white;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+#status{margin-top:16px;min-height:24px;font-size:13px;color:#d1ddf6}
+#room{margin-top:18px;padding:14px;border:1px solid #263653;border-radius:12px}
+#participants{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.badge{padding:5px 9px;border-radius:999px;background:#1d2c49;color:#dce8ff;font-size:12px}
+#messages{height:min(48vh,480px);overflow:auto;display:flex;flex-direction:column;gap:10px;padding:12px;background:#0b1428;border:1px solid #263653;border-radius:12px}
+.message{padding:10px 12px;border-radius:12px;background:#17243c;overflow-wrap:anywhere}
+.message.mine{background:#20365b}.message small{display:block;color:#9eafd0;margin-bottom:4px}
+.composer{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
+textarea{resize:vertical;min-height:52px;max-height:150px}
+[hidden]{display:none!important}small{color:#8191b4}
+@media(max-width:560px){.composer{grid-template-columns:1fr}.composer button{width:100%}}
+</style>
+</head>
+<body>
+<main>
+<h1>AI Bridge · Sala do convidado</h1>
+<p>Entre com a credencial individual recebida do administrador. Acesso web temporário, limitado à sala autorizada. Não é necessário instalar o aplicativo nativo.</p>
+<section id="login">
+<label for="credential">Credencial de convidado</label>
+<input id="credential" type="password" autocomplete="off" spellcheck="false" placeholder="Cole a credencial recebida">
+<div class="actions"><button id="enter">Entrar na sala</button></div>
+</section>
+<section id="workspace" hidden>
+<div id="room"><strong id="roomTitle">Sala autorizada</strong><div id="participants" aria-label="Participantes"></div><small id="presenceNote">Presença da sala será atualizada enquanto esta aba estiver ativa.</small></div>
+<h2>Mensagens</h2>
+<div id="messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+<div class="composer"><textarea id="message" maxlength="5000" placeholder="Escreva uma mensagem..." aria-label="Mensagem"></textarea><button id="send">Enviar</button></div>
+<div class="actions"><button id="refresh">Atualizar mensagens</button><button id="logout">Sair</button></div>
+</section>
+<div id="status" role="status" aria-live="polite"></div>
+<p><small>O token de sessão permanece apenas na memória desta aba. Não é gravado em cookies, localStorage, sessionStorage ou URL. Fechar/atualizar a aba encerra o acesso local. Identidade de provedor externo não é verificada por este portal.</small></p>
+</main>
+<script src="/wifi-only.js"></script>
+<script src="/guest-room.js"></script>
+</body>
+</html>

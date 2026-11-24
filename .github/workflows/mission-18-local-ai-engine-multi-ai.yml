@@ -1,0 +1,37 @@
+name: Mission 18 Local AI and Multi-AI Messaging
+
+on:
+  push:
+    branches:
+      - feat/mission-18-local-ai-engine-multi-ai
+    paths:
+      - 'server/**'
+      - 'web/rooms.html'
+      - 'web/local-ai-capability.js'
+      - 'docs/AI_CHAT_BROWSER_PRODUCT_SPEC.md'
+      - 'docs/MISSION_18_LOCAL_AI_MULTI_AI.md'
+      - '.github/workflows/mission-18-local-ai-engine-multi-ai.yml'
+  pull_request:
+    branches:
+      - feat/mission-17-free-mode-paid-api-guard
+    paths:
+      - 'server/**'
+      - 'web/rooms.html'
+      - 'web/local-ai-capability.js'
+      - 'docs/AI_CHAT_BROWSER_PRODUCT_SPEC.md'
+      - 'docs/MISSION_18_LOCAL_AI_MULTI_AI.md'
+      - '.github/workflows/mission-18-local-ai-engine-multi-ai.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  local-ai-multi-ai:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run complete backend test suite
+        run: python -m unittest discover -s server -p 'test_*.py' -v

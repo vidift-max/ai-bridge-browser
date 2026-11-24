@@ -21,6 +21,58 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
         store.close()
         return path
 
+    def test_valid_voice_mute_is_accepted_by_restore_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute(
+                    "INSERT INTO voice_mutes(conversation_id,ai_id,muted_by_ai_id,expires_at) "
+                    "VALUES(?,?,?,?)", ("room-1", "AI-B", "AI-A", 9999999999.0))
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (True, "RESTORE_CANDIDATE_VALIDATED"))
+
+    def test_voice_mute_target_outside_room_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute(
+                    "INSERT INTO voice_mutes(conversation_id,ai_id,muted_by_ai_id,expires_at) "
+                    "VALUES(?,?,?,?)", ("room-1", "AI-X", "AI-A", 9999999999.0))
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_valid_v7_invite_request_admin_and_identity_are_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute(
+                    "INSERT INTO conversation_admins(conversation_id,ai_id) VALUES(?,?)",
+                    ("room-1", "AI-A"))
+                db.execute(
+                    "INSERT INTO room_invites(invite_id,conversation_id,token_hash,"
+                    "created_by_ai_id,created_at,expires_at,max_uses,uses) "
+                    "VALUES(?,?,?,?,?,?,?,?)",
+                    ("invite-1", "room-1", "a" * 64, "AI-A", 10.0, 100.0, 2, 1))
+                db.execute(
+                    "INSERT INTO join_requests(request_id,invite_id,conversation_id,"
+                    "ai_id,status,created_at) VALUES(?,?,?,?,?,?)",
+                    ("request-1", "invite-1", "room-1", "AI-C", "PENDING", 20.0))
+                db.execute(
+                    "INSERT INTO ai_identity_directory(internal_number,ai_id,display_name,created_at) "
+                    "VALUES(?,?,?,?)", (1, "AI-A", "Assistente Alfa", 10.0))
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (True, "RESTORE_CANDIDATE_VALIDATED"))
+
+    def test_invalid_identity_record_is_rejected_by_restore_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute(
+                    "INSERT INTO ai_identity_directory(internal_number,ai_id,display_name,created_at) "
+                    "VALUES(?,?,?,?)", (1, "AI-A", "   ", 10.0))
+            self.assertEqual(validate_restore_candidate(str(path)),
+                             (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
     def test_consistent_candidate_passes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self._candidate(directory)
@@ -110,6 +162,38 @@ class RestoreCandidateDataConsistencyTests(unittest.TestCase):
                 db.execute("UPDATE conversations SET member_ai_ids='AI-A, AI-B'")
             self.assertEqual(validate_restore_candidate(str(path)),
                              (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"))
+
+    def test_orphan_audio_attachment_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute(
+                    "INSERT INTO audio_attachments("
+                    "object_id,message_id,conversation_id,sender_ai_id,content_type,size,sha256"
+                    ") VALUES(?,?,?,?,?,?,?)",
+                    ("audio-orphan", "missing-message", "room-1", "AI-A",
+                     "audio/mp4", 10, "a" * 64),
+                )
+            self.assertEqual(
+                validate_restore_candidate(str(path)),
+                (False, "RESTORE_CANDIDATE_DATA_INCONSISTENT"),
+            )
+
+    def test_audio_attachment_sender_and_message_are_consistent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._candidate(directory)
+            with sqlite3.connect(path) as db:
+                db.execute(
+                    "INSERT INTO audio_attachments("
+                    "object_id,message_id,conversation_id,sender_ai_id,content_type,size,sha256"
+                    ") VALUES(?,?,?,?,?,?,?)",
+                    ("audio-1", "m-1", "room-1", "AI-A",
+                     "audio/mp4", 10, "b" * 64),
+                )
+            self.assertEqual(
+                validate_restore_candidate(str(path)),
+                (True, "RESTORE_CANDIDATE_VALIDATED"),
+            )
 
     def test_non_text_identifier_storage_is_rejected_safely(self):
         with tempfile.TemporaryDirectory() as directory:

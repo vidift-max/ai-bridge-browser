@@ -1,0 +1,31 @@
+name: Mission 16 OpenAI Request Verification Tests
+
+on:
+  push:
+    branches:
+      - feat/mission-16-openai-live-validation
+    paths:
+      - 'server/**'
+      - 'docs/AI_CHAT_BROWSER_PROVIDER_IDENTITY.md'
+      - '.github/workflows/mission-16-openai-live-validation.yml'
+  pull_request:
+    branches:
+      - feat/mission-15-provider-identity-registry
+    paths:
+      - 'server/**'
+      - 'docs/AI_CHAT_BROWSER_PROVIDER_IDENTITY.md'
+      - '.github/workflows/mission-16-openai-live-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  openai-request-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run backend unit tests
+        run: python -m unittest discover -s server -p 'test_*.py' -v

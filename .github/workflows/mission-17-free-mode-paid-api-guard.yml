@@ -1,0 +1,31 @@
+name: Mission 17 Free Mode and Paid API Guard
+
+on:
+  push:
+    branches:
+      - feat/mission-17-free-mode-paid-api-guard
+    paths:
+      - 'server/**'
+      - 'docs/AI_CHAT_BROWSER_PROVIDER_IDENTITY.md'
+      - '.github/workflows/mission-17-free-mode-paid-api-guard.yml'
+  pull_request:
+    branches:
+      - feat/mission-16-openai-live-validation
+    paths:
+      - 'server/**'
+      - 'docs/AI_CHAT_BROWSER_PROVIDER_IDENTITY.md'
+      - '.github/workflows/mission-17-free-mode-paid-api-guard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  free-mode-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run complete backend test suite
+        run: python -m unittest discover -s server -p 'test_*.py' -v

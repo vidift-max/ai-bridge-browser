@@ -1,6 +1,7 @@
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from typing import Deque, Dict, Optional
+from threading import Lock
 
 
 class RateLimitExceeded(PermissionError):
@@ -16,16 +17,18 @@ class SlidingWindowRateLimiter:
         self.max_events = max_events
         self.window = timedelta(seconds=window_seconds)
         self._events: Dict[str, Deque[datetime]] = defaultdict(deque)
+        self._lock = Lock()
 
     def allow(self, principal: str, now: Optional[datetime] = None) -> bool:
         if not principal:
             raise ValueError("principal_required")
         current = now or datetime.now(timezone.utc)
-        events = self._events[principal]
-        cutoff = current - self.window
-        while events and events[0] <= cutoff:
-            events.popleft()
-        if len(events) >= self.max_events:
-            raise RateLimitExceeded("rate_limit_exceeded")
-        events.append(current)
-        return True
+        with self._lock:
+            events = self._events[principal]
+            cutoff = current - self.window
+            while events and events[0] <= cutoff:
+                events.popleft()
+            if len(events) >= self.max_events:
+                raise RateLimitExceeded("rate_limit_exceeded")
+            events.append(current)
+            return True

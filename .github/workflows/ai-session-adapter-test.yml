@@ -1,0 +1,31 @@
+name: AI Bridge Session Adapter Tests
+
+on:
+  push:
+    branches:
+      - feat/mission-13-ai-session-adapter
+    paths:
+      - 'web/ai-session-adapter.js'
+      - 'web/ai-session-adapter.test.mjs'
+      - '.github/workflows/ai-session-adapter-test.yml'
+  pull_request:
+    branches:
+      - feat/mission-12-ai-remote-control-continuity
+    paths:
+      - 'web/ai-session-adapter.js'
+      - 'web/ai-session-adapter.test.mjs'
+      - '.github/workflows/ai-session-adapter-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  session-adapter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run session adapter policy tests
+        run: node --test web/ai-session-adapter.test.mjs
