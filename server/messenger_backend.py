@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+import hashlib
+import secrets
 from functools import wraps
 from threading import RLock
 from typing import Dict, List, Set, Tuple
@@ -121,10 +123,130 @@ class MessengerBackend:
         if conversation_id in self._conversations:
             raise ValueError("conversation_id_conflict")
         self._store.save_conversation(conversation_id, sorted(members), kind)
+        self._store.save_conversation_admin(conversation_id, creator)
         self._conversations[conversation_id] = members
         self._conversation_kinds[conversation_id] = normalize_conversation_kind(kind)
         return {"conversationId": conversation_id, "kind": kind,
                 "memberAiIds": sorted(members), "memberCount": len(members)}
+
+
+    @_synchronized
+    def create_room_invite(self, bearer_token: str, conversation_id: str,
+                           expires_in_seconds: int = 86400, max_uses: int = 5):
+        ai_id = self.authenticate(bearer_token)
+        if not isinstance(conversation_id, str) or not conversation_id:
+            raise ValueError("invalid_conversation_id")
+        members = self._conversations.get(conversation_id)
+        if not members or ai_id not in members:
+            raise PermissionError("authorization_denied")
+        if not self._store.is_conversation_admin(conversation_id, ai_id):
+            raise PermissionError("room_admin_required")
+        if (isinstance(expires_in_seconds, bool) or not isinstance(expires_in_seconds, int)
+                or expires_in_seconds < 60 or expires_in_seconds > 604800):
+            raise ValueError("invalid_invite_expiry")
+        if (isinstance(max_uses, bool) or not isinstance(max_uses, int)
+                or max_uses < 1 or max_uses > self.MAX_ROOM_MEMBERS):
+            raise ValueError("invalid_invite_max_uses")
+        now = time.time()
+        token = secrets.token_urlsafe(32)
+        invite_id = secrets.token_hex(16)
+        self._store.create_room_invite({
+            "invite_id": invite_id, "conversation_id": conversation_id,
+            "token_hash": hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            "created_by_ai_id": ai_id, "created_at": now,
+            "expires_at": now + expires_in_seconds, "max_uses": max_uses})
+        return {"inviteId": invite_id, "token": token, "conversationId": conversation_id,
+                "expiresAt": now + expires_in_seconds, "maxUses": max_uses}
+
+    @_synchronized
+    def get_public_invite(self, invite_id: str):
+        invite = self._store.get_room_invite(invite_id)
+        if invite is None:
+            raise ValueError("invite_not_found")
+        now = time.time()
+        if invite["revoked_at"] is not None:
+            status = "REVOKED"
+        elif invite["expires_at"] <= now:
+            status = "EXPIRED"
+        elif invite["uses"] >= invite["max_uses"]:
+            status = "EXHAUSTED"
+        else:
+            status = "ACTIVE"
+        return {"inviteId": invite["invite_id"], "status": status,
+                "expiresAt": invite["expires_at"],
+                "remainingUses": max(0, invite["max_uses"] - invite["uses"])}
+
+    @_synchronized
+    def redeem_room_invite(self, bearer_token: str, token: str):
+        ai_id = self.authenticate(bearer_token)
+        if not isinstance(token, str) or len(token) < 40 or len(token) > 200:
+            raise ValueError("invalid_invite_token")
+        invite = self._store.find_room_invite_by_hash(
+            hashlib.sha256(token.encode("utf-8")).hexdigest())
+        if invite is None or invite["conversation_id"] not in self._conversations:
+            raise ValueError("invite_unavailable")
+        if ai_id in self._conversations[invite["conversation_id"]]:
+            raise ValueError("already_room_member")
+        now = time.time()
+        request = {"request_id": secrets.token_hex(16), "invite_id": invite["invite_id"],
+                   "conversation_id": invite["conversation_id"], "ai_id": ai_id,
+                   "created_at": now}
+        row, outcome = self._store.create_join_request(request)
+        if outcome == "invite_unavailable":
+            raise ValueError("invite_unavailable")
+        if outcome == "request_exists":
+            if row["status"] == "PENDING":
+                return {"requestId": row["request_id"], "status": row["status"],
+                        "conversationId": row["conversation_id"]}
+            raise ValueError("join_request_already_decided")
+        return {"requestId": row["request_id"], "status": row["status"],
+                "conversationId": row["conversation_id"]}
+
+    @_synchronized
+    def list_join_requests(self, bearer_token: str, conversation_id: str):
+        ai_id = self.authenticate(bearer_token)
+        if not self._store.is_conversation_admin(conversation_id, ai_id):
+            raise PermissionError("room_admin_required")
+        return self._store.list_join_requests(conversation_id)
+
+    @_synchronized
+    def decide_join_request(self, bearer_token: str, conversation_id: str,
+                            request_id: str, decision: str):
+        ai_id = self.authenticate(bearer_token)
+        if not self._store.is_conversation_admin(conversation_id, ai_id):
+            raise PermissionError("room_admin_required")
+        if decision not in ("APPROVE", "REJECT"):
+            raise ValueError("invalid_join_request_decision")
+        result, outcome = self._store.decide_join_request(
+            conversation_id, request_id, decision, ai_id, time.time(),
+            self.MAX_ROOM_MEMBERS)
+        if outcome == "request_not_found":
+            raise ValueError("join_request_not_found")
+        if outcome == "request_already_decided":
+            raise ValueError("join_request_already_decided")
+        if outcome == "conversation_member_limit":
+            raise ValueError("conversation_member_limit")
+        if decision == "APPROVE":
+            self._conversations[conversation_id] = self._store.load_conversations()[conversation_id]
+        return {"requestId": result["request_id"], "status": result["status"],
+                "aiId": result["ai_id"], "conversationId": conversation_id}
+
+    @_synchronized
+    def revoke_room_invite(self, bearer_token: str, conversation_id: str, invite_id: str):
+        ai_id = self.authenticate(bearer_token)
+        if not self._store.is_conversation_admin(conversation_id, ai_id):
+            raise PermissionError("room_admin_required")
+        changed = self._store.revoke_room_invite(invite_id, conversation_id, time.time())
+        if not changed:
+            raise ValueError("invite_not_found_or_revoked")
+        return {"inviteId": invite_id, "status": "REVOKED"}
+
+    @_synchronized
+    def list_room_invites(self, bearer_token: str, conversation_id: str):
+        ai_id = self.authenticate(bearer_token)
+        if not self._store.is_conversation_admin(conversation_id, ai_id):
+            raise PermissionError("room_admin_required")
+        return self._store.list_room_invites(conversation_id)
 
     @_synchronized
     def list_conversations(self, bearer_token: str, limit: int = 50,
