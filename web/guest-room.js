@@ -1,4 +1,6 @@
-(function (root) {\n"use strict";\nconst MAX_MESSAGE_LENGTH = 5000;
+(function (root) {
+"use strict";
+const MAX_MESSAGE_LENGTH = 5000;
 
 function requireSingleGuestRoom(payload) {
   const rooms = payload && Array.isArray(payload.conversations) ? payload.conversations : [];
@@ -172,4 +174,8 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   globalThis.addEventListener?.("pagehide", () => { stopPolling(); sessionToken = null; });
   return {enter, send, logout, pollMessages};
 }
-const api = { requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp };\nif (typeof module !== "undefined" && module.exports) module.exports = api;\nroot.AIBridgeGuestRoom = api;\nif (typeof document !== "undefined") createGuestRoomApp();\n})(typeof globalThis !== "undefined" ? globalThis : this);
+const api = { requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp };
+if (typeof module !== "undefined" && module.exports) module.exports = api;
+root.AIBridgeGuestRoom = api;
+if (typeof document !== "undefined") createGuestRoomApp();
+})(typeof globalThis !== "undefined" ? globalThis : this);
