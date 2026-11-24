@@ -309,6 +309,48 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                          or row["decided_by_ai_id"] not in conversations[row["conversation_id"]]))):
                 return False, "RESTORE_DATA_GUEST_APPLICATION_INVALID"
 
+    if version_row and version_row[0] == "9":
+        identities = {row["ai_id"] for row in connection.execute(
+            "SELECT ai_id FROM ai_identity_directory")}
+        credentials = {}
+        for row in connection.execute(
+            "SELECT token_hash,ai_id,status,expires_at,generation,created_at FROM credential_records"
+        ):
+            digest = row["token_hash"]
+            if (not isinstance(digest, str) or len(digest) != 64
+                    or any(ch not in "0123456789abcdef" for ch in digest)
+                    or row["ai_id"] not in identities
+                    or row["status"] not in ("ACTIVE", "REVOKED", "EXPIRED", "ROTATED")
+                    or (row["expires_at"] is not None and
+                        (not isinstance(row["expires_at"], (int, float)) or row["expires_at"] <= 0))
+                    or not isinstance(row["generation"], int) or row["generation"] <= 0
+                    or not isinstance(row["created_at"], (int, float)) or row["created_at"] <= 0):
+                return False, "RESTORE_DATA_CREDENTIAL_INVALID"
+            credentials[row["ai_id"]] = row["status"]
+
+        for row in connection.execute(
+            "SELECT application_id,conversation_id,status,provisioning_status,"
+            "provisioned_ai_id,provisioned_at FROM guest_applications"
+        ):
+            members = conversations.get(row["conversation_id"])
+            ai_id = row["provisioned_ai_id"]
+            if (members is None
+                    or row["provisioning_status"] not in ("NOT_STARTED", "ACTIVE", "REVOKED")):
+                return False, "RESTORE_DATA_GUEST_PROVISIONING_INVALID"
+            if row["provisioning_status"] == "NOT_STARTED":
+                if ai_id is not None or row["provisioned_at"] is not None:
+                    return False, "RESTORE_DATA_GUEST_PROVISIONING_INVALID"
+            elif (not ai_id or ai_id not in identities
+                  or not isinstance(row["provisioned_at"], (int, float))
+                  or row["provisioned_at"] <= 0):
+                return False, "RESTORE_DATA_GUEST_PROVISIONING_INVALID"
+            elif row["provisioning_status"] == "ACTIVE":
+                if (row["status"] != "APPROVED_AWAITING_PROVISIONING"
+                        or ai_id not in members or credentials.get(ai_id) != "ACTIVE"):
+                    return False, "RESTORE_DATA_GUEST_PROVISIONING_INVALID"
+            elif ai_id in members or credentials.get(ai_id) != "REVOKED":
+                return False, "RESTORE_DATA_GUEST_PROVISIONING_INVALID"
+
     for row in connection.execute(
         "SELECT object_id, message_id, conversation_id, sender_ai_id, content_type, size, sha256 "
         "FROM audio_attachments"
