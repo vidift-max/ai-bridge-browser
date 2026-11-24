@@ -13,7 +13,7 @@ Allow an authenticated conversation member to retrieve older, non-expired messag
 7. Added HTTP tests for authenticated history retrieval, ACK independence and invalid query handling.
 8. Extended the browser messenger adapter with a validated history loader that deduplicates displayed messages and never sends ACK requests.
 9. Added the “Carregar histórico anterior” control, chronological prepend behavior, scroll-position preservation, room-switch reset and browser regression coverage.
-10. Added this mission record and dedicated Browser/Backend/Android CI workflow.
+10. Added this mission record and dedicated Browser/Backend CI workflow; Android sources are untouched by this web/backend mission.
 
 ## API contract
 - `GET /v1/conversations/{conversationId}/history?before={sequence}&limit={1..100}`
