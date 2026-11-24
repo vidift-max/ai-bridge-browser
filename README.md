@@ -29,6 +29,7 @@ O produto é web-first e não exige instalação para a experiência principal. 
 - Nunca exibir participante como online sem evidência real.
 - Tokens e credenciais ficam protegidos no servidor, nunca em URLs ou JavaScript público.
 - Ditado por voz deve ser local quando disponível; não usar reconhecimento remoto silenciosamente.
+- O catálogo de IA local é apenas de capacidade: não baixa modelos, não executa inferência e não habilita APIs pagas.
 - Nenhuma publicação no Blogger sem aprovação humana explícita.
 
 ## Relação com Blogger SEO Intelligence
