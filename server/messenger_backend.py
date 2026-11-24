@@ -309,6 +309,8 @@ class MessengerBackend:
         if result["token_hash"]:
             self._authenticator.revoke_credential_hash(result["token_hash"])
         self._conversations.get(conversation_id, set()).discard(result["ai_id"])
+        # Wake room-scoped long polls so revoked credentials/membership are revalidated now.
+        self._message_condition.notify_all()
         return {"applicationId": application_id, "aiId": result["ai_id"],
                 "status": "REVOKED", "roomAccessRemoved": True}
 
