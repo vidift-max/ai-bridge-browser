@@ -122,7 +122,7 @@ class FirebaseHttpContractTest(unittest.TestCase):
 
     def test_recipient_authentication_is_used_for_message_read_and_ack_write(self):
         run_probe(self.config, send=True, wait_seconds=2)
-        reads = [r for r in self.fake.requests if r[1].endswith("/messages.json")]
+        reads = [r for r in self.fake.requests if r[0] == "GET" and r[1].endswith("/messages.json")]
         ack_write = [r for r in self.fake.requests if "/acks/" in r[1] and r[0] == "PUT"]
         self.assertEqual(reads[0][2], "secret-token-b")
         self.assertEqual(ack_write[0][2], "secret-token-b")
