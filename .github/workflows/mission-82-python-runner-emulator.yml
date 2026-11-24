@@ -3,7 +3,7 @@ on:
   push:
     branches: ["feat/mission-82-python-runner-emulator-integration"]
   pull_request:
-    branches: ["feat/mission-80-firebase-recipient-authorization"]
+    branches: ["feat/mission-81-auth-emulator-http-roundtrip"]
 permissions:
   contents: read
 jobs:
