@@ -7,7 +7,8 @@
    if(!room||typeof room.conversationId!=="string")return false;
    if(kind&&kind!=="ALL"&&room.kind!==kind)return false;
    if(!needle)return true;
-   const haystack=[room.conversationId,room.kind,...(Array.isArray(room.memberAiIds)?room.memberAiIds:[])].join(" ").toLocaleLowerCase();
+   const preview=room.lastMessage&&typeof room.lastMessage.body==="string"?room.lastMessage.body:"";
+   const haystack=[room.conversationId,room.kind,preview,...(Array.isArray(room.memberAiIds)?room.memberAiIds:[])].join(" ").toLocaleLowerCase();
    return haystack.includes(needle);
   });
  }
