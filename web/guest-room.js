@@ -1,6 +1,8 @@
 (function (root) {
 "use strict";
 const MAX_MESSAGE_LENGTH = 5000;
+const BASE_POLL_DELAY_MS = 4000;
+const MAX_POLL_DELAY_MS = 30000;
 
 function requireSingleGuestRoom(payload) {
   const rooms = payload && Array.isArray(payload.conversations) ? payload.conversations : [];
@@ -36,6 +38,20 @@ function buildGuestMessagePayload(room, principalAiId, body, ids = {}) {
   };
 }
 
+function createMessageDeduper() {
+  const seen = new Set();
+  return {
+    has(messageId) { return typeof messageId === "string" && seen.has(messageId); },
+    add(messageId) { if (typeof messageId === "string" && messageId) seen.add(messageId); },
+    clear() { seen.clear(); }
+  };
+}
+
+function nextPollingDelayMs(failures) {
+  const exponent = Math.max(0, Math.min(Number(failures) || 0, 3));
+  return Math.min(MAX_POLL_DELAY_MS, BASE_POLL_DELAY_MS * (2 ** exponent));
+}
+
 function createGuestRoomApp(doc = document, fetcher = fetch) {
   let sessionToken = null;
   let principalAiId = null;
@@ -43,24 +59,38 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   let sequence = 0;
   let timer = null;
   let polling = false;
+  let pollFailures = 0;
   let presenceTimer = null;
+  const deduper = createMessageDeduper();
 
   const byId = id => doc.getElementById(id);
   const status = message => { byId("status").textContent = message; };
   const authHeaders = extra => ({...extra, Authorization: "Bearer " + sessionToken});
+
   async function request(path, options = {}) {
     const response = await fetcher(path, {cache: "no-store", ...options});
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "request_failed");
     return data;
   }
+
+  function schedulePolling(delay = BASE_POLL_DELAY_MS) {
+    if (!sessionToken || !room || doc.visibilityState !== "visible") return;
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      pollMessages().catch(error => status(error.message));
+    }, delay);
+  }
+
   function stopPolling() {
-    if (timer !== null) clearInterval(timer);
+    if (timer !== null) clearTimeout(timer);
     if (presenceTimer !== null) clearInterval(presenceTimer);
     timer = null;
     presenceTimer = null;
     polling = false;
   }
+
   async function heartbeatPresence() {
     if (!sessionToken || !room) return;
     const activeConversationIds = doc.visibilityState === "visible" ? [room.conversationId] : [];
@@ -71,11 +101,15 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     const presence = result.presence || {};
     status(presence.status === "ONLINE" ? "Conectado à sala autorizada · online" : "Conectado à sala autorizada.");
   }
+
   async function leavePresence() {
     if (!sessionToken) return;
     try { await request("/v1/presence/leave", {method:"POST", headers:authHeaders({Accept:"application/json"})}); } catch (_error) {}
   }
+
   function appendMessage(message) {
+    if (!message || deduper.has(message.messageId)) return false;
+    deduper.add(message.messageId);
     const row = doc.createElement("article");
     row.className = "message" + (message.senderAiId === principalAiId ? " mine" : "");
     const heading = doc.createElement("small");
@@ -85,7 +119,9 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     row.append(heading, body);
     byId("messages").append(row);
     byId("messages").scrollTop = byId("messages").scrollHeight;
+    return true;
   }
+
   async function loadRoom() {
     const data = await request("/v1/conversations?limit=100", {headers: authHeaders({Accept:"application/json"})});
     room = requireSingleGuestRoom(data);
@@ -107,10 +143,11 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     await pollMessages();
     await heartbeatPresence();
     presenceTimer = setInterval(() => { heartbeatPresence().catch(error => status(error.message)); }, 15000);
-    timer = setInterval(() => { pollMessages().catch(error => status(error.message)); }, 4000);
+    schedulePolling();
   }
+
   async function pollMessages() {
-    if (polling || !sessionToken || !room) return;
+    if (polling || !sessionToken || !room || doc.visibilityState !== "visible") return;
     polling = true;
     try {
       const data = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) +
@@ -118,13 +155,24 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
         {headers: authHeaders({Accept:"application/json"})});
       const messages = Array.isArray(data.messages) ? data.messages : [];
       for (const message of messages) {
-        appendMessage(message);
+        const added = appendMessage(message);
         sequence = Math.max(sequence, Number(message.sequence) || 0);
-        await request("/v1/messages/" + encodeURIComponent(message.messageId) + "/ack",
-          {method:"POST", headers:authHeaders({Accept:"application/json"})});
+        if (added) {
+          await request("/v1/messages/" + encodeURIComponent(message.messageId) + "/ack",
+            {method:"POST", headers:authHeaders({Accept:"application/json"})});
+        }
       }
-    } finally { polling = false; }
+      pollFailures = 0;
+      schedulePolling(BASE_POLL_DELAY_MS);
+    } catch (error) {
+      pollFailures += 1;
+      schedulePolling(nextPollingDelayMs(pollFailures));
+      throw error;
+    } finally {
+      polling = false;
+    }
   }
+
   async function enter() {
     byId("enter").disabled = true;
     try {
@@ -143,12 +191,14 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
       await loadRoom();
       status("Conectado à sala autorizada. As mensagens são atualizadas automaticamente.");
     } catch (error) {
-      sessionToken = null; principalAiId = null; room = null;
+      stopPolling();
+      sessionToken = null; principalAiId = null; room = null; deduper.clear();
       byId("credential").disabled = false;
       byId("enter").disabled = false;
       status(error.message);
     }
   }
+
   async function send() {
     const button = byId("send");
     button.disabled = true;
@@ -160,12 +210,15 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
         method:"POST", headers:authHeaders({"Content-Type":"application/json","Accept":"application/json"}),
         body:JSON.stringify(payload)
       });
-      appendMessage({senderAiId:principalAiId,body:payload.body,sequence:result.sequence});
+      appendMessage({messageId:payload.messageId,senderAiId:principalAiId,body:payload.body,sequence:result.sequence});
+      sequence = Math.max(sequence, Number(result.sequence) || 0);
       field.value = "";
       status("Mensagem enviada.");
+      schedulePolling(BASE_POLL_DELAY_MS);
     } catch (error) { status(error.message); }
     finally { button.disabled = false; }
   }
+
   async function logout() {
     stopPolling();
     await leavePresence();
@@ -174,7 +227,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
         method:"POST", headers:authHeaders({Accept:"application/json"})
       });
     } catch (_error) {}
-    sessionToken = null; principalAiId = null; room = null; sequence = 0;
+    sessionToken = null; principalAiId = null; room = null; sequence = 0; deduper.clear();
     byId("messages").replaceChildren();
     byId("participants").replaceChildren();
     byId("workspace").hidden = true;
@@ -183,6 +236,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     byId("enter").disabled = false;
     status("Sessão encerrada nesta aba.");
   }
+
   byId("enter").addEventListener("click", enter);
   byId("send").addEventListener("click", send);
   byId("refresh").addEventListener("click", () => pollMessages().catch(error => status(error.message)));
@@ -191,10 +245,22 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); }
   });
   globalThis.addEventListener?.("pagehide", () => { stopPolling(); if (sessionToken) { void leavePresence(); } sessionToken = null; });
-  doc.addEventListener?.("visibilitychange", () => { if (sessionToken && room && doc.visibilityState === "visible") heartbeatPresence().catch(error => status(error.message)); });
+  doc.addEventListener?.("visibilitychange", () => {
+    if (!sessionToken || !room) return;
+    if (doc.visibilityState === "visible") {
+      heartbeatPresence().catch(error => status(error.message));
+      schedulePolling(0);
+    } else if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  });
   return {enter, send, logout, pollMessages};
 }
-const api = { requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp };
+const api = {
+  requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp,
+  createMessageDeduper, nextPollingDelayMs
+};
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 root.AIBridgeGuestRoom = api;
 if (typeof document !== "undefined") createGuestRoomApp();
