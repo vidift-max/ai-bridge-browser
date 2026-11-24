@@ -270,7 +270,8 @@ class MessengerBackend:
         token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
         ai_id = "AI-GUEST-" + secrets.token_hex(12)
         result = self._store.provision_guest_application(
-            application_id, ai_id, "", token_hash, expires_at.timestamp(), now.timestamp())
+            conversation_id, application_id, ai_id, "", token_hash,
+            expires_at.timestamp(), now.timestamp())
         if result is None or result["conversation_id"] != conversation_id:
             raise ValueError("guest_application_unavailable")
         self._authenticator.activate_persisted_credential(token, ai_id, expires_at)
