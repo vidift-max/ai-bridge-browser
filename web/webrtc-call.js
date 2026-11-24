@@ -174,6 +174,7 @@
     }
     async function startCall(conversationId, calleeAiId) {
       if (call) throw new Error("CALL_ALREADY_ACTIVE");
+      requireSecureContext();
       try {
         var response = await request("POST", "/v1/calls", {
           conversationId: conversationId, calleeAiId: calleeAiId
