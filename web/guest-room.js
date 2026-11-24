@@ -93,6 +93,21 @@ function buildGuestMessagePayload(room, principalAiId, body, ids = {}) {
   };
 }
 
+async function processGuestMessageBatch(messages, initialSequence, appendMessage, acknowledge, isCurrent = () => true) {
+  let committedSequence = initialSequence;
+  for (const message of messages) {
+    appendMessage(message);
+    await acknowledge(message);
+    if (!isCurrent()) return committedSequence;
+    const nextSequence = Number(message.sequence);
+    if (!Number.isSafeInteger(nextSequence) || nextSequence < 0) {
+      throw new Error("invalid_message_sequence");
+    }
+    committedSequence = Math.max(committedSequence, nextSequence);
+  }
+  return committedSequence;
+}
+
 function createMessageDeduper() {
   const seen = new Set();
   return {
@@ -225,14 +240,15 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
         {headers: authHeaders({Accept:"application/json"}), signal: controller.signal});
       if (generation !== sessionGeneration || !sessionToken || !room) return;
       const messages = Array.isArray(data.messages) ? data.messages : [];
-      for (const message of messages) {
-        const added = appendMessage(message);
-        sequence = Math.max(sequence, Number(message.sequence) || 0);
-        if (added) {
-          await request("/v1/messages/" + encodeURIComponent(message.messageId) + "/ack",
-            {method:"POST", headers:authHeaders({Accept:"application/json"})});
-        }
-      }
+      sequence = await processGuestMessageBatch(
+        messages,
+        sequence,
+        appendMessage,
+        message => request("/v1/messages/" + encodeURIComponent(message.messageId) + "/ack",
+          {method:"POST", headers:authHeaders({Accept:"application/json"})}),
+        () => generation === sessionGeneration && Boolean(sessionToken) && Boolean(room)
+      );
+      if (generation !== sessionGeneration || !sessionToken || !room) return;
       pollFailures = 0;
       schedulePolling(BASE_POLL_DELAY_MS);
     } catch (error) {
@@ -337,7 +353,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
 const api = {
   requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp,
   validateGuestTransportContract, buildGuestLongPollPath,
-  createMessageDeduper, nextPollingDelayMs
+  createMessageDeduper, nextPollingDelayMs, processGuestMessageBatch
 };
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 root.AIBridgeGuestRoom = api;
