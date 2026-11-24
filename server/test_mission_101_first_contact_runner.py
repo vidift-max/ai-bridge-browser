@@ -20,7 +20,8 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         request = Mock(return_value=(200, {"identity": {"aiId": "AI-03"}}))
         with self.assertRaisesRegex(RuntimeError, "identity_ai_01_mismatch"):
             runner.run_first_contact("https://stage.example", "room", "a", "b", request)
-        self.assertEqual(request.call_count, 1)
+        self.assertEqual(request.call_count, 2)
+        self.assertTrue(all(call.args[1] == "/v1/me/identity" for call in request.call_args_list))
 
     def test_full_first_contact_requires_receive_ack_and_pending_removal(self):
         import threading
