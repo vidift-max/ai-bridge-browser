@@ -134,6 +134,12 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     const data = await request("/v1/conversations?limit=100", {headers: authHeaders({Accept:"application/json"})});
     room = requireSingleGuestRoom(data);
     if (!room.memberAiIds.includes(principalAiId)) throw new Error("guest_room_scope_invalid");
+    const transport = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) + "/transport",
+      {headers: authHeaders({Accept:"application/json"})});
+    if (!transport.authorized || !transport.transports?.httpLongPoll?.enabled ||
+        transport.defaultTransport !== "HTTP_LONG_POLL" || transport.transports?.webSocket?.enabled) {
+      throw new Error("guest_transport_unavailable");
+    }
     const directory = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) + "/identities",
       {headers: authHeaders({Accept:"application/json"})});
     const participants = Array.isArray(directory.participants) ? directory.participants : [];
