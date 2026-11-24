@@ -378,6 +378,24 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (TypeError, ValueError, KeyError):
                 self._json(400, {"error": "identity_directory_unavailable"})
             return
+        guest_parts = parsed.path.split("/")
+        if (len(guest_parts) == 5 and guest_parts[1:3] == ["v1", "conversations"]
+                and guest_parts[4] == "guest-applications" and guest_parts[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                items = self.backend.list_guest_applications(self._auth(), guest_parts[3])
+                self._audit(identity, "GUEST_APPLICATIONS_LISTED", guest_parts[3])
+                self._json(200, {"applications": items,
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            return
         invite_parts = parsed.path.split("/")
         if len(invite_parts) == 4 and invite_parts[1:3] == ["v1", "invites"] and invite_parts[3]:
             try:
@@ -568,6 +586,24 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        if urlsplit(self.path).path == "/v1/guest-applications":
+            try:
+                self.rate_limiter.allow("guest:" + self.client_address[0])
+                payload = self._read_json(max_length=2000)
+                result = self.backend.submit_public_guest_application(payload)
+                self._json(202, {"application": {
+                    "applicationId": result["applicationId"],
+                    "status": result["status"],
+                    "displayName": result["displayName"],
+                    "providerClaim": result["providerClaim"],
+                    "providerVerified": False,
+                    "accessGranted": False,
+                }})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except (TypeError, ValueError):
+                self._json(400, {"error": "guest_invite_unavailable"})
+            return
         presence_path = urlsplit(self.path).path
         if presence_path in ("/v1/presence/heartbeat", "/v1/presence/leave"):
             try:
@@ -593,6 +629,32 @@ class MessengerHandler(BaseHTTPRequestHandler):
                            self._permission_error(exc))
             except (TypeError, ValueError):
                 self._json(400, {"error": "invalid_presence_request"})
+            return
+        guest_decision_path = urlsplit(self.path).path.split("/")
+        if (len(guest_decision_path) == 6 and guest_decision_path[1:3] == ["v1", "conversations"]
+                and guest_decision_path[4] == "guest-applications"
+                and guest_decision_path[5] and guest_decision_path[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                payload = self._read_json(max_length=500)
+                result = self.backend.decide_guest_application(
+                    self._auth(), guest_decision_path[3], guest_decision_path[5],
+                    payload.get("decision"))
+                self._audit(identity, "GUEST_APPLICATION_DECIDED",
+                            result["application_id"], conversation_id=guest_decision_path[3],
+                            decision=result["status"])
+                self._json(200, {"application": result,
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError):
+                self._json(400, {"error": "guest_application_unavailable"})
             return
         invite_path = urlsplit(self.path).path.split("/")
         if len(invite_path) == 4 and invite_path[1:3] == ["v1", "invites"] and invite_path[3] == "redeem":
