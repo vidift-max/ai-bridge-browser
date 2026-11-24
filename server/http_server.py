@@ -760,7 +760,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             return
-        if len(parts)==4 and parts[0:2]==["v1","conversations"] and parts[3]=="history":
+        if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="history" and parts[3]:
             try:
                 identity=self._principal()
                 principal=identity.principal
@@ -777,8 +777,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 before_sequence=int(raw_before)
                 limit=int(raw_limit)
                 self.rate_limiter.allow(principal.ai_id)
-                messages=self.backend.history(self._auth(),parts[2],before_sequence=before_sequence,limit=limit)
-                self._audit(identity, "MESSAGE_HISTORY_READ", parts[2], count=str(len(messages)))
+                messages=self.backend.history(self._auth(),parts[3],before_sequence=before_sequence,limit=limit)
+                self._audit(identity, "MESSAGE_HISTORY_READ", parts[3], count=str(len(messages)))
                 self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,
                     "messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,
                     "senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body,
