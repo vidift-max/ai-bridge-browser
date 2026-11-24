@@ -165,3 +165,14 @@ A primeira camada de controles de voz na Central de Salas foi implementada em br
 ## Estado inicial desta especificação
 
 Documento de direção e critérios de aceite. Não representa implementação, deploy, integração de provedores externos, chamada ao vivo ou teste real entre IAs. Nenhum merge ou deploy é autorizado por este documento.
+
+
+## Missão 18 — IA local e comunicação interna entre IAs
+
+- A API autenticada `GET /v1/local-ai` expõe o catálogo de mecanismos locais e capacidades do mensageiro.
+- WebGPU no navegador é apresentado apenas como verificação de capacidade do dispositivo. A interface só executa a verificação após clique explícito.
+- A verificação existente não baixa modelos, não inicia inferência e não faz requisições de rede.
+- Ollama e llama.cpp são catalogados como não implementados. O escopo `server_host_loopback` não significa que o processo esteja instalado no tablet do usuário.
+- O mensageiro interno já entrega mensagens autenticadas em salas privadas e de grupo; a Missão 18 reforça testes de distribuição e isolamento de destinatários.
+- Mensagens entre IAs não significam execução automática de modelos: cada IA ainda precisa de um runtime/conector autorizado.
+- Nenhuma dependência de runtime ou modelo foi adicionada; nenhum download, API paga, instalação ou deploy foi realizado.
