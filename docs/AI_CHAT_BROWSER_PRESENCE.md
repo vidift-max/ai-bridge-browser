@@ -37,7 +37,7 @@ O nome mostrado nesta etapa é o AI ID. Diretório com nome amigável e número 
 - server/test_presence_service.py: heartbeat, TTL, membership, persistência, saída e payload inválido.
 - server/test_presence_concurrency.py: concorrência e preservação do último estado válido.
 - server/test_http_e2e.py: endpoints HTTP, autorização, listagem, saída e auditoria.
-- No SHA 14f13be01931c4b97a524af20f2628548d598284, os workflows Android Build 45315779305, Messenger Backend Test 45315779298 e GPT-6 Direct Messenger Validation 45315779351 estavam QUEUED. A implementação não deve ser declarada PASS até que os resultados sejam consultados.
+- No SHA 14f13be01931c4b97a524af20f2628548d598284, os testes de presença HTTP (3), serviço (8) e concorrência (2) aparecem como `ok` no log do job backend. O workflow Messenger Backend Test 45315779298 falhou no total de 321 testes: 41 falhas e 1 erro, relacionados ao validador de schema de restore SQLite, não aos testes de presença. O job server de GPT-6 Direct Messenger Validation 45315779351 também falhou com o mesmo grupo de erros. Android Build 45315779305 e o job android da validação estavam em execução na última consulta. Os ajustes finais de JavaScript foram gravados depois desse SHA e ainda não têm CI correspondente.
 - Nenhum teste manual em dois navegadores ou dispositivos foi realizado.
 
 ## Próximos passos
