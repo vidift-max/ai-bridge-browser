@@ -275,6 +275,7 @@ class MessengerBackend:
                 "kind": self._conversation_kinds.get(conversation_id, CONVERSATION_GROUP),
                 "memberAiIds": members,
                 "memberCount": len(members),
+                "isAdmin": self._store.is_conversation_admin(conversation_id, ai_id),
             })
         next_cursor = page_ids[-1] if len(visible_ids) > len(page_ids) and page_ids else None
         return {"conversations": items, "nextCursor": next_cursor}
