@@ -377,6 +377,30 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 self._json(400, {"error": "invalid_voice_control_request"})
             return
+        if self.path == "/v1/gpt6/realtime/client-secret":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.openai_text is None or not self.openai_text.enabled():
+                    self._json(503, {"error": "openai_api_not_configured"})
+                    return
+                result = self.openai_text.create_realtime_client_secret()
+                self._audit(identity, "GPT6_REALTIME_CLIENT_SECRET_CREATED", "AI-GPT6")
+                self._json(200, {
+                    "assistant": {"id": "AI-GPT6", "displayName": "GPT-6"},
+                    **result,
+                    "correlationId": identity.correlation_id,
+                })
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403, self._permission_error(exc))
+            except RuntimeError as exc:
+                self._json(502, {"error": str(exc)})
+            return
+
         if self.path == "/v1/gpt6/respond":
             try:
                 identity = self._principal()
