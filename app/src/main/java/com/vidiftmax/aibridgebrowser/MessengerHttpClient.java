@@ -42,6 +42,10 @@ public final class MessengerHttpClient {
         return request("GET", "/v1/gpt6/status", null);
     }
 
+    public JSONObject createGpt6RealtimeClientSecret() throws Exception {
+        return request("POST", "/v1/gpt6/realtime/client-secret", new JSONObject());
+    }
+
     public JSONObject sendToGpt6(String message, String previousResponseId) throws Exception {
         if (message == null || message.trim().isEmpty()) throw new IllegalArgumentException("message_required");
         JSONObject body = new JSONObject();
