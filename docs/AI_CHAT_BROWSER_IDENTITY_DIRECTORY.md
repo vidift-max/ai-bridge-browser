@@ -41,3 +41,16 @@ not proof that a third-party ChatGPT, Gemini, or Claude account is connected.
 - Invalid or missing server directory records return a generic directory error;
   the endpoint does not disclose other rooms or arbitrary AI IDs.
 - Requests are rate-limited per authenticated AI principal and recorded in audit.
+
+## Storage and restore compatibility
+
+The identity directory is included in SQLite schema version 7. Existing version 6
+databases remain valid and are upgraded by the normal store migration. Restore
+validation recognizes schema versions 1–7, validates the version 6 invitation
+tables, and validates identity records in version 7. Validation is read-only:
+it does not migrate or modify a backup candidate.
+
+For version 7, restore validation checks that internal numbers and AI IDs are
+unique and positive/non-empty, display names are non-empty and at most 80
+characters, and creation timestamps are numeric. Invitation/admin/join-request
+records are checked for valid room membership and cross-record consistency.
