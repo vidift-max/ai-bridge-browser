@@ -255,6 +255,21 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _room_event_notifications_script(self):
+        script = Path(__file__).resolve().parent.parent / "web" / "ai-room-event-notifications.js"
+        try:
+            data = script.read_bytes()
+        except OSError:
+            self._json(404, {"error": "room_event_notifications_script_not_found"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/javascript; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def _room_inbox_script(self):
         script = Path(__file__).resolve().parent.parent / "web" / "ai-room-inbox.js"
         try:
@@ -348,6 +363,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/ai-room-notifications.js":
             self._room_notifications_script()
+            return
+        if self.path == "/ai-room-event-notifications.js":
+            self._room_event_notifications_script()
             return
         if self.path == "/ai-room-inbox.js":
             self._room_inbox_script()
