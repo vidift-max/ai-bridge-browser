@@ -169,13 +169,55 @@ class RuntimeConfigTest(unittest.TestCase):
             else:
                 os.environ["MESSENGER_STORAGE_MODE"] = old
 
-    def test_ephemeral_storage_is_never_accepted_as_durable(self):
-        keys = ["MESSENGER_STORAGE_MODE", "MESSENGER_DB_PATH"]
+    def test_ephemeral_storage_requires_explicit_staging_opt_in(self):
+        keys = ["MESSENGER_STORAGE_MODE", "MESSENGER_DB_PATH",
+                "MESSENGER_ENVIRONMENT", "MESSENGER_ALLOW_EPHEMERAL_STAGING"]
         old = {key: os.environ.get(key) for key in keys}
         try:
             os.environ["MESSENGER_STORAGE_MODE"] = "ephemeral"
-            os.environ["MESSENGER_DB_PATH"] = "/tmp/messenger.sqlite"
+            os.environ["MESSENGER_DB_PATH"] = ":memory:"
+            os.environ.pop("MESSENGER_ENVIRONMENT", None)
+            os.environ.pop("MESSENGER_ALLOW_EPHEMERAL_STAGING", None)
             with self.assertRaisesRegex(RuntimeError, "storage_not_durable"):
+                RuntimeConfig.validate_storage_contract()
+            os.environ["MESSENGER_ENVIRONMENT"] = "production"
+            os.environ["MESSENGER_ALLOW_EPHEMERAL_STAGING"] = "true"
+            with self.assertRaisesRegex(RuntimeError, "storage_not_durable"):
+                RuntimeConfig.validate_storage_contract()
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    def test_ephemeral_storage_allowed_only_with_explicit_staging_opt_in(self):
+        keys = ["MESSENGER_STORAGE_MODE", "MESSENGER_DB_PATH",
+                "MESSENGER_ENVIRONMENT", "MESSENGER_ALLOW_EPHEMERAL_STAGING"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ["MESSENGER_STORAGE_MODE"] = "ephemeral"
+            os.environ["MESSENGER_DB_PATH"] = ":memory:"
+            os.environ["MESSENGER_ENVIRONMENT"] = "staging"
+            os.environ["MESSENGER_ALLOW_EPHEMERAL_STAGING"] = "true"
+            self.assertEqual(RuntimeConfig.validate_storage_contract(), "ephemeral")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    def test_ephemeral_staging_opt_in_rejects_invalid_flag(self):
+        keys = ["MESSENGER_STORAGE_MODE", "MESSENGER_DB_PATH",
+                "MESSENGER_ENVIRONMENT", "MESSENGER_ALLOW_EPHEMERAL_STAGING"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ["MESSENGER_STORAGE_MODE"] = "ephemeral"
+            os.environ["MESSENGER_DB_PATH"] = ":memory:"
+            os.environ["MESSENGER_ENVIRONMENT"] = "staging"
+            os.environ["MESSENGER_ALLOW_EPHEMERAL_STAGING"] = "yes"
+            with self.assertRaisesRegex(RuntimeError, "ALLOW_EPHEMERAL_STAGING"):
                 RuntimeConfig.validate_storage_contract()
         finally:
             for key, value in old.items():

@@ -17,6 +17,10 @@ services:
         value: AI-01
       - key: MESSENGER_AI_ID_B
         value: AI-02
+      - key: MESSENGER_ENVIRONMENT
+        value: staging
+      - key: MESSENGER_ALLOW_EPHEMERAL_STAGING
+        value: 'true'
       - key: MESSENGER_STORAGE_MODE
         value: ephemeral
       - key: MESSENGER_DB_PATH
