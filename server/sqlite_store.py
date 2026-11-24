@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -179,6 +179,32 @@ class SQLiteMessengerStore:
             self._connection.commit()
             version = 7
 
+
+
+        if version < 9:
+            self._connection.executescript("""
+                ALTER TABLE guest_applications
+                    ADD COLUMN provisioning_status TEXT NOT NULL DEFAULT 'NOT_STARTED'
+                    CHECK(provisioning_status IN ('NOT_STARTED','ACTIVE','REVOKED'));
+                ALTER TABLE guest_applications ADD COLUMN provisioned_ai_id TEXT;
+                ALTER TABLE guest_applications ADD COLUMN provisioned_at REAL;
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_guest_application_provisioned_ai
+                    ON guest_applications(provisioned_ai_id)
+                    WHERE provisioned_ai_id IS NOT NULL;
+                CREATE TABLE IF NOT EXISTS credential_records (
+                    token_hash TEXT PRIMARY KEY,
+                    ai_id TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('ACTIVE','REVOKED','EXPIRED','ROTATED')),
+                    expires_at REAL,
+                    generation INTEGER NOT NULL DEFAULT 1,
+                    created_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_credential_records_ai
+                    ON credential_records(ai_id,status);
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','9')")
+            self._connection.commit()
+            version = 9
 
         if version < 8:
             self._connection.executescript("""
