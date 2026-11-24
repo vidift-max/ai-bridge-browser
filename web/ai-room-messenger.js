@@ -19,7 +19,7 @@
    if(!room||room.status!=="ACTIVE")throw new Error("ROOM_NOT_ACTIVE");
    const member=room.participants.find(p=>p.aiId===aiId&&p.status==="ACTIVE");
    if(!member)throw new Error("ROOM_MEMBERSHIP_REQUIRED");
-   admission.authorizeMessage({roomId,aiId,sessionId:member.sessionId});
+   admission.authorizeRead({roomId,aiId,sessionId:member.sessionId});
    return {room,member};
   }
   function createPayload(input){
