@@ -75,6 +75,14 @@ class RuntimeConfig:
         return value
 
     @staticmethod
+    def openai_api_calls_enabled() -> bool:
+        """Fail-closed switch; paid provider requests are disabled unless explicitly enabled."""
+        value = RuntimeConfig.optional("OPENAI_API_CALLS_ENABLED", "false")
+        if value not in ("true", "false"):
+            raise RuntimeError("invalid_runtime_config:OPENAI_API_CALLS_ENABLED")
+        return value == "true"
+
+    @staticmethod
     def openai_api_key():
         value = RuntimeConfig.optional("OPENAI_API_KEY", "")
         if not isinstance(value, str):
