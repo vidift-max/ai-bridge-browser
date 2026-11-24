@@ -29,6 +29,7 @@ function validateGuestTransportContract(payload, conversationId) {
     throw new Error("guest_transport_unavailable");
   }
   return Object.freeze({
+    minWaitSeconds: poll.minWaitSeconds,
     maxWaitSeconds: poll.maxWaitSeconds,
     defaultWaitSeconds: poll.defaultWaitSeconds,
     maxBatchSize: poll.maxBatchSize
