@@ -24,7 +24,7 @@ class LocalAICapabilityContractTest(unittest.TestCase):
     def test_probe_checks_wifi_and_secure_context(self):
         self.assertIn("AIBridgeWifiOnly.readState()", self.script)
         self.assertIn("root.isSecureContext === true", self.script)
-        self.assertIn("network.allowed", self.script)
+        self.assertIn("network: { allowed: wifi.allowed === true", self.script)
 
     def test_probe_checks_webgpu_adapter(self):
         self.assertIn("nav.gpu.requestAdapter", self.script)
@@ -40,7 +40,6 @@ class LocalAICapabilityContractTest(unittest.TestCase):
         self.assertIn("modelLoaded: false", self.script)
         self.assertIn("downloadStarted: false", self.script)
         self.assertIn("inferenceStarted: false", self.script)
-
 
     def test_mission21_report_is_device_scoped_and_privacy_bounded(self):
         for marker in (
