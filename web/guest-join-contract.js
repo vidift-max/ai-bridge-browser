@@ -6,7 +6,7 @@ export const GUEST_PARTICIPANT_TYPES = Object.freeze([
 ]);
 
 const cleanText = (value, max) => typeof value === "string"
-  ? value.normalize("NFKC").trim().replace(/[\\u0000-\\u001f\\u007f]/g, "").slice(0, max)
+  ? value.normalize("NFKC").trim().replace(/[\u0000-\u001f\u007f]/g, "").slice(0, max)
   : "";
 
 export function validateGuestJoinRequest(input) {
