@@ -75,7 +75,8 @@
     previous=message.sequence;
    }
    if(options.getContext()?.room?.conversationId!==roomId)return {messages:[],hasMore:false};
-   for(const message of data.messages){
+   for(let index=data.messages.length-1;index>=0;index--){
+    const message=data.messages[index];
     if(seen.has(message.messageId))continue;
     options.onMessage(message,message.senderAiId===current.identity.aiId,true);
     seen.add(message.messageId);
