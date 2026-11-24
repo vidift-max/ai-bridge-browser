@@ -34,6 +34,12 @@ class HttpContractTest(unittest.TestCase):
         self.assertIn("/v1/operations/summary", MessengerHandler.do_GET.__code__.co_consts)
         self.assertIn("summary", MessengerHandler.do_GET.__code__.co_names)
 
+    def test_local_ai_catalog_exposes_inference_contract_without_execution_route(self):
+        constants = MessengerHandler.do_GET.__code__.co_consts
+        self.assertIn("inferenceContract", constants)
+        self.assertIn("/v1/local-ai", constants)
+        self.assertNotIn("/v1/local-ai/execute", constants)
+
     def test_provider_catalog_route_is_defined(self):
         self.assertIn("/v1/providers", MessengerHandler.do_GET.__code__.co_consts)
         self.assertTrue(hasattr(MessengerHandler, "provider_registry"))
