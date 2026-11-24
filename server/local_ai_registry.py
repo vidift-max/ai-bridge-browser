@@ -1,3 +1,6 @@
+from server.local_inference import LocalInferenceController
+
+
 """Catalog of zero-cost local AI capabilities; intentionally performs no inference or network I/O."""
 
 
@@ -42,6 +45,11 @@ class LocalAIRegistry:
                 "notes": "Nenhum binário, modelo ou runtime é instalado ou iniciado pelo AI Bridge.",
             },
         ]
+
+    @staticmethod
+    def inference_contract():
+        """Describe the fail-closed adapter contract without probing or starting engines."""
+        return LocalInferenceController().status()
 
     @staticmethod
     def messenger_capabilities():
