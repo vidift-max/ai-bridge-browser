@@ -17,6 +17,10 @@ class HttpContractTest(unittest.TestCase):
         self.assertIn("/wifi-only.js", MessengerHandler.do_GET.__code__.co_consts)
         self.assertTrue(hasattr(MessengerHandler, "_wifi_only_script"))
 
+    def test_local_ai_capability_script_route_is_defined(self):
+        self.assertIn("/local-ai-capability.js", MessengerHandler.do_GET.__code__.co_consts)
+        self.assertTrue(hasattr(MessengerHandler, "_local_ai_capability_script"))
+
     def test_routes_are_defined(self):
         self.assertTrue(hasattr(MessengerHandler, "do_GET"))
         self.assertTrue(hasattr(MessengerHandler, "do_POST"))
