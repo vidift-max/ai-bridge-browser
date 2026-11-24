@@ -9,6 +9,7 @@ on:
   pull_request:
     branches:
       - v2-saas-alpha
+      - feat/mission-08-identity-validation
 
 permissions:
   contents: read
