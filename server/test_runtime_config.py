@@ -92,6 +92,24 @@ class RuntimeConfigTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def test_paid_openai_api_calls_are_disabled_by_default(self):
+        old = os.environ.get("OPENAI_API_CALLS_ENABLED")
+        try:
+            os.environ.pop("OPENAI_API_CALLS_ENABLED", None)
+            self.assertFalse(RuntimeConfig.openai_api_calls_enabled())
+            os.environ["OPENAI_API_CALLS_ENABLED"] = "true"
+            self.assertTrue(RuntimeConfig.openai_api_calls_enabled())
+            os.environ["OPENAI_API_CALLS_ENABLED"] = "false"
+            self.assertFalse(RuntimeConfig.openai_api_calls_enabled())
+            os.environ["OPENAI_API_CALLS_ENABLED"] = "yes"
+            with self.assertRaisesRegex(RuntimeError, "OPENAI_API_CALLS_ENABLED"):
+                RuntimeConfig.openai_api_calls_enabled()
+        finally:
+            if old is None:
+                os.environ.pop("OPENAI_API_CALLS_ENABLED", None)
+            else:
+                os.environ["OPENAI_API_CALLS_ENABLED"] = old
+
     def test_openai_defaults_are_present_and_bounded(self):
         self.assertEqual(RuntimeConfig.openai_text_model(), "gpt-6.2-astra")
         self.assertEqual(RuntimeConfig.openai_realtime_model(), "gpt-realtime-2.1")
