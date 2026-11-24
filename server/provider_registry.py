@@ -1,11 +1,19 @@
 """Safe provider catalog: configuration is not proof of live connectivity."""
 
+
 class ProviderRegistry:
     def __init__(self, openai_adapter=None):
         self._openai = openai_adapter
 
     def list_providers(self):
         openai_configured = bool(self._openai is not None and self._openai.enabled())
+        status = {}
+        if self._openai is not None and hasattr(self._openai, "connection_status"):
+            status = self._openai.connection_status()
+        openai_state = status.get(
+            "connectionState",
+            "CONFIGURED_UNVERIFIED" if openai_configured else "NOT_CONFIGURED",
+        )
         return [
             {
                 "providerId": "openai",
@@ -15,7 +23,10 @@ class ProviderRegistry:
                 "identityType": "project_api_credential",
                 "credentialSource": "OPENAI_API_KEY",
                 "configured": openai_configured,
-                "connectionState": "CONFIGURED_UNVERIFIED" if openai_configured else "NOT_CONFIGURED",
+                "connectionState": openai_state,
+                "lastSuccessfulRequestAt": status.get("lastSuccessfulRequestAt"),
+                "lastResponseId": status.get("lastResponseId"),
+                "lastSuccessfulModel": status.get("lastSuccessfulModel"),
                 "online": False,
                 "accountSessionConnected": False,
                 "capabilities": ["text_response", "realtime_client_secret"],
