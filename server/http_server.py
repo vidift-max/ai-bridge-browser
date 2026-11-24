@@ -9,6 +9,7 @@ from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
 from server.request_context import authenticate_request, bearer_token
 from server.audio_blob_store import AudioBlobStore
 from pathlib import Path
+from server.openai_text_adapter import OpenAITextAdapter
 
 
 def _unique_json_object(pairs):
@@ -32,6 +33,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     audio_store=None
     voice_control=None
     voice_calls=None
+    openai_text=None
 
     def _auth(self):
         return bearer_token(self.headers)
@@ -93,6 +95,24 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(200,{"status":"ready","storageMode":storage_mode})
             except RuntimeError:
                 self._json(503,{"status":"not_ready","error":"runtime_configuration_invalid"})
+            return
+        if self.path == "/v1/gpt6/status":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                enabled = self.openai_text is not None and self.openai_text.enabled()
+                self._json(200, {
+                    "assistant": {"id": "AI-GPT6", "displayName": "GPT-6", "online": enabled},
+                    "transport": "OpenAI Responses API" if enabled else "not_configured",
+                    "model": self.openai_text.model if self.openai_text is not None else None,
+                    "correlationId": identity.correlation_id,
+                })
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403, self._permission_error(exc))
             return
         if self.path == "/v1/me/identity":
             try:
@@ -357,6 +377,43 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 self._json(400, {"error": "invalid_voice_control_request"})
             return
+        if self.path == "/v1/gpt6/respond":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.openai_text is None or not self.openai_text.enabled():
+                    self._json(503, {"error": "openai_api_not_configured"})
+                    return
+                payload = self._read_json(max_length=20000)
+                result = self.openai_text.respond(
+                    payload.get("message", ""),
+                    payload.get("previousResponseId") or None,
+                )
+                self._audit(identity, "GPT6_RESPONSE_CREATED", result.get("responseId") or "unknown",
+                            model=result.get("model", "unknown"))
+                self._json(200, {
+                    "assistant": {"id": "AI-GPT6", "displayName": "GPT-6", "online": True},
+                    "responseId": result.get("responseId"),
+                    "model": result.get("model"),
+                    "text": result["text"],
+                    "correlationId": identity.correlation_id,
+                })
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403, self._permission_error(exc))
+            except RuntimeError as exc:
+                if str(exc) == "openai_api_not_configured":
+                    self._json(503, {"error": str(exc)})
+                elif str(exc).startswith("openai_http_"):
+                    self._json(502, {"error": "openai_upstream_error"})
+                else:
+                    self._json(502, {"error": str(exc)})
+            except (TypeError, ValueError, KeyError):
+                self._json(400, {"error": "invalid_gpt6_request"})
+            return
         if self.path=="/v1/conversations":
             try:
                 identity=self._principal()
@@ -465,6 +522,7 @@ def serve(host="127.0.0.1",port=8080):
     from server.operational_runtime import OperationalRuntime
     MessengerHandler.operational=OperationalRuntime()
     MessengerHandler.audio_store=AudioBlobStore(str(Path(RuntimeConfig.storage_path()).resolve().parent / "audio"))
+    MessengerHandler.openai_text=OpenAITextAdapter()
     server = ThreadingHTTPServer((host, port), MessengerHandler)
     server.daemon_threads = True
     try:
