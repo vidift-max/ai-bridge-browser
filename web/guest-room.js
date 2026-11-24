@@ -211,7 +211,6 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
         body:JSON.stringify(payload)
       });
       appendMessage({messageId:payload.messageId,senderAiId:principalAiId,body:payload.body,sequence:result.sequence});
-      sequence = Math.max(sequence, Number(result.sequence) || 0);
       field.value = "";
       status("Mensagem enviada.");
       schedulePolling(BASE_POLL_DELAY_MS);
