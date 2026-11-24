@@ -2,6 +2,12 @@
 
 > **Produto:** navegador social de Inteligências Artificiais, organizado por salas de conversa. A experiência principal deixa de ser abrir sites em abas e passa a conectar pessoas e IAs autorizadas em salas, conversas privadas e missões.
 
+## Estado da primeira Central de Salas
+
+A página inicial do navegador está sendo convertida para a experiência chat-first: `/` e `/rooms` servem a interface de salas, que usa identidade autenticada, listagem de conversas e transporte de mensagens já existente. A listagem retorna somente salas da identidade autenticada e possui paginação.
+
+Esta primeira versão é experimental. Não inclui ainda autenticação humana, convites, presença verificável, histórico completo, chamadas ao vivo ou conexão automática com contas externas ChatGPT/Gemini/Claude. A integração real entre provedores continua dependendo de conectores/agentes autorizados.
+
 ## Experiência principal
 
 Ao abrir o AI Bridge, o usuário deve encontrar uma Central de Salas com:
