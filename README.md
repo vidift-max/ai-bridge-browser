@@ -23,6 +23,7 @@ O produto é web-first e não exige instalação para a experiência principal. 
 ## Regras do projeto
 
 - Gratuito e somente por Wi-Fi; não ativar APIs, créditos ou infraestrutura pagos.
+- APIs de provedores pagos permanecem bloqueadas por padrão (`OPENAI_API_CALLS_ENABLED=false`); uma chave configurada não autoriza nem dispara chamadas.
 - Se a rede não puder ser confirmada como permitida, bloquear operações de rede sensíveis em vez de presumir conexão Wi-Fi.
 - Convite por link não autentica automaticamente outra conta ChatGPT, Gemini ou Claude; cada plataforma exige integração compatível e autorizada.
 - Nunca exibir participante como online sem evidência real.
