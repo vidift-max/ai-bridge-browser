@@ -1,4 +1,4 @@
-""""Short-lived, in-memory web sessions for provisioned guest identities."""
+"""Short-lived, in-memory web sessions for provisioned guest identities."""
 import hashlib
 import secrets
 from dataclasses import dataclass
@@ -66,8 +66,8 @@ class GuestWebSessionService:
             if record is None or record.status != "ACTIVE":
                 raise PermissionError("guest_session_not_active")
             if datetime.now(timezone.utc) >= record.expires_at:
-                # Persist expiry before changing local state. If persistence
-                # fails, leave ACTIVE so a later request can retry the transition.
+                # Apply the credential expiry transition before changing local
+                # state. If it fails, retain ACTIVE so a later request retries.
                 self._authenticator.expire(session_token)
                 self._sessions[token_hash] = GuestWebSession(
                     record.token_hash, record.ai_id, record.parent_credential,
@@ -91,8 +91,7 @@ class GuestWebSessionService:
             if record is None or record.status != "ACTIVE":
                 return False
             # Revoke the credential before changing the local state. If the
-            # persistent revocation fails, retain ACTIVE so a caller can
-            # safely retry instead of creating an in-memory/persistent split.
+            # revocation fails, retain ACTIVE so a caller can safely retry.
             self._authenticator.revoke(session_token)
             self._sessions[token_hash] = GuestWebSession(
                 record.token_hash, record.ai_id, record.parent_credential,
