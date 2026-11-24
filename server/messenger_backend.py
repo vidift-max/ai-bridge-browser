@@ -595,9 +595,9 @@ class MessengerBackend:
     def _validate_long_poll_timeout(cls, timeout_seconds):
         if (isinstance(timeout_seconds, bool)
                 or not isinstance(timeout_seconds, (int, float))
-                or not math.isfinite(timeout_seconds)
                 or timeout_seconds < 0
-                or timeout_seconds > cls.LONG_POLL_MAX_WAIT_SECONDS):
+                or timeout_seconds > cls.LONG_POLL_MAX_WAIT_SECONDS
+                or not math.isfinite(timeout_seconds)):
             raise ValueError("invalid_wait_timeout")
 
     def wait_for_messages(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50, timeout_seconds: float = 20.0) -> List[Message]:
