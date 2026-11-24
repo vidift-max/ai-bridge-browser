@@ -93,6 +93,22 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _invite_web(self):
+        page = Path(__file__).resolve().parent.parent / "web" / "invite.html"
+        try:
+            data = page.read_bytes()
+        except OSError:
+            self._json(404, {"error": "invite_web_not_found"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def _gpt6_web(self):
         page = Path(__file__).resolve().parent.parent / "web" / "gpt6-messenger.html"
         try:
@@ -138,6 +154,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
+        if self.path in ("/invite", "/invite/"):
+            self._invite_web()
+            return
         if self.path in ("/", "/rooms", "/rooms/"):
             self._rooms_web()
             return
