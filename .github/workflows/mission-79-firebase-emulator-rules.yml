@@ -1,0 +1,23 @@
+name: Mission 79 Firebase Emulator Rules
+on:
+  push:
+    branches: ["feat/mission-79-firebase-emulator-rules-tests"]
+  pull_request:
+    branches: ["feat/mission-78-firebase-rules-parity"]
+permissions:
+  contents: read
+jobs:
+  emulator-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install pinned Firebase test tooling
+        run: npm install --no-save --no-package-lock firebase-tools@14.7.0 firebase@11.6.0 @firebase/rules-unit-testing@4.0.1
+      - name: Execute Realtime Database emulator security tests
+        run: npx firebase emulators:exec --only database --project demo-ai-bridge-rules "node tests/firebase/database.rules.test.mjs"
+      - name: Verify rules parity and Python regressions
+        run: |
+          python -m unittest server.test_firebase_rules server.test_firebase_rules_parity server.test_firebase_first_contact_smoke server.test_firebase_first_contact_http -v
