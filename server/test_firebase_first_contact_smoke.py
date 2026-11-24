@@ -64,5 +64,31 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         self.assertEqual(request.call_count, 3)
 
 
+    def test_explicit_send_waits_for_recipient_and_verifies_ack(self):
+        config = validate_config(BASE)
+        message = {
+            "senderAiId": "AI-01",
+            "recipientAiIds": {"AI-02": True},
+            "body": "first-contact-test",
+        }
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+            {"name": "-message-key"},
+            {"-message-key": message},
+            True,
+            True,
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies) as request:
+            result = run_probe(config, send=True, wait_seconds=1)
+        self.assertEqual(result["state"], "TEXT_ROUND_TRIP_PASS")
+        self.assertEqual(result["message_round_trip"], "PASS")
+        self.assertEqual(result["acknowledgement"], "VERIFIED")
+        self.assertEqual(request.call_count, 7)
+        self.assertEqual(request.call_args_list[3].args[1], "POST")
+        self.assertIn("/acks/-message-key/AI-02", request.call_args_list[5].args[2])
+
+
 if __name__ == "__main__":
     unittest.main()
