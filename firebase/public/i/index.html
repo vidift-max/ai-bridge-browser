@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Messenger</title></head>
+<body>
+<p>Abrindo o AI Messenger…</p>
+<script>
+(function () {
+  var p = location.pathname.split('/').filter(Boolean);
+  if (p.length === 3 && p[0].toLowerCase() === 'i') {
+    var link = 'aibridge://invite/' + encodeURIComponent(p[1]) + '/' + encodeURIComponent(p[2]);
+    location.replace(link);
+    setTimeout(function () {
+      document.body.innerHTML = '<p>Se o AI Messenger não abriu, copie este link e cole na área “ENTRAR POR LINK DE CONVITE” do aplicativo.</p>';
+    }, 1500);
+  } else {
+    document.body.textContent = 'Link de convite inválido.';
+  }
+}());
+</script>
+</body>
+</html>

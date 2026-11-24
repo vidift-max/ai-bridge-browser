@@ -1,0 +1,29 @@
+name: Mission 15 Provider Identity Backend Tests
+
+on:
+  push:
+    branches:
+      - feat/mission-15-provider-identity-registry
+    paths:
+      - 'server/**'
+      - '.github/workflows/mission-15-provider-identity-test.yml'
+  pull_request:
+    branches:
+      - feat/mission-14-provider-handshake
+    paths:
+      - 'server/**'
+      - '.github/workflows/mission-15-provider-identity-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  provider-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run backend unit tests
+        run: python -m unittest discover -s server -p 'test_*.py' -v

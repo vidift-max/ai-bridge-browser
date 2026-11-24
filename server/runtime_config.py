@@ -75,6 +75,85 @@ class RuntimeConfig:
         return value
 
     @staticmethod
+    def openai_api_calls_enabled() -> bool:
+        """Fail-closed switch; paid provider requests are disabled unless explicitly enabled."""
+        value = RuntimeConfig.optional("OPENAI_API_CALLS_ENABLED", "false")
+        if value not in ("true", "false"):
+            raise RuntimeError("invalid_runtime_config:OPENAI_API_CALLS_ENABLED")
+        return value == "true"
+
+    @staticmethod
+    def openai_api_key():
+        value = RuntimeConfig.optional("OPENAI_API_KEY", "")
+        if not isinstance(value, str):
+            raise RuntimeError("invalid_runtime_config:OPENAI_API_KEY")
+        return value.strip()
+
+    @staticmethod
+    def openai_text_model() -> str:
+        value = RuntimeConfig.optional("OPENAI_TEXT_MODEL", "gpt-6.2-astra")
+        if not value or value.strip() != value or len(value) > 128:
+            raise RuntimeError("invalid_runtime_config:OPENAI_TEXT_MODEL")
+        return value
+
+    @staticmethod
+    def openai_realtime_model() -> str:
+        value = RuntimeConfig.optional("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1")
+        if not value or value.strip() != value or len(value) > 128:
+            raise RuntimeError("invalid_runtime_config:OPENAI_REALTIME_MODEL")
+        return value
+
+    @staticmethod
+    def openai_timeout_seconds() -> int:
+        raw = RuntimeConfig.optional("OPENAI_TIMEOUT_SECONDS", "45")
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            raise RuntimeError("invalid_runtime_config:OPENAI_TIMEOUT_SECONDS")
+        if value < 5 or value > 120:
+            raise RuntimeError("invalid_runtime_config:OPENAI_TIMEOUT_SECONDS")
+        return value
+
+    @staticmethod
+    def openai_max_input_chars() -> int:
+        raw = RuntimeConfig.optional("OPENAI_MAX_INPUT_CHARS", "12000")
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            raise RuntimeError("invalid_runtime_config:OPENAI_MAX_INPUT_CHARS")
+        if value < 100 or value > 50000:
+            raise RuntimeError("invalid_runtime_config:OPENAI_MAX_INPUT_CHARS")
+        return value
+
+    @staticmethod
+    def openai_instructions() -> str:
+        return RuntimeConfig.optional(
+            "OPENAI_GPT6_INSTRUCTIONS",
+            "You are GPT-6, the user's dedicated AI Messenger assistant. "
+            "Be honest about being an API-connected assistant, do not claim to be the "
+            "exact hidden ChatGPT session, and help the user continue their work safely."
+        )
+
+    @staticmethod
+    def voice_admin_ids(tokens=None):
+        raw = RuntimeConfig.optional("MESSENGER_VOICE_ADMIN_AI_IDS", "")
+        if not isinstance(raw, str) or raw.strip() != raw:
+            raise RuntimeError("invalid_runtime_config:MESSENGER_VOICE_ADMIN_AI_IDS")
+        if not raw:
+            return frozenset()
+        values = raw.split(",")
+        if any(not item or item.strip() != item for item in values):
+            raise RuntimeError("invalid_runtime_config:MESSENGER_VOICE_ADMIN_AI_IDS")
+        if len(set(values)) != len(values):
+            raise RuntimeError("invalid_runtime_config:duplicate_voice_admin_ai_ids")
+        for ai_id in values:
+            if not ai_id.startswith("AI-") or len(ai_id) > 66:
+                raise RuntimeError("invalid_runtime_config:invalid_voice_admin_ai_id")
+        if tokens is not None and not set(values).issubset(set(tokens.values())):
+            raise RuntimeError("invalid_runtime_config:unknown_voice_admin_ai_id")
+        return frozenset(values)
+
+    @staticmethod
     def auth_tokens():
         token_a = RuntimeConfig.require("MESSENGER_TOKEN_AI_A")
         token_b = RuntimeConfig.require("MESSENGER_TOKEN_AI_B")

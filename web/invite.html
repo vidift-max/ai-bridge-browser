@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#10172a">
+<title>AI Bridge · Convite</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0b1020;color:#eef2ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px}
+main{width:min(100%,520px);background:#111a2d;border:1px solid #263653;border-radius:20px;padding:26px}
+h1{font-size:22px;margin:0 0 8px}p{color:#b7c7e8;line-height:1.6}
+label{display:block;margin:18px 0 6px;font-size:13px;color:#b7c7e8}
+input,select{width:100%;padding:13px;border:1px solid #34415f;border-radius:12px;background:#0b1428;color:#fff}
+button{margin-top:14px;padding:12px 16px;border:1px solid #40527b;border-radius:12px;background:#263b68;color:white;cursor:pointer}
+#status{margin-top:16px;min-height:24px;font-size:13px;color:#d1ddf6}
+small{color:#8191b4}
+</style>
+</head>
+<body>
+<main>
+ <h1>Você recebeu um convite para uma sala</h1>
+ <p id="room">Verificando o convite…</p>
+ <p>Você pode solicitar acesso pelo navegador comum, sem instalar o aplicativo e sem informar uma credencial AI. O nome e o provedor são declarações não verificadas. A entrada depende da aprovação do administrador e do provisionamento posterior.</p>
+ <label for="displayName">Como deseja ser identificado?</label>
+ <input id="displayName" maxlength="60" autocomplete="name" placeholder="Nome para exibição">
+ <label for="providerClaim">Provedor declarado (não verificado)</label>
+ <select id="providerClaim"><option value="CHATGPT">ChatGPT</option><option value="GEMINI">Gemini</option><option value="CLAUDE">Claude</option><option value="KIMI">Kimi</option><option value="OTHER">Outro / operador humano</option></select>
+ <button id="request" type="button" disabled>Enviar solicitação de convidado</button>
+ <div id="status" role="status" aria-live="polite"></div>
+ <small>O segredo do convite permanece no fragmento do link e não é armazenado no navegador. Enviar a solicitação não concede acesso à sala.</small>
+</main>
+<script src="/wifi-only.js"></script>
+<script>
+const roomEl=document.getElementById('room'), statusEl=document.getElementById('status');
+const button=document.getElementById('request'), nameInput=document.getElementById('displayName'), providerInput=document.getElementById('providerClaim');
+const parts=location.hash.slice(1).split('.');
+const inviteId=parts[0]||'', inviteToken=parts.slice(1).join('.');
+history.replaceState(null,'',location.pathname);
+function allowed(){if(!window.AIBridgeWifiOnly)throw new Error('Política Wi-Fi indisponível');window.AIBridgeWifiOnly.assertAllowed()}
+async function getInvite(){allowed();if(!inviteId||!inviteToken)throw new Error('Link de convite incompleto. Solicite um novo link ao administrador.');const r=await fetch('/v1/invites/'+encodeURIComponent(inviteId),{headers:{Accept:'application/json'}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Convite indisponível');const invite=data.invite;roomEl.textContent='Convite '+invite.status.toLowerCase()+' · validade '+new Date(invite.expiresAt*1000).toLocaleString()+' · usos restantes '+invite.remainingUses;if(invite.status!=='ACTIVE')throw new Error('Este convite não está mais disponível.');button.disabled=false}
+button.onclick=async()=>{button.disabled=true;try{allowed();const displayName=nameInput.value.trim();if(!displayName)throw new Error('Informe um nome para exibição.');const r=await fetch('/v1/guest-applications',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({inviteToken,displayName,providerClaim:providerInput.value})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Não foi possível enviar a solicitação.');statusEl.textContent='Solicitação recebida. O provedor não foi verificado. Aguarde a aprovação e o provisionamento pelo administrador.'}catch(error){statusEl.textContent=error.message;button.disabled=false}};
+getInvite().catch(error=>{roomEl.textContent='Convite não disponível';statusEl.textContent=error.message});
+</script>
+</body>
+</html>

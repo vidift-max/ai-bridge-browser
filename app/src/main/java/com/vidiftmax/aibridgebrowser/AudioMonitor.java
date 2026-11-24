@@ -1,0 +1,134 @@
+package com.vidiftmax.aibridgebrowser;
+
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.AudioTrack;
+import android.media.MediaRecorder;
+
+public final class AudioMonitor {
+    private static final int SAMPLE_RATE_HZ = 16000;
+    private static final int FRAME_BYTES = 640; // 20 ms at 16 kHz, mono, 16-bit PCM.
+    private AudioRecord recorder;
+    private AudioTrack player;
+    private Thread worker;
+    private volatile boolean running;
+    private volatile boolean playbackEnabled;
+
+    public AudioMonitor() {
+        playbackEnabled = true;
+    }
+
+    public synchronized void setPlaybackEnabled(boolean enabled) {
+        playbackEnabled = enabled;
+    }
+
+    public synchronized boolean isPlaybackEnabled() {
+        return playbackEnabled;
+    }
+
+    public synchronized void start() {
+        if (running) return;
+        if (worker != null && worker.isAlive()) {
+            throw new IllegalStateException("audio_monitor_still_stopping");
+        }
+        worker = null;
+
+        int minRecord = AudioRecord.getMinBufferSize(
+                16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        int minPlay = AudioTrack.getMinBufferSize(
+                16000, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        if (minRecord <= 0 || minPlay <= 0) throw new IllegalStateException("audio_monitor_unavailable");
+        int buffer = Math.max(Math.max(minRecord, minPlay), FRAME_BYTES * 2);
+        AudioRecord r = new AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                SAMPLE_RATE_HZ,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                buffer);
+        AudioTrack p = new AudioTrack(
+                android.media.AudioManager.STREAM_MUSIC,
+                SAMPLE_RATE_HZ,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                buffer,
+                AudioTrack.MODE_STREAM);
+        if (r.getState() != AudioRecord.STATE_INITIALIZED) {
+            r.release();
+            throw new IllegalStateException("audio_input_initialization_failed");
+        }
+        if (p.getState() != AudioTrack.STATE_INITIALIZED) {
+            r.release();
+            p.release();
+            throw new IllegalStateException("audio_output_initialization_failed");
+        }
+        try {
+            r.startRecording();
+            if (r.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING)
+                throw new IllegalStateException("audio_input_start_failed");
+            p.play();
+        } catch (RuntimeException startupFailure) {
+            try { r.release(); } catch (RuntimeException ignored) { }
+            try { p.release(); } catch (RuntimeException ignored) { }
+            throw startupFailure;
+        }
+        recorder = r;
+        player = p;
+        running = true;
+        worker = new Thread(() -> {
+            byte[] data = new byte[FRAME_BYTES];
+            try {
+                while (running) {
+                    int read = r.read(data, 0, data.length);
+                    if (read < 0) break;
+                    if (read > 0 && running && playbackEnabled) {
+                        int written = p.write(data, 0, read);
+                        if (written < 0) break;
+                    }
+                }
+            } finally {
+                try { r.stop(); } catch (RuntimeException ignored) {}
+                try { p.stop(); } catch (RuntimeException ignored) {}
+                r.release();
+                p.release();
+                synchronized (AudioMonitor.this) {
+                    running = false;
+                    if (recorder == r) recorder = null;
+                    if (player == p) player = null;
+                    if (worker == Thread.currentThread()) worker = null;
+                }
+            }
+        }, "ai-phone-audio-monitor");
+        worker.start();
+    }
+
+    public void stop() {
+        AudioRecord activeRecorder;
+        AudioTrack activePlayer;
+        Thread activeWorker;
+        synchronized (this) {
+            running = false;
+            activeRecorder = recorder;
+            activePlayer = player;
+            activeWorker = worker;
+        }
+        if (activeRecorder != null) {
+            try { activeRecorder.stop(); } catch (RuntimeException ignored) { }
+        }
+        if (activePlayer != null) {
+            try { activePlayer.pause(); } catch (RuntimeException ignored) { }
+            try { activePlayer.flush(); } catch (RuntimeException ignored) { }
+        }
+        if (activeWorker != null) {
+            activeWorker.interrupt();
+            try {
+                activeWorker.join(1500);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    public synchronized boolean isRunning() {
+        return running;
+    }
+}

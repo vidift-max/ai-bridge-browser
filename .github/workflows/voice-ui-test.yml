@@ -1,0 +1,34 @@
+name: AI Bridge Browser Voice UI Tests
+
+on:
+  push:
+    branches:
+      - feat/mission-09-room-voice-controls
+    paths:
+      - 'web/voice-capabilities.js'
+      - 'web/voice-capabilities.test.mjs'
+      - 'web/rooms.html'
+      - '.github/workflows/voice-ui-test.yml'
+  pull_request:
+    branches:
+      - v2-saas-alpha
+      - feat/mission-08-identity-validation
+    paths:
+      - 'web/voice-capabilities.js'
+      - 'web/voice-capabilities.test.mjs'
+      - 'web/rooms.html'
+      - '.github/workflows/voice-ui-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  voice-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run browser voice controller unit tests
+        run: node --test web/voice-capabilities.test.mjs

@@ -19,6 +19,29 @@ class SQLiteStoreTest(unittest.TestCase):
             self.assertEqual(reopened.load_acknowledgements()["m-1"], {"AI-B"})
             reopened.close()
 
+    def test_voice_mute_survives_restart_and_expires(self):
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            store = SQLiteMessengerStore(f.name)
+            store.save_voice_mute("room-1", "AI-B", "AI-A", 200.0)
+            store.close()
+
+            reopened = SQLiteMessengerStore(f.name)
+            rows = reopened.load_active_voice_mutes(150.0)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["muted_by_ai_id"], "AI-A")
+            self.assertEqual(reopened.load_active_voice_mutes(200.0), [])
+            reopened.close()
+
+    def test_voice_mute_delete_is_scoped_to_room_and_ai(self):
+        store = SQLiteMessengerStore(":memory:")
+        store.save_voice_mute("room-1", "AI-B", "AI-A", 500.0)
+        store.save_voice_mute("room-2", "AI-B", "AI-C", 500.0)
+        self.assertTrue(store.delete_voice_mute("room-1", "AI-B"))
+        rows = store.load_active_voice_mutes(100.0)
+        self.assertEqual([(row["conversation_id"], row["ai_id"])
+                          for row in rows], [("room-2", "AI-B")])
+        store.close()
+
     def test_memory_store_is_valid_for_unit_tests(self):
         store=SQLiteMessengerStore(":memory:")
         self.assertEqual(store.load_conversations(), {})

@@ -67,6 +67,80 @@ class RuntimeConfigTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def test_voice_admin_ids_are_optional_and_validated_against_known_ai_ids(self):
+        keys = ["MESSENGER_VOICE_ADMIN_AI_IDS"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ.pop("MESSENGER_VOICE_ADMIN_AI_IDS", None)
+            tokens = {"secret-a": "AI-A", "secret-b": "AI-B"}
+            self.assertEqual(RuntimeConfig.voice_admin_ids(tokens), frozenset())
+            os.environ["MESSENGER_VOICE_ADMIN_AI_IDS"] = "AI-A,AI-B"
+            self.assertEqual(RuntimeConfig.voice_admin_ids(tokens), {"AI-A", "AI-B"})
+            os.environ["MESSENGER_VOICE_ADMIN_AI_IDS"] = "AI-A,AI-A"
+            with self.assertRaisesRegex(RuntimeError, "duplicate_voice_admin_ai_ids"):
+                RuntimeConfig.voice_admin_ids(tokens)
+            os.environ["MESSENGER_VOICE_ADMIN_AI_IDS"] = "AI-UNKNOWN"
+            with self.assertRaisesRegex(RuntimeError, "unknown_voice_admin_ai_id"):
+                RuntimeConfig.voice_admin_ids(tokens)
+            os.environ["MESSENGER_VOICE_ADMIN_AI_IDS"] = " AI-A"
+            with self.assertRaisesRegex(RuntimeError, "MESSENGER_VOICE_ADMIN_AI_IDS"):
+                RuntimeConfig.voice_admin_ids(tokens)
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    def test_paid_openai_api_calls_are_disabled_by_default(self):
+        old = os.environ.get("OPENAI_API_CALLS_ENABLED")
+        try:
+            os.environ.pop("OPENAI_API_CALLS_ENABLED", None)
+            self.assertFalse(RuntimeConfig.openai_api_calls_enabled())
+            os.environ["OPENAI_API_CALLS_ENABLED"] = "true"
+            self.assertTrue(RuntimeConfig.openai_api_calls_enabled())
+            os.environ["OPENAI_API_CALLS_ENABLED"] = "false"
+            self.assertFalse(RuntimeConfig.openai_api_calls_enabled())
+            os.environ["OPENAI_API_CALLS_ENABLED"] = "yes"
+            with self.assertRaisesRegex(RuntimeError, "OPENAI_API_CALLS_ENABLED"):
+                RuntimeConfig.openai_api_calls_enabled()
+        finally:
+            if old is None:
+                os.environ.pop("OPENAI_API_CALLS_ENABLED", None)
+            else:
+                os.environ["OPENAI_API_CALLS_ENABLED"] = old
+
+    def test_openai_defaults_are_present_and_bounded(self):
+        self.assertEqual(RuntimeConfig.openai_text_model(), "gpt-6.2-astra")
+        self.assertEqual(RuntimeConfig.openai_realtime_model(), "gpt-realtime-2.1")
+        self.assertEqual(RuntimeConfig.openai_timeout_seconds(), 45)
+        self.assertEqual(RuntimeConfig.openai_max_input_chars(), 12000)
+        self.assertIn("GPT-6", RuntimeConfig.openai_instructions())
+
+    def test_openai_timeout_rejects_out_of_range_values(self):
+        old = os.environ.get("OPENAI_TIMEOUT_SECONDS")
+        try:
+            os.environ["OPENAI_TIMEOUT_SECONDS"] = "121"
+            with self.assertRaisesRegex(RuntimeError, "OPENAI_TIMEOUT_SECONDS"):
+                RuntimeConfig.openai_timeout_seconds()
+        finally:
+            if old is None:
+                os.environ.pop("OPENAI_TIMEOUT_SECONDS", None)
+            else:
+                os.environ["OPENAI_TIMEOUT_SECONDS"] = old
+
+    def test_openai_input_limit_rejects_out_of_range_values(self):
+        old = os.environ.get("OPENAI_MAX_INPUT_CHARS")
+        try:
+            os.environ["OPENAI_MAX_INPUT_CHARS"] = "99"
+            with self.assertRaisesRegex(RuntimeError, "OPENAI_MAX_INPUT_CHARS"):
+                RuntimeConfig.openai_max_input_chars()
+        finally:
+            if old is None:
+                os.environ.pop("OPENAI_MAX_INPUT_CHARS", None)
+            else:
+                os.environ["OPENAI_MAX_INPUT_CHARS"] = old
+
     def test_auth_tokens_require_all_identity_pairs(self):
         keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B", "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B"]
         old = {key: os.environ.get(key) for key in keys}

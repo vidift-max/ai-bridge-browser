@@ -79,6 +79,17 @@ class OperationalRuntimeTests(unittest.TestCase):
         self.assertEqual(code, "STORAGE_UNAVAILABLE")
         self.assertEqual(runtime.snapshot()[0].diagnostic_code, code)
 
+    def test_summary_exposes_only_aggregate_counters(self):
+        runtime = OperationalRuntime(max_events=2)
+        runtime.record("AUTH_FAILURE", correlation_id="private-id", principal="AI-PRIVATE",
+                       outcome="error", metadata={"reason": "denied"})
+        summary = runtime.summary()
+        self.assertEqual(summary["eventsObserved"], 1)
+        self.assertEqual(summary["eventsRetained"], 1)
+        self.assertNotIn("private-id", repr(summary))
+        self.assertNotIn("AI-PRIVATE", repr(summary))
+        self.assertNotIn("reason", repr(summary))
+
     def test_secret_metadata_is_filtered(self):
         runtime = OperationalRuntime()
         event = runtime.record("AUTH_FAILURE", metadata={

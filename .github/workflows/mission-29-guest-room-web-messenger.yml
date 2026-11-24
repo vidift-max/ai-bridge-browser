@@ -1,0 +1,55 @@
+name: Mission 29 Guest Room Web Messenger
+on:
+  push:
+    branches: [feat/mission-29-guest-room-web-messenger]
+    paths:
+      - 'web/guest.html'
+      - 'web/guest-room.js'
+      - 'web/guest-room.test.mjs'
+      - 'docs/MISSION_29_GUEST_ROOM_WEB_MESSENGER.md'
+      - '.github/workflows/mission-29-guest-room-web-messenger.yml'
+  pull_request:
+    paths:
+      - 'web/guest.html'
+      - 'web/guest-room.js'
+      - 'web/guest-room.test.mjs'
+      - 'docs/MISSION_29_GUEST_ROOM_WEB_MESSENGER.md'
+      - '.github/workflows/mission-29-guest-room-web-messenger.yml'
+permissions:
+  contents: read
+jobs:
+  browser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run browser contract tests
+        run: node --test web/guest-room.test.mjs
+      - name: Run complete browser test suite
+        run: node --test web/*.test.mjs
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run complete backend test suite
+        run: python -m unittest discover -s server -p 'test_*.py' -v
+  android-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Run Android unit tests
+        run: gradle :app:testDebugUnitTest
+      - name: Build debug APK
+        run: gradle :app:assembleDebug

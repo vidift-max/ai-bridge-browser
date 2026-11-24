@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
 }
@@ -5,6 +7,39 @@ plugins {
 android {
     namespace = "com.vidiftmax.aibridgebrowser"
     compileSdk = 37
+
+    val releaseKeystorePath = System.getenv("AI_PHONE_RELEASE_KEYSTORE_PATH")
+    val releaseStorePassword = System.getenv("AI_PHONE_RELEASE_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("AI_PHONE_RELEASE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("AI_PHONE_RELEASE_KEY_PASSWORD")
+    val releaseSigningReady = !releaseKeystorePath.isNullOrBlank()
+        && File(releaseKeystorePath).isFile
+        && !releaseStorePassword.isNullOrBlank()
+        && !releaseKeyAlias.isNullOrBlank()
+        && !releaseKeyPassword.isNullOrBlank()
+
+    signingConfigs {
+        create("release") {
+            if (releaseSigningReady) {
+                storeFile = File(releaseKeystorePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            isMinifyEnabled = false
+        }
+        release {
+            isMinifyEnabled = false
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.vidiftmax.aibridgebrowser"
@@ -21,6 +56,11 @@ android {
 }
 
 dependencies {
+    implementation("androidx.core:core:1.17.0")
     implementation("androidx.webkit:webkit:1.18.0")
+    // Pinned WebRTC native SDK; do not use a dynamic version selector.
+    implementation("io.github.webrtc-sdk:android:150.7871.08")
     testImplementation("junit:junit:4.13.2")
+    // Use real JSON in local JVM tests instead of Android's mocked stubs.
+    testImplementation("org.json:json:20260814")
 }

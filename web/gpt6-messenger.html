@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Messenger · GPT-6</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+body{margin:0;background:#0b1020;color:#eef2ff}
+main{max-width:760px;margin:auto;padding:20px}
+.card{background:#121a2e;border:1px solid #26314d;border-radius:18px;padding:18px}
+h1{font-size:22px;margin:0 0 4px}.muted{color:#9aa7c7;font-size:13px}
+#status,.notice{margin:12px 0;padding:9px 10px;border-radius:10px;background:#1c2740}
+.notice{font-size:13px;color:#d6def5;line-height:1.45;border:1px solid #34415f}
+#chat{height:48vh;overflow:auto;border:1px solid #26314d;border-radius:14px;padding:12px;background:#0d1426}
+.msg{margin:8px 0;padding:10px 12px;border-radius:12px;white-space:pre-wrap;word-break:break-word}
+.user{background:#26385d;margin-left:12%}.ai{background:#1b2940;margin-right:12%}.sys{background:#251f35;color:#c8c1dc;font-size:13px}
+.row{display:flex;gap:8px;margin-top:10px}.row>*{min-width:0}
+input,textarea,button{font:inherit;border-radius:10px;border:1px solid #34415f;background:#0c1425;color:#eef2ff;padding:10px}
+#token{flex:1}textarea{flex:1;resize:vertical;min-height:44px}button{cursor:pointer;background:#273b67}button:disabled{opacity:.5;cursor:not-allowed}
+details{margin-bottom:12px}summary{cursor:pointer;color:#c7d2fe}
+.voice-options{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:13px;color:#cbd5e1}
+.voice-options label{display:flex;gap:6px;align-items:center}.voice-options input{width:auto}
+@media(max-width:520px){main{padding:10px}.row{flex-wrap:wrap}.row textarea{flex-basis:100%}.row button{flex:1}}
+</style>
+</head>
+<body>
+<main>
+<div class="card">
+<h1>🤖 GPT-6 · AI Messenger</h1>
+<div class="muted">Interface web para o AI Messenger. O token fica somente nesta sessão do navegador.</div>
+<div class="notice"><strong>Modo gratuito experimental:</strong> o microfone só será habilitado se o navegador confirmar reconhecimento de voz no próprio dispositivo; reconhecimento remoto é bloqueado. Se não houver suporte local em português, use a digitação. A leitura de respostas usa a síntese de voz do navegador. As respostas de IA dependem de um provedor configurado no servidor; esta interface não fornece acesso gratuito à API do GPT-6 nem consome créditos por conta própria.</div>
+<div id="networkStatus" class="notice" role="status" aria-live="polite">Verificando conexão Wi-Fi…</div>
+<div id="localAiStatus" class="notice" role="status" aria-live="polite">Diagnóstico local ainda não executado.</div>
+<div class="row"><button id="checkLocalAi" type="button">Verificar compatibilidade da IA local</button></div>
+<details>
+<summary>Conectar</summary>
+<div class="row"><input id="token" type="password" autocomplete="off" placeholder="Bearer token do AI Messenger"><button id="connect">Conectar</button></div>
+</details>
+<div id="status">Desconectado</div>
+<div id="chat" aria-live="polite"></div>
+<div class="row"><textarea id="message" placeholder="Escreva ou dite sua mensagem..." disabled></textarea><button id="send" disabled>Enviar</button></div>
+<div class="row"><button id="mic" type="button" disabled>🎙️ Ditar</button><button id="stopVoice" type="button" disabled>Parar microfone/voz</button></div>
+<div class="voice-options"><label><input id="speakReplies" type="checkbox" checked> Ler respostas em voz alta</label><span id="voiceSupport">Verificando suporte de voz…</span></div>
+</div>
+</main>
+<script src="/wifi-only.js"></script>
+<script src="/local-ai-capability.js"></script>
+<script>
+const networkStatusEl=document.getElementById('networkStatus');
+const localAiStatusEl=document.getElementById('localAiStatus');
+const checkLocalAiEl=document.getElementById('checkLocalAi');
+checkLocalAiEl.addEventListener('click',async()=>{
+ checkLocalAiEl.disabled=true;
+ localAiStatusEl.textContent='Verificando recursos locais… Nenhum modelo será baixado.';
+ try{
+  if(!window.AIBridgeLocalAICapability)throw new Error('Diagnóstico local indisponível');
+  const report=await window.AIBridgeLocalAICapability.inspect();
+  const parts=['Estado: '+report.status,'WebGPU: '+(report.webgpuAdapterAvailable?'adaptador disponível':'indisponível'),'Memória informada: '+(report.deviceMemoryGb===null?'não informada':report.deviceMemoryGb+' GB'),'Espaço estimado: '+(report.storage?.quotaBytes===null||!report.storage?'não informado':Math.round(report.storage.quotaBytes/1048576)+' MB'),'Rede: '+report.network.status];
+  if(report.reasons.length)parts.push('Pendências: '+report.reasons.join(', '));
+  parts.push('Modelo carregado: não. Download iniciado: não. Inferência iniciada: não.');
+  localAiStatusEl.textContent=parts.join(' · ');
+ }catch(error){localAiStatusEl.textContent='Diagnóstico indisponível: '+error.message}
+ finally{checkLocalAiEl.disabled=false}
+});
+function renderNetworkState(state){networkStatusEl.textContent='Rede: '+state.status+' · '+state.message}
+if(window.AIBridgeWifiOnly){window.AIBridgeWifiOnly.watch(renderNetworkState)}else{renderNetworkState({status:'WIFI_POLICY_UNAVAILABLE',message:'Política Wi-Fi não carregada; downloads devem permanecer bloqueados.'})}
+const tokenEl=document.getElementById('token'), connectEl=document.getElementById('connect');
+const statusEl=document.getElementById('status'), chatEl=document.getElementById('chat');
+const messageEl=document.getElementById('message'), sendEl=document.getElementById('send');
+const micEl=document.getElementById('mic'), stopVoiceEl=document.getElementById('stopVoice');
+const speakRepliesEl=document.getElementById('speakReplies'), voiceSupportEl=document.getElementById('voiceSupport');
+let token='', previousResponseId='', recognition=null, listening=false, localSpeechReady=false;
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+function add(text, cls){const d=document.createElement('div');d.className='msg '+cls;d.textContent=text;chatEl.appendChild(d);chatEl.scrollTop=chatEl.scrollHeight}
+function setConnected(ok,text){statusEl.textContent=text;messageEl.disabled=!ok;sendEl.disabled=!ok;micEl.disabled=!ok||!localSpeechReady}
+function stopVoice(){if(recognition&&listening)recognition.stop();listening=false;window.speechSynthesis?.cancel();stopVoiceEl.disabled=true}
+function speak(text){if(!speakRepliesEl.checked||!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);utterance.lang='pt-BR';window.speechSynthesis.speak(utterance);stopVoiceEl.disabled=false;utterance.onend=()=>{if(!listening)stopVoiceEl.disabled=true}}
+if(SpeechRecognition){
+ recognition=new SpeechRecognition();recognition.lang='pt-BR';recognition.continuous=false;recognition.interimResults=true;
+ // Fail closed: never use the browser's default (potentially remote) speech service.
+ if('processLocally' in recognition && typeof SpeechRecognition.available==='function'){
+  recognition.processLocally=true;
+  SpeechRecognition.available({langs:['pt-BR'],processLocally:true}).then(result=>{
+   localSpeechReady=result==='available';
+   micEl.disabled=!token||messageEl.disabled||!localSpeechReady;
+   voiceSupportEl.textContent=localSpeechReady?'Reconhecimento local em português disponível.':'Ditado local indisponível; microfone bloqueado para evitar envio de áudio a serviço remoto.';
+  }).catch(()=>{localSpeechReady=false;micEl.disabled=true;voiceSupportEl.textContent='Não foi possível confirmar reconhecimento local; microfone bloqueado.'});
+ }else{
+  voiceSupportEl.textContent='Este navegador não comprova reconhecimento local; microfone bloqueado. Você pode digitar.';
+ }
+ recognition.onstart=()=>{listening=true;micEl.textContent='🎙️ Ouvindo…';stopVoiceEl.disabled=false;voiceSupportEl.textContent='Reconhecimento local ativo.'};
+ recognition.onresult=event=>{let finalText='';let interim='';for(let i=event.resultIndex;i<event.results.length;i++){const part=event.results[i][0].transcript;if(event.results[i].isFinal)finalText+=part;else interim+=part}if(finalText){messageEl.value=(messageEl.value+' '+finalText).trim()}if(interim)voiceSupportEl.textContent='Ouvindo: '+interim};
+ recognition.onerror=event=>{add('Microfone: '+event.error,'sys');voiceSupportEl.textContent='Falha no reconhecimento: '+event.error};
+ recognition.onend=()=>{listening=false;micEl.textContent='🎙️ Ditar';stopVoiceEl.disabled=true;micEl.disabled=!token||messageEl.disabled||!localSpeechReady};
+}else{micEl.disabled=true;voiceSupportEl.textContent='Ditado não suportado. Você ainda pode digitar.'}
+if(!('speechSynthesis'in window)){speakRepliesEl.disabled=true;voiceSupportEl.textContent+=' Leitura de voz indisponível.'}
+async function api(path, options={}){if(!window.AIBridgeWifiOnly)throw new Error('wifi_policy_unavailable');window.AIBridgeWifiOnly.assertAllowed();const headers=Object.assign({'Accept':'application/json','Authorization':'Bearer '+token},options.headers||{});const r=await fetch(path,Object.assign({},options,{headers}));let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||('HTTP '+r.status));return data}
+async function connect(){
+ token=tokenEl.value.trim();if(!token){setConnected(false,'Informe o token.');return}
+ try{const d=await api('/v1/gpt6/status');const online=!!d.assistant?.online;setConnected(online,online?'🟢 GPT-6 online · '+(d.model||'modelo configurado'):'🟡 servidor autenticado, provedor de IA não configurado');add('Conexão autenticada com o AI Messenger.','sys')}
+ catch(e){setConnected(false,'🔴 Falha: '+e.message);add('Não foi possível conectar: '+e.message,'sys')}
+}
+async function send(){
+ const text=messageEl.value.trim();if(!text||!token)return;
+ messageEl.value='';sendEl.disabled=true;add(text,'user');
+ try{const d=await api('/v1/gpt6/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,previousResponseId:previousResponseId||undefined})});previousResponseId=d.responseId||'';const answer=d.text||'(resposta vazia)';add(answer,'ai');speak(answer);setConnected(true,'🟢 Provedor de IA respondeu')}
+ catch(e){add('Erro: '+e.message,'sys');statusEl.textContent='🔴 '+e.message}
+ finally{sendEl.disabled=!token||messageEl.disabled}
+}
+connectEl.onclick=connect;sendEl.onclick=send;
+micEl.onclick=()=>{if(!recognition||!localSpeechReady||listening)return;try{if(!window.AIBridgeWifiOnly)throw new Error('wifi_policy_unavailable');window.AIBridgeWifiOnly.assertAllowed();if(recognition.processLocally!==true)throw new Error('local_speech_not_confirmed');recognition.start()}catch(e){add('Microfone/rede bloqueado: '+e.message,'sys')}};
+stopVoiceEl.onclick=stopVoice;
+messageEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
+window.addEventListener('beforeunload',()=>{try{recognition?.stop()}catch{}window.speechSynthesis?.cancel()});
+</script>
+</body>
+</html>

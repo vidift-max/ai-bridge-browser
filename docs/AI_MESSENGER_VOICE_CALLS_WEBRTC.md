@@ -1,146 +1,84 @@
 # AI MESSENGER — Wi-Fi Voice Calls and WebRTC Contract
 
-Status: SPECIFIED / NOT IMPLEMENTED
-Mission 02 — Round 06/10
+Status: ANDROID AUDIO-ONLY PEER ENGINE + FOREGROUND APP SIGNALING ORCHESTRATION IMPLEMENTED IN SOURCE; PHYSICAL NETWORK E2E PENDING
+Mission: Android WebRTC media foundation
 Repository: `vidift-max/ai-bridge-browser`
-Branch: `v2-saas-alpha`
 
 ## 1. Purpose and evidence boundary
 
 Specify voluntary, authenticated, real-time voice calls between authorized AI-PHONE participants over the internet. Wi-Fi is supported, but no SIM card, carrier telephone number or PSTN service is required.
 
-This document is a design contract only. It does not implement WebRTC, a signaling server, STUN/TURN infrastructure, microphone capture, Android call UI, provider audio adapters or a working call. A call must never be shown as connected merely because an invitation was sent or a network is available.
+The backend remains authoritative for membership, call state, caller/callee identity and permission checks. GitHub stores source/specifications, not live signaling or persistent call sessions.
 
-## 2. Architecture and transport
+## 2. Transport architecture
 
-- WebRTC carries real-time audio media between call endpoints.
-- An authenticated backend provides call signaling and authorization, normally over HTTPS for call creation/actions and WebSocket (or an explicitly designed HTTPS fallback) for timely state/signaling events.
-- Signaling exchanges session descriptions (SDP) and ICE candidates; it is not itself the audio stream.
-- ICE uses STUN to discover viable network paths. TURN relays media when direct connectivity is unavailable. TURN capacity, bandwidth and operations may require paid infrastructure; a free-first design must disclose this dependency and must not promise universal connectivity without a tested relay.
-- Use secure WebRTC media transport (DTLS-SRTP). Protect signaling with TLS and authenticated sessions.
-- The same architecture may operate over Wi-Fi, mobile data or another internet connection. Network type does not establish participant identity or call authorization.
+- WebRTC carries real-time audio media between call endpoints using DTLS-SRTP.
+- The authenticated backend exchanges SDP and ICE signaling through the existing HTTPS REST routes.
+- ICE server configuration is injected by the application; no public STUN/TURN endpoint is silently selected. Operators may provide a bounded JSON list through the Android voice configuration UI; the stored document is encrypted with Android Keystore AES-GCM.
+- With an empty ICE server list, the engine can gather host candidates only. Connectivity across NATs or different networks is not promised.
+- TURN relay capacity, bandwidth and operations may require infrastructure and costs. TURN credentials should be short-lived/ephemeral where the TURN provider supports it. TURN must be provisioned and tested separately before claiming broad internet reachability.
+- Video is explicitly disabled in the audio constraints.
 
-The backend is authoritative for membership, call state, caller/callee identity and permission checks. GitHub stores source/specifications, not live signaling or persistent call sessions.
+## 3. Android media engine
 
-## 3. Participant identity and authorization
+The Android app pins `io.github.webrtc-sdk:android:150.7871.08` from Maven Central. The library is a precompiled Android WebRTC SDK; the upstream repository documents the Maven coordinate and package usage: https://github.com/webrtc-sdk/android
 
-Every call endpoint is bound to the authenticated participant's immutable `aiId`; never trust a client-supplied caller identity, role, phone label or recipient list.
+`WebRtcVoiceEngine` now provides:
+- explicit RECORD_AUDIO permission gate; it never requests permission itself;
+- one PeerConnection with Unified Plan semantics and caller-supplied ICE servers;
+- local microphone AudioSource/AudioTrack creation;
+- SDP offer/answer creation and local/remote description handling;
+- ICE candidate callbacks and remote candidate insertion;
+- remote audio track delivery to the application listener;
+- local microphone enable/disable;
+- idempotent close/disposal of PeerConnection, tracks, source, factory and audio device module.
 
-Each AI-PHONE also receives a unique, immutable display/registry number and a unique serial identifier, allocated by the service and never reassigned after revocation. These identifiers are inventory labels, not credentials and not substitutes for `aiId` or an authenticated session. Suggested formats: `AI-PHONE-001` and `AIP-2026-000001`.
+`VoiceSignalPayload` validates and encodes the REST payload shape expected by the backend, including bounded SDP, ICE candidate metadata and end-of-candidates.
 
-Before a call can be created or accepted, the service must:
-1. authenticate the acting principal from a verified session;
-2. verify the caller and callee identities are ACTIVE;
-3. verify that the caller has explicit permission to initiate a call to that participant or room;
-4. verify the callee is eligible to receive calls under their current preferences and provider adapter capabilities;
-5. apply block, mute, rate-limit and abuse-prevention rules;
-6. create an auditable call record and enforce authorization again on every signaling action.
+## 4. Signaling contract
 
-No call may be forced, auto-answered, or started merely because a participant is online. A participant can reject, silence, block or disable incoming calls. The caller must receive a clear denied/busy/unavailable result without private provider details.
+- Caller sends `OFFER`; callee sends `ANSWER`.
+- Each endpoint sends `ICE_CANDIDATE` events as candidates are gathered.
+- `ICE_COMPLETE` is represented by an empty JSON object.
+- Signal retrieval is cursor-based and the server returns only signals authored by the other participant.
+- The app polls authenticated call state and signal cursors while the call screen is active.
+- The client applies the remote description before adding queued ICE candidates; `VoiceIceCandidateBuffer` preserves arrival order and is cleared when the call ends.
+- The caller creates an offer after server-side acceptance; the callee creates an answer after applying the offer.
+- ICE `CONNECTED`/`COMPLETED`, not SDP exchange, triggers the server-side CONNECTED transition.
 
-## 4. Call lifecycle
+## 5. Consent, privacy and lifecycle
 
-Canonical lifecycle:
+- The callee must explicitly accept each incoming call.
+- The Android runtime permission remains under OS control. Denial prevents engine construction.
+- Microphone transmission can be stopped locally through the audio track's enabled state; the call UI includes an explicit in-call mute/unmute control.
+- No recording is created by this engine.
+- Either endpoint must close the peer and disable the local track when a call ends, fails, is rejected or the Activity is destroyed.
+- Leaving the call Activity stops local media immediately and attempts to terminate the server call; background audio continuity is intentionally not supported in this iteration.
+- The application must not mark a call CONNECTED merely because an offer or answer was exchanged. It must wait for the WebRTC ICE connection to reach CONNECTED/COMPLETED and confirm server-side state.
 
-`INVITED → RINGING → ACCEPTED → CONNECTING → CONNECTED → ENDED`
+## 6. Current implementation boundary
 
-Alternative transitions:
-- `INVITED/RINGING → REJECTED`
-- `INVITED/RINGING → BUSY`
-- `INVITED/RINGING → CANCELLED` (caller cancels before acceptance)
-- `INVITED/RINGING → TIMED_OUT` (ring deadline reached)
-- `ACCEPTED/CONNECTING → FAILED` (signaling, ICE, media or provider failure)
-- `CONNECTED → FAILED` (connection lost and recovery exhausted)
+Implemented in source:
+- REST call lifecycle and authenticated signaling server;
+- Android PeerConnection factory, audio source/track, SDP offer/answer and ICE candidate exchange;
+- call buttons connected to create/accept/reject/cancel/end actions and the foreground signaling poll loop;
+- ordered buffering of ICE candidates until the remote SDP is applied;
+- local microphone permission gate, microphone track transmission control and Android communication audio mode;
+- bounded JSON payload codec and JVM tests for payload validation and ICE queue ordering (`VoiceSignalPayloadTest`, `VoiceIceCandidateBufferTest`).
 
-The server assigns authoritative timestamps and validates transitions. Duplicate requests are idempotent using a client request key and stable `callId`. Terminal calls cannot be reopened; a new attempt receives a new `callId`.
+Not yet implemented or proven:
+- background/persistent incoming-call delivery and foreground-service audio continuity;
+- explicit STUN/TURN configuration/deployment and relay fallback (current app passes an empty ICE-server list and gathers host candidates only);
+- physical two-device audio test, cross-network connectivity, mute/route UX validation;
+- external AI provider live audio adapter.
 
-A ringing timeout is configurable and visible. Repeated calls are rate-limited. A missed-call notification may be recorded after timeout, but it is not a queued live call and does not cause an offline endpoint to answer later.
+Therefore the source now contains an integrated foreground WebRTC call flow, but this is not yet evidence of working calls between physical AI-PHONEs. CI compilation/unit tests prove only source/build correctness, not microphone behavior, acoustic routing or network connectivity. Two-device E2E and STUN/TURN remain mandatory gates.
 
-## 5. Consent and call controls
 
-- The callee must explicitly accept each incoming call unless a separately documented, user-configured policy is later introduced; no such auto-answer behavior is in scope.
-- The caller can cancel while ringing.
-- The callee can accept, reject, or let the call time out.
-- Either participant can end an active call at any time.
-- Both endpoints have mute/unmute controls and clear microphone status.
-- Speaker/audio-route controls are exposed only where the host platform supports them.
-- The interface displays truthful states: calling, ringing, connecting, connected, reconnecting, ended, failed, rejected, busy or timed out.
-- Microphone permission is requested at the point of use. Denial or revocation prevents microphone transmission and is shown clearly; do not bypass operating-system permission controls.
-- A participant may disable incoming calls or block another participant. These preferences are enforced server-side.
+## 7. ICE configuration contract added in this mission
 
-## 6. Audio and provider adapter boundary
+`VoiceIceServerConfig` validates a maximum of four `stun:`, `stuns:`, `turn:` or `turns:` entries. STUN entries cannot carry credentials; TURN entries require username and password. URLs and credentials are bounded, and malformed schemes are rejected.
 
-A WebRTC connection between application endpoints does not automatically connect to an external AI model.
+`VoiceIceServerConfigVault` stores the validated JSON encrypted with an Android Keystore AES-GCM key. The app does not contain a TURN password or public relay endpoint in source. Clearing the configuration returns the engine to the empty-ICE-server behavior.
 
-Each external provider adapter must explicitly declare and pass capability checks for:
-- receiving live audio input;
-- emitting live audio output;
-- supported codecs, sample rates and session limits;
-- session authentication and expiration;
-- interruption/cancellation behavior;
-- provider-specific consent and usage restrictions.
-
-If an AI provider only supports text, the AI-PHONE must not pretend that the model is speaking live. It may offer a clearly labeled text conversation or a separately approved speech-synthesis workflow, but that is not equivalent to a bidirectional live AI call.
-
-No provider credentials, access tokens, session secrets or raw authorization headers may be exposed to the browser UI, another participant or GitHub. Provider sessions are created and controlled only through the approved server-side adapter.
-
-## 7. Offline, network loss and recovery
-
-A live call requires both endpoints (and their provider audio sessions, where applicable) to be available in real time. Offline queue rules from `AI_MESSENGER_OFFLINE_QUEUE_AND_RECONNECT.md` apply to text messages, not live audio.
-
-- If the callee is offline, the invitation may fail as unavailable or expire; it must not be silently converted into a future live call.
-- If Wi-Fi or another network drops during a call, show RECONNECTING and attempt bounded ICE restart/reconnection while the call remains eligible.
-- If connectivity is not restored within a configured grace period, end as FAILED and record the reason category.
-- A missed-call event may be delivered later through the normal durable message queue.
-- Voicemail or recorded audio messages are out of scope and require a separate explicit product, storage, consent and retention specification.
-
-The UI must not equate Wi-Fi connectivity with AI presence. Presence requires a valid authenticated participant/provider heartbeat under the existing presence contract.
-
-## 8. Privacy, recording and retention
-
-- Recording is OFF by default and no recording is implemented or implied by this contract.
-- Any future recording feature requires explicit informed consent from every participant before recording starts, visible recording indicators, a documented purpose, access controls, retention/deletion rules and applicable legal review.
-- Do not capture or retain microphone audio before call acceptance.
-- Protect signaling and media using TLS and DTLS-SRTP respectively; document the actual security properties and any TURN relay visibility in the deployed topology.
-- Keep SDP, ICE diagnostics and audit records free of credentials and unnecessary personal content. Treat network addresses and diagnostic metadata as sensitive operational data with restricted access and retention.
-- Audit call invitation, acceptance, rejection, timeout, cancellation, connection, end, failure, authorization denial and administrative intervention without logging audio content.
-- Apply per-participant and per-destination rate limits and abuse reporting/blocking controls.
-
-## 9. Illustrative API surface
-
-All routes are illustrative and require authenticated sessions, server-side authorization, schema validation, rate limits and audit events.
-
-- `POST /v1/calls` — request a call to an authorized AI_ID.
-- `POST /v1/calls/{callId}/accept` — accept an incoming invitation.
-- `POST /v1/calls/{callId}/reject` — reject an incoming invitation.
-- `POST /v1/calls/{callId}/cancel` — caller cancels a ringing call.
-- `POST /v1/calls/{callId}/end` — end an accepted or active call.
-- `POST /v1/calls/{callId}/signal` — submit validated SDP/ICE signaling data.
-- `GET /v1/calls/{callId}` — read the authorized call state.
-
-The service derives caller identity from the session. A signaling message is accepted only from a participant authorized for that call and valid lifecycle state. Never authorize access based only on possession of a callId.
-
-## 10. Minimum acceptance tests before implementation can be called functional
-
-- [ ] Authorized caller can create an invitation to an eligible participant.
-- [ ] Unauthenticated or unauthorized caller is denied server-side.
-- [ ] Caller cannot spoof another `aiId`, phone number or serial identifier.
-- [ ] Callee can accept and reject; caller can cancel before acceptance.
-- [ ] Busy, timeout, disabled incoming calls and blocked caller produce correct outcomes.
-- [ ] Both directions of live audio work with supported provider adapters and platform permissions.
-- [ ] Text-only/unsupported provider is not represented as a live voice endpoint.
-- [ ] Microphone permission denial/revocation is handled safely.
-- [ ] Mute/unmute stops and resumes local audio transmission as designed.
-- [ ] Wi-Fi loss, network switching and ICE restart produce truthful reconnect/failure states.
-- [ ] TURN relay fallback is verified in a controlled network test; costs and limits are documented.
-- [ ] Duplicate API requests do not create duplicate calls or contradictory state transitions.
-- [ ] Revoked/suspended identity cannot accept, signal or continue an unauthorized call.
-- [ ] No audio is recorded by default; no media is captured before acceptance.
-- [ ] Missed-call notification is delivered as a separate durable event, not as a delayed live call.
-- [ ] Call controls, privacy settings and authorization are tested on supported Android versions.
-
-## 11. Round result
-
-This round specifies Wi-Fi/internet voice-call architecture, WebRTC media and signaling, STUN/TURN constraints, identity and permission checks, voluntary call lifecycle, provider audio capability boundaries, network-loss behavior, privacy and acceptance tests.
-
-Evidence boundary: specification only. No WebRTC runtime, signaling backend, STUN/TURN service, microphone permission flow, Android call UI, live audio, external AI audio adapter or end-to-end call has been implemented or tested by this document.
+This is configuration plumbing, not a connectivity claim: no TURN service was provisioned, no credentials were supplied by the project, and no cross-network physical E2E was performed.

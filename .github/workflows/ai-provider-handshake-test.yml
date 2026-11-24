@@ -1,0 +1,31 @@
+name: AI Bridge Provider Handshake Tests
+
+on:
+  push:
+    branches:
+      - feat/mission-14-provider-handshake
+    paths:
+      - 'web/ai-provider-handshake.js'
+      - 'web/ai-provider-handshake.test.mjs'
+      - '.github/workflows/ai-provider-handshake-test.yml'
+  pull_request:
+    branches:
+      - feat/mission-13-ai-session-adapter
+    paths:
+      - 'web/ai-provider-handshake.js'
+      - 'web/ai-provider-handshake.test.mjs'
+      - '.github/workflows/ai-provider-handshake-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  provider-handshake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run provider handshake tests
+        run: node --test web/ai-provider-handshake.test.mjs
