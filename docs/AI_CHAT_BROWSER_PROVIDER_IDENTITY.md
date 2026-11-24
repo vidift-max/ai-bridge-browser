@@ -25,3 +25,12 @@ Este trabalho não torna a OpenAI API gratuita. Ele evita que o AI Bridge faça 
 
 ## Validação
 `python -m unittest discover -s server -p 'test_*.py' -v`
+
+
+# Missão 17 — Modo gratuito e bloqueio de APIs pagas
+
+O AI Bridge adota modo gratuito por padrão. A variável `OPENAI_API_CALLS_ENABLED` assume `false` quando ausente. Mesmo que exista `OPENAI_API_KEY`, as chamadas Responses e Realtime são recusadas pelo adaptador antes de qualquer conexão de rede. As rotas HTTP também recusam a operação com `503 openai_api_calls_disabled`.
+
+O catálogo informa `DISABLED_BY_POLICY`, `apiCallsEnabled=false` e lista capacidades pagas vazias. Claude e Gemini continuam não implementados. Nenhuma chave ou chamada paga é necessária para desenvolvimento local, mensagens internas e testes automatizados.
+
+O interruptor técnico `OPENAI_API_CALLS_ENABLED=true` não constitui autorização do usuário nem deve ser habilitado sob a regra atual de custo zero. Esta missão não habilitou o interruptor, não configurou credenciais e não fez chamadas reais.
