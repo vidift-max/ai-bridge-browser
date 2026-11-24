@@ -75,6 +75,51 @@ class RuntimeConfig:
         return value
 
     @staticmethod
+    def openai_api_key():
+        value = RuntimeConfig.optional("OPENAI_API_KEY", "")
+        if not isinstance(value, str):
+            raise RuntimeError("invalid_runtime_config:OPENAI_API_KEY")
+        return value.strip()
+
+    @staticmethod
+    def openai_text_model() -> str:
+        value = RuntimeConfig.optional("OPENAI_TEXT_MODEL", "gpt-6.2-astra")
+        if not value or value.strip() != value or len(value) > 128:
+            raise RuntimeError("invalid_runtime_config:OPENAI_TEXT_MODEL")
+        return value
+
+    @staticmethod
+    def openai_timeout_seconds() -> int:
+        raw = RuntimeConfig.optional("OPENAI_TIMEOUT_SECONDS", "45")
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            raise RuntimeError("invalid_runtime_config:OPENAI_TIMEOUT_SECONDS")
+        if value < 5 or value > 120:
+            raise RuntimeError("invalid_runtime_config:OPENAI_TIMEOUT_SECONDS")
+        return value
+
+    @staticmethod
+    def openai_max_input_chars() -> int:
+        raw = RuntimeConfig.optional("OPENAI_MAX_INPUT_CHARS", "12000")
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            raise RuntimeError("invalid_runtime_config:OPENAI_MAX_INPUT_CHARS")
+        if value < 100 or value > 50000:
+            raise RuntimeError("invalid_runtime_config:OPENAI_MAX_INPUT_CHARS")
+        return value
+
+    @staticmethod
+    def openai_instructions() -> str:
+        return RuntimeConfig.optional(
+            "OPENAI_GPT6_INSTRUCTIONS",
+            "You are GPT-6, the user's dedicated AI Messenger assistant. "
+            "Be honest about being an API-connected assistant, do not claim to be the "
+            "exact hidden ChatGPT session, and help the user continue their work safely."
+        )
+
+    @staticmethod
     def voice_admin_ids(tokens=None):
         raw = RuntimeConfig.optional("MESSENGER_VOICE_ADMIN_AI_IDS", "")
         if not isinstance(raw, str) or raw.strip() != raw:
