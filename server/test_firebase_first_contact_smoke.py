@@ -375,7 +375,7 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         import hashlib
         config = validate_config(BASE)
         plan = {
-            "schema_version": 1, "state": "SEND_PLAN_READY",
+            "schema_version": 2, "state": "SEND_PLAN_READY",
             "sender": "AI-01", "recipient": "AI-02",
             "conversation_id": "private-ai-01-ai-02", "operation": "ONE_TEXT_MESSAGE",
             "payload": {"senderAiId": "AI-01", "recipientAiIds": {"AI-02": True, "AI-03": True},
@@ -408,7 +408,7 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         config = validate_config(BASE)
         payload = {"senderAiId": "AI-01", "recipientAiIds": {"AI-02": True},
                    "body": "x" * 281, "messageKind": "NORMAL", "createdAtEpochMs": 1}
-        plan = {"schema_version": 1, "state": "SEND_PLAN_READY", "sender": "AI-01",
+        plan = {"schema_version": 2, "state": "SEND_PLAN_READY", "sender": "AI-01",
                 "recipient": "AI-02", "conversation_id": "private-ai-01-ai-02",
                 "payload": payload, "payload_sha256": hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest(),
                 "write_operations": "NONE", "send_operation": "NOT_EXECUTED",
@@ -496,6 +496,8 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual(result["state"], "SEND_PLAN_VALID")
             self.assertEqual(result["firebase_requests"], "NONE")
+            self.assertEqual(result["plan_sha256"], plan["plan_sha256"])
+            self.assertEqual(result["expires_at_epoch_ms"], plan["expires_at_epoch_ms"])
             self.assertNotIn("token-a-secret", output.getvalue())
             self.assertNotIn("token-b-secret", output.getvalue())
 
