@@ -395,5 +395,32 @@ class MessengerBackendTest(unittest.TestCase):
             self.assertEqual(approved[0]["status"], "APPROVED")
             third.close()
 
+    def test_long_poll_returns_immediately_when_message_is_pending(self):
+        self.backend.submit("opaque-a", "long-poll-immediate", "room-1", ["AI-B"], "hello", "long-poll-immediate-req")
+        messages = self.backend.wait_for_messages("opaque-b", "room-1", after_sequence=0, limit=10, timeout_seconds=0)
+        self.assertEqual([message.message_id for message in messages], ["long-poll-immediate"])
+
+    def test_long_poll_times_out_with_empty_result(self):
+        messages = self.backend.wait_for_messages("opaque-b", "room-1", after_sequence=0, limit=10, timeout_seconds=0)
+        self.assertEqual(messages, [])
+
+    def test_long_poll_wakes_when_new_message_is_submitted(self):
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(
+                self.backend.wait_for_messages,
+                "opaque-b", "room-1", 0, 10, 5)
+            self.backend.submit(
+                "opaque-a", "long-poll-wakeup", "room-1", ["AI-B"],
+                "wake up", "long-poll-wakeup-req")
+            messages = future.result(timeout=2)
+        self.assertEqual([message.message_id for message in messages], ["long-poll-wakeup"])
+
+    def test_long_poll_rejects_invalid_timeout(self):
+        for timeout in (-1, 26, True, "20"):
+            with self.subTest(timeout=timeout):
+                with self.assertRaisesRegex(ValueError, "invalid_wait_timeout"):
+                    self.backend.wait_for_messages(
+                        "opaque-b", "room-1", 0, 10, timeout)
+
 if __name__ == "__main__":
     unittest.main()
