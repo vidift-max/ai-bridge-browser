@@ -223,15 +223,35 @@ def run_probe(config, send=False, timeout=10, wait_seconds=45):
 
 
 
+PLAN_TTL_MS = 10 * 60 * 1000
+PLAN_MAX_FUTURE_SKEW_MS = 30 * 1000
+
+
 def _canonical_payload_bytes(payload):
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
-def validate_send_plan(plan, config):
-    """Fail closed unless a dry-run plan is intact and bound to this AI pair."""
-    if not isinstance(plan, dict) or plan.get("schema_version") != 1:
+def _canonical_plan_bytes(plan):
+    """Canonicalize every decision-bearing field except the digest itself."""
+    protected = {
+        key: plan[key] for key in (
+            "schema_version", "state", "preflight", "sender", "recipient",
+            "conversation_id", "operation", "created_at_epoch_ms",
+            "expires_at_epoch_ms", "payload", "payload_sha256",
+            "write_operations", "send_operation", "acknowledgement",
+            "credentials_included",
+        )
+    }
+    return json.dumps(protected, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def validate_send_plan(plan, config, now_ms=None):
+    """Fail closed unless the plan is intact, pair-bound, and within its short validity window."""
+    if not isinstance(plan, dict) or plan.get("schema_version") != 2:
         raise ProbeError("send_plan_schema_invalid")
     if (plan.get("state") != "SEND_PLAN_READY" or
+            plan.get("preflight") != "PREFLIGHT_PASS" or
+            plan.get("operation") != "ONE_TEXT_MESSAGE" or
             plan.get("sender") != config["ai_a"] or
             plan.get("recipient") != config["ai_b"] or
             plan.get("conversation_id") != config["conversation"]):
@@ -246,18 +266,35 @@ def validate_send_plan(plan, config):
     body = payload.get("body")
     if not isinstance(body, str) or not body.strip() or len(body) > 280:
         raise ProbeError("send_plan_body_invalid")
-    if not isinstance(payload.get("createdAtEpochMs"), int):
+    created_at = plan.get("created_at_epoch_ms")
+    expires_at = plan.get("expires_at_epoch_ms")
+    payload_created_at = payload.get("createdAtEpochMs")
+    if (not isinstance(created_at, int) or isinstance(created_at, bool) or
+            not isinstance(expires_at, int) or isinstance(expires_at, bool) or
+            not isinstance(payload_created_at, int) or isinstance(payload_created_at, bool) or
+            payload_created_at != created_at):
         raise ProbeError("send_plan_timestamp_invalid")
-    digest = hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest()
-    if plan.get("payload_sha256") != digest:
+    if expires_at != created_at + PLAN_TTL_MS:
+        raise ProbeError("send_plan_expiry_invalid")
+    current_time = int(time.time() * 1000) if now_ms is None else now_ms
+    if not isinstance(current_time, int) or isinstance(current_time, bool):
+        raise ProbeError("send_plan_clock_invalid")
+    if created_at > current_time + PLAN_MAX_FUTURE_SKEW_MS:
+        raise ProbeError("send_plan_timestamp_in_future")
+    if current_time > expires_at:
+        raise ProbeError("send_plan_expired")
+    payload_digest = hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest()
+    if plan.get("payload_sha256") != payload_digest:
         raise ProbeError("send_plan_payload_integrity_mismatch")
     if (plan.get("write_operations") != "NONE" or
             plan.get("send_operation") != "NOT_EXECUTED" or
             plan.get("acknowledgement") != "NOT_RUN" or
             plan.get("credentials_included") is not False):
         raise ProbeError("send_plan_safety_metadata_invalid")
+    digest = hashlib.sha256(_canonical_plan_bytes(plan)).hexdigest()
+    if plan.get("plan_sha256") != digest:
+        raise ProbeError("send_plan_integrity_mismatch")
     return True
-
 
 
 def save_send_plan(plan, destination):
@@ -328,14 +365,17 @@ def prepare_send_plan(config):
         "messageKind": "NORMAL",
         "createdAtEpochMs": int(time.time() * 1000),
     }
+    created_at = payload["createdAtEpochMs"]
     plan = {
-        "schema_version": 1,
+        "schema_version": 2,
         "state": "SEND_PLAN_READY",
         "preflight": preflight["state"],
         "sender": config["ai_a"],
         "recipient": config["ai_b"],
         "conversation_id": config["conversation"],
         "operation": "ONE_TEXT_MESSAGE",
+        "created_at_epoch_ms": created_at,
+        "expires_at_epoch_ms": created_at + PLAN_TTL_MS,
         "payload": payload,
         "payload_sha256": hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest(),
         "write_operations": "NONE",
@@ -343,6 +383,7 @@ def prepare_send_plan(config):
         "acknowledgement": "NOT_RUN",
         "credentials_included": False,
     }
+    plan["plan_sha256"] = hashlib.sha256(_canonical_plan_bytes(plan)).hexdigest()
     validate_send_plan(plan, config)
     return plan
 
@@ -375,8 +416,11 @@ def main(argv=None):
             validate_send_plan(plan, config)
             result = {"state": "SEND_PLAN_VALID", "sender": plan["sender"],
                       "recipient": plan["recipient"], "conversation_id": plan["conversation_id"],
-                      "payload_sha256": plan["payload_sha256"], "firebase_requests": "NONE",
-                      "send_operation": "NOT_EXECUTED", "acknowledgement": "NOT_RUN"}
+                      "payload_sha256": plan["payload_sha256"], "plan_sha256": plan["plan_sha256"],
+                      "created_at_epoch_ms": plan["created_at_epoch_ms"],
+                      "expires_at_epoch_ms": plan["expires_at_epoch_ms"],
+                      "firebase_requests": "NONE", "send_operation": "NOT_EXECUTED",
+                      "acknowledgement": "NOT_RUN"}
         else:
             if args.plan_output and not args.prepare_send:
                 raise ProbeError("plan_output_requires_prepare_send")
