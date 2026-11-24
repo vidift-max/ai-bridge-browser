@@ -86,5 +86,5 @@ Auditoria do branch `feat/gpt6-messenger-direct-connection`. Distingue código p
 - O nome exibido é o AI ID provisionado. Diretório com nomes amigáveis e número interno separado ainda não foi implementado.
 - Heartbeat e UI dependem de navegador aberto; pagehide é best-effort, e fechamento abrupto será detectado pela expiração TTL de 90 segundos.
 - Não foi realizado teste manual em dois navegadores/dispositivos.
-- No SHA consultado 14f13be01931c4b97a524af20f2628548d598284, três workflows estavam QUEUED: Android Build 45315779305, Messenger Backend Test 45315779298, GPT-6 Direct Messenger Validation 45315779351. Não declarar PASS até consultar as conclusões.
+- No SHA 14f13be01931c4b97a524af20f2628548d598284, Messenger Backend Test 45315779298 e o job server do GPT-6 Direct Messenger Validation 45315779351 falharam por falhas preexistentes na validação de schema de restore SQLite (41 falhas e 1 erro em 321 testes). Os novos testes de presença HTTP, serviço e concorrência aparecem como `ok` nos logs. Android Build 45315779305 e o job android da validação ainda estavam em execução na última consulta. O SHA mais recente da branch é 15481a2214b986f58d840b8dc08e15fb93f0ab81; os workflows consultados não validam os ajustes posteriores de JavaScript.
 - PR #3 permanece draft, aberta e não mesclada. Nenhum deploy foi realizado.
