@@ -125,6 +125,19 @@ class CredentialRegistry:
         return record.generation
 
     @_synchronized
+    def provision_ephemeral(self, token: str, ai_id: str, expires_at: datetime):
+        token_hash = self._hash(token)
+        if not token_hash or not isinstance(ai_id, str) or not ai_id.strip():
+            raise ValueError("invalid_credential")
+        if token_hash in self._records:
+            raise ValueError("credential_already_exists")
+        if expires_at is None or expires_at <= datetime.now(timezone.utc):
+            raise ValueError("ephemeral_expiry_required")
+        record = CredentialRecord(token_hash, ai_id, "ACTIVE", expires_at, 1)
+        self._records[token_hash] = record
+        return record.generation
+
+    @_synchronized
     def authenticate(self, token: str, now: Optional[datetime] = None) -> str:
         record = self._records.get(self._hash(token))
         if record is None or record.effective_status(now) != "ACTIVE":
