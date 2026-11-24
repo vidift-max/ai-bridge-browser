@@ -1,0 +1,31 @@
+name: AI Bridge Remote Control Plane Tests
+
+on:
+  push:
+    branches:
+      - feat/mission-12-ai-remote-control-continuity
+    paths:
+      - 'web/ai-control-plane.js'
+      - 'web/ai-control-plane.test.mjs'
+      - '.github/workflows/ai-control-plane-test.yml'
+  pull_request:
+    branches:
+      - feat/mission-11-webrtc-reliability
+    paths:
+      - 'web/ai-control-plane.js'
+      - 'web/ai-control-plane.test.mjs'
+      - '.github/workflows/ai-control-plane-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  control-plane:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run remote control and continuity policy tests
+        run: node --test web/ai-control-plane.test.mjs
