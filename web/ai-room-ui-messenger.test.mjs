@@ -96,6 +96,15 @@ test("Rooms page loads and uses the UI messenger adapter for send and receive",a
  assert.match(html,/ensureRoomMessenger\(\)\.load\(\)/);
  assert.match(html,/body\.textContent=message\.body/);
 });
+
+test("Rooms history control prepends older messages and preserves the reading position",async()=>{
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.match(html,/id="loadConversationHistory"/);
+ assert.match(html,/loadHistory\(historyBeforeSequence,50\)/);
+ assert.match(html,/insertBefore\(box,messagesEl\.firstChild\)/);
+ assert.match(html,/previousTop\+\(messagesEl\.scrollHeight-previousHeight\)/);
+ assert.match(html,/historyBeforeSequence=0;historyHasMore=true/);
+});
 test("HTTP server exposes the UI messenger asset without weakening cache or content type headers",async()=>{
  const server=await readFile(new URL("../server/http_server.py",import.meta.url),"utf8");
  assert.match(server,/def _room_ui_messenger_script\(self\)/);
