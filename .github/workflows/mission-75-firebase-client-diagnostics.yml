@@ -1,0 +1,22 @@
+name: Mission 75 Firebase Android Client Diagnostics
+on:
+  push:
+    branches: ["feat/mission-75-firebase-client-diagnostics"]
+  pull_request:
+    branches: ["feat/mission-74-firebase-first-contact-runner"]
+permissions:
+  contents: read
+jobs:
+  android-diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Run Android unit tests
+        run: ./gradlew :app:testDebugUnitTest
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug
