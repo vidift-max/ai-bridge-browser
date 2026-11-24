@@ -5,6 +5,7 @@ on:
     branches:
       - feat/gpt6-messenger-direct-connection
       - feat/mission-08-identity-validation
+      - feat/mission-09-room-voice-controls
   pull_request:
     branches:
       - v2-saas-alpha
