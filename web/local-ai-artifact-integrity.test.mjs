@@ -1,9 +1,11 @@
-"use strict";
-const test=require("node:test");
-const assert=require("node:assert/strict");
-require("./local-ai-artifact-integrity.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
+import "./local-ai-artifact-integrity.js";
+const require = createRequire(import.meta.url);
 const api=globalThis.AIBridgeArtifactIntegrity;
-const crypto=require("node:crypto");
+const crypto={createHash};
 const bytes=new Uint8Array([1,2,3,4,5]);
 const hash=crypto.createHash("sha256").update(bytes).digest("hex");
 const governance={status:"METADATA_REVIEW_COMPLETE_PENDING_SEPARATE_ACTION",eligibleForAcquisition:false,eligibleForExecution:false,modelId:"demo-model",artifactSha256:hash};
