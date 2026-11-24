@@ -799,5 +799,18 @@ class HttpE2ETest(unittest.TestCase):
             "token-a", {"decision": "MAYBE"})
         self.assertEqual(status, 400)
 
+
+    def test_invite_page_is_served_without_referrer_and_cache(self):
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        conn.request("GET", "/invite")
+        response = conn.getresponse()
+        body = response.read().decode("utf-8")
+        headers = dict(response.getheaders())
+        conn.close()
+        self.assertEqual(response.status, 200)
+        self.assertIn("Solicitar entrada", body)
+        self.assertEqual(headers["Cache-Control"], "no-store")
+        self.assertEqual(headers["Referrer-Policy"], "no-referrer")
+
 if __name__ == "__main__":
     unittest.main()
