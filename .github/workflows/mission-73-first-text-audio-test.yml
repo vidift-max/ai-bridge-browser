@@ -1,0 +1,42 @@
+name: Mission 73 First Text and Audio Test
+on:
+  push:
+    branches: ["feat/mission-73-first-text-audio-test"]
+  pull_request:
+    branches: ["feat/mission-72-call-invite-notifications"]
+permissions:
+  contents: read
+jobs:
+  browser-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run browser and WebRTC client tests
+        run: node --test web/*.test.mjs
+  backend-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run backend, authenticated HTTP, text and audio tests
+        run: python -m unittest discover -s server -p 'test_*.py' -v
+  android-build-and-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - name: Run Android unit tests
+        run: gradle :app:testDebugUnitTest
+      - name: Build debug APK
+        run: gradle :app:assembleDebug
