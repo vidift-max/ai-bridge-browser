@@ -245,8 +245,11 @@ class MessengerHandler(BaseHTTPRequestHandler):
         invite_parts = parsed.path.split("/")
         if len(invite_parts) == 4 and invite_parts[1:3] == ["v1", "invites"] and invite_parts[3]:
             try:
+                self.rate_limiter.allow("invite:" + self.client_address[0])
                 result = self.backend.get_public_invite(invite_parts[3])
                 self._json(200, {"invite": result})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
             except ValueError:
                 self._json(404, {"error": "invite_unavailable"})
             return
