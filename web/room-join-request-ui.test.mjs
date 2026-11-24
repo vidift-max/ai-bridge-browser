@@ -39,7 +39,7 @@ test("backend decision accepts only APPROVE or REJECT and handles stale decision
  assert.match(backend,/decision not in \("APPROVE", "REJECT"\)/);
  assert.match(backend,/request_already_decided/);
  assert.match(store,/BEGIN IMMEDIATE/);
- assert.match(store,/request\["status"\] != "PENDING"/);
+ assert.ok(store.includes('row["status"] != "PENDING"'));
 });
 test("room admin action opens the review panel without auto-deciding requests",()=>{
  assert.match(html,/requestsButton\.onclick=\(\)=>reviewRequests\(room\)/);
