@@ -1,11 +1,14 @@
 (function(root){
  "use strict";
- function filterRooms(rooms,query,kind){
+ function filterRooms(rooms,query,kind,view="ALL",pinnedIds=[]){
   if(!Array.isArray(rooms))return [];
   const needle=String(query||"").trim().toLocaleLowerCase();
   return rooms.filter(room=>{
    if(!room||typeof room.conversationId!=="string")return false;
    if(kind&&kind!=="ALL"&&room.kind!==kind)return false;
+   if(view==="UNREAD"&&!(Number.isSafeInteger(room.unreadCount)&&room.unreadCount>0))return false;
+   if(view==="PINNED"&&(!Array.isArray(pinnedIds)||!pinnedIds.includes(room.conversationId)))return false;
+   if(view!=="ALL"&&view!=="UNREAD"&&view!=="PINNED")return false;
    if(!needle)return true;
    const preview=room.lastMessage&&typeof room.lastMessage.body==="string"?room.lastMessage.body:"";
    const haystack=[room.conversationId,room.kind,preview,...(Array.isArray(room.memberAiIds)?room.memberAiIds:[])].join(" ").toLocaleLowerCase();
