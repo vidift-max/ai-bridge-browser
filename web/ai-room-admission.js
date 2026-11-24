@@ -101,7 +101,7 @@
    target.leftAt=now();
    return participantView(target);
   }
-  function authorizeMessage(input){
+  function authorizeRead(input){\n   input=input||{};\n   var r=roomFor(input.roomId);\n   var p=r.members.get(input.aiId);\n   if(!p||p.status!=="ACTIVE"||p.sessionId!==input.sessionId)throw new Error("ROOM_MEMBERSHIP_REQUIRED");\n   activeSession(p.sessionId);\n   return Object.freeze({roomId:r.roomId,aiId:p.aiId,sessionId:p.sessionId,authorized:true,role:p.role});\n  }\n  function authorizeMessage(input){
    input=input||{};
    var r=roomFor(input.roomId);
    var p=r.members.get(input.aiId);
