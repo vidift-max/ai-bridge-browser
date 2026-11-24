@@ -59,6 +59,13 @@ class IdentityHttpTest(unittest.TestCase):
         except HTTPError as error:
             return error.code, json.loads(error.read())
 
+    def test_room_inbox_helper_is_served_as_javascript(self):
+        with urlopen(self.base + "/ai-room-inbox.js", timeout=3) as response:
+            body = response.read().decode("utf-8")
+            self.assertEqual(response.status, 200)
+            self.assertIn("AIBridgeRoomInbox", body)
+            self.assertIn("mergePage", body)
+
     def test_room_creation_helper_is_served_as_javascript(self):
         with urlopen(self.base + "/ai-room-creation.js", timeout=3) as response:
             body = response.read().decode("utf-8")
