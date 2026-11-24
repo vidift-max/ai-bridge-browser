@@ -7,6 +7,10 @@ class HttpContractTest(unittest.TestCase):
         self.assertIn("/healthz",MessengerHandler.do_GET.__code__.co_consts)
         self.assertIn("/readyz",MessengerHandler.do_GET.__code__.co_consts)
 
+    def test_gpt6_web_route_is_defined(self):
+        self.assertIn("/gpt6",MessengerHandler.do_GET.__code__.co_consts)
+        self.assertTrue(hasattr(MessengerHandler,"_gpt6_web"))
+
     def test_routes_are_defined(self):
         self.assertTrue(hasattr(MessengerHandler,"do_GET"))
         self.assertTrue(hasattr(MessengerHandler,"do_POST"))
