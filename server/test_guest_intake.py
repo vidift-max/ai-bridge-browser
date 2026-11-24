@@ -8,7 +8,7 @@ class GuestIntakeTest(unittest.TestCase):
     def setUp(self):
         self.backend = MessengerBackend(
             {"admin-token": "AI-ADMIN", "member-token": "AI-MEMBER"},
-            {"guest-room": {"AI-ADMIN", "AI-MEMBER"}})
+            {})
         self.backend.create_conversation(
             "admin-token", "guest-room", ["AI-ADMIN", "AI-MEMBER"], "GROUP")
         self.invite = self.backend.create_room_invite(
