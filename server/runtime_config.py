@@ -39,7 +39,16 @@ class RuntimeConfig:
         mode = RuntimeConfig.storage_mode()
         db_path = Path(RuntimeConfig.storage_path()).resolve()
         if mode == "ephemeral":
-            raise RuntimeError("storage_not_durable:ephemeral")
+            environment = RuntimeConfig.optional("MESSENGER_ENVIRONMENT", "")
+            allow_ephemeral = RuntimeConfig.optional(
+                "MESSENGER_ALLOW_EPHEMERAL_STAGING", "false")
+            if allow_ephemeral not in ("true", "false"):
+                raise RuntimeError(
+                    "invalid_runtime_config:MESSENGER_ALLOW_EPHEMERAL_STAGING")
+            if environment != "staging" or allow_ephemeral != "true":
+                raise RuntimeError(
+                    "storage_not_durable:ephemeral_requires_staging_opt_in")
+            return mode
         if mode == "persistent":
             root = Path(RuntimeConfig.persistent_storage_root()).resolve()
             if not root.is_dir() or not os.access(str(root), os.W_OK):
