@@ -37,6 +37,11 @@ class HttpContractTest(unittest.TestCase):
         self.assertIn("accountSessionConnected", constants)
         self.assertIn("online", constants)
 
+    def test_paid_provider_routes_have_fail_closed_policy_guard(self):
+        constants = MessengerHandler.do_POST.__code__.co_consts
+        self.assertIn("openai_api_calls_disabled", constants)
+        self.assertIn("api_calls_enabled", constants)
+
     def test_authentication_boundary_is_present(self):
         self.assertTrue(hasattr(MessengerHandler, "_principal"))
         self.assertIn("authentication_required", MessengerHandler.do_GET.__code__.co_consts)
