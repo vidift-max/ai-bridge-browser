@@ -60,10 +60,7 @@ class GuestWebSessionServiceTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "post-insert failure"):
             service.exchange("guest-bearer")
         self.assertEqual(service._sessions, {})
-        self.assertEqual(
-            next(iter(auth.ephemeral.values()))[1],
-            "REVOKED",
-        )
+        self.assertEqual(next(iter(auth.ephemeral.values()))[1], "REVOKED")
 
     def test_non_guest_credential_is_rejected(self):
         self.auth.tokens["member-token"] = ("AI-MEMBER", "ACTIVE")
@@ -79,6 +76,31 @@ class GuestWebSessionServiceTest(unittest.TestCase):
         self.assertTrue(self.service.revoke(session))
         with self.assertRaises(PermissionError):
             self.service.authenticate(session)
+
+    def test_revoke_failure_keeps_session_active_for_retry(self):
+        class RevocationFailingAuthenticator(FakeAuthenticator):
+            def __init__(self):
+                super().__init__()
+                self.fail_revoke = True
+
+            def revoke(self, token):
+                if self.fail_revoke:
+                    raise OSError("credential revocation failed")
+                super().revoke(token)
+
+        auth = RevocationFailingAuthenticator()
+        service = GuestWebSessionService(auth)
+        session = service.exchange("guest-bearer")["sessionToken"]
+        with self.assertRaisesRegex(OSError, "credential revocation failed"):
+            service.revoke(session)
+        self.assertEqual(
+            service.authenticate(session)["aiId"],
+            "AI-GUEST-0001",
+        )
+        auth.fail_revoke = False
+        self.assertTrue(service.revoke(session))
+        with self.assertRaises(PermissionError):
+            service.authenticate(session)
 
     def test_parent_credential_revocation_invalidates_child_session(self):
         session = self.service.exchange("guest-bearer")["sessionToken"]
