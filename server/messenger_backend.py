@@ -631,8 +631,11 @@ class MessengerBackend:
         self._purge_expired()
         ai_id = self.authenticate(bearer_token)
         message = self._messages.get(message_id)
-        if message is None or ai_id not in message.recipient_ai_ids:
+        members = self._conversations.get(message.conversation_id) if message is not None else None
+        if (message is None or not members or ai_id not in members or
+                ai_id not in message.recipient_ai_ids):
             raise PermissionError("authorization_denied")
-        message.acknowledged_by.add(ai_id)
-        self._store.save_ack(message_id, ai_id)
+        if ai_id not in message.acknowledged_by:
+            self._store.save_ack(message_id, ai_id)
+            message.acknowledged_by.add(ai_id)
         return message
