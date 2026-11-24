@@ -102,12 +102,12 @@ test("guest messenger ignores late responses from an older session generation", 
 });
 
 
-test("guest messenger negotiates the authorized transport contract before opening the room", async () => {
+test("guest messenger negotiates and validates the authorized transport contract before opening the room", async () => {
   const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
   assert.match(source, /\/v1\/conversations\/.*\/transport/);
-  assert.match(source, /transport\.authorized/);
-  assert.match(source, /transport\.transports\?\.httpLongPoll\?\.enabled/);
-  assert.match(source, /transport\.defaultTransport !== "HTTP_LONG_POLL"/);
+  assert.match(source, /validateGuestTransportContract\(transport, room\.conversationId\)/);
+  assert.match(source, /payload\.authorized !== true/);
+  assert.match(source, /payload\.defaultTransport !== "HTTP_LONG_POLL"/);
   assert.match(source, /guest_transport_unavailable/);
 });
 
