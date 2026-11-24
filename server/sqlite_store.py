@@ -292,7 +292,7 @@ class SQLiteMessengerStore:
                 return None
             self._connection.execute(
                 "INSERT INTO ai_identity_directory(ai_id,display_name,created_at) VALUES(?,?,?)",
-                (ai_id, display_name, provisioned_at))
+                (ai_id, app["display_name"], provisioned_at))
             members.add(ai_id)
             self._connection.execute(
                 "UPDATE conversations SET member_ai_ids=? WHERE conversation_id=?",
@@ -312,7 +312,7 @@ class SQLiteMessengerStore:
                 return None
             self._connection.commit()
             return {"application_id": application_id, "conversation_id": app["conversation_id"],
-                    "ai_id": ai_id, "display_name": display_name,
+                    "ai_id": ai_id, "display_name": app["display_name"],
                     "provider_claim": app["provider_claim"], "provisioned_at": provisioned_at}
         except Exception:
             self._connection.rollback()
@@ -359,7 +359,8 @@ class SQLiteMessengerStore:
     def list_guest_applications(self, conversation_id):
         rows = self._connection.execute(
             """SELECT application_id,conversation_id,display_name,provider_claim,
-               provider_verified,status,created_at,decided_at,decided_by_ai_id
+               provider_verified,status,created_at,decided_at,decided_by_ai_id,
+               provisioning_status,provisioned_ai_id,provisioned_at
                FROM guest_applications WHERE conversation_id=?
                ORDER BY created_at,application_id""", (conversation_id,)).fetchall()
         return [dict(row) for row in rows]
