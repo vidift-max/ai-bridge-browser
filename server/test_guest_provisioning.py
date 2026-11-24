@@ -122,9 +122,6 @@ class GuestCredentialProvisioningTest(unittest.TestCase):
         provisioned = self.provision()
         guest_ai_id = provisioned["identity"]["aiId"]
         guest_token = provisioned["credential"]
-        self.backend.submit(
-            "admin-token", "revocation-poll-message", "room-a", [guest_ai_id],
-            "private payload", "revocation-poll-request")
 
         waiting = threading.Event()
         outcome = {}
