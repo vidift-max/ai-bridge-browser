@@ -44,6 +44,7 @@ class CredentialRegistry:
             for token, ai_id in token_to_ai_id.items()
         }
         self._persistent_hashes = set()
+        self._ephemeral_parent_hashes = {}
         if self._connection is not None:
             rows = self._connection.execute(
                 "SELECT token_hash,ai_id,status,expires_at,generation FROM credential_records"
@@ -125,7 +126,7 @@ class CredentialRegistry:
         return record.generation
 
     @_synchronized
-    def provision_ephemeral(self, token: str, ai_id: str, expires_at: datetime):
+    def provision_ephemeral(self, token: str, ai_id: str, expires_at: datetime, parent_token: str = ""):
         token_hash = self._hash(token)
         if not token_hash or not isinstance(ai_id, str) or not ai_id.strip():
             raise ValueError("invalid_credential")
@@ -135,19 +136,31 @@ class CredentialRegistry:
             raise ValueError("ephemeral_expiry_required")
         record = CredentialRecord(token_hash, ai_id, "ACTIVE", expires_at, 1)
         self._records[token_hash] = record
+        parent_hash = self._hash(parent_token)
+        if parent_hash:
+            self._ephemeral_parent_hashes[token_hash] = parent_hash
         return record.generation
+
+    def _parent_is_active(self, token_hash: str, now=None) -> bool:
+        parent_hash = self._ephemeral_parent_hashes.get(token_hash)
+        if not parent_hash:
+            return True
+        parent = self._records.get(parent_hash)
+        return parent is not None and parent.effective_status(now) == "ACTIVE"
 
     @_synchronized
     def authenticate(self, token: str, now: Optional[datetime] = None) -> str:
-        record = self._records.get(self._hash(token))
-        if record is None or record.effective_status(now) != "ACTIVE":
+        token_hash = self._hash(token)
+        record = self._records.get(token_hash)
+        if record is None or record.effective_status(now) != "ACTIVE" or not self._parent_is_active(token_hash, now):
             raise PermissionError("authentication_required")
         return record.ai_id
 
     @_synchronized
     def authenticate_with_generation(self, token: str, now: Optional[datetime] = None):
-        record = self._records.get(self._hash(token))
-        if record is None or record.effective_status(now) != "ACTIVE":
+        token_hash = self._hash(token)
+        record = self._records.get(token_hash)
+        if record is None or record.effective_status(now) != "ACTIVE" or not self._parent_is_active(token_hash, now):
             raise PermissionError("authentication_required")
         return record.ai_id, record.generation
 
