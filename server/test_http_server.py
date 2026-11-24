@@ -36,7 +36,10 @@ class HttpContractTest(unittest.TestCase):
 
     def test_local_ai_catalog_exposes_inference_contract_without_execution_route(self):
         constants = MessengerHandler.do_GET.__code__.co_consts
-        self.assertIn("inferenceContract", constants)
+        self.assertTrue(any(
+            isinstance(value, tuple) and "inferenceContract" in value
+            for value in constants
+        ))
         self.assertIn("/v1/local-ai", constants)
         self.assertNotIn("/v1/local-ai/execute", constants)
 
