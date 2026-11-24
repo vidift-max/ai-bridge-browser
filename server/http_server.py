@@ -36,6 +36,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     voice_calls=None
     openai_text=None
     provider_registry=None
+    guest_sessions=None
 
     def _auth(self):
         return bearer_token(self.headers)
@@ -91,6 +92,23 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _guest_web(self):
+        page = Path(__file__).resolve().parent.parent / "web" / "guest.html"
+        try:
+            data = page.read_bytes()
+        except OSError:
+            self._json(404, {"error": "guest_web_not_found"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -171,6 +189,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
+        if self.path in ("/guest", "/guest/"):
+            self._guest_web()
+            return
         if self.path in ("/invite", "/invite/"):
             self._invite_web()
             return
@@ -205,6 +226,20 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(200,{"status":"ready","storageMode":storage_mode})
             except RuntimeError:
                 self._json(503,{"status":"not_ready","error":"runtime_configuration_invalid"})
+            return
+        if self.path == "/v1/guest-sessions/current":
+            try:
+                token = self._auth()
+                if self.guest_sessions is None:
+                    self._json(503, {"error": "guest_sessions_unavailable"})
+                    return
+                self.rate_limiter.allow("guest-session:" + self.client_address[0])
+                current = self.guest_sessions.authenticate(token)
+                self._json(200, {"session": current})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError:
+                self._json(401, {"error": "guest_session_not_active"})
             return
         if self.path == "/v1/operations/summary":
             try:
@@ -586,6 +621,36 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        if urlsplit(self.path).path == "/v1/guest-sessions":
+            try:
+                if self.guest_sessions is None:
+                    self._json(503, {"error": "guest_sessions_unavailable"})
+                    return
+                self.rate_limiter.allow("guest-session:" + self.client_address[0])
+                payload = self._read_json(max_length=2000)
+                result = self.guest_sessions.exchange(payload.get("credential"))
+                self._json(201, {"session": {
+                    "sessionToken": result["sessionToken"],
+                    "aiId": result["aiId"],
+                    "expiresAt": result["expiresAt"],
+                    "expiresInSeconds": result["expiresInSeconds"],
+                }})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError:
+                self._json(401, {"error": "guest_credential_invalid"})
+            except (TypeError, ValueError):
+                self._json(400, {"error": "guest_credential_invalid"})
+            return
+        if urlsplit(self.path).path == "/v1/guest-sessions/logout":
+            try:
+                if self.guest_sessions is None or not self.guest_sessions.revoke(self._auth()):
+                    self._json(401, {"error": "guest_session_not_active"})
+                    return
+                self._json(200, {"loggedOut": True})
+            except PermissionError:
+                self._json(401, {"error": "guest_session_not_active"})
+            return
         if urlsplit(self.path).path == "/v1/guest-applications":
             try:
                 self.rate_limiter.allow("guest:" + self.client_address[0])
@@ -1054,6 +1119,8 @@ def serve(host="127.0.0.1",port=8080):
     MessengerHandler.audio_store=AudioBlobStore(str(Path(RuntimeConfig.storage_path()).resolve().parent / "audio"))
     MessengerHandler.openai_text=OpenAITextAdapter()
     MessengerHandler.provider_registry=ProviderRegistry(MessengerHandler.openai_text)
+    from server.guest_web_session import GuestWebSessionService
+    MessengerHandler.guest_sessions=GuestWebSessionService(authenticator)
     server = ThreadingHTTPServer((host, port), MessengerHandler)
     server.daemon_threads = True
     try:
