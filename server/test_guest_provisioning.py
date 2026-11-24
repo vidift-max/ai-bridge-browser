@@ -1,6 +1,7 @@
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 
 from server.auth import Authenticator
