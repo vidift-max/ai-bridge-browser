@@ -2,24 +2,32 @@
 
 ## 10-round execution record
 
-1. Revalidated PR #90 as Draft and confirmed its staging Blueprint is based on M89.
+1. Revalidated PR #90 as Draft and confirmed its staging Blueprint was based on M89.
 2. Created the M91 branch from the M90 HEAD without merge, reset, or force-push.
 3. Registered a separate Render Blueprint named **AI Bridge Browser Staging M91** in the existing Render workspace.
-4. Configured the Blueprint to read `render.staging.yaml` from the M91 branch.
-5. Disabled auto-sync so a future Git push cannot silently create infrastructure.
-6. Requested the first Render infrastructure plan.
-7. Render rejected planning with `need_payment_info` because the Blueprint requests a Starter web service and persistent disk.
-8. No Render service was created and no deployment was started.
-9. Recorded the exact activation prerequisites and the external authorization boundary.
-10. M91 remains FREE_PLAN_RETRY_READY; after payment information is available, the plan can be requested again and reviewed before approval.
+4. Configured the Blueprint to read `render.staging.yaml` from the M91 branch with auto-sync disabled.
+5. Requested an initial Render infrastructure plan.
+6. The initial plan exposed a paid boundary because the first Blueprint revision requested a Starter web service and persistent disk.
+7. Removed the paid Starter plan and persistent disk from `render.staging.yaml`.
+8. Switched staging to Render **Free** with ephemeral SQLite in `:memory:` and removed unnecessary OpenAI variables from this invitation-only staging plan.
+9. Replanned successfully: Free web service, Oregon, no persistent disk, and only AI-01/AI-02 messenger tokens as manual secrets.
+10. Updated the activation tests and reran CI; the final M91 CI set passed.
 
-## Required external prerequisites
+## Current staging contract
 
-- Render workspace must have payment information enabled for the requested free web service with ephemeral storage.
-- Review the planned resource and expected cost in Render.
-- Supply real AI-01/AI-02 runtime credentials only when the service is actually authorized for deployment.
-- Approve the Blueprint only after the plan is reviewed.
+- Render plan: **Free**.
+- Storage: **ephemeral**; `MESSENGER_DB_PATH=:memory:`.
+- Persistent disk: **none**.
+- Auto-sync: disabled in the isolated Blueprint.
+- Manual secrets: `MESSENGER_TOKEN_AI_A` and `MESSENGER_TOKEN_AI_B` only.
+- AI identities: AI-01 and AI-02.
+- No production resources are referenced.
+- No physical AI-PHONE is activated by this mission.
+
+## Activation boundary
+
+M91 prepared the infrastructure plan but did **not** approve the Blueprint, create a public service, or deploy it. A later mission may apply this reviewed Free plan only after explicit user authorization. Real runtime credentials must never be invented or committed.
 
 ## Safety
 
-This mission does not merge PRs, approve a Render Blueprint, deploy a service, expose a public endpoint, or activate a physical AI-PHONE.
+The Free plan does not provide durable SQLite persistence across instance replacement/redeploy. It is suitable only for the controlled staging browser/invite test while the instance remains available; it is not a production persistence strategy.
