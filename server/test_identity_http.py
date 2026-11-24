@@ -199,5 +199,28 @@ class IdentityHttpTest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(result["error"], "invalid_history_query")
 
+
+    def test_conversation_list_returns_server_authoritative_preview_and_unread_count(self):
+        self.backend.submit("secret-alpha", "inbox-http-1", "default",
+                            ["AI-BRAVO"], "mensagem pendente", "inbox-http-req-1")
+        status, result = self.request("/v1/conversations?limit=100&after=", "secret-bravo")
+        self.assertEqual(status, 200)
+        room = next(item for item in result["conversations"]
+                    if item["conversationId"] == "default")
+        self.assertEqual(room["unreadCount"], 1)
+        self.assertEqual(room["lastMessage"]["messageId"], "inbox-http-1")
+        self.assertEqual(room["lastMessage"]["body"], "mensagem pendente")
+
+        self.backend.acknowledge("secret-bravo", "inbox-http-1")
+        status, refreshed = self.request("/v1/conversations?limit=100&after=", "secret-bravo")
+        self.assertEqual(status, 200)
+        room = next(item for item in refreshed["conversations"]
+                    if item["conversationId"] == "default")
+        self.assertEqual(room["unreadCount"], 0)
+
+    def test_conversation_list_requires_authentication_for_previews(self):
+        status, result = self.request("/v1/conversations?limit=100&after=")
+        self.assertEqual(status, 401)
+
 if __name__ == "__main__":
     unittest.main()

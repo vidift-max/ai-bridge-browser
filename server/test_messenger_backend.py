@@ -588,5 +588,47 @@ class MessengerBackendTest(unittest.TestCase):
         self.assertEqual(len(self.backend.history("opaque-b", "history-private-scope")), 1)
         self.assertEqual(len(self.backend.history("opaque-a", "history-private-scope")), 1)
 
+
+    def test_inbox_summary_reports_latest_message_and_recipient_unread_count(self):
+        self.backend.create_conversation(
+            "opaque-a", "summary-room", ["AI-A", "AI-B", "AI-C"], "GROUP")
+        first = self.backend.submit(
+            "opaque-a", "summary-first", "summary-room", ["AI-B"],
+            "first to B", "summary-first-req")
+        second = self.backend.submit(
+            "opaque-b", "summary-second", "summary-room", ["AI-A"],
+            "second to A", "summary-second-req")
+
+        for token, expected_unread, expected_latest, expected_body in [
+            ("opaque-a", 1, second.message_id, "second to A"),
+            ("opaque-b", 1, second.message_id, "second to A"),
+            ("opaque-c", 0, None, None),
+        ]:
+            with self.subTest(token=token):
+                result = self.backend.list_conversations(token)
+                room = next(item for item in result["conversations"]
+                            if item["conversationId"] == "summary-room")
+                self.assertEqual(room["unreadCount"], expected_unread)
+                if expected_latest is None:
+                    self.assertIsNone(room["lastMessage"])
+                else:
+                    self.assertEqual(room["lastMessage"]["messageId"], expected_latest)
+                    self.assertEqual(room["lastMessage"]["body"], expected_body)
+
+        self.backend.acknowledge("opaque-b", first.message_id)
+        refreshed = self.backend.list_conversations("opaque-b")
+        room = next(item for item in refreshed["conversations"]
+                    if item["conversationId"] == "summary-room")
+        self.assertEqual(room["unreadCount"], 0)
+        self.assertEqual(room["lastMessage"]["messageId"], second.message_id)
+
+    def test_inbox_summary_does_not_count_messages_sent_by_the_caller_as_unread(self):
+        self.backend.submit("opaque-a", "summary-self", "room-1",
+                            ["AI-B"], "outgoing", "summary-self-req")
+        room = next(item for item in self.backend.list_conversations("opaque-a")["conversations"]
+                    if item["conversationId"] == "room-1")
+        self.assertEqual(room["unreadCount"], 0)
+        self.assertEqual(room["lastMessage"]["senderAiId"], "AI-A")
+
 if __name__ == "__main__":
     unittest.main()

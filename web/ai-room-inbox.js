@@ -7,7 +7,8 @@
    if(!room||typeof room.conversationId!=="string")return false;
    if(kind&&kind!=="ALL"&&room.kind!==kind)return false;
    if(!needle)return true;
-   const haystack=[room.conversationId,room.kind,...(Array.isArray(room.memberAiIds)?room.memberAiIds:[])].join(" ").toLocaleLowerCase();
+   const preview=room.lastMessage&&typeof room.lastMessage.body==="string"?room.lastMessage.body:"";
+   const haystack=[room.conversationId,room.kind,preview,...(Array.isArray(room.memberAiIds)?room.memberAiIds:[])].join(" ").toLocaleLowerCase();
    return haystack.includes(needle);
   });
  }
@@ -17,6 +18,15 @@
   const merged=[...existing];
   for(const room of page.conversations){
    if(!room||typeof room.conversationId!=="string"||!room.conversationId)throw new Error("invalid_conversation_record");
+   if(room.unreadCount!==undefined&&(!Number.isSafeInteger(room.unreadCount)||room.unreadCount<0))
+    throw new Error("invalid_conversation_unread_count");
+   if(room.lastMessage!==undefined&&room.lastMessage!==null){
+    const last=room.lastMessage;
+    if(!last||typeof last.messageId!=="string"||!last.messageId||
+       typeof last.senderAiId!=="string"||typeof last.body!=="string"||
+       last.body.length>5000||!Number.isSafeInteger(last.sequence)||last.sequence<0)
+     throw new Error("invalid_conversation_last_message");
+   }
    if(!seen.has(room.conversationId)){seen.add(room.conversationId);merged.push(room)}
   }
   const cursor=page.nextCursor===null||page.nextCursor===undefined?null:page.nextCursor;
