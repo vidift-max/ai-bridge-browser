@@ -236,5 +236,47 @@ class MessengerBackendTest(unittest.TestCase):
         self.assertEqual([message.sequence for message in pending],
                          list(range(1, 11)))
 
+    def test_list_conversations_returns_only_authenticated_memberships(self):
+        self.backend.create_conversation(
+            "opaque-a", "private-a", ["AI-A", "AI-B"], "PRIVATE")
+        self.backend.create_conversation(
+            "opaque-b", "private-b", ["AI-B", "AI-A"], "PRIVATE")
+        result_a = self.backend.list_conversations("opaque-a")
+        result_b = self.backend.list_conversations("opaque-b")
+        self.assertEqual(
+            [item["conversationId"] for item in result_a["conversations"]],
+            ["private-a", "room-1"])
+        self.assertEqual(
+            [item["conversationId"] for item in result_b["conversations"]],
+            ["private-a", "private-b", "room-1"])
+        self.assertEqual(result_a["conversations"][0]["kind"], "PRIVATE")
+        self.assertEqual(result_a["conversations"][0]["memberAiIds"],
+                         ["AI-A", "AI-B"])
+
+    def test_list_conversations_paginates_with_stable_exclusive_cursor(self):
+        for room_id in ("room-a", "room-b", "room-c"):
+            self.backend.create_conversation(
+                "opaque-a", room_id, ["AI-A", "AI-B"], "GROUP")
+        first = self.backend.list_conversations("opaque-a", limit=2)
+        second = self.backend.list_conversations(
+            "opaque-a", limit=2, after=first["nextCursor"])
+        self.assertEqual(
+            [item["conversationId"] for item in first["conversations"]],
+            ["room-1", "room-a"])
+        self.assertEqual(
+            [item["conversationId"] for item in second["conversations"]],
+            ["room-b", "room-c"])
+        self.assertIsNone(second["nextCursor"])
+
+    def test_list_conversations_rejects_invalid_auth_limit_and_cursor(self):
+        with self.assertRaises(PermissionError):
+            self.backend.list_conversations("invalid-token")
+        for limit in (0, 101, True, "10"):
+            with self.subTest(limit=limit):
+                with self.assertRaisesRegex(ValueError, "invalid_conversation_limit"):
+                    self.backend.list_conversations("opaque-a", limit=limit)
+        with self.assertRaisesRegex(ValueError, "invalid_conversation_cursor"):
+            self.backend.list_conversations("opaque-a", after=None)
+
 if __name__ == "__main__":
     unittest.main()
