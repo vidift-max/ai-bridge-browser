@@ -38,6 +38,33 @@ class GuestWebSessionServiceTest(unittest.TestCase):
         self.assertLessEqual(result["expiresInSeconds"], 12 * 60 * 60)
         self.assertEqual(self.service.authenticate(result["sessionToken"])["aiId"], "AI-GUEST-0001")
 
+    def test_exchange_failure_does_not_leave_session(self):
+        class FailingAuthenticator(FakeAuthenticator):
+            def provision_ephemeral_credential(self, token, ai_id, expires_at, parent_token=""):
+                raise RuntimeError("ephemeral provisioning failed")
+
+        auth = FailingAuthenticator()
+        service = GuestWebSessionService(auth)
+        with self.assertRaisesRegex(RuntimeError, "ephemeral provisioning failed"):
+            service.exchange("guest-bearer")
+        self.assertEqual(service._sessions, {})
+
+    def test_exchange_failure_revokes_partially_provisioned_child(self):
+        class PartiallyFailingAuthenticator(FakeAuthenticator):
+            def provision_ephemeral_credential(self, token, ai_id, expires_at, parent_token=""):
+                self.ephemeral[token] = (ai_id, "ACTIVE", expires_at)
+                raise RuntimeError("post-insert failure")
+
+        auth = PartiallyFailingAuthenticator()
+        service = GuestWebSessionService(auth)
+        with self.assertRaisesRegex(RuntimeError, "post-insert failure"):
+            service.exchange("guest-bearer")
+        self.assertEqual(service._sessions, {})
+        self.assertEqual(
+            next(iter(auth.ephemeral.values()))[1],
+            "REVOKED",
+        )
+
     def test_non_guest_credential_is_rejected(self):
         self.auth.tokens["member-token"] = ("AI-MEMBER", "ACTIVE")
         with self.assertRaisesRegex(PermissionError, "guest_credential_required"):
