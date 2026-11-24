@@ -144,5 +144,62 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
 
 
 
+    def test_production_readiness_report_is_sanitized_and_explicitly_non_operational(self):
+        from tools.firebase_first_contact_smoke import production_readiness_report
+        report = production_readiness_report(validate_config(BASE))
+        serialized = __import__("json").dumps(report, sort_keys=True)
+        self.assertEqual(report["state"], "CONFIGURATION_VALID")
+        self.assertEqual(report["network_check"], "NOT_RUN")
+        self.assertEqual(report["identity_provisioning"], "NOT_VERIFIED")
+        self.assertEqual(report["conversation_membership"], "NOT_VERIFIED")
+        self.assertEqual(report["message_send"], "NOT_RUN")
+        self.assertNotIn("token-a-secret", serialized)
+        self.assertNotIn("token-b-secret", serialized)
+
+    def test_production_url_rejects_custom_port_and_nested_path(self):
+        for url in ("https://demo-default-rtdb.firebaseio.com:8443",
+                    "https://demo-default-rtdb.firebaseio.com/nested/path"):
+            with self.subTest(url=url):
+                env = dict(BASE, MESSENGER_FIREBASE_DATABASE_URL=url)
+                with self.assertRaisesRegex(ProbeError, "invalid_firebase_database_url"):
+                    validate_config(env)
+
+    def test_production_readiness_configuration_does_not_make_network_requests(self):
+        from tools.firebase_first_contact_smoke import production_readiness_report
+        with patch("tools.firebase_first_contact_smoke.firebase_request") as request:
+            report = production_readiness_report(validate_config(BASE))
+        request.assert_not_called()
+        self.assertEqual(report["message_send"], "NOT_RUN")
+
+    def test_config_check_cli_validates_without_network_or_secret_output(self):
+        import contextlib
+        import io
+        import json
+        from unittest.mock import patch
+        from tools.firebase_first_contact_smoke import main
+        output = io.StringIO()
+        with patch.dict("os.environ", BASE, clear=True):
+            with patch("tools.firebase_first_contact_smoke.firebase_request") as request:
+                with contextlib.redirect_stdout(output):
+                    exit_code = main(["--config-check"])
+        request.assert_not_called()
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["state"], "CONFIGURATION_VALID")
+        self.assertNotIn("token-a-secret", output.getvalue())
+        self.assertNotIn("token-b-secret", output.getvalue())
+
+    def test_config_check_cli_rejects_send_flags(self):
+        import contextlib
+        import io
+        from tools.firebase_first_contact_smoke import main
+        errors = io.StringIO()
+        with patch.dict("os.environ", BASE, clear=True):
+            with contextlib.redirect_stderr(errors):
+                exit_code = main(["--config-check", "--send"])
+        self.assertEqual(exit_code, 2)
+        self.assertIn("config_check_cannot_be_combined", errors.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
