@@ -24,7 +24,7 @@ class GuestIntakeTest(unittest.TestCase):
     def test_validation_normalizes_name_and_marks_provider_unverified(self):
         result = validate_guest_application({
             "inviteToken": self.invite["token"],
-            "displayName": "  External\\u0000   Guest ",
+            "displayName": "  External\u0000   Guest ",
             "providerClaim": "claude"})
         self.assertEqual(result["displayName"], "External Guest")
         self.assertFalse(result["providerVerified"])
