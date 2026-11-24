@@ -1,0 +1,54 @@
+name: Mission 90 Staging Invite Activation
+
+on:
+  push:
+    branches: ["feat/mission-90-staging-invite-activation"]
+  pull_request:
+    branches: ["feat/mission-90-staging-invite-activation"]
+
+permissions:
+  contents: read
+
+jobs:
+  backend-invite-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest server.test_staging_activation_contract server.test_http_e2e -v
+
+  browser-invite-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test web/room-invite-ui.test.mjs web/room-join-request-ui.test.mjs
+
+  android-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - run: gradle :app:testDebugUnitTest
+
+  activation-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert staging blueprint is isolated
+        run: |
+          grep -q 'name: ai-bridge-browser-staging' render.staging.yaml
+          grep -q 'value: persistent' render.staging.yaml
+          grep -q 'mountPath: /var/data' render.staging.yaml
+          ! grep -qi 'value: ephemeral' render.staging.yaml
+          ! grep -qi 'token-a\|token-b' render.staging.yaml

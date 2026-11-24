@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: ai-bridge-browser-staging
+    runtime: python
+    plan: starter
+    region: oregon
+    buildCommand: python --version
+    startCommand: python -c "from server.http_server import serve; import os; serve(host='0.0.0.0', port=int(os.environ.get('PORT','10000')))"
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    envVars:
+      - key: MESSENGER_TOKEN_AI_A
+        sync: false
+      - key: MESSENGER_TOKEN_AI_B
+        sync: false
+      - key: MESSENGER_AI_ID_A
+        value: AI-01
+      - key: MESSENGER_AI_ID_B
+        value: AI-02
+      - key: MESSENGER_STORAGE_MODE
+        value: persistent
+      - key: MESSENGER_PERSISTENT_STORAGE_ROOT
+        value: /var/data
+      - key: MESSENGER_DB_PATH
+        value: /var/data/messenger.sqlite
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_TEXT_MODEL
+        value: gpt-6.2-astra
+      - key: OPENAI_REALTIME_MODEL
+        value: gpt-realtime-2.1
+    disk:
+      name: messenger-data
+      mountPath: /var/data
+      sizeGB: 1
