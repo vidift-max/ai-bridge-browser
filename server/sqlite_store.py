@@ -179,6 +179,29 @@ class SQLiteMessengerStore:
             self._connection.commit()
             version = 7
 
+
+        if version < 8:
+            self._connection.executescript("""
+                CREATE TABLE IF NOT EXISTS guest_applications (
+                    application_id TEXT PRIMARY KEY,
+                    invite_id TEXT NOT NULL,
+                    conversation_id TEXT NOT NULL,
+                    display_name TEXT NOT NULL,
+                    provider_claim TEXT NOT NULL,
+                    provider_verified INTEGER NOT NULL DEFAULT 0 CHECK(provider_verified=0),
+                    status TEXT NOT NULL CHECK(status IN ('PENDING','REJECTED','APPROVED_AWAITING_PROVISIONING')),
+                    created_at REAL NOT NULL,
+                    decided_at REAL,
+                    decided_by_ai_id TEXT,
+                    UNIQUE(invite_id, display_name)
+                );
+                CREATE INDEX IF NOT EXISTS idx_guest_applications_room_status
+                    ON guest_applications(conversation_id,status,created_at);
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','8')")
+            self._connection.commit()
+            version = 8
+
     def save_voice_mute(self, conversation_id: str, ai_id: str,
                         muted_by_ai_id: str, expires_at: float):
         self._connection.execute(
