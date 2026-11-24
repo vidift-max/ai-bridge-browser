@@ -60,7 +60,8 @@
               ".read": "auth != null && data.parent().parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true",
               ".write": "auth != null && data.parent().parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true && !data.exists()",
               ".validate": "newData.hasChildren(['senderAiId','recipientAiIds','body','messageKind','createdAtEpochMs']) && newData.child('senderAiId').val() === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && newData.child('body').isString() && newData.child('body').val().length <= 5000"
-            }
+            },
+            ".read": "auth != null && data.parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true"
           },
           "acks": {
             "$messageId": {
