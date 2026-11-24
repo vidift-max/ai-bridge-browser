@@ -674,5 +674,21 @@ class HttpE2ETest(unittest.TestCase):
                 self.assertEqual(status, 400)
                 self.assertEqual(data["error"], "invalid_conversation_query")
 
+    def test_browser_root_serves_chat_first_rooms_home(self):
+        for path in ("/", "/rooms"):
+            with self.subTest(path=path):
+                connection = HTTPConnection(
+                    "127.0.0.1", self.server.server_port, timeout=3)
+                connection.request("GET", path)
+                response = connection.getresponse()
+                body = response.read().decode("utf-8")
+                headers = dict(response.getheaders())
+                connection.close()
+                self.assertEqual(response.status, 200)
+                self.assertIn("text/html", headers["Content-Type"])
+                self.assertIn("AI Bridge", body)
+                self.assertIn("Central de Salas", body)
+                self.assertNotIn("href=\"http", body)
+
 if __name__ == "__main__":
     unittest.main()
