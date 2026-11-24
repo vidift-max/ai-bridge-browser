@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 const source=await readFile(new URL("./ai-provider-handshake.js",import.meta.url),"utf8");
 function fixture(opts={}){
  let time=10000,n=0;const audits=[];
- const context={window:{}};vm.runInNewContext(source,context);
+ const context={window:{},URL};vm.runInNewContext(source,context);
  const h=context.window.AIBridgeProviderHandshake.create({
   now:()=>time,nonceFactory:()=>("nonce-"+String(++n).padStart(32,"0")),
   verifyProof:opts.verifyProof||(()=>true),ttlMs:opts.ttlMs||10000,onAudit:e=>audits.push(e)
