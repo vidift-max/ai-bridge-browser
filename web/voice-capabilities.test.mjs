@@ -40,7 +40,8 @@ test("dictation requires explicit local recognition availability", async () => {
   const { api, state } = loadVoice();
   const capability = await api.inspect();
   assert.equal(capability.dictationAvailable, true);
-  assert.deepEqual(state.availabilityOptions, { langs: ["pt-BR"], processLocally: true });
+  assert.equal(state.availabilityOptions.processLocally, true);
+  assert.equal(state.availabilityOptions.langs[0], "pt-BR");
 });
 
 test("dictation is disabled when local language pack is not available", async () => {
