@@ -60,18 +60,20 @@ async function dbRequest(method, path, token, payload, expected = [200]) {
 const room = "/messenger/conversations/private-ai-01-ai-02";
 let authUsers = [];
 try {
-  const [a, b, c] = await Promise.all([signUp("ai01"), signUp("ai02"), signUp("ai03")]);
-  authUsers = [a, b, c];
+  const [a, b, c, d] = await Promise.all([signUp("ai01"), signUp("ai02"), signUp("ai03"), signUp("ai04")]);
+  authUsers = [a, b, c, d];
   const fixture = {
     identities: {
       "AI-01": { aiId: "AI-01", uid: a.uid },
       "AI-02": { aiId: "AI-02", uid: b.uid },
-      "AI-03": { aiId: "AI-03", uid: c.uid }
+      "AI-03": { aiId: "AI-03", uid: c.uid },
+      "AI-04": { aiId: "AI-04", uid: d.uid }
     },
     identitiesByUid: {
       [a.uid]: { aiId: "AI-01" },
       [b.uid]: { aiId: "AI-02" },
-      [c.uid]: { aiId: "AI-03" }
+      [c.uid]: { aiId: "AI-03" },
+      [d.uid]: { aiId: "AI-04" }
     },
     conversations: {
       "private-ai-01-ai-02": {
@@ -98,7 +100,7 @@ try {
   if (roomRead.body?.members?.["AI-01"] !== true || roomRead.body?.members?.["AI-02"] !== true) fail("Authorized sender could not read room membership");
   pass("AI-01 authenticated HTTP GET reads its conversation");
 
-  await dbRequest("GET", room, c.idToken, undefined, [401, 403]);
+  await dbRequest("GET", room, d.idToken, undefined, [401, 403]);
   pass("non-member authenticated HTTP GET is denied");
 
   const nonce = "mission-81-" + crypto.randomUUID();
