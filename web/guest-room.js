@@ -266,7 +266,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
       status("Conectado à sala autorizada. As mensagens são atualizadas automaticamente.");
     } catch (error) {
       stopPolling();
-      sessionToken = null; principalAiId = null; room = null; deduper.clear();
+      sessionToken = null; principalAiId = null; room = null; transportConfig = null; deduper.clear();
       byId("credential").disabled = false;
       byId("enter").disabled = false;
       status(error.message);
@@ -303,7 +303,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
         method:"POST", headers:authHeaders({Accept:"application/json"})
       });
     } catch (_error) {}
-    sessionToken = null; principalAiId = null; room = null; sequence = 0; deduper.clear();
+    sessionToken = null; principalAiId = null; room = null; transportConfig = null; sequence = 0; deduper.clear();
     byId("messages").replaceChildren();
     byId("participants").replaceChildren();
     byId("workspace").hidden = true;
@@ -320,7 +320,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   byId("message").addEventListener("keydown", event => {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); }
   });
-  globalThis.addEventListener?.("pagehide", () => { stopPolling(); if (sessionToken) { void leavePresence(); } sessionToken = null; });
+  globalThis.addEventListener?.("pagehide", () => { stopPolling(); if (sessionToken) { void leavePresence(); } sessionToken = null; transportConfig = null; });
   doc.addEventListener?.("visibilitychange", () => {
     if (!sessionToken || !room) return;
     if (doc.visibilityState === "visible") {
