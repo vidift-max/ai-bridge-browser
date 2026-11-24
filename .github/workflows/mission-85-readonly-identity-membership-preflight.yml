@@ -1,0 +1,26 @@
+name: Mission 85 Read-only Identity Membership Preflight
+on:
+  push:
+    branches: ["feat/mission-85-readonly-identity-membership-preflight"]
+  pull_request:
+    branches: ["feat/mission-84-production-readiness-config-check"]
+permissions:
+  contents: read
+jobs:
+  readonly-preflight-and-emulator-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+      - name: Install pinned Firebase test tooling
+        run: npm install --no-save --no-package-lock firebase-tools@14.7.0 firebase@11.6.0 @firebase/rules-unit-testing@4.0.1
+      - name: Execute Auth and RTDB Emulator HTTP round trip
+        run: npx firebase --config firebase/firebase.json emulators:exec --only auth,database --project demo-ai-bridge-rules "node tests/firebase/rest-first-contact.test.mjs && node tests/firebase/database.rules.test.mjs"
+      - name: Verify read-only preflight, production send gate, rules parity, and HTTP contracts
+        run: python -m unittest server.test_firebase_rules server.test_firebase_rules_parity server.test_firebase_first_contact_smoke server.test_firebase_first_contact_http -v
