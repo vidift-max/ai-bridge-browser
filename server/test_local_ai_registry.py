@@ -23,6 +23,13 @@ class LocalAIRegistryTest(unittest.TestCase):
         self.assertEqual(ollama["runtimeScope"], "server_host_loopback")
         self.assertEqual(ollama["implementation"], "NOT_IMPLEMENTED")
 
+    def test_inference_contract_is_disabled_without_an_injected_local_engine(self):
+        contract = LocalAIRegistry.inference_contract()
+        self.assertEqual(contract["state"], "NOT_CONFIGURED")
+        self.assertFalse(contract["inferenceAvailable"])
+        self.assertEqual(contract["networkAccess"], "NONE")
+        self.assertFalse(contract["downloadsAllowed"])
+
     def test_internal_messenger_is_not_model_inference(self):
         messenger = LocalAIRegistry.messenger_capabilities()
         self.assertEqual(messenger["state"], "AVAILABLE")
