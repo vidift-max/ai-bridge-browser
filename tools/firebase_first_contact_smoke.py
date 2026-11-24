@@ -221,6 +221,33 @@ def run_probe(config, send=False, timeout=10, wait_seconds=45):
     return result
 
 
+
+def prepare_send_plan(config):
+    """Build a sanitized one-message plan after live read-only preflight; never writes."""
+    preflight = run_probe(config, send=False)
+    nonce = "first-contact-" + uuid.uuid4().hex
+    payload = {
+        "senderAiId": config["ai_a"],
+        "recipientAiIds": {config["ai_b"]: True},
+        "body": "AI Bridge Browser first-contact test " + nonce,
+        "messageKind": "NORMAL",
+        "createdAtEpochMs": int(time.time() * 1000),
+    }
+    return {
+        "state": "SEND_PLAN_READY",
+        "preflight": preflight["state"],
+        "sender": config["ai_a"],
+        "recipient": config["ai_b"],
+        "conversation_id": config["conversation"],
+        "operation": "ONE_TEXT_MESSAGE",
+        "payload": payload,
+        "write_operations": "NONE",
+        "send_operation": "NOT_EXECUTED",
+        "acknowledgement": "NOT_RUN",
+        "credentials_included": False,
+    }
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Validate and optionally run a two-identity Firebase text round trip.")
     parser.add_argument("--send", action="store_true", help="send one nonce message and wait for the other identity to ACK it")
@@ -228,6 +255,8 @@ def main(argv=None):
                         help="validate local configuration only; never contact Firebase")
     parser.add_argument("--preflight", action="store_true",
                         help="perform read-only Firebase identity and conversation membership checks")
+    parser.add_argument("--prepare-send", action="store_true",
+                        help="verify production identities and print a one-message dry-run plan; never sends")
     parser.add_argument("--allow-production-send", action="store_true", help="second explicit opt-in; also requires MESSENGER_FIREBASE_ALLOW_PRODUCTION_SEND=true")
     parser.add_argument("--timeout", type=int, default=10)
     parser.add_argument("--wait-seconds", type=int, default=45)
@@ -235,15 +264,20 @@ def main(argv=None):
     try:
         config = validate_config(os.environ)
         if args.config_check:
-            if args.send or args.preflight or args.allow_production_send:
+            if args.send or args.preflight or args.prepare_send or args.allow_production_send:
                 raise ProbeError("config_check_cannot_be_combined_with_network_or_send_options")
             print(json.dumps(production_readiness_report(config), sort_keys=True))
             return 0
-        if args.preflight and (args.send or args.allow_production_send):
+        if args.preflight and (args.send or args.prepare_send or args.allow_production_send):
             raise ProbeError("preflight_cannot_be_combined_with_send_options")
+        if args.prepare_send and (args.send or args.preflight or args.allow_production_send):
+            raise ProbeError("prepare_send_cannot_be_combined_with_send_options")
         authorize_send(config, os.environ, args.send, args.allow_production_send)
-        result = run_probe(config, send=args.send, timeout=max(1, min(args.timeout, 30)),
-                           wait_seconds=args.wait_seconds)
+        if args.prepare_send:
+            result = prepare_send_plan(config)
+        else:
+            result = run_probe(config, send=args.send, timeout=max(1, min(args.timeout, 30)),
+                               wait_seconds=args.wait_seconds)
         print(json.dumps(result, sort_keys=True))
         return 0
     except ProbeError as exc:
