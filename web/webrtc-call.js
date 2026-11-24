@@ -36,6 +36,7 @@
     var pendingCandidates = [];
     var closed = false;
     var polling = false;
+    var offerSent = false;
 
     function state(value, detail) {
       onState(value, detail || null);
@@ -106,6 +107,14 @@
             stopPolling();
             return;
           }
+          if (call.caller_ai_id === options.aiId && call.state === "ACCEPTED" && !offerSent) {
+            var offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await sendSignal("OFFER", { type: offer.type, sdp: offer.sdp });
+            offerSent = true;
+            state("CONNECTING");
+            await request("POST", "/v1/calls/" + encodeURIComponent(call.call_id) + "/connecting", {});
+          }
         }
         var signalsResponse = await request("GET", "/v1/calls/" + encodeURIComponent(call.call_id) +
           "/signals?after=" + signalCursor + "&limit=100");
@@ -168,9 +177,7 @@
         conversationId: conversationId, calleeAiId: calleeAiId
       });
       call = response.call;
-      var offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      await sendSignal("OFFER", { type: offer.type, sdp: offer.sdp });
+      offerSent = false;
       state("RINGING");
       startPolling();
       return call;
@@ -194,8 +201,10 @@
     async function endCall() {
       if (!call) return false;
       var current = call;
+      var action = current.state === "RINGING" ?
+        (current.caller_ai_id === options.aiId ? "cancel" : "reject") : "end";
       try {
-        await request("POST", "/v1/calls/" + encodeURIComponent(current.call_id) + "/end", {});
+        await request("POST", "/v1/calls/" + encodeURIComponent(current.call_id) + "/" + action, {});
       } finally {
         await closeMedia();
         stopPolling();
