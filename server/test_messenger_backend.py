@@ -620,7 +620,7 @@ class MessengerBackendTest(unittest.TestCase):
         room = next(item for item in refreshed["conversations"]
                     if item["conversationId"] == "summary-room")
         self.assertEqual(room["unreadCount"], 0)
-        self.assertEqual(room["lastMessage"]["messageId"], first.message_id)
+        self.assertEqual(room["lastMessage"]["messageId"], second.message_id)
 
     def test_inbox_summary_does_not_count_messages_sent_by_the_caller_as_unread(self):
         self.backend.submit("opaque-a", "summary-self", "room-1",
