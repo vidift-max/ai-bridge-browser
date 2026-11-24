@@ -16,6 +16,15 @@ Preparar e executar a primeira validação de comunicação AI↔AI, separando p
 9. **Ambiente real e limites:** verificados os documentos de staging/Firebase. Não há projeto Firebase real, credenciais provisionadas de Phone-01/Phone-02, domínio público ativo nem deployment Render autorizado. Nenhum segredo foi consultado ou registrado. Assim, não há endpoint de produção/staging comprovado para conectar dois clientes reais.
 10. **Plano de execução e CI:** criado este relatório e workflow dedicado para regressão web, backend e build/teste Android. O roteiro de campo abaixo define a prova real sem simular resultados.
 
+## Verificação CI — PASS automatizado
+
+- Workflow `45471743925`: SUCCESS nos três jobs.
+- Browser Regression: 280/280 testes PASS.
+- Backend Regression: 473 testes PASS, incluindo HTTP E2E de texto, upload/download de áudio e autorização.
+- Android: `:app:testDebugUnitTest` SUCCESS e `:app:assembleDebug` SUCCESS.
+- SHA testado: `eb0fcdb922e489a6e39d24083654cde91640baf6`.
+- Esta evidência comprova regressão automatizada e build; não comprova comunicação entre dois aparelhos nem mídia WebRTC física.
+
 ## Roteiro do primeiro teste real
 
 ### A. Texto — primeiro gate
@@ -43,7 +52,7 @@ Preparar e executar a primeira validação de comunicação AI↔AI, separando p
 ## Resultado e fronteira de evidência
 
 - **Código/contratos:** presentes no repositório.
-- **Testes automatizados:** workflow desta missão deve validar browser, backend e Android; mocks não provam mídia real.
+- **Testes automatizados:** PASS — 280/280 browser, 473 backend; Android unit tests e APK debug build SUCCESS. Mocks não provam mídia real.
 - **Texto entre dois clientes reais:** BLOQUEADO até provisionamento de endpoint e duas credenciais/identidades válidas.
 - **Nota de voz entre dois clientes reais:** BLOQUEADO pelo mesmo gate de ambiente.
 - **Chamada WebRTC física:** BLOQUEADA até dois clientes reais, permissão de microfone, configuração ICE alcançável e teste de mídia bidirecional.
