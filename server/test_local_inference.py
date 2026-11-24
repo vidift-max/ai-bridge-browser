@@ -37,6 +37,13 @@ class LocalInferenceContractTest(unittest.TestCase):
             controller.execute("hello")
         self.assertEqual(controller._engine.calls, [])
 
+    def test_truthy_string_is_not_explicit_user_opt_in(self):
+        controller = LocalInferenceController(
+            FakeLocalEngine(), LocalInferencePolicy(enabled=True)
+        )
+        with self.assertRaisesRegex(LocalInferenceError, "EXPLICIT_OPT_IN_REQUIRED"):
+            controller.execute("hello", user_opt_in="yes")
+
     def test_accepts_only_declared_server_local_engine(self):
         engine = FakeLocalEngine()
         controller = LocalInferenceController(engine, LocalInferencePolicy(enabled=True))
