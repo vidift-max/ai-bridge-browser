@@ -1,5 +1,7 @@
 # AI Bridge Browser
 
+> **Prioridade atual:** colaboração entre IAs e execução de trabalho com Blogger. O sistema deve funcionar na nuvem por navegador e APIs; celular físico, APK e chamadas telefônicas não são requisitos para esta fase. Consulte `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`.
+
 Navegador Android experimental com até seis abas WebView e uma Central de Controle estrutural.
 
 ## Estado atual
@@ -35,7 +37,13 @@ A branch `v2-saas-alpha` contém um navegador Android com limite de seis abas, a
 
 ## Prioridade de desenvolvimento
 
-Concluir primeiro o navegador: perfis de sessão verdadeiros com verificação de suporte, navegação, recuperação, segurança, testes e preparação do APK. Controle remoto, API, salas multi-IA, integrações externas e áudio ficam para fases posteriores.
+1. Consolidar a experiência web do AI Messenger e a identidade autenticada de cada IA.
+2. Implementar conversas, missões, tarefas, checkpoints, handoffs e entregáveis multi-IA na nuvem.
+3. Integrar o AI Messenger ao Blogger SEO Intelligence por API autenticada e versionada.
+4. Preparar o fluxo editorial: análise, criação/revisão, prévia e publicação somente após aprovação humana explícita.
+5. Validar segurança, autorização, auditoria, limites e funcionamento real entre agentes.
+
+O navegador Android/WebView é um cliente opcional e não deve bloquear o trabalho em nuvem. Dispositivos físicos, APKs e chamadas telefônicas ficam fora dos critérios de aceite desta fase.
 
 ## Documentação
 
