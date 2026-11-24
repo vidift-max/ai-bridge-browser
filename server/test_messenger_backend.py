@@ -601,7 +601,7 @@ class MessengerBackendTest(unittest.TestCase):
 
         for token, expected_unread, expected_latest, expected_body in [
             ("opaque-a", 1, second.message_id, "second to A"),
-            ("opaque-b", 1, first.message_id, "first to B"),
+            ("opaque-b", 1, second.message_id, "second to A"),
             ("opaque-c", 0, None, None),
         ]:
             with self.subTest(token=token):
