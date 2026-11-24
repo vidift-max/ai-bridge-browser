@@ -32,6 +32,13 @@ class Authenticator:
         self.audit_log.record("CREDENTIAL_PROVISIONED", "credential", ai_id=ai_id)
         return generation
 
+    def activate_persisted_credential(self, bearer_token: str, ai_id: str, expires_at):
+        return self._registry.activate_persisted(bearer_token, ai_id, expires_at)
+
+    def revoke_credential_hash(self, token_hash: str) -> None:
+        self._registry.revoke_hash(token_hash)
+        self.audit_log.record("CREDENTIAL_REVOKED", "credential")
+
     def revoke(self, bearer_token: str) -> None:
         self._registry.revoke(bearer_token)
         self.audit_log.record("CREDENTIAL_REVOKED", "credential")
