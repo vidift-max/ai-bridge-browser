@@ -34,3 +34,16 @@ test("createConversation uses authenticated API and validates server response",a
 test("createConversation rejects malformed server responses",async()=>{
  await assert.rejects(()=>creation.createConversation(async()=>({conversation:{conversationId:"wrong",kind:"PRIVATE",memberCount:2}}),{aiId:"owner"},"PRIVATE",["peer"],"p-4"),/invalid_conversation_response/);
 });
+
+test("room page exposes authenticated private and group creation controls",async()=>{
+ const {readFile}=await import("node:fs/promises");
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.match(html,/id="conversationCreatePanel"/);
+ assert.match(html,/id="conversationKind"/);
+ assert.match(html,/option value="PRIVATE"/);
+ assert.match(html,/option value="GROUP"/);
+ assert.match(html,/id="conversationPeers" multiple/);
+ assert.match(html,/AIBridgeRoomCreation\.createConversation/);
+ assert.match(html,/renderConversationPeerOptions\(\)/);
+ assert.doesNotMatch(html,/innerHTML/);
+});
