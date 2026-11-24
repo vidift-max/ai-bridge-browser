@@ -110,6 +110,22 @@ class MessengerBackendTest(unittest.TestCase):
         with self.assertRaisesRegex(PermissionError, "authorization_denied"):
             self.backend.acknowledge("opaque-c", "ack-room-bound")
 
+    def test_ack_storage_failure_does_not_mutate_in_memory_delivery_state(self):
+        message = self.backend.submit(
+            "opaque-a", "ack-storage-failure", "room-1", ["AI-B"],
+            "retry after disk failure", "ack-storage-failure-req")
+        with patch.object(self.backend._store, "save_ack",
+                          side_effect=OSError("simulated_storage_failure")):
+            with self.assertRaisesRegex(OSError, "simulated_storage_failure"):
+                self.backend.acknowledge("opaque-b", message.message_id)
+        self.assertNotIn("AI-B", message.acknowledged_by)
+        self.assertEqual(
+            [item.message_id for item in self.backend.pending("opaque-b", "room-1")],
+            [message.message_id])
+        self.backend.acknowledge("opaque-b", message.message_id)
+        self.assertIn("AI-B", message.acknowledged_by)
+        self.assertEqual(self.backend.pending("opaque-b", "room-1"), [])
+
     def test_restart_recovers_message_and_ack(self):
         with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
             first=MessengerBackend({"opaque-a":"AI-A","opaque-b":"AI-B"},{"room-1":{"AI-A","AI-B"}},SQLiteMessengerStore(f.name))

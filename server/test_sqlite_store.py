@@ -19,6 +19,57 @@ class SQLiteStoreTest(unittest.TestCase):
             self.assertEqual(reopened.load_acknowledgements()["m-1"], {"AI-B"})
             reopened.close()
 
+    def _seed_ack_message(self, store, message_id="m-ack", room_id="room-ack",
+                          recipients=("AI-B",)):
+        store.save_conversation(room_id, ["AI-A", "AI-B"])
+        store.save_message((message_id, room_id, "AI-A", recipients,
+                            "ack test", f"req-{message_id}", 1))
+
+    def test_ack_store_requires_existing_message_and_recipient(self):
+        store = SQLiteMessengerStore(":memory:")
+        self._seed_ack_message(store)
+        with self.assertRaisesRegex(ValueError, "ack_message_not_found"):
+            store.save_ack("missing", "AI-B")
+        with self.assertRaisesRegex(ValueError, "ack_recipient_required"):
+            store.save_ack("m-ack", "AI-A")
+        self.assertEqual(store.load_acknowledgements(), {})
+        store.close()
+
+    def test_ack_store_requires_current_conversation_membership(self):
+        store = SQLiteMessengerStore(":memory:")
+        self._seed_ack_message(store)
+        store.save_conversation("room-ack", ["AI-A"])
+        with self.assertRaisesRegex(ValueError, "ack_room_membership_required"):
+            store.save_ack("m-ack", "AI-B")
+        self.assertEqual(store.load_acknowledgements(), {})
+        store.close()
+
+    def test_ack_store_is_idempotent_and_reports_insert(self):
+        store = SQLiteMessengerStore(":memory:")
+        self._seed_ack_message(store)
+        self.assertTrue(store.save_ack("m-ack", "AI-B"))
+        self.assertFalse(store.save_ack("m-ack", "AI-B"))
+        self.assertEqual(store.load_acknowledgements(), {"m-ack": {"AI-B"}})
+        store.close()
+
+    def test_ack_store_rejects_blank_and_non_string_identifiers(self):
+        store = SQLiteMessengerStore(":memory:")
+        for message_id, ai_id in (("", "AI-B"), ("m", ""), (None, "AI-B"),
+                                  ("m", None), ([], "AI-B")):
+            with self.subTest(message_id=message_id, ai_id=ai_id):
+                with self.assertRaisesRegex(ValueError, "invalid_ack_identity"):
+                    store.save_ack(message_id, ai_id)
+        store.close()
+
+    def test_delete_message_cleans_acknowledgement_rows(self):
+        store = SQLiteMessengerStore(":memory:")
+        self._seed_ack_message(store)
+        store.save_ack("m-ack", "AI-B")
+        self.assertTrue(store.delete_message("m-ack"))
+        self.assertEqual(store.load_acknowledgements(), {})
+        self.assertFalse(store.delete_message("m-ack"))
+        store.close()
+
     def test_voice_mute_survives_restart_and_expires(self):
         with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
             store = SQLiteMessengerStore(f.name)
