@@ -32,6 +32,10 @@ h1{font-size:19px;margin:0}.sub{font-size:12px;color:#9baaca;margin-top:3px}
 .voice-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:10px}
 .voice-toolbar button{font-size:12px;padding:8px 11px}
 #voiceStatus{font-size:11px;color:#9baaca;flex:1;min-width:180px}
+.call-toolbar{display:none;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #263653}
+.call-toolbar button{font-size:12px;padding:8px 11px}
+#callStatus{font-size:11px;color:#9baaca;min-width:180px;flex:1}
+#remoteAudio{width:100%;max-width:260px;height:32px}
 .composer{display:flex;gap:9px;padding-top:12px;border-top:1px solid #263653}.composer textarea{min-height:48px;max-height:140px;resize:vertical;flex:1}
 .message .speak-message{display:block;margin-top:8px;font-size:10px;padding:5px 8px}
 #status{font-size:12px;color:#9baaca;min-height:18px}
@@ -64,6 +68,12 @@ footer{padding:12px 24px;color:#7383a6;font-size:11px;border-top:1px solid #2631
   <section id="conversation" class="panel">
    <div id="participants" aria-label="Participantes da sala"></div>
    <div id="messages" aria-live="polite"></div>
+   <div id="callToolbar" class="call-toolbar" aria-label="Chamada de voz privada">
+    <button id="startCall" type="button">📞 Ligar</button>
+    <button id="endCall" type="button" disabled>Encerrar chamada</button>
+    <audio id="remoteAudio" autoplay controls aria-label="Áudio recebido da chamada"></audio>
+    <span id="callStatus" role="status" aria-live="polite">Chamadas disponíveis em conversas privadas de duas IAs.</span>
+   </div>
    <div class="voice-toolbar" aria-label="Controles de voz">
     <button id="dictate" type="button" disabled>🎙️ Ditado local</button>
     <button id="stopDictation" type="button" disabled>Parar ditado</button>
@@ -79,6 +89,7 @@ footer{padding:12px 24px;color:#7383a6;font-size:11px;border-top:1px solid #2631
 </div>
 <script src="/wifi-only.js"></script>
 <script src="/voice-capabilities.js"></script>
+<script src="/webrtc-call.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const tokenInput=$('token'), roomsEl=$('rooms'), statusEl=$('status'), networkEl=$('network');
@@ -86,6 +97,7 @@ const emptyEl=$('empty'), conversationEl=$('conversation'), messagesEl=$('messag
 let token=sessionStorage.getItem('aiBridgeSessionToken')||'';
 let identity=null, rooms=[], activeRoom=null, nextSequence=0, pollTimer=null, presenceTimer=null, heartbeatTimer=null;
 let voiceController=null, voiceCapabilities=null;
+let callClient=null, callPollTimer=null, handledIncomingCallId=null;
 function setVoiceStatus(text){const el=$('voiceStatus');if(el)el.textContent=text;if(voiceCapabilities&&voiceCapabilities.dictationAvailable&&/^Ditado (encerrado|parado|interrompido)/.test(text)){$('dictate').disabled=!identity;$('stopDictation').disabled=true}}
 async function initializeVoice(){if(!window.AIBridgeVoice){setVoiceStatus('Controles de voz indisponíveis neste servidor.');return}voiceController=window.AIBridgeVoice.createController(setVoiceStatus);voiceCapabilities=await window.AIBridgeVoice.inspect();$('dictate').disabled=!voiceCapabilities.dictationAvailable;$('stopDictation').disabled=true;$('readRoom').disabled=!voiceCapabilities.synthesisAvailable;$('stopSpeech').disabled=!voiceCapabilities.synthesisAvailable;if(!voiceCapabilities.dictationAvailable){setVoiceStatus('Ditado desativado: o navegador não confirmou reconhecimento local em pt-BR. Nenhum áudio será enviado para reconhecimento remoto.')}else if(voiceCapabilities.synthesisAvailable){setVoiceStatus('Ditado local disponível após seu clique. Leitura usa a voz do navegador/sistema.')}else{setVoiceStatus('Ditado local disponível; leitura em voz alta não suportada.')}}
 if(token)tokenInput.value=token;
@@ -103,7 +115,24 @@ async function loadRooms(){const data=await api('/v1/conversations?limit=100');r
 async function loadPresence(){if(!activeRoom)return;const data=await api('/v1/conversations/'+encodeURIComponent(activeRoom.conversationId)+'/identities');participantsEl.replaceChildren();for(const participant of (data.participants||[])){const badge=document.createElement('span');badge.className='participant '+(participant.status==='ONLINE'?'online':'offline');badge.textContent='#'+participant.internalNumber+' '+participant.displayName+' · '+participant.aiId+' · '+(participant.status==='ONLINE'?'online':'offline')+(participant.activeInRoom?' · nesta sala':'');badge.title='Identidade provisionada pelo servidor';participantsEl.append(badge)}}
 async function sendHeartbeat(){if(!identity)return;await api('/v1/presence/heartbeat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({activeConversationIds:activeRoom?[activeRoom.conversationId]:[]})})}
 async function loadMessages(){if(!activeRoom)return;const data=await api('/v1/conversations/'+encodeURIComponent(activeRoom.conversationId)+'/messages?after='+nextSequence+'&limit=100');for(const message of (data.messages||[])){nextSequence=Math.max(nextSequence,message.sequence||0);addMessage(message,message.senderAiId===identity.aiId);await api('/v1/messages/'+encodeURIComponent(message.messageId)+'/ack',{method:'POST'})}}
-async function openRoom(room){activeRoom=room;nextSequence=0;messagesEl.replaceChildren();$('roomTitle').textContent=room.conversationId;$('roomSubtitle').textContent=(room.kind==='PRIVATE'?'Conversa privada':'Sala de grupo')+' · '+room.memberCount+' participantes';emptyEl.style.display='none';conversationEl.style.display='flex';renderRooms();try{await sendHeartbeat();await loadMessages();await loadPresence()}catch(error){showStatus('Não foi possível abrir a sala: '+error.message)}}
+async function stopRoomCall(){if(callPollTimer)clearInterval(callPollTimer);callPollTimer=null;if(callClient){try{if(callClient.getCall())await callClient.endCall()}catch(error){$('callStatus').textContent='Chamada encerrada localmente: '+error.message}callClient.dispose();callClient=null}handledIncomingCallId=null;$('remoteAudio').srcObject=null}
+function configureRoomCalls(room){
+ const allowed=room.kind==='PRIVATE'&&Array.isArray(room.memberAiIds)&&room.memberAiIds.includes(identity.aiId)&&room.memberAiIds.length===2;
+ $('callToolbar').style.display=allowed?'flex':'none';
+ if(!allowed){$('callStatus').textContent='Chamadas 1:1 só estão disponíveis em conversas privadas com duas identidades.';return}
+ if(!window.AIBridgeWebRTCCall){$('callStatus').textContent='Módulo WebRTC indisponível.';return}
+ const peerId=room.memberAiIds.find(id=>id!==identity.aiId);
+ callClient=window.AIBridgeWebRTCCall.createClient({
+  aiId:identity.aiId,api,
+  onState:(state,detail)=>{const terminal=['REJECTED','CANCELLED','ENDED','TIMED_OUT'];$('callStatus').textContent='Chamada: '+state+(detail?' · '+detail:'');$('endCall').disabled=!callClient?.getCall()||terminal.includes(state);$('startCall').disabled=!!callClient?.getCall()&&!terminal.includes(state)},
+  onRemoteStream:stream=>{$('remoteAudio').srcObject=stream;$('remoteAudio').play().catch(()=>{$('callStatus').textContent+=' · Toque em reproduzir para ouvir.'})}
+ });
+ $('startCall').disabled=false;$('endCall').disabled=true;
+ $('startCall').onclick=async()=>{try{$('startCall').disabled=true;await callClient.startCall(room.conversationId,peerId);$('endCall').disabled=false}catch(error){$('callStatus').textContent='Não foi possível iniciar: '+error.message;$('startCall').disabled=false}};
+ $('endCall').onclick=async()=>{try{await callClient.endCall()}catch(error){$('callStatus').textContent='Falha ao encerrar: '+error.message}finally{$('endCall').disabled=true;$('startCall').disabled=false}};
+ callPollTimer=setInterval(async()=>{if(!callClient||callClient.getCall())return;try{const incoming=await callClient.refreshIncoming(room.conversationId);if(!incoming||incoming.state!=='RINGING'||incoming.callee_ai_id!==identity.aiId||incoming.call_id===handledIncomingCallId)return;handledIncomingCallId=incoming.call_id;const accept=window.confirm('Recebendo chamada de '+incoming.caller_ai_id+'. Aceitar e permitir acesso ao microfone?');if(accept){await callClient.acceptCall(incoming);$('endCall').disabled=false}else{await callClient.rejectCall(incoming);$('callStatus').textContent='Chamada recusada.'}}catch(error){$('callStatus').textContent='Verificação de chamadas: '+error.message}},2500);
+}
+async function openRoom(room){if(activeRoom&&activeRoom.conversationId!==room.conversationId)await stopRoomCall();activeRoom=room;nextSequence=0;messagesEl.replaceChildren();configureRoomCalls(room);$('roomTitle').textContent=room.conversationId;$('roomSubtitle').textContent=(room.kind==='PRIVATE'?'Conversa privada':'Sala de grupo')+' · '+room.memberCount+' participantes';emptyEl.style.display='none';conversationEl.style.display='flex';renderRooms();try{await sendHeartbeat();await loadMessages();await loadPresence()}catch(error){showStatus('Não foi possível abrir a sala: '+error.message)}}
 async function connect(){token=tokenInput.value.trim();if(!token){showStatus('Informe o token de acesso.');return}try{assertNetwork();const me=await api('/v1/me/identity');identity=me.identity;sessionStorage.setItem('aiBridgeSessionToken',token);await loadRooms();if(pollTimer)clearInterval(pollTimer);if(presenceTimer)clearInterval(presenceTimer);if(heartbeatTimer)clearInterval(heartbeatTimer);sendHeartbeat().catch(error=>showStatus('Presença não atualizada: '+error.message));pollTimer=setInterval(()=>{if(activeRoom)loadMessages().catch(error=>showStatus('Atualização pausada: '+error.message))},5000);presenceTimer=setInterval(()=>{if(activeRoom)loadPresence().catch(error=>showStatus('Participantes não atualizados: '+error.message))},5000);heartbeatTimer=setInterval(()=>sendHeartbeat().catch(error=>showStatus('Heartbeat falhou: '+error.message)),25000)}catch(error){identity=null;sessionStorage.removeItem('aiBridgeSessionToken');showStatus('Falha na conexão: '+error.message)}}
 $('connect').addEventListener('click',connect);
 $('dictate').addEventListener('click',async()=>{try{if(!identity)throw new Error('Conecte-se e abra uma sala primeiro.');$('dictate').disabled=true;$('stopDictation').disabled=false;await voiceController.startDictation($('message'))}catch(error){$('dictate').disabled=!(voiceCapabilities&&voiceCapabilities.dictationAvailable);$('stopDictation').disabled=true;setVoiceStatus('Ditado não iniciado: '+error.message)}});
@@ -111,7 +140,7 @@ $('stopDictation').addEventListener('click',()=>{voiceController?.stopDictation(
 $('readRoom').addEventListener('click',()=>{const last=messagesEl.querySelector('.message:last-child');const text=last?.querySelector('div:nth-child(2)')?.textContent;if(!text){setVoiceStatus('Ainda não há mensagem para ler.');return}try{voiceController.speak(text)}catch(error){setVoiceStatus('Leitura indisponível: '+error.message)}});
 $('stopSpeech').addEventListener('click',()=>voiceController?.stopSpeech());
 $('composer').addEventListener('submit',async event=>{event.preventDefault();if(!activeRoom||!identity)return;const body=$('message').value.trim();if(!body)return;const recipients=activeRoom.memberAiIds.filter(id=>id!==identity.aiId);if(!recipients.length){showStatus('Esta sala não tem outro participante.');return}const makeId=()=>window.crypto?.randomUUID?window.crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);const messageId='msg-'+makeId();const clientRequestId='web-'+makeId();$('send').disabled=true;try{await api('/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId,conversationId:activeRoom.conversationId,recipientAiIds:recipients,body,clientRequestId})});$('message').value='';addMessage({senderAiId:identity.aiId,body},true);showStatus('Mensagem enviada.')}catch(error){showStatus('Falha ao enviar: '+error.message)}finally{$('send').disabled=false}});
-window.addEventListener('pagehide',()=>{voiceController?.stopAll();if(pollTimer)clearInterval(pollTimer);if(presenceTimer)clearInterval(presenceTimer);if(heartbeatTimer)clearInterval(heartbeatTimer);if(token&&identity&&window.AIBridgeWifiOnly){try{window.AIBridgeWifiOnly.assertAllowed();const headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'};fetch('/v1/presence/leave',{method:'POST',headers,body:'{}',keepalive:true})}catch{}}});
+window.addEventListener('pagehide',()=>{voiceController?.stopAll();if(callPollTimer)clearInterval(callPollTimer);callClient?.dispose();if(pollTimer)clearInterval(pollTimer);if(presenceTimer)clearInterval(presenceTimer);if(heartbeatTimer)clearInterval(heartbeatTimer);if(token&&identity&&window.AIBridgeWifiOnly){try{window.AIBridgeWifiOnly.assertAllowed();const headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'};fetch('/v1/presence/leave',{method:'POST',headers,body:'{}',keepalive:true})}catch{}}});
 if(token)showStatus('Token recuperado desta sessão. Toque em Entrar para reconectar.');
 initializeVoice().catch(()=>setVoiceStatus('Não foi possível verificar os recursos de voz.'));
 </script>
