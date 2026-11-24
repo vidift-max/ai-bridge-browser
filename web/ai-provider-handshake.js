@@ -25,7 +25,8 @@
    if(stopped)throw new Error("HANDSHAKE_STOPPED");
    if(!validId(input.challengeId)||!validId(input.sessionId)||!validId(input.providerId))throw new Error("INVALID_HANDSHAKE_ID");
    if(pending.has(input.challengeId)||completed.has(input.challengeId))throw new Error("CHALLENGE_ID_REUSED");
-   if(typeof input.origin!=="string"||!input.origin.startsWith("https://"))throw new Error("HTTPS_ORIGIN_REQUIRED");
+   var parsed;try{parsed=new URL(input.origin);}catch(_){throw new Error("HTTPS_ORIGIN_REQUIRED");}
+   if(parsed.protocol!=="https:"||parsed.username||parsed.password||parsed.pathname!=="/"||parsed.search||parsed.hash||parsed.origin!==input.origin)throw new Error("HTTPS_ORIGIN_REQUIRED");
    var nonce=nonceFactory();
    if(typeof nonce!=="string"||nonce.length<32||nonce.length>256||usedNonces.has(nonce))throw new Error("NONCE_INVALID_OR_REUSED");
    usedNonces.add(nonce);
