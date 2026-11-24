@@ -33,9 +33,18 @@ class HttpContractTest(unittest.TestCase):
 
     def test_gpt6_status_distinguishes_request_success_from_online_presence(self):
         constants = MessengerHandler.do_GET.__code__.co_consts
-        self.assertIn("REQUEST_SUCCEEDED", constants)
-        self.assertIn("accountSessionConnected", constants)
-        self.assertIn("online", constants)
+        self.assertIn("connection_status", constants)
+        status_fields = next(
+            (value for value in constants
+             if isinstance(value, tuple) and "connectionState" in value),
+            (),
+        )
+        self.assertIn("accountSessionConnected", status_fields)
+        self.assertIn("online", status_fields)
+
+    def test_paid_provider_routes_have_fail_closed_policy_guard(self):
+        constants = MessengerHandler.do_POST.__code__.co_consts
+        self.assertIn("openai_api_calls_disabled", constants)
 
     def test_authentication_boundary_is_present(self):
         self.assertTrue(hasattr(MessengerHandler, "_principal"))

@@ -9,12 +9,17 @@ class FakeOpenAI:
     def enabled(self):
         return self._enabled
 
+    def api_calls_enabled(self):
+        return False
+
 
 class ProviderRegistryTest(unittest.TestCase):
     def test_openai_key_configuration_is_not_reported_as_online(self):
         provider = ProviderRegistry(FakeOpenAI(True)).get_provider("openai")
         self.assertTrue(provider["configured"])
-        self.assertEqual(provider["connectionState"], "CONFIGURED_UNVERIFIED")
+        self.assertEqual(provider["connectionState"], "DISABLED_BY_POLICY")
+        self.assertFalse(provider["apiCallsEnabled"])
+        self.assertEqual(provider["capabilities"], [])
         self.assertFalse(provider["online"])
         self.assertFalse(provider["accountSessionConnected"])
         self.assertEqual(provider["identityType"], "project_api_credential")
@@ -22,7 +27,16 @@ class ProviderRegistryTest(unittest.TestCase):
     def test_missing_openai_key_is_not_configured(self):
         provider = ProviderRegistry(FakeOpenAI(False)).get_provider("openai")
         self.assertFalse(provider["configured"])
-        self.assertEqual(provider["connectionState"], "NOT_CONFIGURED")
+        self.assertEqual(provider["connectionState"], "DISABLED_BY_POLICY")
+        self.assertFalse(provider["apiCallsEnabled"])
+
+    def test_paid_capabilities_appear_only_when_gate_is_open(self):
+        class EnabledOpenAI(FakeOpenAI):
+            def api_calls_enabled(self):
+                return True
+        provider = ProviderRegistry(EnabledOpenAI(True)).get_provider("openai")
+        self.assertTrue(provider["apiCallsEnabled"])
+        self.assertIn("text_response", provider["capabilities"])
 
     def test_other_providers_are_explicitly_not_implemented(self):
         providers = ProviderRegistry(FakeOpenAI(False)).list_providers()

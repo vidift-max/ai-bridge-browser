@@ -722,7 +722,10 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 principal = identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 self.rate_limiter.allow(principal.ai_id)
-                if self.openai_text is None or not self.openai_text.enabled():
+                if self.openai_text is None or not self.openai_text.api_calls_enabled():
+                    self._json(503, {"error": "openai_api_calls_disabled"})
+                    return
+                if not self.openai_text.enabled():
                     self._json(503, {"error": "openai_api_not_configured"})
                     return
                 result = self.openai_text.create_realtime_client_secret()
@@ -746,7 +749,10 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 principal = identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 self.rate_limiter.allow(principal.ai_id)
-                if self.openai_text is None or not self.openai_text.enabled():
+                if self.openai_text is None or not self.openai_text.api_calls_enabled():
+                    self._json(503, {"error": "openai_api_calls_disabled"})
+                    return
+                if not self.openai_text.enabled():
                     self._json(503, {"error": "openai_api_not_configured"})
                     return
                 payload = self._read_json(max_length=20000)
