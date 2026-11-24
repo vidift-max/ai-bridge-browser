@@ -1,20 +1,47 @@
 import json
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
+from threading import Lock
 from typing import Optional
 
 from server.runtime_config import RuntimeConfig
 
 
 class OpenAITextAdapter:
-    """Server-side OpenAI Responses adapter. Disabled until an API key is configured."""
+    """Server-side OpenAI Responses adapter with request-scoped proof metadata."""
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key if api_key is not None else RuntimeConfig.openai_api_key()
         self.model = model or RuntimeConfig.openai_text_model()
+        self._state_lock = Lock()
+        self._last_success_at = None
+        self._last_response_id = None
+        self._last_model = None
 
     def enabled(self) -> bool:
         return bool(self.api_key)
+
+    def connection_status(self) -> dict:
+        """Return metadata for the most recent successful request, never a live-session claim."""
+        with self._state_lock:
+            verified = self._last_success_at is not None
+            return {
+                "connectionState": "REQUEST_SUCCEEDED" if verified else (
+                    "CONFIGURED_UNVERIFIED" if self.enabled() else "NOT_CONFIGURED"
+                ),
+                "lastSuccessfulRequestAt": self._last_success_at,
+                "lastResponseId": self._last_response_id,
+                "lastSuccessfulModel": self._last_model,
+                "online": False,
+                "accountSessionConnected": False,
+            }
+
+    def _record_success(self, response_id, model):
+        with self._state_lock:
+            self._last_success_at = datetime.now(timezone.utc).isoformat()
+            self._last_response_id = response_id
+            self._last_model = model
 
     def create_realtime_client_secret(self) -> dict:
         if not self.enabled():
@@ -61,6 +88,11 @@ class OpenAITextAdapter:
             raise ValueError("message_required")
         if len(user_text) > RuntimeConfig.openai_max_input_chars():
             raise ValueError("message_too_large")
+        if previous_response_id is not None:
+            if (not isinstance(previous_response_id, str)
+                    or not previous_response_id.strip()
+                    or len(previous_response_id) > 256):
+                raise ValueError("invalid_previous_response_id")
 
         payload = {
             "model": self.model,
@@ -86,8 +118,7 @@ class OpenAITextAdapter:
             with urllib.request.urlopen(request, timeout=RuntimeConfig.openai_timeout_seconds()) as response:
                 data = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:2000]
-            raise RuntimeError("openai_http_" + str(exc.code) + ":" + detail) from exc
+            raise RuntimeError("openai_http_" + str(exc.code)) from exc
         except (urllib.error.URLError, TimeoutError) as exc:
             raise RuntimeError("openai_transport_error") from exc
         except (ValueError, json.JSONDecodeError) as exc:
@@ -107,4 +138,11 @@ class OpenAITextAdapter:
                     break
         if not isinstance(text, str) or not text.strip():
             raise RuntimeError("openai_empty_output")
-        return {"responseId": data.get("id"), "model": data.get("model", self.model), "text": text.strip()}
+        result = {
+            "responseId": data.get("id"),
+            "model": data.get("model", self.model),
+            "text": text.strip(),
+        }
+        self._record_success(result["responseId"], result["model"])
+        return result
+}

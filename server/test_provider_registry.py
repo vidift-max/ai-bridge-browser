@@ -38,6 +38,23 @@ class ProviderRegistryTest(unittest.TestCase):
         self.assertNotIn("test-key", serialized)
         self.assertIn("OPENAI_API_KEY", serialized)
 
+    def test_successful_request_state_is_not_online_or_account_session(self):
+        class VerifiedOpenAI(FakeOpenAI):
+            def connection_status(self):
+                return {
+                    "connectionState": "REQUEST_SUCCEEDED",
+                    "lastSuccessfulRequestAt": "2026-11-24T00:00:00+00:00",
+                    "lastResponseId": "resp_test",
+                    "lastSuccessfulModel": "test-model",
+                    "online": False,
+                    "accountSessionConnected": False,
+                }
+        provider = ProviderRegistry(VerifiedOpenAI(True)).get_provider("openai")
+        self.assertEqual(provider["connectionState"], "REQUEST_SUCCEEDED")
+        self.assertEqual(provider["lastResponseId"], "resp_test")
+        self.assertFalse(provider["online"])
+        self.assertFalse(provider["accountSessionConnected"])
+
     def test_unknown_provider_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "provider_not_supported"):
             ProviderRegistry().get_provider("unknown")

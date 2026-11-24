@@ -230,10 +230,22 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 self.rate_limiter.allow(principal.ai_id)
                 configured = self.openai_text is not None and self.openai_text.enabled()
+                connection = (
+                    self.openai_text.connection_status()
+                    if self.openai_text is not None and hasattr(self.openai_text, "connection_status")
+                    else {
+                        "connectionState": "CONFIGURED_UNVERIFIED" if configured else "NOT_CONFIGURED",
+                        "lastSuccessfulRequestAt": None,
+                        "lastResponseId": None,
+                        "lastSuccessfulModel": None,
+                        "online": False,
+                        "accountSessionConnected": False,
+                    }
+                )
                 self._json(200, {
                     "assistant": {"id": "AI-GPT6", "displayName": "GPT-6", "online": False},
                     "transport": "OpenAI Responses API" if configured else "not_configured",
-                    "connectionState": "CONFIGURED_UNVERIFIED" if configured else "NOT_CONFIGURED",
+                    **connection,
                     "configured": configured,
                     "model": self.openai_text.model if self.openai_text is not None else None,
                     "correlationId": identity.correlation_id,
@@ -745,7 +757,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._audit(identity, "GPT6_RESPONSE_CREATED", result.get("responseId") or "unknown",
                             model=result.get("model", "unknown"))
                 self._json(200, {
-                    "assistant": {"id": "AI-GPT6", "displayName": "GPT-6", "online": True},
+                    "assistant": {"id": "AI-GPT6", "displayName": "GPT-6", "online": False},
+                    "connectionState": "REQUEST_SUCCEEDED",
+                    "requestSucceeded": True,
                     "responseId": result.get("responseId"),
                     "model": result.get("model"),
                     "text": result["text"],
