@@ -599,6 +599,26 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (ValueError,FileNotFoundError):
                 self._json(404,{"error":"not_found"})
             return
+        if len(parts)==6 and parts[1:3]==["v1","conversations"] and parts[4]=="messages" and parts[5]=="wait":
+            try:
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                query=parse_qs(parsed.query)
+                after_sequence=int(query.get("after", ["0"])[0])
+                limit=int(query.get("limit", ["50"])[0])
+                timeout=float(query.get("timeout", ["20"])[0])
+                self.rate_limiter.allow(principal.ai_id)
+                messages=self.backend.wait_for_messages(self._auth(),parts[3],after_sequence=after_sequence,limit=limit,timeout_seconds=timeout)
+                self._audit(identity, "MESSAGE_LONG_POLL", parts[3], count=str(len(messages)))
+                self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,"messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,"senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body,"messageKind":m.kind,"createdAtEpochMs":int(m.created_at_epoch_seconds*1000),"expiresAtEpochMs":int(self.backend.message_expires_at(m)*1000)} for m in messages]})
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
+            except (ValueError, TypeError):
+                self._json(400,{"error":"invalid_long_poll"})
+            except PermissionError as exc:
+                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
+            return
         if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages":
             try:
                 identity=self._principal()

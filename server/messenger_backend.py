@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import hashlib
 import secrets
 from functools import wraps
-from threading import RLock
+from threading import Condition, RLock
 from typing import Dict, List, Set, Tuple
 import time
 from datetime import datetime, timedelta, timezone
@@ -53,6 +53,7 @@ class MessengerBackend:
 
     def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None, identity_display_names=None):
         self._lock = RLock()
+        self._message_condition = Condition(self._lock)
         self._tokens = dict(tokens)
         self._known_ai_ids = set(tokens.values())
         self._store = store or SQLiteMessengerStore(":memory:")
@@ -474,6 +475,7 @@ class MessengerBackend:
         message = Message(message_id, conversation_id, sender, recipient_ids, body, client_request_id, sequence, set(), normalized_kind, created_at)
         self._store.save_message_with_idempotency((message.message_id,message.conversation_id,message.sender_ai_id,message.recipient_ai_ids,message.body,message.client_request_id,message.sequence,message.kind,message.created_at_epoch_seconds))
         self._messages[message_id] = message
+        self._message_condition.notify_all()
         self._idempotency[key] = message_id
         self._next_sequence[conversation_id] = sequence
         return message
@@ -547,6 +549,21 @@ class MessengerBackend:
         if not any(row["object_id"] == object_id for row in rows):
             raise PermissionError("audio_attachment_not_authorized")
         return audio_store.read(object_id)
+
+    def wait_for_messages(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50, timeout_seconds: float = 20.0) -> List[Message]:
+        if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)) or timeout_seconds < 0 or timeout_seconds > 25:
+            raise ValueError("invalid_wait_timeout")
+        deadline = time.monotonic() + float(timeout_seconds)
+        with self._message_condition:
+            self.authenticate(bearer_token)
+            while True:
+                messages = self.pending(bearer_token, conversation_id, after_sequence=after_sequence, limit=limit)
+                if messages:
+                    return messages
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return []
+                self._message_condition.wait(timeout=remaining)
 
     @_synchronized
     def pending(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50) -> List[Message]:
