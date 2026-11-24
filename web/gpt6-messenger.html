@@ -31,6 +31,8 @@ details{margin-bottom:12px}summary{cursor:pointer;color:#c7d2fe}
 <div class="muted">Interface web para o AI Messenger. O token fica somente nesta sessão do navegador.</div>
 <div class="notice"><strong>Modo gratuito experimental:</strong> microfone e leitura de voz usam recursos do navegador. O reconhecimento pode depender do serviço do navegador e de internet. As respostas de IA ainda dependem de um provedor configurado no servidor; esta interface não fornece acesso gratuito à API do GPT-6 nem consome créditos por conta própria.</div>
 <div id="networkStatus" class="notice" role="status" aria-live="polite">Verificando conexão Wi-Fi…</div>
+<div id="localAiStatus" class="notice" role="status" aria-live="polite">Diagnóstico local ainda não executado.</div>
+<div class="row"><button id="checkLocalAi" type="button">Verificar compatibilidade da IA local</button></div>
 <details>
 <summary>Conectar</summary>
 <div class="row"><input id="token" type="password" autocomplete="off" placeholder="Bearer token do AI Messenger"><button id="connect">Conectar</button></div>
@@ -43,8 +45,24 @@ details{margin-bottom:12px}summary{cursor:pointer;color:#c7d2fe}
 </div>
 </main>
 <script src="/wifi-only.js"></script>
+<script src="/local-ai-capability.js"></script>
 <script>
 const networkStatusEl=document.getElementById('networkStatus');
+const localAiStatusEl=document.getElementById('localAiStatus');
+const checkLocalAiEl=document.getElementById('checkLocalAi');
+checkLocalAiEl.addEventListener('click',async()=>{
+ checkLocalAiEl.disabled=true;
+ localAiStatusEl.textContent='Verificando recursos locais… Nenhum modelo será baixado.';
+ try{
+  if(!window.AIBridgeLocalAICapability)throw new Error('Diagnóstico local indisponível');
+  const report=await window.AIBridgeLocalAICapability.inspect();
+  const parts=['Estado: '+report.status,'WebGPU: '+(report.webgpuAdapterAvailable?'adaptador disponível':'indisponível'),'Memória informada: '+(report.deviceMemoryGb===null?'não informada':report.deviceMemoryGb+' GB'),'Espaço estimado: '+(report.storage?.quotaBytes===null||!report.storage?'não informado':Math.round(report.storage.quotaBytes/1048576)+' MB'),'Rede: '+report.network.status];
+  if(report.reasons.length)parts.push('Pendências: '+report.reasons.join(', '));
+  parts.push('Modelo carregado: não. Download iniciado: não. Inferência iniciada: não.');
+  localAiStatusEl.textContent=parts.join(' · ');
+ }catch(error){localAiStatusEl.textContent='Diagnóstico indisponível: '+error.message}
+ finally{checkLocalAiEl.disabled=false}
+});
 function renderNetworkState(state){networkStatusEl.textContent='Rede: '+state.status+' · '+state.message}
 if(window.AIBridgeWifiOnly){window.AIBridgeWifiOnly.watch(renderNetworkState)}else{renderNetworkState({status:'WIFI_POLICY_UNAVAILABLE',message:'Política Wi-Fi não carregada; downloads devem permanecer bloqueados.'})}
 const tokenEl=document.getElementById('token'), connectEl=document.getElementById('connect');
