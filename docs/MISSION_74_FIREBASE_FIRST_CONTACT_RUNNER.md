@@ -13,6 +13,13 @@
 9. **Proteção de credenciais e testes:** tokens são obtidos somente de variáveis de ambiente; não são impressos nem incluídos em URLs de diagnóstico/logs. Adicionados testes para configuração inválida, identidade duplicada, host não Firebase, membership e preflight sem envio.
 10. **CI e roteiro de campo:** adicionado workflow de testes Python para o runner e documentação de configuração/execução com separação explícita entre preflight, round-trip remoto, áudio e chamada WebRTC.
 
+## Verificação automatizada
+
+- Workflow `45474140820`: SUCCESS.
+- Testes do runner: 7/7 PASS, incluindo o caminho simulado de envio nonce, recebimento e ACK.
+- SHA de código testado: `e0358c0ef70a3ba55c4178549811d38c63cfac97`.
+- Os testes usam respostas simuladas; não acessaram projeto Firebase real nem comprovam contato físico.
+
 ## Execução local quando o projeto Firebase estiver provisionado
 
 Variáveis necessárias:
