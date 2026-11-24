@@ -73,7 +73,7 @@ class OperationalEventLog:
         normalized_type = self._normalize_event_type(event_type)
         normalized_outcome = outcome if outcome in _ALLOWED_OUTCOMES else "other"
         with self._lock:
-            if normalized_type not in self._known_event_types and len(self._known_event_types) >= _MAX_EVENT_TYPES:
+            if normalized_type != "OTHER" and normalized_type not in self._known_event_types and len(self._known_event_types) >= _MAX_EVENT_TYPES - 1:
                 normalized_type = "OTHER"
             self._known_event_types.add(normalized_type)
             event = OperationalEvent(
