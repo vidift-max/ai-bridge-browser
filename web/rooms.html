@@ -160,6 +160,7 @@ footer{padding:12px 24px;color:#7383a6;font-size:11px;border-top:1px solid #2631
 <script src="/ai-room-creation.js"></script>
 <script src="/ai-room-inbox.js"></script>
 <script src="/ai-room-notifications.js"></script>
+<script src="/ai-room-event-notifications.js"></script>
 <script src="/ai-room-notification-preferences.js"></script>\n<script src="/ai-room-pinned-conversations.js"></script>
 <script src="/ai-room-message-actions.js"></script>
 <script src="/ai-room-message-reply.js"></script>
@@ -172,10 +173,45 @@ const emptyEl=$('empty'), conversationEl=$('conversation'), messagesEl=$('messag
 let token=sessionStorage.getItem('aiBridgeSessionToken')||'';
 let identity=null, rooms=[], activeRoom=null, nextSequence=0, pollTimer=null, inboxPollTimer=null, presenceTimer=null, heartbeatTimer=null, participantSnapshot=[], roomNextCursor=null, roomPageRequest=0, roomPageBusy=false;
 let voiceController=null, voiceCapabilities=null, roomMessenger=null, inviteRoom=null, requestRoom=null;
-let callClient=null, callPollTimer=null, handledIncomingCallId=null, pendingMessageAttempt=null, messageSubmitBusy=false, renderedRoomMessages=[];
+let callClient=null, callPollTimer=null, eventPollTimer=null, eventMonitor=null, eventPollBusy=false, handledIncomingCallId=null, pendingMessageAttempt=null, messageSubmitBusy=false, renderedRoomMessages=[];
 let historyBeforeSequence=0, historyHasMore=true, historyBusy=false;
 const notificationTracker=window.AIBridgeRoomNotifications.createTracker();
 let notificationCenter=null,notificationPreferences=null;
+function announceRoomEvents(events){
+ if(!Array.isArray(events)||!events.length)return;
+ const eligible=events.filter(event=>{
+  const room=rooms.find(item=>item.conversationId===event.conversationId);
+  return notificationPreferences&&room&&notificationPreferences.allows(room.kind);
+ });
+ if(!eligible.length)return;
+ const message=eligible.map(event=>event.title+(event.detail?' · '+event.detail:'')+' · '+event.conversationId).join(' | ');
+ const banner=$('inboxNotification');banner.textContent=message;banner.hidden=false;
+ try{notificationCenter?.record(eligible);renderNotificationCenter()}catch(error){showStatus('Não foi possível salvar o aviso: '+error.message)}
+ if(notificationPreferences.get().browserEnabled&&typeof Notification!=='undefined'&&Notification.permission==='granted'){
+  try{const notice=new Notification('AI Bridge — '+eligible[0].title,{body:message,tag:'ai-bridge-room-event-'+eligible[0].conversationId});notice.onclick=()=>{window.focus();notice.close();const room=rooms.find(item=>item.conversationId===eligible[0].conversationId);if(room)openRoom(room).catch(()=>{})}}catch{}
+ }
+}
+async function pollRoomEventNotifications(){
+ if(eventPollBusy||!identity||!eventMonitor)return;
+ eventPollBusy=true;
+ try{
+  const selected=rooms.filter(room=>room&&typeof room.conversationId==='string').slice(0,24);
+  const events=[];let privateCount=0,groupCount=0;
+  for(const room of selected){
+   if(room.kind==='PRIVATE'&&privateCount<12&&Array.isArray(room.memberAiIds)&&room.memberAiIds.length===2){
+    privateCount++;
+    if(activeRoom?.conversationId===room.conversationId)continue;
+    try{const data=await api('/v1/conversations/'+encodeURIComponent(room.conversationId)+'/calls/active');const event=eventMonitor.observeCall(room,data.call,identity.aiId);events.push(...event)}catch(error){if(![401,403,404].some(code=>String(error.message).includes('HTTP '+code))){}}
+   }else if(room.kind==='GROUP'&&groupCount<8){
+    groupCount++;
+    try{const data=await api('/v1/conversations/'+encodeURIComponent(room.conversationId)+'/join-requests');events.push(...eventMonitor.observeJoinRequests(room,data.requests||[]))}catch(error){}
+    try{const data=await api('/v1/conversations/'+encodeURIComponent(room.conversationId)+'/invites');events.push(...eventMonitor.observeInvites(room,data.invites||[]))}catch(error){}
+   }
+  }
+  eventMonitor.finishCallBaseline();eventMonitor.finishRequestBaseline();
+  announceRoomEvents(events);
+ }finally{eventPollBusy=false}
+}
 function announceNewMessages(events,inboxRooms=[]){
  if(!events.length)return;
  const eligible=events.filter(event=>{
@@ -219,7 +255,7 @@ function renderNotificationCenter(){
  if(!items.length){const empty=document.createElement('p');empty.className='sub';empty.textContent='Nenhuma notificação registrada.';list.append(empty);return}
  for(const item of items){
   const row=document.createElement('div');row.className='panel';row.dataset.notificationId=item.id;
-  const summary=document.createElement('p');summary.textContent=item.newCount+' nova(s) mensagem(ns) · '+item.conversationId+' · '+new Date(item.createdAt).toLocaleString();row.append(summary);
+  const summary=document.createElement('p');summary.textContent=(item.title||item.newCount+' nova(s) mensagem(ns)')+(item.detail?' · '+item.detail:'')+' · '+item.conversationId+' · '+new Date(item.createdAt).toLocaleString();row.append(summary);
   const state=document.createElement('span');state.className='sub';state.textContent=item.read?'Aviso lido':'Aviso não lido';row.append(state);
   const open=document.createElement('button');open.type='button';open.textContent='Abrir conversa';open.dataset.notificationOpen=item.id;row.append(open);
   if(!item.read){const mark=document.createElement('button');mark.type='button';mark.textContent='Marcar aviso como lido';mark.dataset.notificationRead=item.id;row.append(mark)}
@@ -327,7 +363,7 @@ function configureRoomCalls(room){
  callPollTimer=setInterval(async()=>{if(!callClient||callClient.getCall())return;try{const incoming=await callClient.refreshIncoming(room.conversationId);if(!incoming||incoming.state!=='RINGING'||incoming.callee_ai_id!==identity.aiId||incoming.call_id===handledIncomingCallId)return;handledIncomingCallId=incoming.call_id;const accept=window.confirm('Recebendo chamada de '+incoming.caller_ai_id+'. Aceitar e permitir acesso ao microfone?');if(accept){await callClient.acceptCall(incoming);$('endCall').disabled=false}else{await callClient.rejectCall(incoming);$('callStatus').textContent='Chamada recusada.'}}catch(error){$('callStatus').textContent='Verificação de chamadas: '+error.message}},2500);
 }
 async function openRoom(room){if(activeRoom&&activeRoom.conversationId!==room.conversationId)await stopRoomCall();activeRoom=room;nextSequence=0;roomMessenger=null;historyBeforeSequence=0;historyHasMore=true;historyBusy=false;$('loadConversationHistory').hidden=false;$('loadConversationHistory').disabled=false;$('historyStatus').textContent='Histórico não carregado.';renderedRoomMessages=[];messagesEl.replaceChildren();$('messageSearch').value='';renderMessageSearch();configureRoomCalls(room);$('roomTitle').textContent=room.conversationId;$('roomSubtitle').textContent=(room.kind==='PRIVATE'?'Conversa privada':'Sala de grupo')+' · '+room.memberCount+' participantes';emptyEl.style.display='none';conversationEl.style.display='flex';renderRooms();try{await sendHeartbeat();await loadMessages();await loadPresence()}catch(error){showStatus('Não foi possível abrir a sala: '+error.message)}}
-async function connect(){token=tokenInput.value.trim();if(!token){showStatus('Informe o token de acesso.');return}try{assertNetwork();const me=await api('/v1/me/identity');identity=me.identity;notificationTracker.reset();$('inboxNotification').hidden=true;notificationCenter=window.AIBridgeRoomNotifications.createCenter(localStorage,'aiBridgeNotificationCenter:'+encodeURIComponent(identity.aiId));notificationPreferences=window.AIBridgeNotificationPreferences.createPreferences(localStorage,'aiBridgeNotificationPreferences:'+encodeURIComponent(identity.aiId));renderNotificationCenter();renderNotificationPreferences();sessionStorage.setItem('aiBridgeSessionToken',token);await loadRooms();if(pollTimer)clearInterval(pollTimer);if(inboxPollTimer)clearInterval(inboxPollTimer);if(presenceTimer)clearInterval(presenceTimer);if(heartbeatTimer)clearInterval(heartbeatTimer);sendHeartbeat().catch(error=>showStatus('Presença não atualizada: '+error.message));pollTimer=setInterval(()=>{if(activeRoom)loadMessages().catch(error=>showStatus('Atualização pausada: '+error.message))},5000);inboxPollTimer=setInterval(()=>{if(identity)loadRooms(true).catch(error=>showStatus('Verificação de novas mensagens falhou: '+error.message))},15000);presenceTimer=setInterval(()=>{if(activeRoom)loadPresence().catch(error=>showStatus('Participantes não atualizados: '+error.message))},5000);heartbeatTimer=setInterval(()=>sendHeartbeat().catch(error=>showStatus('Heartbeat falhou: '+error.message)),25000)}catch(error){identity=null;sessionStorage.removeItem('aiBridgeSessionToken');showStatus('Falha na conexão: '+error.message)}}
+async function connect(){token=tokenInput.value.trim();if(!token){showStatus('Informe o token de acesso.');return}try{assertNetwork();const me=await api('/v1/me/identity');identity=me.identity;notificationTracker.reset();eventMonitor=window.AIBridgeRoomEventNotifications.createMonitor();$('inboxNotification').hidden=true;notificationCenter=window.AIBridgeRoomNotifications.createCenter(localStorage,'aiBridgeNotificationCenter:'+encodeURIComponent(identity.aiId));notificationPreferences=window.AIBridgeNotificationPreferences.createPreferences(localStorage,'aiBridgeNotificationPreferences:'+encodeURIComponent(identity.aiId));renderNotificationCenter();renderNotificationPreferences();sessionStorage.setItem('aiBridgeSessionToken',token);await loadRooms();if(pollTimer)clearInterval(pollTimer);if(inboxPollTimer)clearInterval(inboxPollTimer);if(presenceTimer)clearInterval(presenceTimer);if(heartbeatTimer)clearInterval(heartbeatTimer);if(eventPollTimer)clearInterval(eventPollTimer);sendHeartbeat().catch(error=>showStatus('Presença não atualizada: '+error.message));pollTimer=setInterval(()=>{if(activeRoom)loadMessages().catch(error=>showStatus('Atualização pausada: '+error.message))},5000);inboxPollTimer=setInterval(()=>{if(identity)loadRooms(true).catch(error=>showStatus('Verificação de novas mensagens falhou: '+error.message))},15000);presenceTimer=setInterval(()=>{if(activeRoom)loadPresence().catch(error=>showStatus('Participantes não atualizados: '+error.message))},5000);heartbeatTimer=setInterval(()=>sendHeartbeat().catch(error=>showStatus('Heartbeat falhou: '+error.message)),25000);eventPollTimer=setInterval(()=>pollRoomEventNotifications().catch(()=>{}),30000);pollRoomEventNotifications().catch(()=>{})}catch(error){identity=null;sessionStorage.removeItem('aiBridgeSessionToken');showStatus('Falha na conexão: '+error.message)}}
 $('connect').addEventListener('click',connect);
 $('probeLocalAi').addEventListener('click',async()=>{
  const status=$('localAiStatus'), button=$('probeLocalAi');
