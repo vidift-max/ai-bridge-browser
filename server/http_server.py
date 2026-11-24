@@ -266,6 +266,29 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except ValueError:
                 self._json(400, {"error": "invalid_conversation"})
             return
+        identity_parts = parsed.path.split("/")
+        if (len(identity_parts) == 5 and identity_parts[1:3] == ["v1", "conversations"]
+                and identity_parts[4] == "identities" and identity_parts[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                participants = self.backend.list_conversation_identities(
+                    self._auth(), identity_parts[3])
+                self._audit(identity, "ROOM_IDENTITIES_LISTED", identity_parts[3],
+                            participant_count=str(len(participants)))
+                self._json(200, {"conversationId": identity_parts[3],
+                                 "participants": participants,
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError, KeyError):
+                self._json(400, {"error": "identity_directory_unavailable"})
+            return
         invite_parts = parsed.path.split("/")
         if len(invite_parts) == 4 and invite_parts[1:3] == ["v1", "invites"] and invite_parts[3]:
             try:
