@@ -27,7 +27,7 @@
       if(!report.apis||!report.apis.webgpu||report.apis.webgpu.adapterAvailable!==true) reasons.push("WEBGPU_ADAPTER_REQUIRED");
       if(!report.apis||report.apis.workers!==true) reasons.push("WORKERS_REQUIRED");
       var memory=report.resourceHints&&report.resourceHints.memoryBucket;
-      if(!Object.prototype.hasOwnProperty.call(MEMORY_RANK,memory)) reasons.push("MEMORY_HINT_UNKNOWN");
+      if(memory==="UNKNOWN"||!Object.prototype.hasOwnProperty.call(MEMORY_RANK,memory)) reasons.push("MEMORY_HINT_UNKNOWN");
       else if(MEMORY_RANK[memory]<MEMORY_RANK[p.minimumMemoryBucket]) reasons.push("MEMORY_HINT_BELOW_PROFILE_THRESHOLD");
       if(!report.execution||report.execution.modelLoaded!==false||report.execution.downloadStarted!==false||report.execution.inferenceStarted!==false) reasons.push("EXECUTION_STATE_NOT_INERT");
     }
