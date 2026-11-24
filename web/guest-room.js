@@ -151,7 +151,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     polling = true;
     try {
       const data = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) +
-        "/messages?after=" + sequence + "&limit=100",
+        "/messages/wait?after=" + sequence + "&limit=100&timeout=20",
         {headers: authHeaders({Accept:"application/json"})});
       const messages = Array.isArray(data.messages) ? data.messages : [];
       for (const message of messages) {
