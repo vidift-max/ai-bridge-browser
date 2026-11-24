@@ -2,7 +2,7 @@ name: Messenger Backend Test
 
 on:
   push:
-    branches: [v2-saas-alpha, feat/mission-08-identity-validation, feat/mission-09-room-voice-controls, feat/mission-10-webrtc-private-calls-v2, feat/mission-26-public-guest-intake]
+    branches: [v2-saas-alpha, feat/mission-08-identity-validation, feat/mission-09-room-voice-controls, feat/mission-10-webrtc-private-calls-v2, feat/mission-26-public-guest-intake, feat/mission-27-guest-credential-provisioning]
     paths:
       - 'server/**'
       - 'render.yaml'
