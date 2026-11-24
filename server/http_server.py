@@ -206,6 +206,24 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except RuntimeError:
                 self._json(503,{"status":"not_ready","error":"runtime_configuration_invalid"})
             return
+        if self.path == "/v1/local-ai":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                from server.local_ai_registry import LocalAIRegistry
+                self._audit(identity, "LOCAL_AI_CATALOG_READ", "local_ai_catalog")
+                self._json(200, {
+                    "engines": LocalAIRegistry.list_engines(),
+                    "messenger": LocalAIRegistry.messenger_capabilities(),
+                    "correlationId": identity.correlation_id,
+                })
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403, self._permission_error(exc))
+            return
         if self.path == "/v1/providers":
             try:
                 identity = self._principal()

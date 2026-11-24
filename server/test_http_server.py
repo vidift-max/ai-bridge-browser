@@ -26,6 +26,10 @@ class HttpContractTest(unittest.TestCase):
         self.assertTrue(hasattr(MessengerHandler, "do_POST"))
         self.assertIn("/v1/messages", MessengerHandler.do_POST.__code__.co_consts)
 
+    def test_local_ai_catalog_route_is_defined(self):
+        self.assertIn("/v1/local-ai", MessengerHandler.do_GET.__code__.co_consts)
+        self.assertIn("LOCAL_AI_CATALOG_READ", MessengerHandler.do_GET.__code__.co_consts)
+
     def test_provider_catalog_route_is_defined(self):
         self.assertIn("/v1/providers", MessengerHandler.do_GET.__code__.co_consts)
         self.assertTrue(hasattr(MessengerHandler, "provider_registry"))
