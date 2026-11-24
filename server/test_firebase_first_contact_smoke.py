@@ -92,5 +92,31 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         self.assertIn("/acks/-message-key/AI-02", request.call_args_list[5].args[2])
 
 
+    def test_explicit_loopback_emulator_mode_requires_namespace(self):
+        env = dict(BASE, MESSENGER_FIREBASE_DATABASE_URL="http://127.0.0.1:9000/?ns=demo-ai-bridge-rules", MESSENGER_FIREBASE_EMULATOR="true")
+        config = validate_config(env)
+        self.assertEqual(config["database_url"], "http://127.0.0.1:9000")
+        self.assertEqual(config["database_namespace"], "demo-ai-bridge-rules")
+
+    def test_emulator_mode_rejects_non_loopback_and_missing_namespace(self):
+        for url in ("http://example.com:9000/?ns=demo", "http://127.0.0.1:9000/", "https://127.0.0.1:9000/?ns=demo"):
+            with self.subTest(url=url):
+                env = dict(BASE, MESSENGER_FIREBASE_DATABASE_URL=url, MESSENGER_FIREBASE_EMULATOR="true")
+                with self.assertRaisesRegex(ProbeError, "invalid_firebase_emulator_url"):
+                    validate_config(env)
+
+    def test_emulator_namespace_is_added_to_authenticated_requests(self):
+        config = validate_config(dict(BASE, MESSENGER_FIREBASE_DATABASE_URL="http://127.0.0.1:9000/?ns=demo-ai-bridge-rules", MESSENGER_FIREBASE_EMULATOR="true"))
+        with patch("tools.firebase_first_contact_smoke.urllib.request.urlopen") as urlopen:
+            response = urlopen.return_value.__enter__.return_value
+            response.read.return_value = b'{"ok":true}'
+            from tools.firebase_first_contact_smoke import firebase_request
+            firebase_request(config, "GET", "/messenger/identities/AI-01", "secret-token")
+            request = urlopen.call_args.args[0]
+            self.assertIn("ns=demo-ai-bridge-rules", request.full_url)
+            self.assertIn("auth=secret-token", request.full_url)
+
+
+
 if __name__ == "__main__":
     unittest.main()

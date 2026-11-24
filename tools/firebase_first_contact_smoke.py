@@ -44,14 +44,29 @@ def validate_config(env):
         raise ProbeError("invalid_ai_b_id")
     if not CONVERSATION_RE.fullmatch(env["MESSENGER_FIREBASE_CONVERSATION_ID"]):
         raise ProbeError("invalid_conversation_id")
-    parsed = urllib.parse.urlsplit(env["MESSENGER_FIREBASE_DATABASE_URL"].rstrip("/"))
-    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or
-            parsed.password or parsed.query or parsed.fragment or
-            not (parsed.hostname.endswith(".firebaseio.com") or
-                 parsed.hostname.endswith(".firebasedatabase.app"))):
-        raise ProbeError("invalid_firebase_database_url")
+    raw_database_url = env["MESSENGER_FIREBASE_DATABASE_URL"].rstrip("/")
+    parsed = urllib.parse.urlsplit(raw_database_url)
+    emulator_mode = env.get("MESSENGER_FIREBASE_EMULATOR", "").lower() == "true"
+    if emulator_mode:
+        query = urllib.parse.parse_qs(parsed.query, strict_parsing=True)
+        namespace = query.get("ns", [])
+        if (parsed.scheme != "http" or parsed.hostname not in ("127.0.0.1", "localhost") or
+                parsed.port not in (9000, 9001) or parsed.username or parsed.password or
+                parsed.fragment or len(namespace) != 1 or not namespace[0] or
+                set(query) != {"ns"}):
+            raise ProbeError("invalid_firebase_emulator_url")
+        database_url = "http://" + parsed.netloc
+    else:
+        if (parsed.scheme != "https" or not parsed.hostname or parsed.username or
+                parsed.password or parsed.query or parsed.fragment or
+                not (parsed.hostname.endswith(".firebaseio.com") or
+                     parsed.hostname.endswith(".firebasedatabase.app"))):
+            raise ProbeError("invalid_firebase_database_url")
+        database_url = "https://" + parsed.netloc
+        namespace = []
     return {
-        "database_url": "https://" + parsed.netloc,
+        "database_url": database_url,
+        "database_namespace": namespace[0] if namespace else None,
         "ai_a": env["MESSENGER_FIREBASE_AI_A_ID"],
         "ai_b": env["MESSENGER_FIREBASE_AI_B_ID"],
         "token_a": env["MESSENGER_FIREBASE_AI_A_ID_TOKEN"],
@@ -66,6 +81,8 @@ def _path(value):
 
 def firebase_request(config, method, path, token, payload=None, timeout=10, query_params=None):
     query = {"auth": token}
+    if config.get("database_namespace"):
+        query["ns"] = config["database_namespace"]
     if query_params:
         query.update(query_params)
     url = config["database_url"] + path + ".json?" + urllib.parse.urlencode(query)
