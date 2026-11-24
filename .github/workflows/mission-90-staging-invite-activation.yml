@@ -2,9 +2,9 @@ name: Mission 90 Staging Invite Activation
 
 on:
   push:
-    branches: ["feat/mission-91-render-staging-plan", "feat/mission-92-staging-preflight", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger", "feat/mission-96-verifier-response-hardening"]
+    branches: ["feat/mission-91-render-staging-plan", "feat/mission-92-staging-preflight", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger", "feat/mission-96-verifier-response-hardening", "feat/mission-97-fix-android-ci-checkout"]
   pull_request:
-    branches: ["feat/mission-90-staging-invite-activation", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger", "feat/mission-96-verifier-response-hardening"]
+    branches: ["feat/mission-90-staging-invite-activation", "feat/mission-93-safe-autodeploy-boundary", "feat/mission-94-harden-staging-verifier", "feat/mission-95-fix-pr-ci-trigger", "feat/mission-96-verifier-response-hardening", "feat/mission-97-fix-android-ci-checkout"]
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m unittest server.test_staging_activation_contract server.test_m91_render_staging_boundary server.test_http_e2e server.test_staging_http_verifier -v
+      - run: python -m unittest server.test_staging_activation_contract server.test_m91_render_staging_boundary server.test_http_e2e server.test_staging_http_verifier server.test_mission_97_android_checkout -v
       - run: python -m py_compile scripts/verify_staging_http.py
 
   browser-invite-contract:
