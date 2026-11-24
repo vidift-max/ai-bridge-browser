@@ -1,5 +1,6 @@
 import unittest
-from datetime import timedelta
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 
 from server.guest_web_session import GuestWebSessionService
 
@@ -24,11 +25,23 @@ class FakeAuthenticator:
         elif token in self.tokens:
             self.tokens[token] = (self.tokens[token][0], "REVOKED")
 
+    def expire(self, token):
+        if token not in self.ephemeral:
+            raise KeyError("credential_unknown")
+        self.ephemeral[token] = (self.ephemeral[token][0], "EXPIRED")
+
 
 class GuestWebSessionServiceTest(unittest.TestCase):
     def setUp(self):
         self.auth = FakeAuthenticator()
         self.service = GuestWebSessionService(self.auth)
+
+    def _expire_session_now(self, service, session):
+        token_hash = service._hash(session)
+        record = service._sessions[token_hash]
+        service._sessions[token_hash] = replace(
+            record, expires_at=datetime.now(timezone.utc) - timedelta(seconds=1))
+        return token_hash
 
     def test_exchange_returns_opaque_short_lived_session(self):
         result = self.service.exchange("guest-bearer")
@@ -101,6 +114,41 @@ class GuestWebSessionServiceTest(unittest.TestCase):
         self.assertTrue(service.revoke(session))
         with self.assertRaises(PermissionError):
             service.authenticate(session)
+
+    def test_expired_session_expires_credential_before_local_transition(self):
+        session = self.service.exchange("guest-bearer")["sessionToken"]
+        token_hash = self._expire_session_now(self.service, session)
+        with self.assertRaisesRegex(PermissionError, "guest_session_not_active"):
+            self.service.authenticate(session)
+        self.assertEqual(self.auth.ephemeral[session][1], "EXPIRED")
+        self.assertEqual(self.service._sessions[token_hash].status, "EXPIRED")
+
+    def test_expiry_failure_keeps_session_retryable_after_partial_registry_update(self):
+        class PartiallyFailingExpiryAuthenticator(FakeAuthenticator):
+            def __init__(self):
+                super().__init__()
+                self.expire_calls = 0
+
+            def expire(self, token):
+                self.expire_calls += 1
+                super().expire(token)
+                if self.expire_calls == 1:
+                    raise OSError("credential expiry persistence failed")
+
+        auth = PartiallyFailingExpiryAuthenticator()
+        service = GuestWebSessionService(auth)
+        session = service.exchange("guest-bearer")["sessionToken"]
+        token_hash = self._expire_session_now(service, session)
+
+        with self.assertRaisesRegex(OSError, "credential expiry persistence failed"):
+            service.authenticate(session)
+        self.assertEqual(service._sessions[token_hash].status, "ACTIVE")
+        self.assertEqual(auth.ephemeral[session][1], "EXPIRED")
+
+        with self.assertRaisesRegex(PermissionError, "guest_session_not_active"):
+            service.authenticate(session)
+        self.assertEqual(auth.expire_calls, 2)
+        self.assertEqual(service._sessions[token_hash].status, "EXPIRED")
 
     def test_parent_credential_revocation_invalidates_child_session(self):
         session = self.service.exchange("guest-bearer")["sessionToken"]
