@@ -273,7 +273,8 @@ def save_send_plan(plan, destination):
         raise ProbeError("send_plan_file_create_failed") from None
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(plan, sort_keys=True, ensure_ascii=False) + "\n")
+            handle.write(json.dumps(plan, sort_keys=True, ensure_ascii=False))
+            handle.write(chr(10))
             handle.flush()
             os.fsync(handle.fileno())
     except OSError:
