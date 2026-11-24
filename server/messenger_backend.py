@@ -50,6 +50,10 @@ class MessengerBackend:
     MAX_BODY_LENGTH = 5000
     MAX_ID_LENGTH = 200
     MAX_ROOM_MEMBERS = 20
+    TRANSPORT_CONTRACT_VERSION = 1
+    LONG_POLL_MAX_WAIT_SECONDS = 25
+    LONG_POLL_DEFAULT_WAIT_SECONDS = 20
+    LONG_POLL_MAX_BATCH_SIZE = 100
 
     def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None, identity_display_names=None):
         self._lock = RLock()
@@ -558,15 +562,17 @@ class MessengerBackend:
             if not members or ai_id not in members:
                 raise PermissionError("authorization_denied")
             return {
+                "contractVersion": self.TRANSPORT_CONTRACT_VERSION,
                 "conversationId": conversation_id,
                 "authorized": True,
                 "defaultTransport": "HTTP_LONG_POLL",
                 "transports": {
                     "httpLongPoll": {
                         "enabled": True,
-                        "maxWaitSeconds": 25,
-                        "defaultWaitSeconds": 20,
-                        "maxBatchSize": 100,
+                        "minWaitSeconds": 0,
+                        "maxWaitSeconds": self.LONG_POLL_MAX_WAIT_SECONDS,
+                        "defaultWaitSeconds": self.LONG_POLL_DEFAULT_WAIT_SECONDS,
+                        "maxBatchSize": self.LONG_POLL_MAX_BATCH_SIZE,
                     },
                     "webSocket": {"enabled": False},
                     "serverPush": {"enabled": False},
