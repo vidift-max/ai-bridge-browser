@@ -20,7 +20,7 @@ function fixture(options={}){
 }
 function handshake(id="session-1",extra={}){
  return {status:"AUTHENTICATED",sessionId:id,providerId:"provider-1",origin:"https://chat.example",
-  capabilities:["READ_STATUS","SEND_MESSAGE","REQUEST_RECONNECT"],expiresAt:20000,...extra};
+  capabilities:["READ_STATUS","SEND_MESSAGE","REQUEST_RECONNECT"],expiresAt:Date.now()+120000,...extra};
 }
 function attach(r,id="session-1",extra={}){
  return r.attachTab({sessionId:id,providerId:"provider-1",origin:"https://chat.example",
