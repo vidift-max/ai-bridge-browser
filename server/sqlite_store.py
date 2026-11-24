@@ -548,12 +548,35 @@ class SQLiteMessengerStore:
         self._connection.commit()
         return cursor.rowcount == 1
 
-    def save_ack(self, message_id: str, ai_id: str):
-        self._connection.execute(
-            "INSERT OR IGNORE INTO acknowledgements(message_id,ai_id) VALUES(?,?)",
-            (message_id,ai_id),
-        )
-        self._connection.commit()
+    def save_ack(self, message_id: str, ai_id: str) -> bool:
+        if (not isinstance(message_id, str) or not message_id.strip()
+                or not isinstance(ai_id, str) or not ai_id.strip()):
+            raise ValueError("invalid_ack_identity")
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            message = self._connection.execute(
+                "SELECT conversation_id,recipient_ai_ids FROM messages WHERE message_id=?",
+                (message_id,)).fetchone()
+            if message is None:
+                raise ValueError("ack_message_not_found")
+            recipients = set(filter(None, message["recipient_ai_ids"].split(",")))
+            if ai_id not in recipients:
+                raise ValueError("ack_recipient_required")
+            conversation = self._connection.execute(
+                "SELECT member_ai_ids FROM conversations WHERE conversation_id=?",
+                (message["conversation_id"],)).fetchone()
+            members = (set(filter(None, conversation["member_ai_ids"].split(",")))
+                       if conversation is not None else set())
+            if ai_id not in members:
+                raise ValueError("ack_room_membership_required")
+            cursor = self._connection.execute(
+                "INSERT OR IGNORE INTO acknowledgements(message_id,ai_id) VALUES(?,?)",
+                (message_id, ai_id))
+            self._connection.commit()
+            return cursor.rowcount == 1
+        except Exception:
+            self._connection.rollback()
+            raise
 
     def load_acknowledgements(self) -> Dict[str,set]:
         rows=self._connection.execute("SELECT message_id,ai_id FROM acknowledgements").fetchall()
