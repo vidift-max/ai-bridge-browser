@@ -863,7 +863,7 @@ class HttpE2ETest(unittest.TestCase):
         headers = dict(response.getheaders())
         conn.close()
         self.assertEqual(response.status, 200)
-        self.assertIn("Solicitar entrada", body)
+        self.assertIn("Enviar solicitação de convidado", body)
         self.assertEqual(headers["Cache-Control"], "no-store")
         self.assertEqual(headers["Referrer-Policy"], "no-referrer")
 
