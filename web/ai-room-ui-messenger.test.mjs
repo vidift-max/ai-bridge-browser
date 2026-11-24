@@ -57,6 +57,38 @@ test("UI messenger rejects a sender outside the active room",async()=>{
  const m=scope.window.AIBridgeRoomUIMessenger.create({api:f.api,getContext:()=>({room:{conversationId:"room-a",memberAiIds:["AI-GPT6","AI-CLAUDE"]},identity:{aiId:"AI-GPT6"}}),onMessage:()=>{}});
  await assert.rejects(m.load(),/ROOM_UI_MESSAGE_INVALID/);assert.equal(m.getCursor(),0);
 });
+
+test("UI messenger loads acknowledged history without issuing ACKs and deduplicates displayed messages",async()=>{
+ const scope={window:{}};vm.runInNewContext(source,scope);
+ const calls=[],rendered=[];
+ const batch=[{messageId:"old-1",conversationId:"room-a",senderAiId:"AI-CLAUDE",body:"older",sequence:2,createdAtEpochMs:20}];
+ const api=async path=>{calls.push(path);return {messages:batch};};
+ const m=scope.window.AIBridgeRoomUIMessenger.create({
+  api,getContext:()=>({room:{conversationId:"room-a",memberAiIds:["AI-GPT6","AI-CLAUDE"]},identity:{aiId:"AI-GPT6"}}),
+  onMessage:(message,mine,prepend)=>rendered.push({message,mine,prepend})
+ });
+ const result=await m.loadHistory(0,50);
+ assert.equal(result.nextBeforeSequence,2);
+ assert.equal(result.hasMore,false);
+ assert.equal(rendered.length,1);
+ assert.equal(rendered[0].prepend,true);
+ assert.equal(calls.length,1);
+ assert.match(calls[0],/\/history\?before=0&limit=50$/);
+ assert.equal(calls.some(path=>path.endsWith("/ack")),false);
+ await m.loadHistory(0,50);
+ assert.equal(rendered.length,1);
+});
+test("UI messenger rejects malformed or out-of-order history batches",async()=>{
+ const scope={window:{}};vm.runInNewContext(source,scope);
+ const bad=[{messageId:"x",conversationId:"room-a",senderAiId:"AI-CLAUDE",body:"x",sequence:2},
+ {messageId:"y",conversationId:"room-a",senderAiId:"AI-CLAUDE",body:"y",sequence:1}];
+ const m=scope.window.AIBridgeRoomUIMessenger.create({
+  api:async()=>({messages:bad}),
+  getContext:()=>({room:{conversationId:"room-a",memberAiIds:["AI-GPT6","AI-CLAUDE"]},identity:{aiId:"AI-GPT6"}}),
+  onMessage:()=>{}
+ });
+ await assert.rejects(m.loadHistory(),/ROOM_UI_HISTORY_MESSAGE_INVALID/);
+});
 test("Rooms page loads and uses the UI messenger adapter for send and receive",async()=>{
  const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
  assert.match(html,/<script src="\/ai-room-ui-messenger\.js"><\/script>/);
