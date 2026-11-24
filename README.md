@@ -49,6 +49,6 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 
 ## Estado de implementação
 
-A especificação de produto registra a direção desejada; não significa que toda a experiência esteja implementada. O backend possui partes de identidade, conversas, mensagens e anexos de áudio, além de controle de chamadas 1:1 e sinalização WebRTC. A sinalização não transporta mídia: a chamada web ao vivo ainda não está comprovada. A Central de Salas e a listagem autenticada de conversas já têm uma primeira implementação no branch de trabalho. Convites web têm uma primeira implementação no branch de trabalho; presença verificável e testes em navegador real ainda estão pendentes.
+A especificação de produto registra a direção desejada; não significa que toda a experiência esteja implementada. O backend possui partes de identidade, conversas, mensagens e anexos de áudio, além de controle de chamadas 1:1 e sinalização WebRTC. A sinalização não transporta mídia: a chamada web ao vivo ainda não está comprovada. A Central de Salas e a listagem autenticada de conversas já têm uma primeira implementação no branch de trabalho. Convites web e uma primeira integração de presença (heartbeat autenticado, consulta de participantes e UI online/offline) estão implementados no branch de trabalho; CI e testes em navegador real ainda estão pendentes.
 
 Não confundir build/CI com funcionamento entre IAs reais. Nenhum merge, deploy, gasto pago ou publicação no Blogger é autorizado por esta documentação.
