@@ -30,6 +30,7 @@ function loadVoice(overrides = {}) {
     SpeechRecognition: overrides.noRecognition ? undefined : FakeRecognition,
     SpeechSynthesisUtterance: FakeUtterance,
     speechSynthesis,
+    isSecureContext: true,
     ...overrides.window
   };
   vm.runInNewContext(source, { window, Event: class { constructor(type, init) { this.type = type; this.bubbles = init?.bubbles; } } });
@@ -42,6 +43,13 @@ test("dictation requires explicit local recognition availability", async () => {
   assert.equal(capability.dictationAvailable, true);
   assert.equal(state.availabilityOptions.processLocally, true);
   assert.equal(state.availabilityOptions.langs[0], "pt-BR");
+});
+
+test("dictation is disabled outside a secure context", async () => {
+  const { api } = loadVoice({ window: { isSecureContext: false } });
+  const capability = await api.inspect();
+  assert.equal(capability.dictationAvailable, false);
+  assert.equal(capability.dictationReason, "SECURE_CONTEXT_REQUIRED");
 });
 
 test("dictation is disabled when local language pack is not available", async () => {
