@@ -38,6 +38,20 @@ public final class MessengerHttpClient {
         return request("GET", "/v1/me/identity", null).getJSONObject("identity");
     }
 
+    public JSONObject getGpt6Status() throws Exception {
+        return request("GET", "/v1/gpt6/status", null);
+    }
+
+    public JSONObject sendToGpt6(String message, String previousResponseId) throws Exception {
+        if (message == null || message.trim().isEmpty()) throw new IllegalArgumentException("message_required");
+        JSONObject body = new JSONObject();
+        body.put("message", message.trim());
+        if (previousResponseId != null && !previousResponseId.trim().isEmpty()) {
+            body.put("previousResponseId", previousResponseId.trim());
+        }
+        return request("POST", "/v1/gpt6/respond", body);
+    }
+
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
         if (firebase != null) return firebase.createConversation(conversationId, memberAiIds, kind);
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
