@@ -2,7 +2,7 @@ name: Mission 90 Staging Invite Activation
 
 on:
   push:
-    branches: ["feat/mission-91-render-staging-plan"]
+    branches: ["feat/mission-91-render-staging-plan", "feat/mission-92-staging-preflight"]
   pull_request:
     branches: ["feat/mission-90-staging-invite-activation"]
 
@@ -18,6 +18,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m unittest server.test_staging_activation_contract server.test_m91_render_staging_boundary server.test_http_e2e -v
+      - run: python -m py_compile scripts/verify_staging_http.py
 
   browser-invite-contract:
     runs-on: ubuntu-latest
