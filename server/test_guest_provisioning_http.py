@@ -116,6 +116,8 @@ class GuestProvisioningHttpTest(unittest.TestCase):
         self.assertEqual(status, 200)
         status, _ = self.request("GET", "/v1/guest-sessions/current", token=token)
         self.assertEqual(status, 401)
+        status, _ = self.request("GET", "/v1/me/identity", token=token)
+        self.assertEqual(status, 401)
 
     def test_non_admin_cannot_provision_or_revoke(self):
         status, data = self.request("POST", self.path("provision"), {}, "member-token")
