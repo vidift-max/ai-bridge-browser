@@ -78,7 +78,24 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _gpt6_web(self):
+        page = Path(__file__).resolve().parent.parent / "web" / "gpt6-messenger.html"
+        try:
+            data = page.read_bytes()
+        except OSError:
+            self._json(404, {"error": "gpt6_web_not_found"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_GET(self):
+        if self.path in ("/gpt6", "/gpt6/"):
+            self._gpt6_web()
+            return
         if self.path=="/healthz":
             self._json(200,{"status":"ok","service":"ai-messenger-experimental"}); return
         if self.path=="/readyz":
