@@ -4,6 +4,37 @@ const MAX_MESSAGE_LENGTH = 5000;
 const BASE_POLL_DELAY_MS = 4000;
 const MAX_POLL_DELAY_MS = 30000;
 
+function validateGuestTransportContract(payload, conversationId) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) ||
+      payload.contractVersion !== 1 || payload.authorized !== true ||
+      payload.conversationId !== conversationId ||
+      payload.defaultTransport !== "HTTP_LONG_POLL") {
+    throw new Error("guest_transport_unavailable");
+  }
+  const transports = payload.transports;
+  const poll = transports && transports.httpLongPoll;
+  const cursor = payload.cursor;
+  if (!poll || poll.enabled !== true ||
+      !Number.isInteger(poll.minWaitSeconds) || poll.minWaitSeconds !== 0 ||
+      !Number.isInteger(poll.maxWaitSeconds) || poll.maxWaitSeconds < 1 ||
+      poll.maxWaitSeconds > 25 ||
+      !Number.isInteger(poll.defaultWaitSeconds) ||
+      poll.defaultWaitSeconds < poll.minWaitSeconds ||
+      poll.defaultWaitSeconds > poll.maxWaitSeconds ||
+      !Number.isInteger(poll.maxBatchSize) || poll.maxBatchSize < 1 ||
+      poll.maxBatchSize > 100 ||
+      !cursor || cursor.type !== "sequence" || cursor.ackRequired !== true ||
+      !transports.webSocket || transports.webSocket.enabled !== false ||
+      !transports.serverPush || transports.serverPush.enabled !== false) {
+    throw new Error("guest_transport_unavailable");
+  }
+  return Object.freeze({
+    maxWaitSeconds: poll.maxWaitSeconds,
+    defaultWaitSeconds: poll.defaultWaitSeconds,
+    maxBatchSize: poll.maxBatchSize
+  });
+}
+
 function requireSingleGuestRoom(payload) {
   const rooms = payload && Array.isArray(payload.conversations) ? payload.conversations : [];
   if (rooms.length !== 1) throw new Error("guest_room_scope_invalid");
@@ -283,6 +314,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
 }
 const api = {
   requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp,
+  validateGuestTransportContract,
   createMessageDeduper, nextPollingDelayMs
 };
 if (typeof module !== "undefined" && module.exports) module.exports = api;
