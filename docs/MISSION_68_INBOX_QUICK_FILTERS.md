@@ -21,5 +21,6 @@ Permitir localizar imediatamente conversas não lidas ou fixadas, combinando os 
 - Nenhuma alteração de backend, autenticação, mensagens ou transporte.
 - HTTP Long Poll permanece o único transporte realtime habilitado; WebSocket/SSE continuam desabilitados.
 
-## Verificação
-Aguardando GitHub Actions para o commit final.
+## Verificação — PASS
+- Workflow run final anterior: `45465566043` — Browser SUCCESS (250 testes) e Backend SUCCESS (472 testes).
+- A regressão final será repetida após esta atualização documental.
