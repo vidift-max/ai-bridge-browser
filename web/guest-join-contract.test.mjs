@@ -34,7 +34,7 @@ test("rejects participant types outside the allowlist", () => {
 });
 
 test("normalizes display names and strips control characters", () => {
-  const result = validateGuestJoinRequest({displayName:"  AI\\u0000 Guest  ",providerClaim:"CLAUDE",participantType:"EXTERNAL_AGENT"});
+  const result = validateGuestJoinRequest({displayName:"  AI\u0000 Guest  ",providerClaim:"CLAUDE",participantType:"EXTERNAL_AGENT"});
   assert.equal(result.request.displayName, "AI Guest");
 });
 
