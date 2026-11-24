@@ -80,3 +80,23 @@ test("guest messenger source contains reliability safeguards", async () => {
   assert.match(source, /clearTimeout\(timer\)/);
   assert.match(source, /schedulePolling\(0\)/);
 });
+
+test("guest messenger aborts stale long-poll requests during session teardown", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /AbortController/);
+  assert.match(source, /activePollController/);
+  assert.match(source, /error\.name === "AbortError"/);
+  assert.match(source, /sessionGeneration/);
+  assert.match(source, /abortActivePoll\(\)/);
+});
+
+test("guest messenger aborts an in-flight long poll when the document becomes hidden", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /doc\.visibilityState === "visible"/);
+  assert.match(source, /else \{\s*if \(timer !== null\) clearTimeout\(timer\);\s*timer = null;\s*abortActivePoll\(\);/);
+});
+
+test("guest messenger ignores late responses from an older session generation", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /if \(generation !== sessionGeneration \|\| !sessionToken \|\| !room\) return;/);
+});
