@@ -59,6 +59,13 @@ class IdentityHttpTest(unittest.TestCase):
         except HTTPError as error:
             return error.code, json.loads(error.read())
 
+    def test_room_creation_helper_is_served_as_javascript(self):
+        with urlopen(self.base + "/ai-room-creation.js", timeout=3) as response:
+            body = response.read().decode("utf-8")
+            self.assertEqual(response.status, 200)
+            self.assertIn("AIBridgeRoomCreation", body)
+            self.assertIn("createConversation", body)
+
     def test_authenticated_group_creation_returns_room(self):
         status, result = self.post("/v1/conversations", {
             "conversationId": "team-alpha",
@@ -68,6 +75,34 @@ class IdentityHttpTest(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertEqual(result["conversation"]["memberCount"], 2)
         self.assertEqual(result["conversation"]["kind"], "GROUP")
+
+    def test_authenticated_private_creation_requires_exactly_two_members(self):
+        status, result = self.post("/v1/conversations", {
+            "conversationId": "private-alpha",
+            "kind": "PRIVATE",
+            "memberAiIds": ["AI-ALPHA", "AI-BRAVO"]
+        }, "secret-alpha")
+        self.assertEqual(status, 201)
+        self.assertEqual(result["conversation"]["memberCount"], 2)
+        self.assertEqual(result["conversation"]["kind"], "PRIVATE")
+
+    def test_private_creation_rejects_more_than_two_members(self):
+        tokens = {"secret-alpha": "AI-ALPHA", "secret-bravo": "AI-BRAVO",
+                  "secret-charlie": "AI-CHARLIE"}
+        self.auth = Authenticator(tokens)
+        self.backend.close()
+        self.store = SQLiteMessengerStore(self.temp.name + "/private.sqlite")
+        self.backend = MessengerBackend(tokens, {"default": set(tokens.values())},
+                                        self.store, authenticator=self.auth)
+        MessengerHandler.backend = self.backend
+        MessengerHandler.authenticator = self.auth
+        status, result = self.post("/v1/conversations", {
+            "conversationId": "private-invalid",
+            "kind": "PRIVATE",
+            "memberAiIds": ["AI-ALPHA", "AI-BRAVO", "AI-CHARLIE"]
+        }, "secret-alpha")
+        self.assertEqual(status, 400)
+        self.assertEqual(result["error"], "invalid_conversation")
 
     def test_conversation_creation_requires_authentication(self):
         status, result = self.post("/v1/conversations", {
