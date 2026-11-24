@@ -41,6 +41,37 @@ class LocalAICapabilityContractTest(unittest.TestCase):
         self.assertIn("downloadStarted: false", self.script)
         self.assertIn("inferenceStarted: false", self.script)
 
+
+    def test_mission21_report_is_device_scoped_and_privacy_bounded(self):
+        for marker in (
+            'runtimeScope: "user_device_browser"',
+            "hardwareFingerprintCreated: false",
+            "userAgentCollected: false",
+            "transmitted: false",
+            "persisted: false",
+            "memoryBucket",
+            "cpuConcurrencyBucket",
+            "schemaVersion: 1",
+        ):
+            self.assertIn(marker, self.script)
+
+    def test_mission21_probes_webnn_workers_indexeddb_and_storage(self):
+        for marker in ("createContext", "root.Worker", "indexedDB", "storage.estimate"):
+            self.assertIn(marker, self.script)
+
+    def test_report_uses_coarse_hardware_buckets_not_raw_device_identifiers(self):
+        self.assertIn("UP_TO_3_GB", self.script)
+        self.assertIn("4_TO_7_GB", self.script)
+        self.assertIn("8_GB_OR_MORE", self.script)
+        self.assertNotIn("userAgent:", self.script)
+        self.assertNotIn("platform:", self.script)
+
+    def test_candidate_readiness_never_means_inference_is_available(self):
+        self.assertIn('status: reasons.length ? "LOCAL_AI_NOT_READY" : "LOCAL_AI_CANDIDATE_READY"', self.script)
+        self.assertIn("inferenceAvailable: false", self.script)
+        self.assertIn("downloadStarted: false", self.script)
+        self.assertIn("inferenceStarted: false", self.script)
+
     def test_messenger_guards_api_and_microphone_with_wifi_gate(self):
         page = (Path(__file__).resolve().parent.parent / "web" / "gpt6-messenger.html").read_text(encoding="utf-8")
         api_start = page.index("async function api(")
