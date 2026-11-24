@@ -379,6 +379,7 @@ class MessengerBackend:
         Membership is evaluated from the server-owned conversation registry.
         """
         ai_id = self.authenticate(bearer_token)
+        self._purge_expired()
         if (isinstance(limit, bool) or not isinstance(limit, int) or
                 limit < 1 or limit > 100):
             raise ValueError("invalid_conversation_limit")
@@ -392,12 +393,31 @@ class MessengerBackend:
         items = []
         for conversation_id in page_ids:
             members = sorted(self._conversations[conversation_id])
+            visible_messages = [
+                message for message in self._messages.values()
+                if message.conversation_id == conversation_id
+                and (message.sender_ai_id == ai_id or ai_id in message.recipient_ai_ids)
+            ]
+            latest = max(visible_messages, key=lambda message: message.sequence, default=None)
+            unread_count = sum(
+                1 for message in visible_messages
+                if ai_id in message.recipient_ai_ids and ai_id not in message.acknowledged_by
+            )
+            last_message = None if latest is None else {
+                "messageId": latest.message_id,
+                "senderAiId": latest.sender_ai_id,
+                "body": latest.body,
+                "sequence": latest.sequence,
+                "createdAtEpochMs": int(latest.created_at_epoch_seconds * 1000),
+            }
             items.append({
                 "conversationId": conversation_id,
                 "kind": self._conversation_kinds.get(conversation_id, CONVERSATION_GROUP),
                 "memberAiIds": members,
                 "memberCount": len(members),
                 "isAdmin": self._store.is_conversation_admin(conversation_id, ai_id),
+                "lastMessage": last_message,
+                "unreadCount": unread_count,
             })
         next_cursor = page_ids[-1] if len(visible_ids) > len(page_ids) and page_ids else None
         return {"conversations": items, "nextCursor": next_cursor}
