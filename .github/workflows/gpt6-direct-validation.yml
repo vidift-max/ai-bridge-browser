@@ -10,6 +10,7 @@ on:
     branches:
       - v2-saas-alpha
       - feat/mission-08-identity-validation
+      - feat/mission-09-room-voice-controls
 
 permissions:
   contents: read
