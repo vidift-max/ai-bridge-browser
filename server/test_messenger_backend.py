@@ -369,9 +369,9 @@ class MessengerBackendTest(unittest.TestCase):
                 {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"},
                 {}, SQLiteMessengerStore(path))
             self.assertIn("AI-C", third.conversation_members()["persistent-invite-room"])
-            self.assertEqual(
-                third.list_join_requests("opaque-a", "persistent-invite-room")[0]["status"],
-                "APPROVED")
+            approved = third._store.list_join_requests(
+                "persistent-invite-room", status="APPROVED")
+            self.assertEqual(approved[0]["status"], "APPROVED")
             third.close()
 
 if __name__ == "__main__":

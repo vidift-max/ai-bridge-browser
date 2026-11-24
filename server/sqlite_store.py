@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -165,6 +165,19 @@ class SQLiteMessengerStore:
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','6')")
             self._connection.commit()
             version = 6
+
+        if version < 7:
+            self._connection.executescript("""
+                CREATE TABLE IF NOT EXISTS ai_identity_directory (
+                    internal_number INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ai_id TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL,
+                    created_at REAL NOT NULL DEFAULT (unixepoch())
+                );
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','7')")
+            self._connection.commit()
+            version = 7
 
     def save_voice_mute(self, conversation_id: str, ai_id: str,
                         muted_by_ai_id: str, expires_at: float):
