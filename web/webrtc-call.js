@@ -10,6 +10,9 @@
     var api = options.api;
     var onState = options.onState || function () {};
     var onRemoteStream = options.onRemoteStream || function () {};
+    var onDiagnostic = options.onDiagnostic || function () {};
+    var connectionGraceMs = Number.isFinite(options.connectionGraceMs) ?
+      Math.max(0, options.connectionGraceMs) : 8000;
     var getMedia = options.getUserMedia || function () {
       if (!root.navigator || !root.navigator.mediaDevices ||
           typeof root.navigator.mediaDevices.getUserMedia !== "function") {
@@ -37,9 +40,18 @@
     var closed = false;
     var polling = false;
     var offerSent = false;
+    var connectedReported = false;
+    var disconnectTimer = null;
 
     function state(value, detail) {
       onState(value, detail || null);
+    }
+    function diagnostic(event, detail) {
+      onDiagnostic({ event: event, detail: detail || null });
+    }
+    function clearDisconnectTimer() {
+      if (disconnectTimer !== null) root.clearTimeout(disconnectTimer);
+      disconnectTimer = null;
     }
     function request(method, path, body, keepalive) {
       if (typeof api !== "function") return Promise.reject(new Error("CALL_API_REQUIRED"));
@@ -164,14 +176,49 @@
           sendSignal("ICE_COMPLETE", {}).catch(function () {});
         }
       };
+      pc.onicegatheringstatechange = function () {
+        if (pc) diagnostic("ICE_GATHERING", pc.iceGatheringState || "unknown");
+      };
+      pc.oniceconnectionstatechange = function () {
+        if (!pc) return;
+        var iceState = pc.iceConnectionState || "unknown";
+        diagnostic("ICE_CONNECTION", iceState);
+        if (iceState === "connected" || iceState === "completed" || iceState === "checking") clearDisconnectTimer();
+        if (iceState === "disconnected" && disconnectTimer === null) {
+          disconnectTimer = root.setTimeout(function () {
+            disconnectTimer = null;
+            if (pc && pc.iceConnectionState === "disconnected") state("MEDIA_DISCONNECTED");
+          }, connectionGraceMs);
+        } else if (iceState === "failed") {
+          clearDisconnectTimer();
+          state("MEDIA_FAILED");
+        } else if (iceState === "closed") {
+          clearDisconnectTimer();
+          diagnostic("ICE_CLOSED");
+        }
+      };
+      pc.onicecandidateerror = function (event) {
+        diagnostic("ICE_CANDIDATE_ERROR", {
+          code: Number.isFinite(event && event.errorCode) ? event.errorCode : null
+        });
+      };
       pc.onconnectionstatechange = function () {
         var connectionState = pc && pc.connectionState;
-        if (connectionState === "connected") {
+        diagnostic("PEER_CONNECTION", connectionState || "unknown");
+        if (connectionState === "connected" && !connectedReported && call) {
+          connectedReported = true;
+          clearDisconnectTimer();
           request("POST", "/v1/calls/" + encodeURIComponent(call.call_id) + "/connected", {})
-            .then(function (response) { call = response.call || call; state("CONNECTED"); })
+            .then(function (response) {
+              if (!call) return;
+              call = response.call || call;
+              state("CONNECTED");
+            })
             .catch(function (error) { state("SIGNALING_ERROR", error.message || String(error)); });
-        } else if (connectionState === "failed" || connectionState === "disconnected") {
-          state("MEDIA_" + connectionState.toUpperCase());
+        } else if (connectionState === "failed") {
+          state("MEDIA_FAILED");
+        } else if (connectionState === "disconnected") {
+          diagnostic("PEER_DISCONNECTED", "waiting_for_ice_recovery");
         }
       };
     }
@@ -184,6 +231,7 @@
         });
         call = response.call;
         offerSent = false;
+        connectedReported = false;
         state("RINGING");
         startPolling();
         return call;
@@ -243,7 +291,13 @@
       return true;
     }
     async function closeMedia() {
+      clearDisconnectTimer();
+      connectedReported = false;
       if (pc) {
+        pc.onconnectionstatechange = null;
+        pc.oniceconnectionstatechange = null;
+        pc.onicegatheringstatechange = null;
+        pc.onicecandidateerror = null;
         try { pc.close(); } catch (_) {}
       }
       pc = null;

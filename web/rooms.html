@@ -125,6 +125,8 @@ function configureRoomCalls(room){
  callClient=window.AIBridgeWebRTCCall.createClient({
   aiId:identity.aiId,api,
   onState:(state,detail)=>{const terminal=['REJECTED','CANCELLED','ENDED','TIMED_OUT'];$('callStatus').textContent='Chamada: '+state+(detail?' · '+detail:'');$('endCall').disabled=!callClient?.getCall()||terminal.includes(state);$('startCall').disabled=!!callClient?.getCall()&&!terminal.includes(state)},
+  rtcConfiguration:window.AIBridgeRtcConfiguration||{},
+  onDiagnostic:event=>{if(event.event==='ICE_CONNECTION'||event.event==='ICE_CANDIDATE_ERROR')$('callStatus').textContent='Rede ICE: '+event.event+' · '+(typeof event.detail==='string'?event.detail:(event.detail?.code||''))},
   onRemoteStream:stream=>{$('remoteAudio').srcObject=stream;$('remoteAudio').play().catch(()=>{$('callStatus').textContent+=' · Toque em reproduzir para ouvir.'})}
  });
  $('startCall').disabled=false;$('endCall').disabled=true;
