@@ -29,10 +29,34 @@ function validateGuestTransportContract(payload, conversationId) {
     throw new Error("guest_transport_unavailable");
   }
   return Object.freeze({
+    minWaitSeconds: poll.minWaitSeconds,
     maxWaitSeconds: poll.maxWaitSeconds,
     defaultWaitSeconds: poll.defaultWaitSeconds,
     maxBatchSize: poll.maxBatchSize
   });
+}
+
+function buildGuestLongPollPath(conversationId, afterSequence, transport) {
+  if (typeof conversationId !== "string" || !conversationId ||
+      !Number.isSafeInteger(afterSequence) || afterSequence < 0 ||
+      !transport || !Number.isInteger(transport.minWaitSeconds) ||
+      !Number.isInteger(transport.maxWaitSeconds) ||
+      !Number.isInteger(transport.defaultWaitSeconds) ||
+      !Number.isInteger(transport.maxBatchSize) ||
+      transport.minWaitSeconds !== 0 ||
+      transport.maxWaitSeconds < 1 || transport.maxWaitSeconds > 25 ||
+      transport.defaultWaitSeconds < transport.minWaitSeconds ||
+      transport.defaultWaitSeconds > transport.maxWaitSeconds ||
+      transport.maxBatchSize < 1 || transport.maxBatchSize > 100) {
+    throw new Error("guest_transport_unavailable");
+  }
+  const query = new URLSearchParams({
+    after: String(afterSequence),
+    limit: String(transport.maxBatchSize),
+    timeout: String(transport.defaultWaitSeconds)
+  });
+  return "/v1/conversations/" + encodeURIComponent(conversationId) +
+    "/messages/wait?" + query.toString();
 }
 
 function requireSingleGuestRoom(payload) {
@@ -87,6 +111,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   let sessionToken = null;
   let principalAiId = null;
   let room = null;
+  let transportConfig = null;
   let sequence = 0;
   let timer = null;
   let polling = false;
@@ -167,7 +192,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     if (!room.memberAiIds.includes(principalAiId)) throw new Error("guest_room_scope_invalid");
     const transport = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) + "/transport",
       {headers: authHeaders({Accept:"application/json"})});
-    validateGuestTransportContract(transport, room.conversationId);
+    transportConfig = validateGuestTransportContract(transport, room.conversationId);
     const directory = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) + "/identities",
       {headers: authHeaders({Accept:"application/json"})});
     const participants = Array.isArray(directory.participants) ? directory.participants : [];
@@ -195,8 +220,8 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
     const controller = new AbortController();
     activePollController = controller;
     try {
-      const data = await request("/v1/conversations/" + encodeURIComponent(room.conversationId) +
-        "/messages/wait?after=" + sequence + "&limit=100&timeout=20",
+      if (!transportConfig) throw new Error("guest_transport_unavailable");
+      const data = await request(buildGuestLongPollPath(room.conversationId, sequence, transportConfig),
         {headers: authHeaders({Accept:"application/json"}), signal: controller.signal});
       if (generation !== sessionGeneration || !sessionToken || !room) return;
       const messages = Array.isArray(data.messages) ? data.messages : [];
@@ -241,7 +266,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
       status("Conectado à sala autorizada. As mensagens são atualizadas automaticamente.");
     } catch (error) {
       stopPolling();
-      sessionToken = null; principalAiId = null; room = null; deduper.clear();
+      sessionToken = null; principalAiId = null; room = null; transportConfig = null; deduper.clear();
       byId("credential").disabled = false;
       byId("enter").disabled = false;
       status(error.message);
@@ -278,7 +303,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
         method:"POST", headers:authHeaders({Accept:"application/json"})
       });
     } catch (_error) {}
-    sessionToken = null; principalAiId = null; room = null; sequence = 0; deduper.clear();
+    sessionToken = null; principalAiId = null; room = null; transportConfig = null; sequence = 0; deduper.clear();
     byId("messages").replaceChildren();
     byId("participants").replaceChildren();
     byId("workspace").hidden = true;
@@ -295,7 +320,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
   byId("message").addEventListener("keydown", event => {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); }
   });
-  globalThis.addEventListener?.("pagehide", () => { stopPolling(); if (sessionToken) { void leavePresence(); } sessionToken = null; });
+  globalThis.addEventListener?.("pagehide", () => { stopPolling(); if (sessionToken) { void leavePresence(); } sessionToken = null; transportConfig = null; });
   doc.addEventListener?.("visibilitychange", () => {
     if (!sessionToken || !room) return;
     if (doc.visibilityState === "visible") {
@@ -311,7 +336,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
 }
 const api = {
   requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp,
-  validateGuestTransportContract,
+  validateGuestTransportContract, buildGuestLongPollPath,
   createMessageDeduper, nextPollingDelayMs
 };
 if (typeof module !== "undefined" && module.exports) module.exports = api;

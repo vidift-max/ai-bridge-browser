@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import guestRoom from "./guest-room.js";
-const {buildGuestMessagePayload, requireSingleGuestRoom, createMessageDeduper, nextPollingDelayMs, validateGuestTransportContract} = guestRoom;
+const {buildGuestMessagePayload, requireSingleGuestRoom, createMessageDeduper, nextPollingDelayMs, validateGuestTransportContract, buildGuestLongPollPath} = guestRoom;
 
 test("guest room contract accepts exactly one room", () => {
   const room = requireSingleGuestRoom({conversations:[{
@@ -75,8 +75,9 @@ test("guest messenger source contains reliability safeguards", async () => {
   assert.match(source, /createMessageDeduper/);
   assert.match(source, /nextPollingDelayMs/);
   assert.match(source, /MAX_POLL_DELAY_MS/);
-  assert.match(source, /\/messages\/wait\?after=/);
-  assert.match(source, /timeout=20/);
+  assert.match(source, /\/messages\/wait\?/);
+  assert.match(source, /after: String\(afterSequence\)/);
+  assert.match(source, /timeout: String\(transport\.defaultWaitSeconds\)/);
   assert.match(source, /clearTimeout\(timer\)/);
   assert.match(source, /schedulePolling\(0\)/);
 });
@@ -130,7 +131,7 @@ function validTransportContract(overrides = {}) {
 
 test("transport validator accepts the versioned bounded long-poll contract", () => {
   assert.deepEqual(validateGuestTransportContract(validTransportContract(), "room-a"), {
-    maxWaitSeconds: 25, defaultWaitSeconds: 20, maxBatchSize: 100
+    minWaitSeconds: 0, maxWaitSeconds: 25, defaultWaitSeconds: 20, maxBatchSize: 100
   });
 });
 
@@ -174,4 +175,41 @@ test("guest room entry uses strict transport validation for the exact room", asy
   assert.match(source, /poll\.maxWaitSeconds > 25/);
   assert.match(source, /poll\.maxBatchSize > 100/);
   assert.match(source, /cursor\.ackRequired !== true/);
+});
+
+test("long-poll request uses negotiated timeout and batch size", () => {
+  const transport = validateGuestTransportContract(validTransportContract(), "room-a");
+  assert.equal(buildGuestLongPollPath("room-a", 17, transport),
+    "/v1/conversations/room-a/messages/wait?after=17&limit=100&timeout=20");
+});
+
+
+test("long-poll request honors a server-advertised narrower profile and encodes room IDs", () => {
+  const transport = {minWaitSeconds: 0, maxWaitSeconds: 12, defaultWaitSeconds: 7, maxBatchSize: 25};
+  assert.equal(buildGuestLongPollPath("room/a b", 0, transport),
+    "/v1/conversations/room%2Fa%20b/messages/wait?after=0&limit=25&timeout=7");
+});
+
+test("long-poll request builder rejects invalid cursor and out-of-contract limits", () => {
+  const valid = {minWaitSeconds: 0, maxWaitSeconds: 25, defaultWaitSeconds: 20, maxBatchSize: 100};
+  for (const [room, cursor, config] of [
+    ["room-a", -1, valid],
+    ["room-a", 1.5, valid],
+    ["room-a", Number.MAX_SAFE_INTEGER + 1, valid],
+    ["room-a", 0, {...valid, defaultWaitSeconds: 26}],
+    ["room-a", 0, {...valid, maxWaitSeconds: 26}],
+    ["room-a", 0, {...valid, maxBatchSize: 101}],
+    ["", 0, valid]
+  ]) {
+    assert.throws(() => buildGuestLongPollPath(room, cursor, config), /guest_transport_unavailable/);
+  }
+});
+
+
+test("guest polling consumes negotiated configuration and clears it on session teardown", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /transportConfig = validateGuestTransportContract\(transport, room\.conversationId\)/);
+  assert.match(source, /buildGuestLongPollPath\(room\.conversationId, sequence, transportConfig\)/);
+  assert.match(source, /transportConfig = null/);
+  assert.doesNotMatch(source, /messages\/wait\?after=" \+ sequence \+ "&limit=100&timeout=20/);
 });
