@@ -36,7 +36,7 @@
    let parsed;
    try{parsed=JSON.parse(storage.getItem(key)||"[]")}catch{parsed=[]}
    if(!Array.isArray(parsed))return [];
-   return parsed.filter(item=>item&&typeof item.id==="string"&&typeof item.conversationId==="string"&&Number.isSafeInteger(item.newCount)&&item.newCount>0&&typeof item.createdAt==="string"&&typeof item.read==="boolean").slice(0,limit);
+   return parsed.filter(item=>item&&typeof item.id==="string"&&typeof item.conversationId==="string"&&item.conversationId.trim().length>0&&Number.isSafeInteger(item.newCount)&&item.newCount>0&&typeof item.createdAt==="string"&&typeof item.read==="boolean").slice(0,limit);
   }
   function write(items){storage.setItem(key,JSON.stringify(items.slice(0,limit)));return items.slice(0,limit)}
   function list(){return Object.freeze(read().map(item=>Object.freeze({...item})));}
@@ -44,7 +44,7 @@
    if(!Array.isArray(events))throw new Error("invalid_notification_events");
    const items=read();
    for(const event of events){
-    if(!event||typeof event.conversationId!=="string"||!Number.isSafeInteger(event.newCount)||event.newCount<1)continue;
+    if(!event||typeof event.conversationId!=="string"||!event.conversationId.trim()||!Number.isSafeInteger(event.newCount)||event.newCount<1)continue;
     serial+=1;
     items.unshift({id:"notice-"+Date.now()+"-"+serial,conversationId:event.conversationId,newCount:event.newCount,createdAt,read:false});
    }
