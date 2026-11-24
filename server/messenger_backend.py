@@ -639,6 +639,25 @@ class MessengerBackend:
         return sorted(pending, key=lambda m: m.sequence)[:limit]
 
     @_synchronized
+    def history(self, bearer_token: str, conversation_id: str,
+                before_sequence: int = 0, limit: int = 50) -> List[Message]:
+        """Return authorized, non-expired conversation history without changing ACK state."""
+        self._purge_expired()
+        ai_id = self.authenticate(bearer_token)
+        members = self._conversations.get(conversation_id)
+        if not members or ai_id not in members:
+            raise PermissionError("authorization_denied")
+        if (isinstance(before_sequence, bool) or not isinstance(before_sequence, int)
+                or before_sequence < 0 or before_sequence > self.LONG_POLL_MAX_SEQUENCE):
+            raise ValueError("invalid_history_cursor")
+        self._validate_long_poll_cursor_and_limit(0, limit)
+        candidates = [message for message in self._messages.values()
+                      if message.conversation_id == conversation_id
+                      and (before_sequence == 0 or message.sequence < before_sequence)]
+        page = sorted(candidates, key=lambda message: message.sequence, reverse=True)[:limit]
+        return list(reversed(page))
+
+    @_synchronized
     def acknowledge(self, bearer_token: str, message_id: str) -> Message:
         self._purge_expired()
         ai_id = self.authenticate(bearer_token)
