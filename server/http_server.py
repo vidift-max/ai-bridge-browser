@@ -630,6 +630,40 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 self._json(400, {"error": "invalid_presence_request"})
             return
+        guest_provision_path = urlsplit(self.path).path.split("/")
+        if (len(guest_provision_path) == 7
+                and guest_provision_path[1:3] == ["v1", "conversations"]
+                and guest_provision_path[4] == "guest-applications"
+                and guest_provision_path[5] and guest_provision_path[6] in ("provision", "revoke")):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if guest_provision_path[6] == "provision":
+                    result = self.backend.provision_guest_application(
+                        self._auth(), guest_provision_path[3], guest_provision_path[5])
+                    self._audit(identity, "GUEST_CREDENTIAL_PROVISIONED",
+                                result["identity"]["aiId"],
+                                conversation_id=guest_provision_path[3],
+                                application_id=guest_provision_path[5])
+                    self._json(201, {"provisioning": result,
+                                     "correlationId": identity.correlation_id})
+                else:
+                    result = self.backend.revoke_guest_provisioning(
+                        self._auth(), guest_provision_path[3], guest_provision_path[5])
+                    self._audit(identity, "GUEST_CREDENTIAL_REVOKED",
+                                result["aiId"], conversation_id=guest_provision_path[3])
+                    self._json(200, {"provisioning": result,
+                                     "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError, KeyError, RuntimeError):
+                self._json(400, {"error": "guest_provisioning_unavailable"})
+            return
         guest_decision_path = urlsplit(self.path).path.split("/")
         if (len(guest_decision_path) == 6 and guest_decision_path[1:3] == ["v1", "conversations"]
                 and guest_decision_path[4] == "guest-applications"
