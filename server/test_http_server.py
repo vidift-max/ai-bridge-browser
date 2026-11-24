@@ -32,6 +32,10 @@ class HttpContractTest(unittest.TestCase):
         self.assertIn("/local-ai-capability.js", MessengerHandler.do_GET.__code__.co_consts)
         self.assertTrue(hasattr(MessengerHandler, "_local_ai_capability_script"))
 
+    def test_room_event_notification_script_route_is_defined(self):
+        self.assertIn("/ai-room-event-notifications.js", MessengerHandler.do_GET.__code__.co_consts)
+        self.assertTrue(hasattr(MessengerHandler, "_room_event_notifications_script"))
+
     def test_routes_are_defined(self):
         self.assertTrue(hasattr(MessengerHandler, "do_GET"))
         self.assertTrue(hasattr(MessengerHandler, "do_POST"))
