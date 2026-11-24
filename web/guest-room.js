@@ -1,6 +1,6 @@
-const MAX_MESSAGE_LENGTH = 5000;
+(function (root) {\n"use strict";\nconst MAX_MESSAGE_LENGTH = 5000;
 
-export function requireSingleGuestRoom(payload) {
+function requireSingleGuestRoom(payload) {
   const rooms = payload && Array.isArray(payload.conversations) ? payload.conversations : [];
   if (rooms.length !== 1) throw new Error("guest_room_scope_invalid");
   const room = rooms[0];
@@ -14,7 +14,7 @@ export function requireSingleGuestRoom(payload) {
   });
 }
 
-export function buildGuestMessagePayload(room, principalAiId, body, ids = {}) {
+function buildGuestMessagePayload(room, principalAiId, body, ids = {}) {
   if (!room || !Array.isArray(room.memberAiIds) ||
       !room.memberAiIds.includes(principalAiId)) throw new Error("guest_room_scope_invalid");
   if (typeof body !== "string" || !body.trim() || body.length > MAX_MESSAGE_LENGTH) {
@@ -34,7 +34,7 @@ export function buildGuestMessagePayload(room, principalAiId, body, ids = {}) {
   };
 }
 
-export function createGuestRoomApp(doc = document, fetcher = fetch) {
+function createGuestRoomApp(doc = document, fetcher = fetch) {
   let sessionToken = null;
   let principalAiId = null;
   let room = null;
@@ -172,4 +172,4 @@ export function createGuestRoomApp(doc = document, fetcher = fetch) {
   globalThis.addEventListener?.("pagehide", () => { stopPolling(); sessionToken = null; });
   return {enter, send, logout, pollMessages};
 }
-if (typeof document !== "undefined") createGuestRoomApp();
+const api = { requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp };\nif (typeof module !== "undefined" && module.exports) module.exports = api;\nroot.AIBridgeGuestRoom = api;\nif (typeof document !== "undefined") createGuestRoomApp();\n})(typeof globalThis !== "undefined" ? globalThis : this);
