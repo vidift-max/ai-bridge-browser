@@ -2,9 +2,10 @@ name: Messenger Backend Test
 
 on:
   push:
-    branches: [v2-saas-alpha, feat/mission-08-identity-validation, feat/mission-09-room-voice-controls, feat/mission-10-webrtc-private-calls-v2, feat/mission-26-public-guest-intake]
+    branches: [v2-saas-alpha, feat/mission-08-identity-validation, feat/mission-09-room-voice-controls, feat/mission-10-webrtc-private-calls-v2, feat/mission-26-public-guest-intake, feat/mission-27-guest-credential-provisioning]
     paths:
       - 'server/**'
+      - 'docs/MISSION_27_GUEST_CREDENTIAL_PROVISIONING.md'
       - 'render.yaml'
       - '.github/workflows/server-test.yml'
       - 'docs/AI_MESSENGER_MISSION_06_**'
@@ -12,6 +13,7 @@ on:
     branches: [v2-saas-alpha, feat/mission-08-identity-validation, feat/mission-09-room-voice-controls, feat/mission-26-public-guest-intake]
     paths:
       - 'server/**'
+      - 'docs/MISSION_27_GUEST_CREDENTIAL_PROVISIONING.md'
       - '.github/workflows/server-test.yml'
 
 jobs:

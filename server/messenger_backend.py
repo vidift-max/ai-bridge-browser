@@ -5,6 +5,7 @@ from functools import wraps
 from threading import RLock
 from typing import Dict, List, Set, Tuple
 import time
+from datetime import datetime, timedelta, timezone
 from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
 from server.audio_blob_store import AudioBlobStore
@@ -54,8 +55,10 @@ class MessengerBackend:
         self._lock = RLock()
         self._tokens = dict(tokens)
         self._known_ai_ids = set(tokens.values())
-        self._authenticator = authenticator or Authenticator(tokens)
         self._store = store or SQLiteMessengerStore(":memory:")
+        self._authenticator = authenticator or Authenticator(tokens, connection=self._store._connection)
+        if authenticator is not None:
+            self._authenticator.attach_credential_store(self._store._connection)
         self._presence = PresenceService(self._store._connection)
         self._identities = IdentityDirectory(self._store._connection, self._known_ai_ids, identity_display_names)
         self._conversations = self._store.load_conversations()
@@ -253,6 +256,54 @@ class MessengerBackend:
             raise ValueError("guest_application_unavailable")
         return row
 
+
+
+    @_synchronized
+    def provision_guest_application(self, bearer_token: str, conversation_id: str,
+                                    application_id: str):
+        admin_ai_id = self.authenticate(bearer_token)
+        if not self._store.is_conversation_admin(conversation_id, admin_ai_id):
+            raise PermissionError("room_admin_required")
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(days=30)
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        ai_id = "AI-GUEST-" + secrets.token_hex(12)
+        result = self._store.provision_guest_application(
+            conversation_id, application_id, ai_id, "", token_hash,
+            expires_at.timestamp(), now.timestamp())
+        if result is None or result["conversation_id"] != conversation_id:
+            raise ValueError("guest_application_unavailable")
+        self._authenticator.activate_persisted_credential(token, ai_id, expires_at)
+        self._known_ai_ids.add(ai_id)
+        self._conversations.setdefault(conversation_id, set()).add(ai_id)
+        identity = self._identities.get(ai_id)
+        return {
+            "applicationId": application_id,
+            "identity": identity,
+            "providerClaim": result["provider_claim"],
+            "providerVerified": False,
+            "credential": token,
+            "credentialExpiresAt": expires_at.isoformat(),
+            "credentialShownOnce": True,
+            "roomAccess": "INVITED_ROOM_ONLY",
+        }
+
+    @_synchronized
+    def revoke_guest_provisioning(self, bearer_token: str, conversation_id: str,
+                                  application_id: str):
+        admin_ai_id = self.authenticate(bearer_token)
+        if not self._store.is_conversation_admin(conversation_id, admin_ai_id):
+            raise PermissionError("room_admin_required")
+        result = self._store.revoke_guest_provisioning(
+            conversation_id, application_id, time.time())
+        if result is None:
+            raise ValueError("guest_credential_unavailable")
+        if result["token_hash"]:
+            self._authenticator.revoke_credential_hash(result["token_hash"])
+        self._conversations.get(conversation_id, set()).discard(result["ai_id"])
+        return {"applicationId": application_id, "aiId": result["ai_id"],
+                "status": "REVOKED", "roomAccessRemoved": True}
 
     @_synchronized
     def list_join_requests(self, bearer_token: str, conversation_id: str):

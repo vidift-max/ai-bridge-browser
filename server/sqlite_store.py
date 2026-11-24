@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -180,6 +180,7 @@ class SQLiteMessengerStore:
             version = 7
 
 
+
         if version < 8:
             self._connection.executescript("""
                 CREATE TABLE IF NOT EXISTS guest_applications (
@@ -201,6 +202,32 @@ class SQLiteMessengerStore:
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','8')")
             self._connection.commit()
             version = 8
+
+        if version < 9:
+            self._connection.executescript("""
+                ALTER TABLE guest_applications
+                    ADD COLUMN provisioning_status TEXT NOT NULL DEFAULT 'NOT_STARTED'
+                    CHECK(provisioning_status IN ('NOT_STARTED','ACTIVE','REVOKED'));
+                ALTER TABLE guest_applications ADD COLUMN provisioned_ai_id TEXT;
+                ALTER TABLE guest_applications ADD COLUMN provisioned_at REAL;
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_guest_application_provisioned_ai
+                    ON guest_applications(provisioned_ai_id)
+                    WHERE provisioned_ai_id IS NOT NULL;
+                CREATE TABLE IF NOT EXISTS credential_records (
+                    token_hash TEXT PRIMARY KEY,
+                    ai_id TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('ACTIVE','REVOKED','EXPIRED','ROTATED')),
+                    expires_at REAL,
+                    generation INTEGER NOT NULL DEFAULT 1,
+                    created_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_credential_records_ai
+                    ON credential_records(ai_id,status);
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','9')")
+            self._connection.commit()
+            version = 9
+
 
 
     def create_guest_application(self, application, token_hash):
@@ -240,10 +267,101 @@ class SQLiteMessengerStore:
             self._connection.rollback()
             raise
 
+
+    def provision_guest_application(self, conversation_id, application_id, ai_id, display_name,
+                                     token_hash, expires_at, provisioned_at):
+        """Atomically add one approved guest identity, room membership and credential digest."""
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            app = self._connection.execute(
+                """SELECT * FROM guest_applications WHERE application_id=?""",
+                (application_id,)).fetchone()
+            if (app is None or app["conversation_id"] != conversation_id
+                    or app["status"] != "APPROVED_AWAITING_PROVISIONING"
+                    or app["provisioning_status"] != "NOT_STARTED"):
+                self._connection.rollback()
+                return None
+            conversation = self._connection.execute(
+                "SELECT member_ai_ids FROM conversations WHERE conversation_id=?",
+                (app["conversation_id"],)).fetchone()
+            if conversation is None:
+                self._connection.rollback()
+                return None
+            members = set(filter(None, conversation["member_ai_ids"].split(",")))
+            if ai_id in members or len(members) >= 20:
+                self._connection.rollback()
+                return None
+            self._connection.execute(
+                "INSERT INTO ai_identity_directory(ai_id,display_name,created_at) VALUES(?,?,?)",
+                (ai_id, app["display_name"], provisioned_at))
+            members.add(ai_id)
+            self._connection.execute(
+                "UPDATE conversations SET member_ai_ids=? WHERE conversation_id=?",
+                (",".join(sorted(members)), app["conversation_id"]))
+            self._connection.execute(
+                """INSERT INTO credential_records(token_hash,ai_id,status,expires_at,generation,created_at)
+                   VALUES(?,?,'ACTIVE',?,1,?)""",
+                (token_hash, ai_id, expires_at, provisioned_at))
+            cursor = self._connection.execute(
+                """UPDATE guest_applications
+                   SET provisioning_status='ACTIVE',provisioned_ai_id=?,provisioned_at=?
+                   WHERE application_id=? AND provisioning_status='NOT_STARTED'
+                     AND status='APPROVED_AWAITING_PROVISIONING'""",
+                (ai_id, provisioned_at, application_id))
+            if cursor.rowcount != 1:
+                self._connection.rollback()
+                return None
+            self._connection.commit()
+            return {"application_id": application_id, "conversation_id": app["conversation_id"],
+                    "ai_id": ai_id, "display_name": app["display_name"],
+                    "provider_claim": app["provider_claim"], "provisioned_at": provisioned_at}
+        except Exception:
+            self._connection.rollback()
+            raise
+
+
+
+    def revoke_guest_provisioning(self, conversation_id, application_id, revoked_at):
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            app = self._connection.execute(
+                """SELECT provisioned_ai_id,provisioning_status FROM guest_applications
+                   WHERE application_id=? AND conversation_id=?""",
+                (application_id, conversation_id)).fetchone()
+            if app is None or app["provisioning_status"] != "ACTIVE" or not app["provisioned_ai_id"]:
+                self._connection.rollback()
+                return None
+            ai_id = app["provisioned_ai_id"]
+            room = self._connection.execute(
+                "SELECT member_ai_ids FROM conversations WHERE conversation_id=?",
+                (conversation_id,)).fetchone()
+            members = set(filter(None, room["member_ai_ids"].split(","))) if room else set()
+            members.discard(ai_id)
+            self._connection.execute(
+                "UPDATE conversations SET member_ai_ids=? WHERE conversation_id=?",
+                (",".join(sorted(members)), conversation_id))
+            credential = self._connection.execute(
+                "SELECT token_hash FROM credential_records WHERE ai_id=? AND status='ACTIVE'",
+                (ai_id,)).fetchone()
+            self._connection.execute(
+                "UPDATE credential_records SET status='REVOKED' WHERE ai_id=? AND status='ACTIVE'",
+                (ai_id,))
+            self._connection.execute(
+                """UPDATE guest_applications SET provisioning_status='REVOKED'
+                   WHERE application_id=? AND conversation_id=? AND provisioning_status='ACTIVE'""",
+                (application_id, conversation_id))
+            self._connection.commit()
+            return {"ai_id": ai_id, "conversation_id": conversation_id, "token_hash": credential["token_hash"] if credential else None}
+        except Exception:
+            self._connection.rollback()
+            raise
+
+
     def list_guest_applications(self, conversation_id):
         rows = self._connection.execute(
             """SELECT application_id,conversation_id,display_name,provider_claim,
-               provider_verified,status,created_at,decided_at,decided_by_ai_id
+               provider_verified,status,created_at,decided_at,decided_by_ai_id,
+               provisioning_status,provisioned_ai_id,provisioned_at
                FROM guest_applications WHERE conversation_id=?
                ORDER BY created_at,application_id""", (conversation_id,)).fetchall()
         return [dict(row) for row in rows]
