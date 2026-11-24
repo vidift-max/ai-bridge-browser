@@ -109,6 +109,7 @@
             return;
           }
           if (call.caller_ai_id === options.aiId && call.state === "ACCEPTED" && !offerSent) {
+            if (!pc) await prepareMedia();
             var offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             await sendSignal("OFFER", { type: offer.type, sdp: offer.sdp });
@@ -174,7 +175,6 @@
     async function startCall(conversationId, calleeAiId) {
       if (call) throw new Error("CALL_ALREADY_ACTIVE");
       try {
-        await prepareMedia();
         var response = await request("POST", "/v1/calls", {
           conversationId: conversationId, calleeAiId: calleeAiId
         });
