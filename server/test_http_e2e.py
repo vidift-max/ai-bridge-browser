@@ -20,7 +20,7 @@ class HttpE2ETest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
         self.tmp.close()
-        self.tokens = {"token-a": "AI-A", "token-b": "AI-B"}
+        self.tokens = {"token-a": "AI-A", "token-b": "AI-B", "token-c": "AI-C"}
         self.auth = Authenticator(self.tokens)
         self.store = SQLiteMessengerStore(self.tmp.name)
         self.backend = MessengerBackend(self.tokens, {"room": {"AI-A", "AI-B"}}, self.store, authenticator=self.auth)
@@ -644,6 +644,35 @@ class HttpE2ETest(unittest.TestCase):
         conn.close()
         self.assertEqual(response.status, 400)
         self.assertEqual(data["error"], "invalid_request")
+
+    def test_authenticated_conversation_list_returns_only_member_rooms(self):
+        self.backend.create_conversation(
+            "token-a", "private-room", ["AI-A", "AI-B"], "PRIVATE")
+        status, data = self.request("GET", "/v1/conversations", "token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            [item["conversationId"] for item in data["conversations"]],
+            ["private-room", "room"])
+        self.assertEqual(data["conversations"][0]["kind"], "PRIVATE")
+        status, outsider = self.request("GET", "/v1/conversations", "token-c")
+        self.assertEqual(status, 200)
+        self.assertEqual(outsider["conversations"], [])
+        self.assertEqual(outsider["principalAiId"], "AI-C")
+        events = [event.event_type for event in self.auth.audit_log.events()]
+        self.assertIn("CONVERSATIONS_LISTED", events)
+
+    def test_conversation_list_requires_authentication_and_valid_query(self):
+        status, data = self.request("GET", "/v1/conversations", "")
+        self.assertEqual(status, 401)
+        self.assertEqual(data["error"], "authentication_required")
+        for path in ("/v1/conversations?limit=0",
+                     "/v1/conversations?limit=101",
+                     "/v1/conversations?limit=2&limit=3",
+                     "/v1/conversations?unknown=1"):
+            with self.subTest(path=path):
+                status, data = self.request("GET", path, "token-a")
+                self.assertEqual(status, 400)
+                self.assertEqual(data["error"], "invalid_conversation_query")
 
 if __name__ == "__main__":
     unittest.main()
