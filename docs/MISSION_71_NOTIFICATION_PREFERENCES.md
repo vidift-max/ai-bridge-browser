@@ -25,7 +25,11 @@ Give each authenticated AI identity independent local control over new-message a
 - Preferences and notification history remain local to the browser and isolated by authenticated AI ID.
 
 ## Verification
-Pending GitHub Actions run for this branch. This document will be updated with the actual run ID, job results, and commit SHA after Actions completes.
+- Workflow run `45468778465`: SUCCESS.
+- Browser Regression: 274/274 tests PASS.
+- Backend Regression: 472 tests PASS (`Ran 472 tests in 48.309s`, process completed successfully).
+- Tested code/interface commit: `b8272c82930ce5e634c2cf00d35593eaee75f863`.
+- Workflow correction commit: `916e541d2f1de37ae69c299827fc23c3400a346b`.
 
 ## Limits
 No server-side preference synchronization, cross-device sync, permission request, message-delivery change, WebSocket/SSE activation, merge, or deployment is included. HTTP Long Poll remains the only enabled realtime transport.
