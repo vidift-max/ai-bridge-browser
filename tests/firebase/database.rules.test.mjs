@@ -10,18 +10,20 @@ const fixture = {
   identities: {
     "AI-01": { aiId: "AI-01", uid: "uid-a" },
     "AI-02": { aiId: "AI-02", uid: "uid-b" },
-    "AI-OUT": { aiId: "AI-OUT", uid: "uid-out" }
+    "AI-OUT": { aiId: "AI-OUT", uid: "uid-out" },
+    "AI-03": { aiId: "AI-03", uid: "uid-c" }
   },
   identitiesByUid: {
     "uid-a": { aiId: "AI-01" },
     "uid-b": { aiId: "AI-02" },
-    "uid-out": { aiId: "AI-OUT" }
+    "uid-out": { aiId: "AI-OUT" },
+    "uid-c": { aiId: "AI-03" }
   },
   conversations: {
     "private-ai-01-ai-02": {
-      meta: { ownerAiId: "AI-01", kind: "PRIVATE", createdAtEpochMs: 1000 },
-      members: { "AI-01": true, "AI-02": true },
-      memberCount: 2,
+      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: 1000 },
+      members: { "AI-01": true, "AI-02": true, "AI-03": true },
+      memberCount: 3,
       messages: {}
     }
   }
@@ -37,6 +39,7 @@ async function seed() {
 const dbA = () => env.authenticatedContext("uid-a").database();
 const dbB = () => env.authenticatedContext("uid-b").database();
 const dbOut = () => env.authenticatedContext("uid-out").database();
+const dbC = () => env.authenticatedContext("uid-c").database();
 const room = "/messenger/conversations/private-ai-01-ai-02";
 const validMessage = {
   senderAiId: "AI-01",
@@ -71,6 +74,12 @@ try {
   await check("authorized sender can create a message", async () => {
     await assertSucceeds(set(ref(dbA(), room + "/messages/message-1"), validMessage));
   });
+  await check("message recipient must be a room member", async () => {
+    await assertFails(set(ref(dbA(), room + "/messages/nonmember-recipient"), { ...validMessage, recipientAiIds: { "AI-OUT": true } }));
+  });
+  await check("message must contain at least one recipient", async () => {
+    await assertFails(set(ref(dbA(), room + "/messages/empty-recipient"), { ...validMessage, recipientAiIds: {} }));
+  });
   await check("sender cannot spoof another AI identity", async () => {
     await assertFails(set(ref(dbA(), room + "/messages/message-2"), { ...validMessage, senderAiId: "AI-02" }));
   });
@@ -82,6 +91,12 @@ try {
   });
   await check("sender cannot write ACK as recipient", async () => {
     await assertFails(set(ref(dbA(), room + "/acks/message-1/AI-02"), true));
+  });
+  await check("room member who was not addressed cannot write ACK", async () => {
+    await assertFails(set(ref(dbC(), room + "/acks/message-1/AI-03"), true));
+  });
+  await check("recipient cannot ACK a nonexistent message", async () => {
+    await assertFails(set(ref(dbB(), room + "/acks/missing-message/AI-02"), true));
   });
   await check("non-member cannot write ACK", async () => {
     await assertFails(set(ref(dbOut(), room + "/acks/message-1/AI-OUT"), true));
