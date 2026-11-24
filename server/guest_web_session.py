@@ -45,7 +45,21 @@ class GuestWebSessionService:
         with self._lock:
             self._sessions[token_hash] = GuestWebSession(
                 token_hash, principal.ai_id, guest_credential, now, expires_at)
-        self._authenticator.provision_ephemeral_credential(token, principal.ai_id, expires_at, guest_credential)
+        try:
+            self._authenticator.provision_ephemeral_credential(
+                token, principal.ai_id, expires_at, guest_credential)
+        except Exception:
+            # Do not leave a usable in-memory session when child credential
+            # provisioning fails. If the registry partially persisted the
+            # child before raising, revoke it as well; a pre-insert failure
+            # is harmlessly ignored.
+            with self._lock:
+                self._sessions.pop(token_hash, None)
+            try:
+                self._authenticator.revoke(token)
+            except (KeyError, PermissionError):
+                pass
+            raise
         return {"sessionToken": token, "aiId": principal.ai_id,
                 "expiresAt": int(expires_at.timestamp()), "expiresInSeconds": int(self._ttl.total_seconds())}
 
