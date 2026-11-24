@@ -6,7 +6,8 @@ import assert from "node:assert/strict";
 const source = await readFile(new URL("./webrtc-call.js", import.meta.url), "utf8");
 
 class FakePeerConnection {
-  constructor() {
+  constructor(configuration) {
+    this.configuration = configuration || {};
     this.localDescription = null;
     this.remoteDescription = null;
     this.connectionState = "new";
@@ -86,7 +87,7 @@ function createApiServer() {
   return { state, apiFor };
 }
 
-function makeClient(aiId, api, counters = {}) {
+function makeClient(aiId, api, counters = {}, extraOptions = {}) {
   const tracks = [{ stopped: false, stop() { this.stopped = true; } }];
   const context = {
     window: {
@@ -100,14 +101,17 @@ function makeClient(aiId, api, counters = {}) {
         return { getTracks: () => tracks };
       } } },
       setInterval: () => 1,
-      clearInterval: () => {}
+      clearInterval: () => {},
+      setTimeout: callback => { context.pendingTimeout = callback; return 7; },
+      clearTimeout: () => { context.pendingTimeout = null; }
     }
   };
   vm.runInNewContext(source, context);
   return {
-    client: context.window.AIBridgeWebRTCCall.createClient({
+    context,
+    client: context.window.AIBridgeWebRTCCall.createClient(Object.assign({
       aiId, api, pollIntervalMs: 10, setInterval: () => 1, clearInterval: () => {}
-    }),
+    }, extraOptions)),
     tracks,
     counters
   };
@@ -176,4 +180,58 @@ test("microphone access is rejected outside a secure context", async () => {
     createPeerConnection: () => new FakePeerConnection()
   });
   await assert.rejects(client.startCall("private-1", "AI-02"), /SECURE_CONTEXT_REQUIRED/);
+});
+
+
+test("RTC configuration is passed to the browser peer connection and diagnostics omit SDP", async () => {
+  FakePeerConnection.instances = [];
+  const server = createApiServer();
+  const diagnostics = [];
+  const rtcConfiguration = {
+    iceServers: [{ urls: ["stun:stun.example.invalid:3478"] }]
+  };
+  const caller = makeClient("AI-01", server.apiFor("AI-01"), {}, {
+    rtcConfiguration,
+    onDiagnostic: event => diagnostics.push(event)
+  });
+  const callee = makeClient("AI-02", server.apiFor("AI-02"));
+  await caller.client.startCall("private-1", "AI-02");
+  const incoming = await callee.client.refreshIncoming("private-1");
+  await callee.client.acceptCall(incoming);
+  await caller.client.poll();
+  const peer = FakePeerConnection.instances[0];
+  assert.deepEqual(peer.configuration, rtcConfiguration);
+  peer.iceGatheringState = "gathering";
+  peer.onicegatheringstatechange();
+  peer.onicecandidateerror({ errorCode: 701, errorText: "STUN lookup failed" });
+  assert.equal(diagnostics.some(item => item.event === "ICE_GATHERING"), true);
+  assert.equal(diagnostics.some(item => item.event === "ICE_CANDIDATE_ERROR" &&
+    item.detail.code === 701), true);
+  assert.equal(JSON.stringify(diagnostics).includes("offer-sdp"), false);
+  caller.client.dispose();
+  callee.client.dispose();
+});
+
+test("temporary ICE disconnection waits for the configured recovery grace period", async () => {
+  FakePeerConnection.instances = [];
+  const server = createApiServer();
+  const states = [];
+  const caller = makeClient("AI-01", server.apiFor("AI-01"), {}, {
+    connectionGraceMs: 5000,
+    onState: value => states.push(value)
+  });
+  await caller.client.startCall("private-1", "AI-02");
+  const callee = makeClient("AI-02", server.apiFor("AI-02"));
+  const incoming = await callee.client.refreshIncoming("private-1");
+  await callee.client.acceptCall(incoming);
+  await caller.client.poll();
+  const peer = FakePeerConnection.instances[0];
+  peer.iceConnectionState = "disconnected";
+  peer.oniceconnectionstatechange();
+  assert.equal(caller.context.pendingTimeout !== null, true);
+  assert.equal(states.includes("MEDIA_DISCONNECTED"), false);
+  caller.context.pendingTimeout();
+  assert.equal(states.includes("MEDIA_DISCONNECTED"), true);
+  caller.client.dispose();
+  callee.client.dispose();
 });
