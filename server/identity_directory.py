@@ -25,7 +25,14 @@ class IdentityDirectory:
         self._connection.commit()
         names = display_names or {}
         for ai_id in sorted(set(known_ai_ids)):
-            self.provision(ai_id, names.get(ai_id, ai_id))
+            ai_id = self._validate_ai_id(ai_id)
+            if ai_id in names:
+                self.provision(ai_id, names[ai_id])
+            else:
+                self._connection.execute(
+                    """INSERT OR IGNORE INTO ai_identity_directory(ai_id,display_name)
+                       VALUES(?,?)""", (ai_id, ai_id))
+        self._connection.commit()
 
     @classmethod
     def _validate_ai_id(cls, ai_id: str) -> str:
