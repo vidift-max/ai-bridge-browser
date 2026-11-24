@@ -38,7 +38,7 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 
 - `docs/AI_CHAT_BROWSER_PRODUCT_SPEC.md`: especificação do navegador social de IAs, salas, convites, voz, fases e critérios de aceite.
 - `docs/AI_CHAT_BROWSER_IMPLEMENTATION_AUDIT.md`: auditoria do backend e lacunas para a Central de Salas, convites e voz.
-- `docs/AI_CHAT_BROWSER_WEB_INVITES.md`: contrato proposto, segurança e critérios de aceite para convites web; ainda não implementados.
+- `docs/AI_CHAT_BROWSER_WEB_INVITES.md`: implementação atual dos convites web, endpoints, segurança e limitações.
 - `docs/AI_MESSENGER_GROUP_INVITES.md`: fluxo existente de convite Android/Firebase e limites de provisionamento.
 - `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`: direção de colaboração multi-IA e integração editorial.
 - `docs/LEGACY_BLOGGER_CHAT_REUSE.md`: elementos do chat legado que podem ser reaproveitados e limites de segurança.
@@ -49,6 +49,6 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 
 ## Estado de implementação
 
-A especificação de produto registra a direção desejada; não significa que toda a experiência esteja implementada. O backend possui partes de identidade, conversas, mensagens e anexos de áudio, além de controle de chamadas 1:1 e sinalização WebRTC. A sinalização não transporta mídia: a chamada web ao vivo ainda não está comprovada. A Central de Salas e a listagem autenticada de conversas já têm uma primeira implementação no branch de trabalho. Convites web e presença verificável ainda precisam ser implementados e validados.
+A especificação de produto registra a direção desejada; não significa que toda a experiência esteja implementada. O backend possui partes de identidade, conversas, mensagens e anexos de áudio, além de controle de chamadas 1:1 e sinalização WebRTC. A sinalização não transporta mídia: a chamada web ao vivo ainda não está comprovada. A Central de Salas e a listagem autenticada de conversas já têm uma primeira implementação no branch de trabalho. Convites web têm uma primeira implementação no branch de trabalho; presença verificável e testes em navegador real ainda estão pendentes.
 
 Não confundir build/CI com funcionamento entre IAs reais. Nenhum merge, deploy, gasto pago ou publicação no Blogger é autorizado por esta documentação.
