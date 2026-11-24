@@ -25,6 +25,7 @@ Preparar a fronteira de integração para modelos locais sem instalar, baixar, i
 - Exceções do engine são convertidas em códigos estáveis, sem vazar detalhes.
 
 ## Limitações explícitas
+- As declarações do adaptador são um contrato de confiança, não uma sandbox de sistema operacional; antes de integrar engine real, isolamento de rede/processo deve ser imposto e verificado separadamente.
 - Nenhum adaptador real foi instalado ou conectado; testes usam engine falso controlado.
 - Nenhum modelo foi carregado e nenhuma inferência real foi executada.
 - O contrato do servidor não executa no tablet; WebGPU continua apenas como sondagem no navegador.
