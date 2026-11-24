@@ -165,3 +165,13 @@ test("transport validator rejects unsafe bounds, cursor changes, and unimplement
   }
 });
 
+
+test("guest room entry uses strict transport validation for the exact room", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /validateGuestTransportContract\(transport, room\.conversationId\)/);
+  assert.match(source, /payload\.contractVersion !== 1/);
+  assert.match(source, /payload\.conversationId !== conversationId/);
+  assert.match(source, /poll\.maxWaitSeconds > 25/);
+  assert.match(source, /poll\.maxBatchSize > 100/);
+  assert.match(source, /cursor\.ackRequired !== true/);
+});
