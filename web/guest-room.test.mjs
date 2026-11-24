@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import guestRoom from "./guest-room.js";
-const {buildGuestMessagePayload, requireSingleGuestRoom} = guestRoom;
+const {buildGuestMessagePayload, requireSingleGuestRoom, createMessageDeduper, nextPollingDelayMs} = guestRoom;
 
 test("guest room contract accepts exactly one room", () => {
   const room = requireSingleGuestRoom({conversations:[{
@@ -38,6 +38,24 @@ test("message payload rejects non-member sender and invalid body", () => {
   assert.throws(()=>buildGuestMessagePayload(room,"AI-GUEST-1","x".repeat(5001)),/invalid_message/);
 });
 
+test("message deduper suppresses repeated message identifiers and resets cleanly", () => {
+  const deduper = createMessageDeduper();
+  assert.equal(deduper.has("m1"),false);
+  deduper.add("m1");
+  assert.equal(deduper.has("m1"),true);
+  deduper.add("m1");
+  deduper.clear();
+  assert.equal(deduper.has("m1"),false);
+});
+
+test("polling backoff is bounded and increases after failures", () => {
+  assert.equal(nextPollingDelayMs(0),4000);
+  assert.equal(nextPollingDelayMs(1),8000);
+  assert.equal(nextPollingDelayMs(2),16000);
+  assert.equal(nextPollingDelayMs(3),30000);
+  assert.equal(nextPollingDelayMs(99),30000);
+});
+
 test("guest messenger renders untrusted content as text, not HTML", async () => {
   const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
   assert.match(source, /body\.textContent\s*=\s*message\.body/);
@@ -50,4 +68,13 @@ test("guest messenger source contains bounded presence lifecycle", async () => {
   assert.match(source, /\/v1\/presence\/leave/);
   assert.match(source, /visibilityState/);
   assert.match(source, /presenceTimer/);
+});
+
+test("guest messenger source contains reliability safeguards", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /createMessageDeduper/);
+  assert.match(source, /nextPollingDelayMs/);
+  assert.match(source, /MAX_POLL_DELAY_MS/);
+  assert.match(source, /clearTimeout\(timer\)/);
+  assert.match(source, /schedulePolling\(0\)/);
 });
