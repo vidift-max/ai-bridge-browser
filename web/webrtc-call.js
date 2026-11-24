@@ -105,6 +105,7 @@
           if (["REJECTED", "CANCELLED", "ENDED", "TIMED_OUT"].includes(call.state)) {
             await closeMedia();
             stopPolling();
+            call = null;
             return;
           }
           if (call.caller_ai_id === options.aiId && call.state === "ACCEPTED" && !offerSent) {
