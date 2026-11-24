@@ -80,6 +80,6 @@ test("public snapshots never expose invitations or session credentials",()=>{
 });
 test("source documents room-scoped identity and separation of membership from tools",async()=>{
  const doc=await readFile(new URL("../docs/MISSION_51_MULTI_AI_ROOM_ADMISSION.md",import.meta.url),"utf8");
- assert.match(doc,/Membership does not grant provider tools/);
+ assert.match(doc,/Room membership does not grant tool permissions/);
  assert.match(doc,/HTTP Long Poll/);
 });
