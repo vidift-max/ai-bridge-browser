@@ -339,6 +339,9 @@ class SQLiteMessengerStore:
             self._connection.execute(
                 "UPDATE conversations SET member_ai_ids=? WHERE conversation_id=?",
                 (",".join(sorted(members)), conversation_id))
+            credential = self._connection.execute(
+                "SELECT token_hash FROM credential_records WHERE ai_id=? AND status='ACTIVE'",
+                (ai_id,)).fetchone()
             self._connection.execute(
                 "UPDATE credential_records SET status='REVOKED' WHERE ai_id=? AND status='ACTIVE'",
                 (ai_id,))
@@ -347,7 +350,7 @@ class SQLiteMessengerStore:
                    WHERE application_id=? AND conversation_id=? AND provisioning_status='ACTIVE'""",
                 (application_id, conversation_id))
             self._connection.commit()
-            return {"ai_id": ai_id, "conversation_id": conversation_id}
+            return {"ai_id": ai_id, "conversation_id": conversation_id, "token_hash": credential["token_hash"] if credential else None}
         except Exception:
             self._connection.rollback()
             raise
