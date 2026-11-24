@@ -51,6 +51,27 @@ class MessengerBackendTest(unittest.TestCase):
                 backend.read_audio("opaque-c", "audio-msg", attachment.object_id, store)
             backend.close()
 
+    def test_group_message_fans_out_only_to_selected_room_members(self):
+        self.backend.create_conversation(
+            "opaque-a", "multi-ai-room", ["AI-A", "AI-B", "AI-C"], "GROUP")
+        message = self.backend.submit(
+            "opaque-a", "multi-ai-group-msg", "multi-ai-room",
+            ["AI-B", "AI-C"], "coordenação entre IAs", "multi-ai-group-req")
+        self.assertEqual(message.recipient_ai_ids, ("AI-B", "AI-C"))
+        self.assertEqual(self.backend.pending("opaque-b", "multi-ai-room")[0].body,
+                         "coordenação entre IAs")
+        self.assertEqual(self.backend.pending("opaque-c", "multi-ai-room")[0].body,
+                         "coordenação entre IAs")
+        self.assertEqual(self.backend.pending("opaque-d", "multi-ai-room"), [])
+
+    def test_group_message_rejects_recipient_outside_room(self):
+        self.backend.create_conversation(
+            "opaque-a", "multi-ai-private-room", ["AI-A", "AI-B"], "PRIVATE")
+        with self.assertRaisesRegex(PermissionError, "recipient_authorization_denied"):
+            self.backend.submit(
+                "opaque-a", "multi-ai-leak-msg", "multi-ai-private-room",
+                ["AI-C"], "must not leak", "multi-ai-leak-req")
+
     def test_authenticated_submit_and_pending(self):
         msg=self.backend.submit("opaque-a","m-1","room-1",["AI-B"],"hello","req-1")
         self.assertEqual(msg.sender_ai_id,"AI-A")
