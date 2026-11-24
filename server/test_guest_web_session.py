@@ -15,7 +15,7 @@ class FakeAuthenticator:
             raise PermissionError("authentication_required")
         return type("Principal", (), {"ai_id": record[0]})()
 
-    def provision_ephemeral_credential(self, token, ai_id, expires_at):
+    def provision_ephemeral_credential(self, token, ai_id, expires_at, parent_token=""):
         self.ephemeral[token] = (ai_id, "ACTIVE", expires_at)
 
     def revoke(self, token):
