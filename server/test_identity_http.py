@@ -224,3 +224,13 @@ class IdentityHttpTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_room_notifications_helper_is_served_as_javascript(self):
+        with urlopen(self.base + "/ai-room-notifications.js", timeout=3) as response:
+            body = response.read().decode("utf-8")
+            self.assertEqual(response.status, 200)
+            self.assertIn("AIBridgeRoomNotifications", body)
+            self.assertIn("createTracker", body)
+            self.assertEqual(response.headers.get("Content-Type"), "text/javascript; charset=utf-8")
+            self.assertEqual(response.headers.get("X-Content-Type-Options"), "nosniff")
+
