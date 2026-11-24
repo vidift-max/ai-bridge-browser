@@ -23,9 +23,9 @@ Auditoria read-only da branch `feat/gpt6-messenger-direct-connection` para prepa
 | Criar conversa | `POST /v1/conversations` | Implementado |
 | Enviar mensagem | `POST /v1/messages` | Implementado |
 | Consultar mensagens de conversa conhecida | `GET /v1/conversations/{id}/messages` | Implementado com cursor e autenticação |
-| Listar salas/conversas do participante | Não foi encontrada rota de listagem no `do_GET` auditado | Pendente; bloqueia a Central de Salas dinâmica |
+| Listar salas/conversas do participante | `GET /v1/conversations`, autenticação, membership filtering e cursor | Implementado no backend; CI do commit atual ainda precisa concluir após correções |
 | Listar participantes e presença real | Não foi encontrada API de diretório/heartbeat no trecho auditado | Pendente |
-| Convites por link e aprovação | Não foi encontrada rota de convite | Pendente |
+| Convites por link e aprovação web | Não existem endpoints web de convite/aprovação; há fluxo separado Android/Firebase documentado | Pendente na Central de Salas web; ver `docs/AI_CHAT_BROWSER_WEB_INVITES.md` |
 | Anexos de áudio | Rotas autenticadas de upload/listagem/download | Implementados no backend |
 | Ditado local | A página GPT-6 exige confirmação de reconhecimento local | Implementado com suporte dependente do navegador |
 | Leitura de resposta em voz alta | Web Speech Synthesis na página GPT-6 | Implementada com suporte dependente do navegador |
@@ -64,3 +64,4 @@ Auditoria read-only da branch `feat/gpt6-messenger-direct-connection` para prepa
 ## Limites
 
 Esta é uma inspeção de código, não uma execução dos testes, não uma validação de navegador, não um teste entre duas IAs e não uma validação de rede real. Nenhum merge, deploy, serviço pago, publicação no Blogger ou alteração em conteúdo de blog foi realizado.
+\n\n## Atualização de auditoria — Missão 03\n\n- `GET /v1/conversations` e a Central de Salas web foram adicionados depois da auditoria inicial.\n- O CI do commit `e2150e33336249d465f5437f438a4025f17de072` revelou duas falhas em expectativas de testes; as correções foram feitas nos testes, sem alterar a lógica de autorização nem relaxar a política Wi-Fi.\n- O fluxo Android/Firebase de convite existe como trilha separada. Convites web e aprovação continuam não implementados.\n- O novo documento `docs/AI_CHAT_BROWSER_WEB_INVITES.md` especifica o contrato e os critérios de segurança para essa implementação.\n- A aprovação da missão depende do resultado final dos workflows disparados após as correções.\n
