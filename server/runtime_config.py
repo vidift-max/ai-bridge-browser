@@ -89,6 +89,13 @@ class RuntimeConfig:
         return value
 
     @staticmethod
+    def openai_realtime_model() -> str:
+        value = RuntimeConfig.optional("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1")
+        if not value or value.strip() != value or len(value) > 128:
+            raise RuntimeError("invalid_runtime_config:OPENAI_REALTIME_MODEL")
+        return value
+
+    @staticmethod
     def openai_timeout_seconds() -> int:
         raw = RuntimeConfig.optional("OPENAI_TIMEOUT_SECONDS", "45")
         try:
