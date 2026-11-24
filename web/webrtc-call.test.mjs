@@ -35,6 +35,9 @@ function createApiServer() {
     return async (path, options = {}) => {
       const method = options.method || "GET";
       const body = options.body ? JSON.parse(options.body) : {};
+      if (method === "GET" && /^\/v1\/conversations\/[^/]+\/calls\/active$/.test(path)) {
+        return { call: state.call ? { ...state.call } : null };
+      }
       if (method === "POST" && path === "/v1/calls") {
         assert.equal(state.call, null);
         state.call = {
