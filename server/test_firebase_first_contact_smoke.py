@@ -273,5 +273,70 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
 
 
 
+    def test_prepare_send_plan_is_read_only_and_contains_no_credentials(self):
+        import json
+        from tools.firebase_first_contact_smoke import prepare_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.uuid.uuid4") as mock_uuid:
+            mock_uuid.return_value.hex = "dryrunnonce"
+            with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies) as request:
+                plan = prepare_send_plan(config)
+        serialized = json.dumps(plan, sort_keys=True)
+        self.assertEqual(plan["state"], "SEND_PLAN_READY")
+        self.assertEqual(plan["preflight"], "PREFLIGHT_PASS")
+        self.assertEqual(plan["sender"], "AI-01")
+        self.assertEqual(plan["recipient"], "AI-02")
+        self.assertEqual(plan["payload"]["recipientAiIds"], {"AI-02": True})
+        self.assertEqual(plan["write_operations"], "NONE")
+        self.assertEqual(plan["send_operation"], "NOT_EXECUTED")
+        self.assertEqual(plan["acknowledgement"], "NOT_RUN")
+        self.assertEqual(request.call_count, 3)
+        self.assertTrue(all(call.args[1] == "GET" for call in request.call_args_list))
+        self.assertNotIn("token-a-secret", serialized)
+        self.assertNotIn("token-b-secret", serialized)
+
+    def test_prepare_send_cli_emits_plan_without_any_write_operation(self):
+        import contextlib
+        import io
+        import json
+        from tools.firebase_first_contact_smoke import main
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        output = io.StringIO()
+        with patch.dict("os.environ", BASE, clear=True):
+            with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies) as request:
+                with contextlib.redirect_stdout(output):
+                    exit_code = main(["--prepare-send"])
+        result = json.loads(output.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(result["state"], "SEND_PLAN_READY")
+        self.assertEqual(result["send_operation"], "NOT_EXECUTED")
+        self.assertEqual(request.call_count, 3)
+        self.assertTrue(all(call.args[1] == "GET" for call in request.call_args_list))
+        self.assertNotIn("token-a-secret", output.getvalue())
+        self.assertNotIn("token-b-secret", output.getvalue())
+
+    def test_prepare_send_cli_rejects_send_and_production_opt_in_flags(self):
+        import contextlib
+        import io
+        from tools.firebase_first_contact_smoke import main
+        for args in (["--prepare-send", "--send"],
+                     ["--prepare-send", "--allow-production-send"]):
+            errors = io.StringIO()
+            with patch.dict("os.environ", BASE, clear=True):
+                with contextlib.redirect_stderr(errors):
+                    exit_code = main(args)
+            self.assertEqual(exit_code, 2)
+            self.assertIn("prepare_send_cannot_be_combined_with_send_options", errors.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
