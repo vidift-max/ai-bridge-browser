@@ -27,6 +27,13 @@ class LocalAICapabilityContractTest(unittest.TestCase):
         self.assertIn("downloadStarted: false", self.script)
         self.assertIn("inferenceStarted: false", self.script)
 
+    def test_messenger_guards_api_and_microphone_with_wifi_gate(self):
+        page = (Path(__file__).resolve().parent.parent / "web" / "gpt6-messenger.html").read_text(encoding="utf-8")
+        api_start = page.index("async function api(")
+        fetch_call = page.index("await fetch(path", api_start)
+        self.assertLess(page.index("window.AIBridgeWifiOnly.assertAllowed()", api_start), fetch_call)
+        self.assertIn("window.AIBridgeWifiOnly.assertAllowed();recognition.start()", page)
+
 
 if __name__ == "__main__":
     unittest.main()
