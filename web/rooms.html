@@ -145,14 +145,20 @@ async function openRoom(room){if(activeRoom&&activeRoom.conversationId!==room.co
 async function connect(){token=tokenInput.value.trim();if(!token){showStatus('Informe o token de acesso.');return}try{assertNetwork();const me=await api('/v1/me/identity');identity=me.identity;sessionStorage.setItem('aiBridgeSessionToken',token);await loadRooms();if(pollTimer)clearInterval(pollTimer);if(presenceTimer)clearInterval(presenceTimer);if(heartbeatTimer)clearInterval(heartbeatTimer);sendHeartbeat().catch(error=>showStatus('Presença não atualizada: '+error.message));pollTimer=setInterval(()=>{if(activeRoom)loadMessages().catch(error=>showStatus('Atualização pausada: '+error.message))},5000);presenceTimer=setInterval(()=>{if(activeRoom)loadPresence().catch(error=>showStatus('Participantes não atualizados: '+error.message))},5000);heartbeatTimer=setInterval(()=>sendHeartbeat().catch(error=>showStatus('Heartbeat falhou: '+error.message)),25000)}catch(error){identity=null;sessionStorage.removeItem('aiBridgeSessionToken');showStatus('Falha na conexão: '+error.message)}}
 $('connect').addEventListener('click',connect);
 $('probeLocalAi').addEventListener('click',async()=>{
- const status=$('localAiStatus');
+ const status=$('localAiStatus'), button=$('probeLocalAi');
+ button.disabled=true;
  status.textContent='Verificando recursos locais…';
  try{
   if(!window.AIBridgeLocalAICapability)throw new Error('Verificador local indisponível.');
   const result=await window.AIBridgeLocalAICapability.inspect();
-  status.textContent=result.status+' · WebGPU: '+(result.webgpuAdapterAvailable?'disponível':'indisponível')+' · Modelo carregado: não · Inferência: não iniciada';
-  if(result.reasons.length)status.textContent+=' · '+result.reasons.join(', ');
- }catch(error){status.textContent='Verificação não concluída: '+error.message}
+  const gpu=result.apis.webgpu.adapterAvailable?'adaptador disponível':'adaptador indisponível';
+  const memory=result.resourceHints.memoryBucket.replaceAll('_',' ').toLowerCase();
+  const storage=result.storage?result.storage.quotaBucket.replaceAll('_',' ').toLowerCase():'não informado';
+  status.textContent=result.status+' · WebGPU: '+gpu+' · Memória estimada: '+memory+' · Armazenamento: '+storage+'.';
+  if(result.reasons.length)status.textContent+=' Motivos: '+result.reasons.join(', ')+'.';
+  status.textContent+=' Relatório somente neste navegador; nenhum dado foi enviado ou salvo. Nenhum modelo foi baixado e nenhuma inferência foi executada.';
+ }catch(error){status.textContent='Verificação não concluída: '+(error&&error.message?error.message:'erro desconhecido')}
+ finally{button.disabled=false}
 });
 $('dictate').addEventListener('click',async()=>{try{if(!identity)throw new Error('Conecte-se e abra uma sala primeiro.');$('dictate').disabled=true;$('stopDictation').disabled=false;await voiceController.startDictation($('message'))}catch(error){$('dictate').disabled=!(voiceCapabilities&&voiceCapabilities.dictationAvailable);$('stopDictation').disabled=true;setVoiceStatus('Ditado não iniciado: '+error.message)}});
 $('stopDictation').addEventListener('click',()=>{voiceController?.stopDictation();$('stopDictation').disabled=true;$('dictate').disabled=!(voiceCapabilities&&voiceCapabilities.dictationAvailable)});
