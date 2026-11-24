@@ -120,7 +120,6 @@ class GuestCredentialProvisioningTest(unittest.TestCase):
 
     def test_revocation_wakes_waiting_long_poll_and_revalidates_access(self):
         provisioned = self.provision()
-        guest_ai_id = provisioned["identity"]["aiId"]
         guest_token = provisioned["credential"]
 
         waiting = threading.Event()
