@@ -171,6 +171,35 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         request.assert_not_called()
         self.assertEqual(report["message_send"], "NOT_RUN")
 
+    def test_config_check_cli_validates_without_network_or_secret_output(self):
+        import contextlib
+        import io
+        import json
+        from unittest.mock import patch
+        from tools.firebase_first_contact_smoke import main
+        output = io.StringIO()
+        with patch.dict("os.environ", BASE, clear=True):
+            with patch("tools.firebase_first_contact_smoke.firebase_request") as request:
+                with contextlib.redirect_stdout(output):
+                    exit_code = main(["--config-check"])
+        request.assert_not_called()
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["state"], "CONFIGURATION_VALID")
+        self.assertNotIn("token-a-secret", output.getvalue())
+        self.assertNotIn("token-b-secret", output.getvalue())
+
+    def test_config_check_cli_rejects_send_flags(self):
+        import contextlib
+        import io
+        from tools.firebase_first_contact_smoke import main
+        errors = io.StringIO()
+        with patch.dict("os.environ", BASE, clear=True):
+            with contextlib.redirect_stderr(errors):
+                exit_code = main(["--config-check", "--send"])
+        self.assertEqual(exit_code, 2)
+        self.assertIn("config_check_cannot_be_combined", errors.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
