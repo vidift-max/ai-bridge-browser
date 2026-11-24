@@ -10,7 +10,7 @@ function fixture(options={}){
   async sendMessage(meta,msg){calls.push(["send",meta.sessionId,msg]);},
   async requestReconnect(meta){calls.push(["reconnect",meta.sessionId]);}
  };
- const context={window:{}};vm.runInNewContext(source,context);
+ const context={window:{},URL};vm.runInNewContext(source,context);
  const registry=context.window.AIBridgeSessionAdapter.create({
   authorize:options.authorize||(()=>true),onAudit:e=>audits.push(e)
  });
@@ -39,7 +39,7 @@ test("session becomes connected only after adapter confirms authentication",asyn
 });
 test("failed authentication blocks the session",async()=>{
  const f=fixture();const adapter={async connect(){return {authenticated:false};},async readStatus(){return {state:"READY"};}};
- const c={window:{}};vm.runInNewContext(source,c);const r=c.window.AIBridgeSessionAdapter.create({});
+ const c={window:{},URL};vm.runInNewContext(source,c);const r=c.window.AIBridgeSessionAdapter.create({});
  r.registerProvider({providerId:"p",allowedOrigins:["https://chat.example"],adapter});
  r.attachTab({sessionId:"s",providerId:"p",origin:"https://chat.example",explicitConsent:true});
  await assert.rejects(r.connect("s"),/ADAPTER_AUTHENTICATION_NOT_CONFIRMED/);assert.equal(r.getSession("s").state,"BLOCKED");
