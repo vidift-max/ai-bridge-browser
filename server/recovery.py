@@ -182,7 +182,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if version_row and version_row[0] in ("3", "4", "5", "6", "7", "8"):
+    if version_row and version_row[0] in ("3", "4", "5", "6", "7", "8", "9"):
         for row in connection.execute(
             "SELECT conversation_id, ai_id, muted_by_ai_id, expires_at FROM voice_mutes"
         ):
