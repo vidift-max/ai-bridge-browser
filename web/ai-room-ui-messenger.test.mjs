@@ -48,5 +48,25 @@ test("UI messenger deduplicates display while acknowledging repeated delivery",a
  const api=async path=>{if(path.includes("/messages?"))return {messages:batch};if(path.endsWith("/ack")){acks++;return {};}return {};};
  const scope={window:{}};vm.runInNewContext(source,scope);let count=0;
  const m=scope.window.AIBridgeRoomUIMessenger.create({api,getContext:()=>({room:{conversationId:"room-a",memberAiIds:["AI-GPT6","AI-CLAUDE"]},identity:{aiId:"AI-GPT6"}}),onMessage:()=>count++});
- await m.load();m.reset();await m.load();assert.equal(count,1);assert.equal(acks,2);
+ await m.load();await m.load();assert.equal(count,1);assert.equal(acks,2);
+});
+
+test("UI messenger rejects a sender outside the active room",async()=>{
+ const f=fixture();f.api=async path=>path.includes("/messages?")?{messages:[{messageId:"m-x",conversationId:"room-a",senderAiId:"AI-OUTSIDER",body:"forged",sequence:1}]}:{};
+ const scope={window:{}};vm.runInNewContext(source,scope);
+ const m=scope.window.AIBridgeRoomUIMessenger.create({api:f.api,getContext:()=>({room:{conversationId:"room-a",memberAiIds:["AI-GPT6","AI-CLAUDE"]},identity:{aiId:"AI-GPT6"}}),onMessage:()=>{}});
+ await assert.rejects(m.load(),/ROOM_UI_MESSAGE_INVALID/);assert.equal(m.getCursor(),0);
+});
+test("Rooms page loads and uses the UI messenger adapter for send and receive",async()=>{
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.match(html,/<script src="\/ai-room-ui-messenger\.js"><\/script>/);
+ assert.match(html,/ensureRoomMessenger\(\)\.send\(body\)/);
+ assert.match(html,/ensureRoomMessenger\(\)\.load\(\)/);
+ assert.match(html,/body\.textContent=message\.body/);
+});
+test("HTTP server exposes the UI messenger asset without weakening cache or content type headers",async()=>{
+ const server=await readFile(new URL("../server/http_server.py",import.meta.url),"utf8");
+ assert.match(server,/def _room_ui_messenger_script\(self\)/);
+ assert.match(server,/if self\.path == "\/ai-room-ui-messenger\.js":/);
+ assert.match(server,/Content-Type", "text\/javascript; charset=utf-8"/);
 });
