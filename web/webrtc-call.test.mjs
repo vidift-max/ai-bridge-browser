@@ -122,19 +122,22 @@ test("no microphone permission is requested when client is merely created", () =
 
 test("caller waits for acceptance before sending the WebRTC offer", async () => {
   const server = createApiServer();
-  const caller = makeClient("AI-01", server.apiFor("AI-01"));
+  const counters = {};
+  const caller = makeClient("AI-01", server.apiFor("AI-01"), counters);
   await caller.client.startCall("private-1", "AI-02");
   assert.equal(server.state.call.state, "RINGING");
   assert.equal(server.state.signals.length, 0);
+  assert.equal(counters.mediaRequests || 0, 0);
   await caller.client.endCall();
   assert.equal(server.state.call.state, "CANCELLED");
-  assert.equal(caller.tracks[0].stopped, true);
+  assert.equal(counters.mediaRequests || 0, 0);
 });
 
 test("callee acceptance unlocks offer/answer exchange through authenticated signaling", async () => {
   FakePeerConnection.instances = [];
   const server = createApiServer();
-  const caller = makeClient("AI-01", server.apiFor("AI-01"));
+  const callerCounters = {};
+  const caller = makeClient("AI-01", server.apiFor("AI-01"), callerCounters);
   const callee = makeClient("AI-02", server.apiFor("AI-02"));
 
   await caller.client.startCall("private-1", "AI-02");
@@ -143,6 +146,7 @@ test("callee acceptance unlocks offer/answer exchange through authenticated sign
   await callee.client.acceptCall(incoming);
 
   await caller.client.poll();
+  assert.equal(callerCounters.mediaRequests, 1);
   assert.equal(server.state.signals[0].kind, "OFFER");
   assert.equal(server.state.call.state, "CONNECTING");
 
