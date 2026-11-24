@@ -24,6 +24,9 @@ class Authenticator:
         self.audit_log.record("AUTHENTICATED", "credential", ai_id=ai_id)
         return AuthenticatedPrincipal(ai_id=ai_id, credential_generation=generation)
 
+    def attach_credential_store(self, connection):
+        self._registry.attach_connection(connection)
+
     def provision_credential(self, bearer_token: str, ai_id: str, expires_at=None):
         generation = self._registry.provision(bearer_token, ai_id, expires_at)
         self.audit_log.record("CREDENTIAL_PROVISIONED", "credential", ai_id=ai_id)
