@@ -25,7 +25,9 @@
    const payload={messageId:ids.messageId||"msg-"+randomId(),conversationId:current.room.conversationId,
     recipientAiIds:recipients,body:body.trim(),clientRequestId:ids.clientRequestId||"web-"+randomId()};
    const result=await options.api("/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-   options.onMessage({messageId:payload.messageId,senderAiId:current.identity.aiId,body:payload.body,
+   seen.add(payload.messageId);
+   if(result&&Number.isSafeInteger(result.sequence)&&result.sequence>=0)cursor=Math.max(cursor,result.sequence);
+   options.onMessage({messageId:payload.messageId,conversationId:payload.conversationId,senderAiId:current.identity.aiId,body:payload.body,
     sequence:result&&result.sequence,createdAtEpochMs:Date.now()},true);
    return result;
   }
@@ -36,6 +38,7 @@
    for(const message of data.messages){
     if(!message||typeof message.messageId!=="string"||!message.messageId||
        message.conversationId!==roomId||typeof message.senderAiId!=="string"||
+       !current.room.memberAiIds.includes(message.senderAiId)||
        typeof message.body!=="string"||!message.body.trim()||message.body.length>MAX_BODY||
        !Number.isSafeInteger(message.sequence)||message.sequence<0)
       throw new Error("ROOM_UI_MESSAGE_INVALID");
