@@ -21,7 +21,7 @@ class IdentityDirectoryTests(unittest.TestCase):
         self.auth = Authenticator(self.tokens)
         self.backend = MessengerBackend(
             self.tokens, {"room": {"AI-A", "AI-B"}}, self.store,
-            authenticator=self.auth)
+            authenticator=self.auth, identity_display_names={"AI-B": "Assistente Beta"})
         self.directory = self.backend._identities
         MessengerHandler.backend = self.backend
         MessengerHandler.authenticator = self.auth
@@ -51,6 +51,7 @@ class IdentityDirectoryTests(unittest.TestCase):
         first = self.directory.get("AI-A")
         second = self.directory.get("AI-B")
         self.assertNotEqual(first["internalNumber"], second["internalNumber"])
+        self.assertEqual(second["displayName"], "Assistente Beta")
         self.directory.provision("AI-A", "Assistente Alfa")
         self.assertEqual(self.directory.get("AI-A")["internalNumber"],
                          first["internalNumber"])
@@ -62,6 +63,8 @@ class IdentityDirectoryTests(unittest.TestCase):
         self.assertEqual(reopened.get("AI-A")["internalNumber"],
                          first["internalNumber"])
         self.assertEqual(reopened.get("AI-A")["displayName"], "Assistente Alfa")
+        self.assertEqual(reopened.get("AI-B")["displayName"], "Assistente Beta")
+        self.store.close()
 
     def test_client_cannot_choose_internal_number_or_display_name(self):
         identity = self.directory.get("AI-A")
