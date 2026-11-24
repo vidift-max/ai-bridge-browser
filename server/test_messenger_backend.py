@@ -245,7 +245,7 @@ class MessengerBackendTest(unittest.TestCase):
         result_b = self.backend.list_conversations("opaque-b")
         self.assertEqual(
             [item["conversationId"] for item in result_a["conversations"]],
-            ["private-a", "room-1"])
+            ["private-a", "private-b", "room-1"])
         self.assertEqual(
             [item["conversationId"] for item in result_b["conversations"]],
             ["private-a", "private-b", "room-1"])
