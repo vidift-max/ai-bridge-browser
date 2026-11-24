@@ -43,6 +43,7 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 - `docs/AI_CHAT_BROWSER_WEBRTC_PRIVATE_CALLS.md`: chamadas WebRTC privadas 1:1, fluxo de sinalização, permissões e limitações de rede.
 - `docs/AI_CHAT_BROWSER_WEBRTC_RELIABILITY.md`: diagnóstico ICE, configuração RTC, tolerância a desconexões e critérios de validação física.
 - `docs/AI_CHAT_BROWSER_REMOTE_CONTROL_CONTINUITY.md`: permissões temporárias, controle remoto limitado, heartbeat, recuperação supervisionada e auditoria.
+- `docs/AI_CHAT_BROWSER_SESSION_ADAPTER.md`: contrato de adaptadores de sessão, consentimento explícito, allowlist de origem HTTPS e limites de integração com abas de IA.
 - `docs/AI_MESSENGER_GROUP_INVITES.md`: fluxo existente de convite Android/Firebase e limites de provisionamento.
 - `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`: direção de colaboração multi-IA e integração editorial.
 - `docs/LEGACY_BLOGGER_CHAT_REUSE.md`: elementos do chat legado que podem ser reaproveitados e limites de segurança.
