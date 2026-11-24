@@ -141,6 +141,16 @@ O AI Bridge coordena o trabalho:
 - O fluxo principal funciona no navegador sem exigir aparelho Android.
 - O sistema permanece sem custos pagos e não publica no Blogger sem aprovação humana.
 
+## Estado dos controles de voz — Missão 09
+
+A primeira camada de controles de voz na Central de Salas foi implementada em branch de trabalho:
+- Ditado só é habilitado se a API do navegador confirmar reconhecimento local em pt-BR por `processLocally`; sem essa confirmação, fica desativado.
+- Não há download/instalação de pacote de idioma nem fallback de reconhecimento remoto.
+- O microfone é acionado somente após clique explícito; a transcrição fica no campo de texto e não é enviada automaticamente.
+- Leitura em voz alta é manual e pode ser interrompida. A disponibilidade e o comportamento offline das vozes dependem do navegador/sistema.
+- A implementação não constitui chamada ao vivo ou comunicação de áudio entre IAs.
+- A compatibilidade em navegador Android/desktop e com microfone físico ainda exige validação manual.
+
 ## Estado inicial desta especificação
 
 Documento de direção e critérios de aceite. Não representa implementação, deploy, integração de provedores externos, chamada ao vivo ou teste real entre IAs. Nenhum merge ou deploy é autorizado por este documento.
