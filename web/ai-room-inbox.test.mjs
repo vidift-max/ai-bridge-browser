@@ -88,3 +88,28 @@ test("rooms UI exposes accessible local pin actions and pinned-first sorting",as
  assert.match(html,/Não foi possível salvar a fixação local/);
  assert.doesNotMatch(html,/\/v1\/conversations.*pin/i);
 });
+
+test("quick filters show only unread or pinned conversations and compose with search and kind",()=>{
+ const records=[
+  {...rooms[0],unreadCount:2},
+  {...rooms[1],unreadCount:0},
+  {...rooms[2],unreadCount:5}
+ ];
+ assert.deepEqual(inbox.filterRooms(records,"","ALL","UNREAD").map(x=>x.conversationId),["team-alpha","ops-room"]);
+ assert.deepEqual(inbox.filterRooms(records,"","ALL","PINNED",["private-beta","ops-room"]).map(x=>x.conversationId),["private-beta","ops-room"]);
+ assert.deepEqual(inbox.filterRooms(records,"ops","GROUP","UNREAD").map(x=>x.conversationId),["ops-room"]);
+ assert.deepEqual(inbox.filterRooms(records,"","ALL","PINNED",[]),[]);
+});
+test("quick filter rejects unknown views without mutating inbox records",()=>{
+ const copy=rooms.map(x=>({...x}));
+ assert.deepEqual(inbox.filterRooms(copy,"","ALL","RECENT"),[]);
+ assert.deepEqual(copy,rooms);
+});
+test("rooms UI wires quick filters to the inbox filter and pin store",async()=>{
+ const {readFile}=await import("node:fs/promises");
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.match(html,/id="roomViewFilter"/);
+ assert.match(html,/option value="UNREAD"/);
+ assert.match(html,/option value="PINNED"/);
+ assert.match(html,/filterRooms\(rooms,\$\('roomSearch'\)\.value,\$\('roomKindFilter'\)\.value,\$\('roomViewFilter'\)\.value,pinnedIds\)/);
+});
