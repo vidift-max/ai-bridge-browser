@@ -70,6 +70,19 @@ class HttpE2ETest(unittest.TestCase):
         conn.close()
         return response.status, payload, headers_out
 
+    def test_voice_capability_script_is_served_without_cache(self):
+        conn = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        conn.request("GET", "/voice-capabilities.js")
+        response = conn.getresponse()
+        body = response.read()
+        headers = dict(response.getheaders())
+        conn.close()
+        self.assertEqual(response.status, 200)
+        self.assertIn(b"processLocally", body)
+        self.assertEqual(headers.get("Content-Type"), "text/javascript; charset=utf-8")
+        self.assertEqual(headers.get("Cache-Control"), "no-store")
+        self.assertEqual(headers.get("X-Content-Type-Options"), "nosniff")
+
     def test_admin_can_mute_and_unmute_room_participant_over_http(self):
         status, data = self.request("POST", "/v1/conversations/room/voice/mute",
                                     "token-a", {"targetAiId": "AI-B"})
