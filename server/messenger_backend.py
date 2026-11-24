@@ -127,6 +127,37 @@ class MessengerBackend:
                 "memberAiIds": sorted(members), "memberCount": len(members)}
 
     @_synchronized
+    def list_conversations(self, bearer_token: str, limit: int = 50,
+                          after: str = "") -> Dict[str, object]:
+        """List only rooms visible to the authenticated participant.
+
+        The opaque cursor is the last conversation ID from the prior page.
+        Membership is evaluated from the server-owned conversation registry.
+        """
+        ai_id = self.authenticate(bearer_token)
+        if (isinstance(limit, bool) or not isinstance(limit, int) or
+                limit < 1 or limit > 100):
+            raise ValueError("invalid_conversation_limit")
+        if not isinstance(after, str) or len(after) > self.MAX_ID_LENGTH:
+            raise ValueError("invalid_conversation_cursor")
+        visible_ids = sorted(
+            conversation_id for conversation_id, members in self._conversations.items()
+            if ai_id in members and conversation_id > after
+        )
+        page_ids = visible_ids[:limit]
+        items = []
+        for conversation_id in page_ids:
+            members = sorted(self._conversations[conversation_id])
+            items.append({
+                "conversationId": conversation_id,
+                "kind": self._conversation_kinds.get(conversation_id, CONVERSATION_GROUP),
+                "memberAiIds": members,
+                "memberCount": len(members),
+            })
+        next_cursor = page_ids[-1] if len(visible_ids) > len(page_ids) and page_ids else None
+        return {"conversations": items, "nextCursor": next_cursor}
+
+    @_synchronized
     def conversation_members(self):
         """Return a defensive snapshot for server-side room authorization."""
         return {conversation_id: set(members)
