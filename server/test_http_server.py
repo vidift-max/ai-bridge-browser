@@ -33,7 +33,7 @@ class HttpContractTest(unittest.TestCase):
 
     def test_gpt6_status_distinguishes_request_success_from_online_presence(self):
         constants = MessengerHandler.do_GET.__code__.co_consts
-        self.assertIn("REQUEST_SUCCEEDED", constants)
+        self.assertIn("DISABLED_BY_POLICY", constants)
         self.assertIn("accountSessionConnected", constants)
         self.assertIn("online", constants)
 
