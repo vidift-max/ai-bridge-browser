@@ -11,11 +11,11 @@
 7. Render rejected planning with `need_payment_info` because the Blueprint requests a Starter web service and persistent disk.
 8. No Render service was created and no deployment was started.
 9. Recorded the exact activation prerequisites and the external authorization boundary.
-10. M91 remains BLOCKED_PENDING_PAYMENT_INFO; after payment information is available, the plan can be requested again and reviewed before approval.
+10. M91 remains FREE_PLAN_RETRY_READY; after payment information is available, the plan can be requested again and reviewed before approval.
 
 ## Required external prerequisites
 
-- Render workspace must have payment information enabled for the requested Starter service/persistent disk.
+- Render workspace must have payment information enabled for the requested free web service with ephemeral storage.
 - Review the planned resource and expected cost in Render.
 - Supply real AI-01/AI-02 runtime credentials only when the service is actually authorized for deployment.
 - Approve the Blueprint only after the plan is reviewed.
