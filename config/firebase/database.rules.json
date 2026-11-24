@@ -59,14 +59,19 @@
             "$messageId": {
               ".read": "auth != null && data.parent().parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true",
               ".write": "auth != null && data.parent().parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true && !data.exists()",
-              ".validate": "newData.hasChildren(['senderAiId','recipientAiIds','body','messageKind','createdAtEpochMs']) && newData.child('senderAiId').val() === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && newData.child('body').isString() && newData.child('body').val().length <= 5000"
+              ".validate": "newData.hasChildren(['senderAiId','recipientAiIds','body','messageKind','createdAtEpochMs']) && newData.child('recipientAiIds').hasChildren() && newData.child('senderAiId').val() === root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() && newData.child('body').isString() && newData.child('body').val().length <= 5000",
+              "recipientAiIds": {
+                "$recipientAiId": {
+                  ".validate": "newData.val() === true && root.child('messenger/conversations').child($conversationId).child('members').child($recipientAiId).val() === true"
+                }
+              }
             },
             ".read": "auth != null && data.parent().child('members').child(root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val()).val() === true"
           },
           "acks": {
             "$messageId": {
               "$aiId": {
-                ".write": "auth != null && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === $aiId && data.parent().parent().parent().child('members').child($aiId).val() === true",
+                ".write": "auth != null && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === $aiId && root.child('messenger/conversations').child($conversationId).child('members').child($aiId).val() === true && root.child('messenger/conversations').child($conversationId).child('messages').child($messageId).child('recipientAiIds').child($aiId).val() === true",
                 ".validate": "newData.val() === true"
               }
             }
