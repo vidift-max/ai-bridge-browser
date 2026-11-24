@@ -69,7 +69,7 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         message = {
             "senderAiId": "AI-01",
             "recipientAiIds": {"AI-02": True},
-            "body": "first-contact-test",
+            "body": "first-contact-fixednonce",
         }
         replies = [
             {"aiId": "AI-01", "uid": "uid-a"},
@@ -80,8 +80,10 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
             True,
             True,
         ]
-        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies) as request:
-            result = run_probe(config, send=True, wait_seconds=1)
+        with patch("tools.firebase_first_contact_smoke.uuid.uuid4") as mock_uuid:
+            mock_uuid.return_value.hex = "fixednonce"
+            with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies) as request:
+                result = run_probe(config, send=True, wait_seconds=1)
         self.assertEqual(result["state"], "TEXT_ROUND_TRIP_PASS")
         self.assertEqual(result["message_round_trip"], "PASS")
         self.assertEqual(result["acknowledgement"], "VERIFIED")
