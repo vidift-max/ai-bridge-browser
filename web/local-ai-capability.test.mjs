@@ -124,3 +124,31 @@ test("capability probe button is explicit, accessible, and starts disabled only 
   assert.match(page, /button\.disabled=true/);
   assert.match(page, /finally\{button\.disabled=false\}/);
 });
+
+test("unknown resource hints remain UNKNOWN instead of being guessed", async () => {
+  const { api } = loadProbe({
+    navigator: {
+      deviceMemory: undefined,
+      hardwareConcurrency: undefined,
+      storage: { async estimate() { return { quota: -1, usage: undefined }; } }
+    }
+  });
+  const report = await api.inspect();
+  assert.equal(report.resourceHints.memoryBucket, "UNKNOWN");
+  assert.equal(report.resourceHints.cpuConcurrencyBucket, "UNKNOWN");
+  assert.equal(report.storage.quotaBucket, "UNKNOWN");
+  assert.equal(report.storage.usageBucket, "UNKNOWN");
+});
+
+test("WebNN is detected without creating a context or invoking inference", async () => {
+  let called = false;
+  const { api } = loadProbe({
+    navigator: {
+      ml: { async createContext() { called = true; return {}; } }
+    }
+  });
+  const report = await api.inspect();
+  assert.equal(report.apis.webnn.available, true);
+  assert.equal(called, false);
+  assert.equal(report.execution.inferenceStarted, false);
+});
