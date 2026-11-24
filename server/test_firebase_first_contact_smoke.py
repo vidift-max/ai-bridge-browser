@@ -577,7 +577,7 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
             plan = prepare_send_plan(config)
         plan["preflight"] = "SKIPPED"
-        with self.assertRaisesRegex(ProbeError, "send_plan_integrity_mismatch"):
+        with self.assertRaisesRegex(ProbeError, "send_plan_identity_binding_invalid"):
             validate_send_plan(plan, config)
 
     def test_send_plan_rejects_boolean_timestamps(self):
