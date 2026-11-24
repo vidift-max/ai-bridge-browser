@@ -101,6 +101,14 @@
    target.leftAt=now();
    return participantView(target);
   }
+  function authorizeRead(input){
+   input=input||{};
+   var r=roomFor(input.roomId);
+   var p=r.members.get(input.aiId);
+   if(!p||p.status!=="ACTIVE"||p.sessionId!==input.sessionId)throw new Error("ROOM_MEMBERSHIP_REQUIRED");
+   activeSession(p.sessionId);
+   return Object.freeze({roomId:r.roomId,aiId:p.aiId,sessionId:p.sessionId,authorized:true,role:p.role});
+  }
   function authorizeMessage(input){
    input=input||{};
    var r=roomFor(input.roomId);
@@ -126,7 +134,7 @@
    return snapshot(r);
   }
   return Object.freeze({createRoom:createRoom,issueInvitation:issueInvitation,admit:admit,
-   revoke:revoke,leave:leave,authorizeMessage:authorizeMessage,getRoom:getRoom,closeRoom:closeRoom});
+   revoke:revoke,leave:leave,authorizeRead:authorizeRead,authorizeMessage:authorizeMessage,getRoom:getRoom,closeRoom:closeRoom});
  }
  root.AIBridgeRoomAdmission=Object.freeze({create:create,roles:ROLES});
 })(typeof window!=="undefined"?window:globalThis);
