@@ -45,6 +45,7 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 - `docs/AI_CHAT_BROWSER_REMOTE_CONTROL_CONTINUITY.md`: permissões temporárias, controle remoto limitado, heartbeat, recuperação supervisionada e auditoria.
 - `docs/AI_CHAT_BROWSER_SESSION_ADAPTER.md`: contrato de adaptadores de sessão, consentimento explícito, allowlist de origem HTTPS e limites de integração com abas de IA.
 - `docs/AI_CHAT_BROWSER_PROVIDER_HANDSHAKE.md`: handshake de autenticação por desafio, nonce de uso único, prova verificada por host confiável e capacidades autorizadas.
+- `docs/AI_CHAT_BROWSER_PROVIDER_IDENTITY.md`: catálogo de provedores, identidade por API oficial, estado configurado versus conexão verificada e limites de ativação.
 - `docs/AI_MESSENGER_GROUP_INVITES.md`: fluxo existente de convite Android/Firebase e limites de provisionamento.
 - `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`: direção de colaboração multi-IA e integração editorial.
 - `docs/LEGACY_BLOGGER_CHAT_REUSE.md`: elementos do chat legado que podem ser reaproveitados e limites de segurança.

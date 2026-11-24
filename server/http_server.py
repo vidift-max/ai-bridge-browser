@@ -10,6 +10,7 @@ from server.request_context import authenticate_request, bearer_token
 from server.audio_blob_store import AudioBlobStore
 from pathlib import Path
 from server.openai_text_adapter import OpenAITextAdapter
+from server.provider_registry import ProviderRegistry
 
 
 def _unique_json_object(pairs):
@@ -34,6 +35,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     voice_control=None
     voice_calls=None
     openai_text=None
+    provider_registry=None
 
     def _auth(self):
         return bearer_token(self.headers)
@@ -204,16 +206,35 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except RuntimeError:
                 self._json(503,{"status":"not_ready","error":"runtime_configuration_invalid"})
             return
+        if self.path == "/v1/providers":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                registry = self.provider_registry or ProviderRegistry(self.openai_text)
+                self._audit(identity, "PROVIDER_CATALOG_READ", "provider_catalog")
+                self._json(200, {
+                    "providers": registry.list_providers(),
+                    "correlationId": identity.correlation_id,
+                })
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403, self._permission_error(exc))
+            return
         if self.path == "/v1/gpt6/status":
             try:
                 identity = self._principal()
                 principal = identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 self.rate_limiter.allow(principal.ai_id)
-                enabled = self.openai_text is not None and self.openai_text.enabled()
+                configured = self.openai_text is not None and self.openai_text.enabled()
                 self._json(200, {
-                    "assistant": {"id": "AI-GPT6", "displayName": "GPT-6", "online": enabled},
-                    "transport": "OpenAI Responses API" if enabled else "not_configured",
+                    "assistant": {"id": "AI-GPT6", "displayName": "GPT-6", "online": False},
+                    "transport": "OpenAI Responses API" if configured else "not_configured",
+                    "connectionState": "CONFIGURED_UNVERIFIED" if configured else "NOT_CONFIGURED",
+                    "configured": configured,
                     "model": self.openai_text.model if self.openai_text is not None else None,
                     "correlationId": identity.correlation_id,
                 })
@@ -878,6 +899,7 @@ def serve(host="127.0.0.1",port=8080):
     MessengerHandler.operational=OperationalRuntime()
     MessengerHandler.audio_store=AudioBlobStore(str(Path(RuntimeConfig.storage_path()).resolve().parent / "audio"))
     MessengerHandler.openai_text=OpenAITextAdapter()
+    MessengerHandler.provider_registry=ProviderRegistry(MessengerHandler.openai_text)
     server = ThreadingHTTPServer((host, port), MessengerHandler)
     server.daemon_threads = True
     try:
