@@ -425,9 +425,14 @@ class MessengerBackendTest(unittest.TestCase):
 
     def test_transport_capabilities_are_authorized_and_conservative(self):
         capabilities = self.backend.transport_capabilities("opaque-b", "room-1")
+        self.assertEqual(capabilities["contractVersion"], 1)
+        self.assertEqual(capabilities["conversationId"], "room-1")
+        self.assertTrue(capabilities["authorized"])
         self.assertEqual(capabilities["defaultTransport"], "HTTP_LONG_POLL")
+        self.assertEqual(capabilities["transports"]["httpLongPoll"]["minWaitSeconds"], 0)
         self.assertEqual(capabilities["transports"]["httpLongPoll"]["maxWaitSeconds"], 25)
         self.assertEqual(capabilities["transports"]["httpLongPoll"]["defaultWaitSeconds"], 20)
+        self.assertEqual(capabilities["transports"]["httpLongPoll"]["maxBatchSize"], 100)
         self.assertFalse(capabilities["transports"]["webSocket"]["enabled"])
         self.assertFalse(capabilities["transports"]["serverPush"]["enabled"])
         self.assertEqual(capabilities["cursor"], {"type": "sequence", "ackRequired": True})
