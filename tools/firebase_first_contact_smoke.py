@@ -5,6 +5,7 @@ All bearer ID tokens are read from the process environment and are never printed
 This tool sends exactly one test message only when --send is explicitly supplied.
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -222,8 +223,44 @@ def run_probe(config, send=False, timeout=10, wait_seconds=45):
 
 
 
+def _canonical_payload_bytes(payload):
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def validate_send_plan(plan, config):
+    """Fail closed unless a dry-run plan is intact and bound to this AI pair."""
+    if not isinstance(plan, dict) or plan.get("schema_version") != 1:
+        raise ProbeError("send_plan_schema_invalid")
+    if (plan.get("state") != "SEND_PLAN_READY" or
+            plan.get("sender") != config["ai_a"] or
+            plan.get("recipient") != config["ai_b"] or
+            plan.get("conversation_id") != config["conversation"]):
+        raise ProbeError("send_plan_identity_binding_invalid")
+    payload = plan.get("payload")
+    if not isinstance(payload, dict):
+        raise ProbeError("send_plan_payload_invalid")
+    if (payload.get("senderAiId") != config["ai_a"] or
+            payload.get("recipientAiIds") != {config["ai_b"]: True} or
+            payload.get("messageKind") != "NORMAL"):
+        raise ProbeError("send_plan_recipient_or_kind_invalid")
+    body = payload.get("body")
+    if not isinstance(body, str) or not body.strip() or len(body) > 280:
+        raise ProbeError("send_plan_body_invalid")
+    if not isinstance(payload.get("createdAtEpochMs"), int):
+        raise ProbeError("send_plan_timestamp_invalid")
+    digest = hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest()
+    if plan.get("payload_sha256") != digest:
+        raise ProbeError("send_plan_payload_integrity_mismatch")
+    if (plan.get("write_operations") != "NONE" or
+            plan.get("send_operation") != "NOT_EXECUTED" or
+            plan.get("acknowledgement") != "NOT_RUN" or
+            plan.get("credentials_included") is not False):
+        raise ProbeError("send_plan_safety_metadata_invalid")
+    return True
+
+
 def prepare_send_plan(config):
-    """Build a sanitized one-message plan after live read-only preflight; never writes."""
+    """Build and validate a credential-free one-message plan; never writes."""
     preflight = run_probe(config, send=False)
     nonce = "first-contact-" + uuid.uuid4().hex
     payload = {
@@ -233,7 +270,8 @@ def prepare_send_plan(config):
         "messageKind": "NORMAL",
         "createdAtEpochMs": int(time.time() * 1000),
     }
-    return {
+    plan = {
+        "schema_version": 1,
         "state": "SEND_PLAN_READY",
         "preflight": preflight["state"],
         "sender": config["ai_a"],
@@ -241,11 +279,14 @@ def prepare_send_plan(config):
         "conversation_id": config["conversation"],
         "operation": "ONE_TEXT_MESSAGE",
         "payload": payload,
+        "payload_sha256": hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest(),
         "write_operations": "NONE",
         "send_operation": "NOT_EXECUTED",
         "acknowledgement": "NOT_RUN",
         "credentials_included": False,
     }
+    validate_send_plan(plan, config)
+    return plan
 
 
 def main(argv=None):

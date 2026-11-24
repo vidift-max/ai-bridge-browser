@@ -338,5 +338,83 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
             self.assertIn("prepare_send_cannot_be_combined_with_send_options", errors.getvalue())
 
 
+    def test_send_plan_contains_payload_digest_and_validates_pair_binding(self):
+        from tools.firebase_first_contact_smoke import prepare_send_plan, validate_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            plan = prepare_send_plan(config)
+        self.assertEqual(plan["schema_version"], 1)
+        self.assertEqual(len(plan["payload_sha256"]), 64)
+        self.assertTrue(validate_send_plan(plan, config))
+        other_pair = dict(config, ai_b="AI-03")
+        with self.assertRaisesRegex(ProbeError, "send_plan_identity_binding_invalid"):
+            validate_send_plan(plan, other_pair)
+
+    def test_send_plan_detects_payload_tampering(self):
+        from tools.firebase_first_contact_smoke import prepare_send_plan, validate_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            plan = prepare_send_plan(config)
+        plan["payload"]["body"] = "altered after planning"
+        with self.assertRaisesRegex(ProbeError, "send_plan_payload_integrity_mismatch"):
+            validate_send_plan(plan, config)
+
+    def test_send_plan_rejects_extra_recipient_and_oversized_body(self):
+        from tools.firebase_first_contact_smoke import validate_send_plan, _canonical_payload_bytes
+        import hashlib
+        config = validate_config(BASE)
+        plan = {
+            "schema_version": 1, "state": "SEND_PLAN_READY",
+            "sender": "AI-01", "recipient": "AI-02",
+            "conversation_id": "private-ai-01-ai-02", "operation": "ONE_TEXT_MESSAGE",
+            "payload": {"senderAiId": "AI-01", "recipientAiIds": {"AI-02": True, "AI-03": True},
+                        "body": "x" * 281, "messageKind": "NORMAL", "createdAtEpochMs": 1},
+            "write_operations": "NONE", "send_operation": "NOT_EXECUTED",
+            "acknowledgement": "NOT_RUN", "credentials_included": False,
+        }
+        plan["payload_sha256"] = hashlib.sha256(_canonical_payload_bytes(plan["payload"])).hexdigest()
+        with self.assertRaisesRegex(ProbeError, "send_plan_recipient_or_kind_invalid"):
+            validate_send_plan(plan, config)
+
+    def test_send_plan_rejects_modified_safety_metadata(self):
+        from tools.firebase_first_contact_smoke import prepare_send_plan, validate_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+            plan = prepare_send_plan(config)
+        plan["send_operation"] = "EXECUTED"
+        with self.assertRaisesRegex(ProbeError, "send_plan_safety_metadata_invalid"):
+            validate_send_plan(plan, config)
+
+
+    def test_send_plan_rejects_oversized_body_even_with_matching_digest(self):
+        from tools.firebase_first_contact_smoke import validate_send_plan, _canonical_payload_bytes
+        import hashlib
+        config = validate_config(BASE)
+        payload = {"senderAiId": "AI-01", "recipientAiIds": {"AI-02": True},
+                   "body": "x" * 281, "messageKind": "NORMAL", "createdAtEpochMs": 1}
+        plan = {"schema_version": 1, "state": "SEND_PLAN_READY", "sender": "AI-01",
+                "recipient": "AI-02", "conversation_id": "private-ai-01-ai-02",
+                "payload": payload, "payload_sha256": hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest(),
+                "write_operations": "NONE", "send_operation": "NOT_EXECUTED",
+                "acknowledgement": "NOT_RUN", "credentials_included": False}
+        with self.assertRaisesRegex(ProbeError, "send_plan_body_invalid"):
+            validate_send_plan(plan, config)
+
+
 if __name__ == "__main__":
     unittest.main()
