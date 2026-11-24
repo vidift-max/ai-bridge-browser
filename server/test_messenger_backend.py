@@ -422,5 +422,19 @@ class MessengerBackendTest(unittest.TestCase):
                     self.backend.wait_for_messages(
                         "opaque-b", "room-1", 0, 10, timeout)
 
+
+    def test_transport_capabilities_are_authorized_and_conservative(self):
+        capabilities = self.backend.transport_capabilities("opaque-b", "room-1")
+        self.assertEqual(capabilities["defaultTransport"], "HTTP_LONG_POLL")
+        self.assertEqual(capabilities["transports"]["httpLongPoll"]["maxWaitSeconds"], 25)
+        self.assertEqual(capabilities["transports"]["httpLongPoll"]["defaultWaitSeconds"], 20)
+        self.assertFalse(capabilities["transports"]["webSocket"]["enabled"])
+        self.assertFalse(capabilities["transports"]["serverPush"]["enabled"])
+        self.assertEqual(capabilities["cursor"], {"type": "sequence", "ackRequired": True})
+
+    def test_transport_capabilities_fail_closed_for_non_member(self):
+        with self.assertRaisesRegex(PermissionError, "authorization_denied"):
+            self.backend.transport_capabilities("opaque-c", "room-1")
+
 if __name__ == "__main__":
     unittest.main()
