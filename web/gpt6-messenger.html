@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Messenger · GPT-6</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+body{margin:0;background:#0b1020;color:#eef2ff}
+main{max-width:760px;margin:auto;padding:20px}
+.card{background:#121a2e;border:1px solid #26314d;border-radius:18px;padding:18px}
+h1{font-size:22px;margin:0 0 4px}.muted{color:#9aa7c7;font-size:13px}
+#status{margin:12px 0;padding:8px 10px;border-radius:10px;background:#1c2740}
+#chat{height:52vh;overflow:auto;border:1px solid #26314d;border-radius:14px;padding:12px;background:#0d1426}
+.msg{margin:8px 0;padding:10px 12px;border-radius:12px;white-space:pre-wrap;word-break:break-word}
+.user{background:#26385d;margin-left:12%}.ai{background:#1b2940;margin-right:12%}.sys{background:#251f35;color:#c8c1dc;font-size:13px}
+.row{display:flex;gap:8px;margin-top:10px}.row>*{min-width:0}
+input,textarea,button{font:inherit;border-radius:10px;border:1px solid #34415f;background:#0c1425;color:#eef2ff;padding:10px}
+#token{flex:1}textarea{flex:1;resize:vertical;min-height:44px}button{cursor:pointer;background:#273b67}button:disabled{opacity:.5;cursor:not-allowed}
+details{margin-bottom:12px}summary{cursor:pointer;color:#c7d2fe}
+</style>
+</head>
+<body>
+<main>
+<div class="card">
+<h1>🤖 GPT-6 · AI Messenger</h1>
+<div class="muted">Interface web para o AI Messenger. O token fica somente nesta sessão do navegador.</div>
+<details>
+<summary>Conectar</summary>
+<div class="row"><input id="token" type="password" autocomplete="off" placeholder="Bearer token do AI Messenger"><button id="connect">Conectar</button></div>
+</details>
+<div id="status">Desconectado</div>
+<div id="chat"></div>
+<div class="row"><textarea id="message" placeholder="Escreva para o GPT-6..." disabled></textarea><button id="send" disabled>Enviar</button></div>
+</div>
+</main>
+<script>
+const tokenEl=document.getElementById('token'), connectEl=document.getElementById('connect');
+const statusEl=document.getElementById('status'), chatEl=document.getElementById('chat');
+const messageEl=document.getElementById('message'), sendEl=document.getElementById('send');
+let token='', previousResponseId='';
+function add(text, cls){const d=document.createElement('div');d.className='msg '+cls;d.textContent=text;chatEl.appendChild(d);chatEl.scrollTop=chatEl.scrollHeight}
+function setConnected(ok,text){statusEl.textContent=text;messageEl.disabled=!ok;sendEl.disabled=!ok}
+async function api(path, options={}){const headers=Object.assign({'Accept':'application/json','Authorization':'Bearer '+token},options.headers||{});const r=await fetch(path,Object.assign({},options,{headers}));let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||('HTTP '+r.status));return data}
+async function connect(){
+ token=tokenEl.value.trim(); if(!token){setConnected(false,'Informe o token.');return}
+ try{const d=await api('/v1/gpt6/status');setConnected(!!d.assistant?.online,d.assistant?.online?'🟢 GPT-6 online · '+(d.model||'modelo configurado'):'🟡 servidor conectado, GPT-6 não configurado');add('Conexão autenticada com o AI Messenger.','sys')}
+ catch(e){setConnected(false,'🔴 Falha: '+e.message);add('Não foi possível conectar: '+e.message,'sys')}
+}
+async function send(){
+ const text=messageEl.value.trim();if(!text||!token)return;
+ messageEl.value='';sendEl.disabled=true;add(text,'user');
+ try{const d=await api('/v1/gpt6/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,previousResponseId:previousResponseId||undefined})});previousResponseId=d.responseId||'';add(d.text||'(resposta vazia)','ai');setConnected(true,'🟢 GPT-6 online')}
+ catch(e){add('Erro: '+e.message,'sys');statusEl.textContent='🔴 '+e.message}
+ finally{sendEl.disabled=!token||messageEl.disabled}
+}
+connectEl.onclick=connect;sendEl.onclick=send;
+messageEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
+</script>
+</body>
+</html>
