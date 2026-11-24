@@ -34,6 +34,14 @@ class LocalAICapabilityContractTest(unittest.TestCase):
         self.assertLess(page.index("window.AIBridgeWifiOnly.assertAllowed()", api_start), fetch_call)
         self.assertIn("window.AIBridgeWifiOnly.assertAllowed();recognition.start()", page)
 
+    def test_microphone_requires_verified_on_device_recognition(self):
+        page = (Path(__file__).resolve().parent.parent / "web" / "gpt6-messenger.html").read_text(encoding="utf-8")
+        self.assertIn("recognition.processLocally=true", page)
+        self.assertIn("SpeechRecognition.available({langs:['pt-BR'],processLocally:true})", page)
+        self.assertIn("recognition.processLocally!==true", page)
+        self.assertIn("!localSpeechReady", page)
+        self.assertNotIn("SpeechRecognition.install(", page)
+
 
 if __name__ == "__main__":
     unittest.main()
