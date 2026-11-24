@@ -34,7 +34,7 @@ class OpenAITextAdapterTest(unittest.TestCase):
 
     def test_configured_key_is_not_a_verified_request(self):
         state = OpenAITextAdapter(api_key="unit-secret").connection_status()
-        self.assertEqual(state["connectionState"], "CONFIGURED_UNVERIFIED")
+        self.assertEqual(state["connectionState"], "DISABLED_BY_POLICY")
         self.assertFalse(state["online"])
         self.assertFalse(state["accountSessionConnected"])
 
@@ -101,7 +101,7 @@ class OpenAITextAdapterTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "openai_response_not_completed"):
             with patch("server.openai_text_adapter.RuntimeConfig.openai_api_calls_enabled", return_value=True):
                 adapter.respond("hello")
-        self.assertEqual(adapter.connection_status()["connectionState"], "CONFIGURED_UNVERIFIED")
+        self.assertEqual(adapter.connection_status()["connectionState"], "DISABLED_BY_POLICY")
 
 
 if __name__ == "__main__":
