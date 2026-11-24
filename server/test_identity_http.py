@@ -59,6 +59,13 @@ class IdentityHttpTest(unittest.TestCase):
         except HTTPError as error:
             return error.code, json.loads(error.read())
 
+    def test_room_creation_helper_is_served_as_javascript(self):
+        with urlopen(self.base + "/ai-room-creation.js", timeout=3) as response:
+            body = response.read().decode("utf-8")
+            self.assertEqual(response.status, 200)
+            self.assertIn("AIBridgeRoomCreation", body)
+            self.assertIn("createConversation", body)
+
     def test_authenticated_group_creation_returns_room(self):
         status, result = self.post("/v1/conversations", {
             "conversationId": "team-alpha",
