@@ -15,7 +15,9 @@
     var Recognition = recognitionConstructor();
     var localRecognitionAvailable = false;
     var reason = "LOCAL_SPEECH_RECOGNITION_UNAVAILABLE";
-    if (Recognition && typeof Recognition.available === "function") {
+    if (root.isSecureContext !== true) {
+      reason = "SECURE_CONTEXT_REQUIRED";
+    } else if (Recognition && typeof Recognition.available === "function") {
       try {
         var availability = await Recognition.available({
           langs: [LANG],
