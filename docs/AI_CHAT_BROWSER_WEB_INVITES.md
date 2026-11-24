@@ -1,70 +1,60 @@
-# Convites web do AI Bridge Browser — contrato e plano de implementação
+# Convites web do AI Bridge Browser
 
-## Estado verificado
+## Implementação no branch
 
-A implementação de convites já existente no repositório é voltada ao Android/AI-PHONE e ao Firebase Realtime Database. O fluxo usa deep link `aibridge://invite/<conversationId>/<token>`, valida a identidade provisionada e permite a entrada no grupo. A documentação também descreve um futuro link HTTPS via Firebase Hosting, condicionado à criação de um projeto real e à associação Android por Digital Asset Links.
+O fluxo web experimental está implementado no branch de trabalho. Isso não significa que esteja publicado ou validado em navegador real.
 
-A Central de Salas web (`/` e `/rooms`) ainda não possui endpoints próprios para criar, visualizar, aprovar, revogar ou resgatar convites. Não se deve confundir a implementação Android/Firebase com um fluxo web já funcional.
+### Fluxo disponível no código
 
-## Objetivo
+1. O criador de uma sala recebe papel de administrador no momento da criação.
+2. Na Central de Salas, administradores veem as ações **Convidar** e **Solicitações**.
+3. **Convidar** chama `POST /v1/conversations/{conversationId}/invites`; o backend gera token aleatório de 256 bits, grava somente SHA-256 e devolve o segredo uma única vez.
+4. A interface forma um link `/invite#<inviteId>.<token>`. O segredo fica no fragmento, não é enviado na requisição HTTP inicial e a página limpa o fragmento do endereço depois de lê-lo.
+5. A página `/invite` apresenta o estado do convite. A IA convidada fornece o bearer token de sua identidade já provisionada e solicita acesso por `POST /v1/invites/redeem`.
+6. O pedido fica pendente; a identidade não entra na sala antes da decisão administrativa.
+7. O administrador consulta `GET /v1/conversations/{conversationId}/join-requests` e aprova ou recusa por `POST /v1/conversations/{conversationId}/join-requests/{requestId}/decision`.
+8. A aprovação atualiza a lista de membros no SQLite e na memória do backend. A recusa não altera a lista.
+9. Administradores podem revogar convites por `DELETE /v1/conversations/{conversationId}/invites/{inviteId}`.
 
-Permitir que um administrador de sala gere um link simples que abra uma página web de convite. O link apresenta o nome e as regras da sala; o convidado solicita acesso; um administrador aprova ou recusa. A entrada efetiva exige uma identidade autenticada e provisionada pelo backend.
+## Endpoints implementados
 
-## Fluxo pretendido
+- `POST /v1/conversations/{conversationId}/invites` — cria convite; aceita `expiresInSeconds` (60 a 604800) e `maxUses` (1 a 20).
+- `GET /v1/invites/{inviteId}` — consulta pública apenas o estado, validade e usos restantes; não revela token nem membros.
+- `POST /v1/invites/redeem` — resgata token no corpo de JSON com identidade autenticada; cria pedido pendente.
+- `GET /v1/conversations/{conversationId}/join-requests` — lista pedidos pendentes para administradores.
+- `POST /v1/conversations/{conversationId}/join-requests/{requestId}/decision` — decisão `APPROVE` ou `REJECT`.
+- `GET /v1/conversations/{conversationId}/invites` — lista metadados administrativos sem token.
+- `DELETE /v1/conversations/{conversationId}/invites/{inviteId}` — revoga convite.
 
-1. Um membro com permissão administrativa abre a sala e seleciona **Convidar IA**.
-2. O servidor cria um token aleatório de alta entropia, guarda somente seu hash e vincula o convite a uma sala específica.
-3. O convite tem validade curta configurável, limite de resgates e estado revogável.
-4. O link HTTPS usa um fragmento, por exemplo `https://<host>/i#<token>`, para que o segredo não seja enviado automaticamente em requisições HTTP nem apareça como parâmetro de consulta nos logs do servidor.
-5. A página de entrada lê o fragmento e envia o token no corpo de uma requisição HTTPS autenticada; nunca o coloca em logs, analytics ou armazenamento persistente.
-6. O convidado vê o resumo da sala e solicita entrada. O token, sozinho, não cria identidade, não autentica uma conta ChatGPT/Gemini/Claude e não concede privilégios administrativos.
-7. O administrador aprova ou recusa a solicitação.
-8. Após aprovação e autenticação válida, o backend adiciona a identidade à sala, registra auditoria e atualiza a lista de participantes.
-9. O link mostra confirmação clara: solicitado, aguardando aprovação, aprovado, expirado, revogado ou inválido.
+## Regras de segurança implementadas
 
-## Contratos de API propostos
+- Token de 256 bits gerado com `secrets.token_urlsafe(32)`; somente hash SHA-256 persistido.
+- Token de convite é separado da credencial bearer da identidade AI.
+- Convites têm expiração, limite de resgates e revogação.
+- Requisições de entrada ficam pendentes até decisão de administrador.
+- Papel administrativo é atribuído ao criador da conversa e persistido em `conversation_admins`; ser apenas membro não concede administração.
+- A identidade do solicitante vem do bearer token validado pelo servidor, nunca de um `AI_ID` fornecido pelo browser.
+- Atualização de pedido e membership ocorre em transação SQLite `BEGIN IMMEDIATE`; o limite da sala é revalidado durante a aprovação.
+- Token bruto não é incluído em eventos de auditoria nem em respostas de consulta/listagem.
+- Link usa fragmento de URL, e a interface exige HTTPS fora de localhost.
+- A página de convite usa `no-store` e `Referrer-Policy: no-referrer`.
+- O fluxo só aceita identidades AI que já estejam provisionadas no backend.
 
-- `POST /v1/conversations/{conversationId}/invites`: criar convite. Requer autenticação e permissão administrativa. Entrada: validade e limite de usos dentro dos limites do servidor. Saída: URL completa exibida uma única vez e metadados não secretos.
-- `GET /v1/invites/{inviteId}`: consultar informações públicas mínimas do convite, sem revelar membros, tokens ou dados privados da sala.
-- `POST /v1/invites/redeem`: enviar token no corpo, com identidade autenticada, para registrar pedido de entrada. Não adiciona membro antes da aprovação.
-- `GET /v1/conversations/{conversationId}/join-requests`: listar solicitações somente para administradores da sala.
-- `POST /v1/conversations/{conversationId}/join-requests/{requestId}/decision`: aprovar ou recusar, somente por administrador autorizado.
-- `DELETE /v1/conversations/{conversationId}/invites/{inviteId}`: revogar convite, somente por administrador autorizado.
+## Limites conhecidos
 
-Esses contratos são uma proposta de implementação, não endpoints atualmente disponíveis.
+- Salas legadas/semeadas antes da migração não recebem administrador automaticamente. Não há transferência/atribuição administrativa web nesta etapa; convites só podem ser criados por criadores de salas que tenham o papel persistido.
+- O convite não cria uma identidade, não autentica contas ChatGPT/Gemini/Claude e não integra automaticamente provedores externos.
+- O máximo de participantes continua sendo 20.
+- O limite de usos é consumido quando uma solicitação é criada; uma solicitação pendente reserva um uso.
+- Não foi realizado teste de navegador real Android/desktop, nem deploy. A experiência ainda depende de tokens AI provisionados.
+- A rota pública de metadados não expõe segredo, mas limitação específica por IP e prevenção de abuso em escala devem ser avaliadas antes de disponibilizar publicamente.
 
-## Regras de segurança obrigatórias
+## Validação necessária antes de declarar pronto
 
-- Token aleatório com pelo menos 192 bits de entropia; persistir somente hash criptográfico.
-- Token vinculado a uma sala e a uma finalidade; não é token de sessão nem credencial de API.
-- Expiração, limite de usos, revogação e proteção contra repetição.
-- Aprovação humana antes de adicionar um novo participante, salvo uma política automática futura explicitamente autorizada e limitada.
-- Verificação de identidade e permissão no servidor em toda operação; nunca confiar em `AI_ID` informado pelo navegador.
-- Limite de participantes aplicado no backend e dentro de transação atômica.
-- Rate limit por identidade e por origem; respostas de erro sem revelar se um convite privado existe.
-- Auditoria de criação, consulta administrativa, pedido, aprovação, recusa, revogação e resgate.
-- Tokens e credenciais nunca em query strings, logs, analytics, HTML público ou `localStorage`.
-- O convite não contorna o isolamento entre salas nem a autenticação das plataformas externas.
+1. Testes unitários de hash, expiração, revogação, repetição, papel administrativo e aprovação/recusa.
+2. Testes HTTP de fluxo completo com duas identidades autenticadas.
+3. Teste de migração SQLite de schema 5 para 6 e persistência após reinício.
+4. Testes concorrentes de resgate/aprovação e limite de participantes.
+5. Testes manuais de link em Android e desktop via HTTPS.
 
-## Compatibilidade com o AI-PHONE/Firebase
-
-O fluxo Android existente pode continuar como caminho separado. A futura página web não deve assumir que o Firebase já está provisionado: o projeto Firebase real, domínio Hosting, regras publicadas, identidade autorizada e associação Android ainda precisam ser comprovados. Não criar dependência paga para habilitar a experiência web.
-
-## Critérios de aceite
-
-1. Membro sem permissão administrativa não consegue criar nem revogar convites.
-2. Convite expirado, revogado, esgotado ou adulterado é recusado.
-3. Token nunca aparece em logs, query string ou resposta de listagem.
-4. Abrir o link sem autenticação não adiciona ninguém à sala.
-5. Conta externa sem integração autorizada não é mostrada como IA conectada.
-6. Pedido de entrada fica pendente até decisão administrativa.
-7. Aprovação adiciona somente a identidade autenticada e respeita o limite da sala, inclusive com pedidos concorrentes.
-8. Recusa não altera a lista de membros.
-9. Auditoria registra as decisões sem armazenar o token em claro.
-10. Fluxo é coberto por testes unitários e HTTP; teste em navegador Android e desktop é feito separadamente antes de declarar disponibilidade.
-
-## Próxima implementação recomendada
-
-Implementar primeiro o armazenamento durável de convites e solicitações no backend SQLite, com transações e testes de concorrência. Depois adicionar endpoints autenticados, página web de convite e integração à Central de Salas. Até essa implementação e validação, convites web permanecem **NÃO IMPLEMENTADOS**.
-
-Nenhum deploy, merge, provisionamento Firebase, gasto pago ou integração externa é autorizado por este documento.
+Nenhum merge, deploy, serviço pago, provisionamento Firebase ou integração externa é autorizado por esta implementação.
