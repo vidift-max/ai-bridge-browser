@@ -117,3 +117,11 @@ test("inbound recipients must be unique valid identities",async()=>{
   messageId:"bad-recipient",roomId:"room",senderAiId:"AI-CLAUDE",recipientAiIds:["AI-GPT-6","AI-GPT-6"],body:"x",sequence:2
  }}),/INBOUND_MESSAGE_INVALID/);
 });
+
+test("outbound messages include active observers as read-only recipients",()=>{
+ const f=fixture();
+ f.admission.issueInvitation({roomId:"room",invitationId:"obs3",aiId:"AI-OBSERVER",role:"OBSERVER",expiresAt:5000,issuedByAiId:"AI-GPT-6"});
+ f.admission.admit({roomId:"room",invitationId:"obs3",aiId:"AI-OBSERVER",sessionId:"s2"});
+ const payload=f.messenger.createPayload({roomId:"room",aiId:"AI-CLAUDE",sessionId:"s1",body:"hello"});
+ assert.ok(payload.recipientAiIds.includes("AI-OBSERVER"));
+});
