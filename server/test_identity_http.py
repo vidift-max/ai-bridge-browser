@@ -178,5 +178,26 @@ class IdentityHttpTest(unittest.TestCase):
         self.assertEqual(result["error"], "authentication_required")
 
 
+
+    def test_conversation_history_endpoint_returns_acknowledged_messages(self):
+        message = self.backend.submit("secret-alpha", "http-history-1", "default",
+                                      ["AI-BRAVO"], "history body", "http-history-req")
+        self.backend.acknowledge("secret-bravo", message.message_id)
+        status, result = self.request("/v1/conversations/default/history?before=0&limit=10",
+                                      "secret-bravo")
+        self.assertEqual(status, 200)
+        self.assertEqual([item["messageId"] for item in result["messages"]],
+                         [message.message_id])
+        self.assertEqual(result["messages"][0]["body"], "history body")
+        self.assertEqual(self.backend.pending("secret-bravo", "default"), [])
+
+    def test_conversation_history_endpoint_rejects_non_members_and_bad_query(self):
+        status, result = self.request("/v1/conversations/default/history", "unknown-token")
+        self.assertEqual(status, 401)
+        status, result = self.request("/v1/conversations/default/history?before=-1",
+                                      "secret-bravo")
+        self.assertEqual(status, 400)
+        self.assertEqual(result["error"], "invalid_history_query")
+
 if __name__ == "__main__":
     unittest.main()

@@ -760,6 +760,37 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except PermissionError as exc:
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             return
+        if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="history" and parts[3]:
+            try:
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                query=parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True, max_num_fields=2)
+                if set(query)-{"before","limit"} or any(len(values)!=1 for values in query.values()):
+                    raise ValueError("invalid_history_query")
+                raw_before=query.get("before", ["0"])[0]
+                raw_limit=query.get("limit", ["50"])[0]
+                if (not raw_before or not raw_limit or not raw_before.isascii()
+                        or not raw_limit.isascii() or not raw_before.isdecimal()
+                        or not raw_limit.isdecimal()):
+                    raise ValueError("invalid_history_query")
+                before_sequence=int(raw_before)
+                limit=int(raw_limit)
+                self.rate_limiter.allow(principal.ai_id)
+                messages=self.backend.history(self._auth(),parts[3],before_sequence=before_sequence,limit=limit)
+                self._audit(identity, "MESSAGE_HISTORY_READ", parts[3], count=str(len(messages)))
+                self._json(200,{"principalAiId":principal.ai_id,"correlationId":identity.correlation_id,
+                    "messages":[{"messageId":m.message_id,"conversationId":m.conversation_id,
+                    "senderAiId":m.sender_ai_id,"sequence":m.sequence,"body":m.body,
+                    "messageKind":m.kind,"createdAtEpochMs":int(m.created_at_epoch_seconds*1000),
+                    "expiresAtEpochMs":int(self.backend.message_expires_at(m)*1000)} for m in messages]})
+            except RateLimitExceeded:
+                self._json(429,{"error":"rate_limit_exceeded"})
+            except (ValueError, TypeError):
+                self._json(400,{"error":"invalid_history_query"})
+            except PermissionError as exc:
+                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
+            return
         if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages":
             try:
                 identity=self._principal()
