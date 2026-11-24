@@ -2,6 +2,7 @@ import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { ref, set } from "firebase/database";
 import fs from "node:fs";
 import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 
 const PROJECT_ID = "demo-ai-bridge-rules";
 const AUTH_ORIGIN = "http://127.0.0.1:9099";
@@ -89,7 +90,45 @@ try {
   await env.withSecurityRulesDisabled(async context => {
     await set(ref(context.database(), "/messenger"), fixture);
   });
+
   pass("fixture seeded through Emulator-only privileged test context");
+
+  const runnerEnv = {
+    ...process.env,
+    MESSENGER_FIREBASE_DATABASE_URL: DATABASE_ORIGIN + "/?ns=" + DATABASE_NAMESPACE,
+    MESSENGER_FIREBASE_EMULATOR: "true",
+    MESSENGER_FIREBASE_AI_A_ID: "AI-01",
+    MESSENGER_FIREBASE_AI_B_ID: "AI-02",
+    MESSENGER_FIREBASE_AI_A_ID_TOKEN: a.idToken,
+    MESSENGER_FIREBASE_AI_B_ID_TOKEN: b.idToken,
+    MESSENGER_FIREBASE_CONVERSATION_ID: "private-ai-01-ai-02"
+  };
+  const preflight = spawnSync("python3", ["tools/firebase_first_contact_smoke.py"], {
+    cwd: process.cwd(), env: runnerEnv, encoding: "utf8"
+  });
+  if (preflight.status !== 0) fail("Python runner preflight failed with exit " + preflight.status);
+  if (a.idToken && (preflight.stdout + preflight.stderr).includes(a.idToken)) fail("Python runner leaked AI-01 token");
+  if (b.idToken && (preflight.stdout + preflight.stderr).includes(b.idToken)) fail("Python runner leaked AI-02 token");
+  const preflightResult = JSON.parse(preflight.stdout.trim());
+  if (preflightResult.state !== "PREFLIGHT_PASS" || preflightResult.message_round_trip !== "NOT_RUN") {
+    fail("Python runner preflight returned unexpected state");
+  }
+  pass("production Python runner preflight succeeds with Auth Emulator ID tokens");
+
+  const pythonRoundTrip = spawnSync("python3", ["tools/firebase_first_contact_smoke.py", "--send", "--wait-seconds", "8"], {
+    cwd: process.cwd(), env: runnerEnv, encoding: "utf8"
+  });
+  if (pythonRoundTrip.status !== 0) {
+    fail("Python runner send failed: " + (pythonRoundTrip.stderr || "no diagnostic"));
+  }
+  if (a.idToken && (pythonRoundTrip.stdout + pythonRoundTrip.stderr).includes(a.idToken)) fail("Python runner leaked AI-01 token");
+  if (b.idToken && (pythonRoundTrip.stdout + pythonRoundTrip.stderr).includes(b.idToken)) fail("Python runner leaked AI-02 token");
+  const pythonResult = JSON.parse(pythonRoundTrip.stdout.trim());
+  if (pythonResult.state !== "TEXT_ROUND_TRIP_PASS" || pythonResult.acknowledgement !== "VERIFIED") {
+    fail("Python runner did not complete the authenticated message and ACK round trip");
+  }
+  pass("production Python runner sends, receives, and verifies ACK over authenticated HTTP");
+
 
   const identityA = await dbRequest("GET", "/messenger/identities/AI-01", a.idToken);
   const identityB = await dbRequest("GET", "/messenger/identities/AI-02", b.idToken);
@@ -144,7 +183,8 @@ try {
   console.log(JSON.stringify({
     state: "AUTHENTICATED_EMULATOR_HTTP_ROUND_TRIP_PASS",
     project: PROJECT_ID,
-    identities: ["AI-01", "AI-02", "AI-03"],
+    identities: ["AI-01", "AI-02", "AI-03", "AI-04"],
+    pythonRunner: "PREFLIGHT_AND_SEND_PASS",
     checks: checks.length,
     messageRoundTrip: "PASS",
     acknowledgement: "VERIFIED",
