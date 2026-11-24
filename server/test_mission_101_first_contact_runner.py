@@ -126,5 +126,61 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             "error": "invalid_json_response"})
 
 
+
+    def test_rejects_ack_for_different_message_id(self):
+        import threading
+        ready = threading.Event()
+        mid = {"value": None}
+
+        def fake_request(base, path, token, method="GET", payload=None):
+            if path == "/v1/me/identity":
+                return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
+            if path.startswith("/v1/conversations/room/messages/wait?"):
+                ready.wait(1)
+                return 200, {"principalAiId": "AI-02", "messages": [{
+                    "messageId": mid["value"], "conversationId": "room",
+                    "senderAiId": "AI-01", "body": "AI-01 -> AI-02 first-contact verification",
+                    "sequence": 1}]}
+            if path == "/v1/messages":
+                mid["value"] = payload["messageId"]
+                ready.set()
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+            if path.endswith("/ack"):
+                return 200, {"messageId": "another-message", "state": "ACKNOWLEDGED",
+                             "principalAiId": "AI-02"}
+            self.fail("unexpected_request:" + path)
+
+        with self.assertRaisesRegex(RuntimeError, "ack_contract_mismatch"):
+            runner.run_first_contact("https://stage.example", "room", "a", "b", fake_request)
+
+    def test_rejects_pending_check_for_wrong_principal(self):
+        import threading
+        ready = threading.Event()
+        mid = {"value": None}
+
+        def fake_request(base, path, token, method="GET", payload=None):
+            if path == "/v1/me/identity":
+                return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
+            if path.startswith("/v1/conversations/room/messages/wait?"):
+                ready.wait(1)
+                return 200, {"principalAiId": "AI-02", "messages": [{
+                    "messageId": mid["value"], "conversationId": "room",
+                    "senderAiId": "AI-01", "body": "AI-01 -> AI-02 first-contact verification",
+                    "sequence": 1}]}
+            if path == "/v1/messages":
+                mid["value"] = payload["messageId"]
+                ready.set()
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+            if path.endswith("/ack"):
+                return 200, {"messageId": mid["value"], "state": "ACKNOWLEDGED",
+                             "principalAiId": "AI-02"}
+            if path.startswith("/v1/conversations/room/messages?"):
+                self.assertIn("after=0", path)
+                return 200, {"principalAiId": "AI-03", "messages": []}
+            self.fail("unexpected_request:" + path)
+
+        with self.assertRaisesRegex(RuntimeError, "pending_check_wrong_principal"):
+            runner.run_first_contact("https://stage.example", "room", "a", "b", fake_request)
+
 if __name__ == "__main__":
     unittest.main()
