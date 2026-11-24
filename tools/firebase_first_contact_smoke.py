@@ -259,6 +259,64 @@ def validate_send_plan(plan, config):
     return True
 
 
+
+def save_send_plan(plan, destination):
+    """Create a private plan file without following links or overwriting existing files."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        fd = os.open(destination, flags, 0o600)
+    except FileExistsError:
+        raise ProbeError("send_plan_file_already_exists") from None
+    except OSError:
+        raise ProbeError("send_plan_file_create_failed") from None
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(plan, sort_keys=True, ensure_ascii=False))
+            handle.write(chr(10))
+            handle.flush()
+            os.fsync(handle.fileno())
+    except OSError:
+        try:
+            os.unlink(destination)
+        except OSError:
+            pass
+        raise ProbeError("send_plan_file_write_failed") from None
+    return destination
+
+
+def load_send_plan(source):
+    """Read a bounded regular plan file without following symbolic links."""
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        fd = os.open(source, flags)
+    except OSError:
+        raise ProbeError("send_plan_file_open_failed") from None
+    try:
+        with os.fdopen(fd, "r", encoding="utf-8") as handle:
+            info = os.fstat(handle.fileno())
+            if not __import__("stat").S_ISREG(info.st_mode):
+                raise ProbeError("send_plan_file_not_regular")
+            if info.st_size > 65536:
+                raise ProbeError("send_plan_file_too_large")
+            raw = handle.read(65537)
+    except UnicodeDecodeError:
+        raise ProbeError("send_plan_file_invalid_encoding") from None
+    except OSError:
+        raise ProbeError("send_plan_file_read_failed") from None
+    if len(raw.encode("utf-8")) > 65536:
+        raise ProbeError("send_plan_file_too_large")
+    try:
+        plan = json.loads(raw)
+    except json.JSONDecodeError:
+        raise ProbeError("send_plan_file_invalid_json") from None
+    if not isinstance(plan, dict):
+        raise ProbeError("send_plan_file_invalid_shape")
+    return plan
+
 def prepare_send_plan(config):
     """Build and validate a credential-free one-message plan; never writes."""
     preflight = run_probe(config, send=False)
@@ -298,6 +356,8 @@ def main(argv=None):
                         help="perform read-only Firebase identity and conversation membership checks")
     parser.add_argument("--prepare-send", action="store_true",
                         help="verify production identities and print a one-message dry-run plan; never sends")
+    parser.add_argument("--plan-output", help="create a new private JSON plan file; valid only with --prepare-send")
+    parser.add_argument("--verify-plan-file", help="validate an existing plan file locally; never contacts Firebase")
     parser.add_argument("--allow-production-send", action="store_true", help="second explicit opt-in; also requires MESSENGER_FIREBASE_ALLOW_PRODUCTION_SEND=true")
     parser.add_argument("--timeout", type=int, default=10)
     parser.add_argument("--wait-seconds", type=int, default=45)
@@ -305,26 +365,40 @@ def main(argv=None):
     try:
         config = validate_config(os.environ)
         if args.config_check:
-            if args.send or args.preflight or args.prepare_send or args.allow_production_send:
+            if args.send or args.preflight or args.prepare_send or args.allow_production_send or args.plan_output or args.verify_plan_file:
                 raise ProbeError("config_check_cannot_be_combined_with_network_or_send_options")
-            print(json.dumps(production_readiness_report(config), sort_keys=True))
-            return 0
-        if args.preflight and (args.send or args.prepare_send or args.allow_production_send):
-            raise ProbeError("preflight_cannot_be_combined_with_send_options")
-        if args.prepare_send and (args.send or args.preflight or args.allow_production_send):
-            raise ProbeError("prepare_send_cannot_be_combined_with_send_options")
-        authorize_send(config, os.environ, args.send, args.allow_production_send)
-        if args.prepare_send:
-            result = prepare_send_plan(config)
+            result = production_readiness_report(config)
+        elif args.verify_plan_file:
+            if args.send or args.preflight or args.prepare_send or args.allow_production_send or args.plan_output:
+                raise ProbeError("verify_plan_file_cannot_be_combined_with_network_or_write_options")
+            plan = load_send_plan(args.verify_plan_file)
+            validate_send_plan(plan, config)
+            result = {"state": "SEND_PLAN_VALID", "sender": plan["sender"],
+                      "recipient": plan["recipient"], "conversation_id": plan["conversation_id"],
+                      "payload_sha256": plan["payload_sha256"], "firebase_requests": "NONE",
+                      "send_operation": "NOT_EXECUTED", "acknowledgement": "NOT_RUN"}
         else:
-            result = run_probe(config, send=args.send, timeout=max(1, min(args.timeout, 30)),
-                               wait_seconds=args.wait_seconds)
+            if args.plan_output and not args.prepare_send:
+                raise ProbeError("plan_output_requires_prepare_send")
+            if args.preflight and (args.send or args.prepare_send or args.allow_production_send or args.plan_output):
+                raise ProbeError("preflight_cannot_be_combined_with_send_options")
+            if args.prepare_send and (args.send or args.preflight or args.allow_production_send):
+                raise ProbeError("prepare_send_cannot_be_combined_with_send_options")
+            authorize_send(config, os.environ, args.send, args.allow_production_send)
+            if args.prepare_send:
+                result = prepare_send_plan(config)
+                if args.plan_output:
+                    save_send_plan(result, args.plan_output)
+                    result["plan_file"] = args.plan_output
+                    result["plan_file_mode"] = "0600"
+            else:
+                result = run_probe(config, send=args.send, timeout=max(1, min(args.timeout, 30)),
+                                   wait_seconds=args.wait_seconds)
         print(json.dumps(result, sort_keys=True))
         return 0
     except ProbeError as exc:
         print(json.dumps({"state": "BLOCKED", "reason": str(exc)}, sort_keys=True), file=sys.stderr)
         return 2
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

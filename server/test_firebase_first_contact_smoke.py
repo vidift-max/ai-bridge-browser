@@ -416,5 +416,99 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
             validate_send_plan(plan, config)
 
 
+    def test_plan_file_is_created_private_and_never_overwritten(self):
+        import os
+        import tempfile
+        from tools.firebase_first_contact_smoke import prepare_send_plan, save_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "plan.json")
+            with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+                plan = prepare_send_plan(config)
+            save_send_plan(plan, path)
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+            with self.assertRaisesRegex(ProbeError, "send_plan_file_already_exists"):
+                save_send_plan(plan, path)
+
+    def test_plan_file_round_trip_verifies_locally_without_firebase(self):
+        import os
+        import tempfile
+        from tools.firebase_first_contact_smoke import prepare_send_plan, save_send_plan, load_send_plan, validate_send_plan
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "plan.json")
+            with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies) as request:
+                plan = prepare_send_plan(config)
+                save_send_plan(plan, path)
+                loaded = load_send_plan(path)
+                self.assertTrue(validate_send_plan(loaded, config))
+            self.assertEqual(request.call_count, 3)
+
+    def test_plan_file_rejects_symlink(self):
+        import os
+        import tempfile
+        from tools.firebase_first_contact_smoke import load_send_plan
+        with tempfile.TemporaryDirectory() as directory:
+            target = os.path.join(directory, "target.json")
+            link = os.path.join(directory, "link.json")
+            with open(target, "w", encoding="utf-8") as handle:
+                handle.write("{}")
+            os.symlink(target, link)
+            with self.assertRaisesRegex(ProbeError, "send_plan_file_open_failed"):
+                load_send_plan(link)
+
+    def test_verify_plan_cli_is_local_and_redacts_credentials(self):
+        import contextlib
+        import io
+        import json
+        import os
+        import tempfile
+        from tools.firebase_first_contact_smoke import prepare_send_plan, save_send_plan, main
+        config = validate_config(BASE)
+        replies = [
+            {"aiId": "AI-01", "uid": "uid-a"},
+            {"aiId": "AI-02", "uid": "uid-b"},
+            {"members": {"AI-01": True, "AI-02": True}},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "plan.json")
+            with patch("tools.firebase_first_contact_smoke.firebase_request", side_effect=replies):
+                plan = prepare_send_plan(config)
+            save_send_plan(plan, path)
+            output = io.StringIO()
+            with patch.dict("os.environ", BASE, clear=True):
+                with patch("tools.firebase_first_contact_smoke.firebase_request") as request:
+                    with contextlib.redirect_stdout(output):
+                        code = main(["--verify-plan-file", path])
+            request.assert_not_called()
+            result = json.loads(output.getvalue())
+            self.assertEqual(code, 0)
+            self.assertEqual(result["state"], "SEND_PLAN_VALID")
+            self.assertEqual(result["firebase_requests"], "NONE")
+            self.assertNotIn("token-a-secret", output.getvalue())
+            self.assertNotIn("token-b-secret", output.getvalue())
+
+    def test_plan_output_requires_prepare_send(self):
+        import contextlib
+        import io
+        from tools.firebase_first_contact_smoke import main
+        errors = io.StringIO()
+        with patch.dict("os.environ", BASE, clear=True):
+            with contextlib.redirect_stderr(errors):
+                code = main(["--plan-output", "plan.json"])
+        self.assertEqual(code, 2)
+        self.assertIn("plan_output_requires_prepare_send", errors.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
