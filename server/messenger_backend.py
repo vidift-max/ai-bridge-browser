@@ -54,8 +54,10 @@ class MessengerBackend:
         self._lock = RLock()
         self._tokens = dict(tokens)
         self._known_ai_ids = set(tokens.values())
-        self._authenticator = authenticator or Authenticator(tokens)
         self._store = store or SQLiteMessengerStore(":memory:")
+        self._authenticator = authenticator or Authenticator(tokens, connection=self._store._connection)
+        if authenticator is not None:
+            self._authenticator.attach_credential_store(self._store._connection)
         self._presence = PresenceService(self._store._connection)
         self._identities = IdentityDirectory(self._store._connection, self._known_ai_ids, identity_display_names)
         self._conversations = self._store.load_conversations()
