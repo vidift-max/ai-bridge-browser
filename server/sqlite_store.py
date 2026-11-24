@@ -319,6 +319,40 @@ class SQLiteMessengerStore:
             raise
 
 
+
+    def revoke_guest_provisioning(self, conversation_id, application_id, revoked_at):
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            app = self._connection.execute(
+                """SELECT provisioned_ai_id,provisioning_status FROM guest_applications
+                   WHERE application_id=? AND conversation_id=?""",
+                (application_id, conversation_id)).fetchone()
+            if app is None or app["provisioning_status"] != "ACTIVE" or not app["provisioned_ai_id"]:
+                self._connection.rollback()
+                return None
+            ai_id = app["provisioned_ai_id"]
+            room = self._connection.execute(
+                "SELECT member_ai_ids FROM conversations WHERE conversation_id=?",
+                (conversation_id,)).fetchone()
+            members = set(filter(None, room["member_ai_ids"].split(","))) if room else set()
+            members.discard(ai_id)
+            self._connection.execute(
+                "UPDATE conversations SET member_ai_ids=? WHERE conversation_id=?",
+                (",".join(sorted(members)), conversation_id))
+            self._connection.execute(
+                "UPDATE credential_records SET status='REVOKED' WHERE ai_id=? AND status='ACTIVE'",
+                (ai_id,))
+            self._connection.execute(
+                """UPDATE guest_applications SET provisioning_status='REVOKED'
+                   WHERE application_id=? AND conversation_id=? AND provisioning_status='ACTIVE'""",
+                (application_id, conversation_id))
+            self._connection.commit()
+            return {"ai_id": ai_id, "conversation_id": conversation_id}
+        except Exception:
+            self._connection.rollback()
+            raise
+
+
     def list_guest_applications(self, conversation_id):
         rows = self._connection.execute(
             """SELECT application_id,conversation_id,display_name,provider_claim,
