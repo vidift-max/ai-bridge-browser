@@ -19,7 +19,7 @@ Auditoria do branch `feat/gpt6-messenger-direct-connection`. Distingue código p
 | Histórico completo | UI usa mensagens pendentes | Pendente |
 | Anexos de áudio | Rotas autenticadas | Backend implementado; browser real pendente |
 | Ditado/leitura em voz alta | APIs locais do navegador | Dependem do suporte do navegador |
-| Chamadas 1:1 | Ciclo de vida e sinalização WebRTC | Sinalização existe; mídia ao vivo não comprovada |
+| Chamadas 1:1 | Ciclo de vida, sinalização e cliente WebRTC no navegador | Integração de mídia implementada em branch; testes simulados apenas; microfone/dispositivos reais e conectividade ICE entre redes não comprovados |
 | Chamadas em grupo | Contrato atual exige dois membros | Não suportadas |
 
 ## Missão 04 — Convites Web

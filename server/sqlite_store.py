@@ -249,6 +249,11 @@ class SQLiteMessengerStore:
         return {"signalId":cursor.lastrowid,"callId":call_id,"senderAiId":sender_ai_id,
                 "kind":kind,"payload":payload,"createdAt":created_at}
 
+    def delete_voice_call_signals(self, call_id):
+        self._connection.execute(
+            "DELETE FROM voice_call_signals WHERE call_id=?", (call_id,))
+        self._connection.commit()
+
     def load_voice_signals(self, call_id, recipient_ai_id, after_id, limit):
         rows = self._connection.execute(
             """SELECT signal_id,call_id,sender_ai_id,kind,payload_json,created_at

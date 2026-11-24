@@ -88,6 +88,15 @@ class VoiceCallControlTest(unittest.TestCase):
                          offer["signalId"])
         self.assertEqual(self.control.pending_signals("AI-01", call["call_id"]), [])
 
+    def test_signaling_metadata_is_purged_when_call_ends(self):
+        call = self.create()
+        self.control.transition("AI-02", call["call_id"], "accept")
+        self.control.add_signal("AI-01", call["call_id"], "OFFER",
+                                {"type": "offer", "sdp": "v=0"})
+        self.assertEqual(len(self.control.pending_signals("AI-02", call["call_id"])), 1)
+        self.control.transition("AI-01", call["call_id"], "end")
+        self.assertEqual(self.control.pending_signals("AI-02", call["call_id"]), [])
+
     def test_offer_and_answer_must_come_from_their_call_roles(self):
         call = self.create()
         self.control.transition("AI-02", call["call_id"], "accept")
