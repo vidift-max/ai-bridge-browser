@@ -13,6 +13,11 @@ class Mission91RenderBoundaryTest(unittest.TestCase):
         self.assertIn("value: ':memory:'", text)
         self.assertNotIn("mountPath: /var/data", text)
 
+    def test_staging_blueprint_requires_manual_deploy(self):
+        text = (self.ROOT / "render.staging.yaml").read_text(encoding="utf-8")
+        self.assertIn("autoDeployTrigger: off", text)
+        self.assertNotIn("autoDeployTrigger: commit", text)
+
     def test_staging_blueprint_does_not_auto_deploy_from_m91_contract(self):
         doc = (self.ROOT / "docs/MISSION_91_RENDER_STAGING_PLAN.md").read_text(encoding="utf-8")
         self.assertIn("Auto-sync: disabled", doc)
