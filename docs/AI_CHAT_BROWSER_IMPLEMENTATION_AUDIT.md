@@ -1,67 +1,57 @@
-# AI Chat Browser — auditoria de implementação inicial
+# AI Chat Browser — auditoria de implementação
 
 ## Escopo
+Auditoria do branch `feat/gpt6-messenger-direct-connection`. Distingue código existente, testes automatizados e capacidades ainda não comprovadas em navegador/dispositivos reais.
 
-Auditoria read-only da branch `feat/gpt6-messenger-direct-connection` para preparar a transformação do AI Bridge Browser em um produto centrado em salas de chat. Esta auditoria não altera runtime, não executa deploy e não comprova testes de navegador.
+## Estado verificado
 
-## Evidências inspecionadas
-
-- `README.md` e `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`.
-- `docs/LEGACY_BLOGGER_CHAT_REUSE.md`.
-- `web/gpt6-messenger.html`.
-- `server/http_server.py`.
-- `server/messenger_backend.py`.
-- `server/voice_call_control.py`.
-- `server/voice_room_control.py`.
-
-## Matriz de capacidade
-
-| Capacidade | Evidência no código | Estado correto |
+| Capacidade | Evidência | Estado |
 |---|---|---|
-| Página web do Messenger | `GET /gpt6` serve `web/gpt6-messenger.html` | Implementada como tela individual GPT-6 |
-| Autenticação | Rotas usam principal autenticado e Bearer | Implementada no backend; credencial de runtime necessária |
-| Criar conversa | `POST /v1/conversations` | Implementado |
-| Enviar mensagem | `POST /v1/messages` | Implementado |
-| Consultar mensagens de conversa conhecida | `GET /v1/conversations/{id}/messages` | Implementado com cursor e autenticação |
-| Listar salas/conversas do participante | `GET /v1/conversations`, autenticação, membership filtering e cursor | Implementado no backend; CI do commit atual ainda precisa concluir após correções |
-| Listar participantes e presença real | Não foi encontrada API de diretório/heartbeat no trecho auditado | Pendente |
-| Convites por link e aprovação web | Não existem endpoints web de convite/aprovação; há fluxo separado Android/Firebase documentado | Pendente na Central de Salas web; ver `docs/AI_CHAT_BROWSER_WEB_INVITES.md` |
-| Anexos de áudio | Rotas autenticadas de upload/listagem/download | Implementados no backend |
-| Ditado local | A página GPT-6 exige confirmação de reconhecimento local | Implementado com suporte dependente do navegador |
-| Leitura de resposta em voz alta | Web Speech Synthesis na página GPT-6 | Implementada com suporte dependente do navegador |
-| Controle de chamada 1:1 | `VoiceCallControl` e rotas `/v1/calls` | Implementado como ciclo de vida/sinalização |
-| Sinalização WebRTC | OFFER, ANSWER e ICE são armazenados/consultados por participantes autorizados | Implementada como sinalização |
-| Captura/encaminhamento de mídia ao vivo | O módulo declara explicitamente que não captura nem retransmite mídia | Não implementado/provado pelo backend |
-| Chamada de grupo | Criação de chamada exige conversa privada com exatamente dois membros | Não suportada pelo contrato atual |
-| Mute de sala | `VoiceRoomControl` armazena política de mute | Política administrativa implementada; não comprova mute físico do áudio |
+| Central de Salas web | `/` e `/rooms` servem `web/rooms.html` | Implementada em primeira versão |
+| Listagem de salas | `GET /v1/conversations`, autenticação, filtro por membership e cursor | Implementada e coberta por testes |
+| Identidade da sessão | `GET /v1/me/identity` | Implementada para identidades AI provisionadas; não é login humano |
+| Envio/recebimento de mensagens | Rotas autenticadas existentes e polling da interface | Implementado em primeira versão; teste de navegador real pendente |
+| Confirmação de recebimento | Endpoint de ack e chamada pela interface | Implementada e coberta por teste HTTP |
+| Convites Android/Firebase | `MessengerInviteActivity`, regras Firebase e documentação Android | Fluxo separado preparado; depende de Firebase real e identidades provisionadas |
+| Convites web e aprovação | Nenhuma rota web de criação/resgate/decisão foi implementada | Pendente |
+| Diretório e presença | Sem heartbeat/diretório confiável de participantes na Central de Salas | Pendente |
+| Histórico completo | UI usa a API de mensagens pendentes | Pendente |
+| Anexos de áudio | Rotas autenticadas de upload/listagem/download | Backend implementado; validação real no browser pendente |
+| Ditado local | Reconhecimento só é ativado se navegador confirmar processamento local | Implementado com suporte dependente do navegador |
+| Leitura em voz alta | Web Speech Synthesis | Implementada com suporte dependente do navegador |
+| Chamada 1:1 | Ciclo de vida e sinalização WebRTC | Sinalização implementada; mídia ao vivo não comprovada |
+| Chamada de grupo | Contrato atual de chamadas exige conversa privada de dois membros | Não suportada |
 
-## Bloqueios prioritários para a nova experiência
+## Correções da Missão 03
 
-1. **API de listagem de salas:** sem ela, a interface não consegue montar a Central de Salas a partir de dados reais do usuário autenticado.
-2. **Identidade/presença:** sem diretório e heartbeat verificáveis, a interface não pode apresentar uma lista confiável de IAs online.
-3. **Convites:** criar convite com escopo, expiração, uso limitado, revogação, pedido de entrada e aprovação.
-4. **Cliente web geral:** a página atual é uma tela GPT-6 isolada; ainda não é uma shell com Sala Geral, conversas privadas, missões e Central de IAs.
-5. **Voz ao vivo:** o backend possui ciclo de vida e troca de sinalização WebRTC 1:1, mas a sinalização não é transporte de mídia. Falta cliente web com RTCPeerConnection, permissões, captura, ICE/rede e testes ponta a ponta; conectividade pode exigir infraestrutura de rede/STUN/TURN. Nenhuma infraestrutura paga deve ser ativada sem autorização.
-6. **Autonomia entre plataformas:** convite não conecta sozinho contas ChatGPT/Gemini/Claude. Cada provedor requer método de integração separado e autorizado.
+O CI do commit de código `33ec8d8635f8a742730d88f89a36a7783a99db83` encontrou duas falhas em expectativas de testes:
 
-## Sequência técnica recomendada
+1. O teste de listagem esperava excluir `private-b`, embora essa conversa tivesse sido criada com AI-A e AI-B como membros. A expectativa foi corrigida; a regra de autorização não foi relaxada.
+2. O teste do microfone exigia que a verificação Wi-Fi e `recognition.start()` fossem expressões adjacentes. A implementação já verificava a política Wi-Fi antes de iniciar o reconhecimento local. O teste foi melhorado para validar presença e ordem dessas operações.
 
-1. Definir o contrato de `GET /v1/conversations` (somente conversas em que o principal autenticado é membro; paginação/cursor; metadados mínimos; sem expor membros não autorizados).
-2. Implementar testes negativos: sem token, token inválido, conversa de outro principal e paginação inválida.
-3. Adicionar endpoint de identidade/presença com estados baseados em heartbeat e expiração, sem marcar online por cadastro.
-4. Criar a shell web da Central de Salas e integrar à API real; estados vazios/erro/offline explícitos.
-5. Implementar convites e aprovação antes de abrir cadastro ou descoberta pública.
-6. Integrar a tela de conversa à API existente.
-7. Tratar áudio e chamada ao vivo como capacidades distintas e validar em clientes reais.
+Resultados observados:
+- Messenger Backend Test, run `45313808415`: sucesso.
+- GPT-6 Direct Messenger Validation, run `45313808376`: sucesso; jobs de servidor e Android concluídos.
+- Android Build, run `45313808385`: job `debug-build` concluído com sucesso; `release-preparation` estava em andamento na última consulta e `release-final` foi pulado pelo workflow.
+- Os testes acima validam o commit de código indicado, não testes de navegador Android/desktop nem comunicação entre IAs externas.
 
-## Resultado desta auditoria
+## Convites web — próxima implementação
 
-- A base de mensagens não precisa ser reescrita integralmente; existem contratos úteis no backend.
-- O principal bloqueio da Central de Salas é a ausência identificada de listagem de conversas e presença/diretório.
-- O backend de voz tem mais estrutura do que apenas documentação: há chamadas 1:1 e sinalização. Ainda assim, isso não prova mídia WebRTC funcional.
-- O próximo incremento de código com maior valor é a API autenticada de listagem de conversas, acompanhada de testes de autorização. A interface deve vir logo depois e consumir esse contrato real.
+O fluxo Android/Firebase não deve ser confundido com convite web. O contrato proposto está em `docs/AI_CHAT_BROWSER_WEB_INVITES.md`. A implementação web deve incluir token de alta entropia armazenado somente como hash, expiração, limite de usos, revogação, pedido de entrada, aprovação administrativa, auditoria e autenticação real da identidade convidada. O link não pode carregar credenciais nem autenticar automaticamente contas externas.
 
-## Limites
+## Limitações e segurança
 
-Esta é uma inspeção de código, não uma execução dos testes, não uma validação de navegador, não um teste entre duas IAs e não uma validação de rede real. Nenhum merge, deploy, serviço pago, publicação no Blogger ou alteração em conteúdo de blog foi realizado.
-\n\n## Atualização de auditoria — Missão 03\n\n- `GET /v1/conversations` e a Central de Salas web foram adicionados depois da auditoria inicial.\n- O CI do commit `e2150e33336249d465f5437f438a4025f17de072` revelou duas falhas em expectativas de testes; as correções foram feitas nos testes, sem alterar a lógica de autorização nem relaxar a política Wi-Fi.\n- O fluxo Android/Firebase de convite existe como trilha separada. Convites web e aprovação continuam não implementados.\n- O novo documento `docs/AI_CHAT_BROWSER_WEB_INVITES.md` especifica o contrato e os critérios de segurança para essa implementação.\n- O commit de código `33ec8d8635f8a742730d88f89a36a7783a99db83` passou no workflow Messenger Backend Test (`45313808415`) e no GPT-6 Direct Messenger Validation (`45313808376`), incluindo testes de servidor, testes unitários Android e build debug.\n- No workflow Android Build (`45313808385`), o job `debug-build` passou; `release-preparation` ainda estava em execução na última consulta e `release-final` foi pulado pelo fluxo.\n- A branch recebeu depois atualizações documentais; o HEAD documental mais recente deve ser conferido separadamente do SHA de código validado.\n
+- A interface web ainda não tem login humano.
+- A presença não pode ser simulada com base em cadastro.
+- Abrir um convite não conecta automaticamente ChatGPT, Gemini ou Claude.
+- Sinalização WebRTC não comprova transporte de mídia.
+- Não houve teste em navegador Android real nem teste de comunicação entre duas IAs externas.
+- Não houve merge, deploy, ativação paga, provisionamento Firebase ou publicação no Blogger.
+
+## Próximos passos
+
+1. Implementar convites web no backend com armazenamento durável e transações.
+2. Criar página web de convite e fluxo de aprovação administrativa.
+3. Implementar presença por heartbeat e histórico completo.
+4. Testar a Central de Salas em navegador desktop e Android.
+5. Só então avaliar chamadas de voz ao vivo de ponta a ponta.
