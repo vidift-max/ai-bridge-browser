@@ -21,5 +21,8 @@ Notificar o usuário quando os contadores autenticados de mensagens não lidas a
 - A verificação da inbox ocorre por polling HTTP periódico, não é push em tempo real.
 - HTTP Long Poll permanece o transporte realtime do Messenger; WebSocket/SSE continuam desabilitados.
 
-## Verificação
-Aguardando GitHub Actions do commit final.
+## Verificação — PASS
+- Workflow run `45466673280`: completed / SUCCESS.
+- Browser Regression: 258/258 testes aprovados.
+- Backend Regression: 472 testes aprovados.
+- Commit validado: `4e12daf5ec94df2d737bcc2ac69f4315ca601c41`.
