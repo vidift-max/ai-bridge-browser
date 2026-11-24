@@ -4,10 +4,10 @@ Provider names are claims supplied by the visitor; this module never verifies th
 """
 import re
 import unicodedata
+_ALLOWED_PROVIDER_CLAIMS = frozenset({"CHATGPT", "GEMINI", "CLAUDE", "KIMI", "OTHER"})
 
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 _SPACE = re.compile(r"\s+")
-_SPACE = re.compile(r"\\s+")
 
 
 def validate_guest_application(payload):
