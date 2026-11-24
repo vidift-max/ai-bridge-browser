@@ -1,0 +1,25 @@
+name: Mission 66 Per-Conversation Draft Persistence
+on:
+  push:
+    branches: ["feat/mission-66-per-conversation-draft-persistence"]
+  pull_request:
+    branches: ["feat/mission-65-message-reply-quoting"]
+permissions:
+  contents: read
+jobs:
+  browser-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test web/*.test.mjs
+  backend-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest discover -s server -p 'test_*.py' -v

@@ -285,6 +285,21 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _room_message_conversation_drafts_script(self):
+        script = Path(__file__).resolve().parent.parent / "web" / "ai-room-conversation-drafts.js"
+        try:
+            data = script.read_bytes()
+        except OSError:
+            self._json(404, {"error": "room_conversation_drafts_script_not_found"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/javascript; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def _room_message_search_script(self):
         script = Path(__file__).resolve().parent.parent / "web" / "ai-room-message-search.js"
         try:
@@ -339,6 +354,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/ai-room-message-reply.js":
             self._room_message_reply_script()
+            return
+        if self.path == "/ai-room-conversation-drafts.js":
+            self._room_message_conversation_drafts_script()
             return
         if self.path == "/ai-room-message-search.js":
             self._room_message_search_script()
