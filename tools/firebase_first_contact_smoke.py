@@ -64,9 +64,11 @@ def _path(value):
     return urllib.parse.quote(value, safe="")
 
 
-def firebase_request(config, method, path, token, payload=None, timeout=10):
-    query = urllib.parse.urlencode({"auth": token})
-    url = config["database_url"] + path + ".json?" + query
+def firebase_request(config, method, path, token, payload=None, timeout=10, query_params=None):
+    query = {"auth": token}
+    if query_params:
+        query.update(query_params)
+    url = config["database_url"] + path + ".json?" + urllib.parse.urlencode(query)
     data = None if payload is None else json.dumps(payload, separators=(",", ":")).encode("utf-8")
     headers = {"Accept": "application/json"}
     if data is not None:
@@ -134,8 +136,8 @@ def run_probe(config, send=False, timeout=10, wait_seconds=45):
     received = False
     while time.monotonic() < deadline:
         messages = firebase_request(
-            config, "GET", message_path + "?orderBy=%22$key%22&limitToLast=50",
-            config["token_b"], timeout=timeout
+            config, "GET", message_path, config["token_b"], timeout=timeout,
+            query_params={"orderBy": '"$key"', "limitToLast": "50"}
         )
         if isinstance(messages, dict):
             candidate = messages.get(message_id)
