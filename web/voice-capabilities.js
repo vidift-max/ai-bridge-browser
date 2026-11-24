@@ -79,7 +79,7 @@
           else interimText += transcript;
         }
         if (finalText) {
-          var separator = textarea.value && !/\\s$/.test(textarea.value) ? " " : "";
+          var separator = textarea.value && !/\s$/.test(textarea.value) ? " " : "";
           textarea.value += separator + finalText.trim();
           textarea.dispatchEvent(new Event("input", { bubbles: true }));
         }
