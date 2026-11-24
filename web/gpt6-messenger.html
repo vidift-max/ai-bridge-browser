@@ -84,7 +84,7 @@ if(SpeechRecognition){
  recognition.onend=()=>{listening=false;micEl.textContent='🎙️ Ditar';stopVoiceEl.disabled=true;micEl.disabled=!token||messageEl.disabled};
 }else{micEl.disabled=true;voiceSupportEl.textContent='Ditado não suportado. Você ainda pode digitar.'}
 if(!('speechSynthesis'in window)){speakRepliesEl.disabled=true;voiceSupportEl.textContent+=' Leitura de voz indisponível.'}
-async function api(path, options={}){const headers=Object.assign({'Accept':'application/json','Authorization':'Bearer '+token},options.headers||{});const r=await fetch(path,Object.assign({},options,{headers}));let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||('HTTP '+r.status));return data}
+async function api(path, options={}){if(!window.AIBridgeWifiOnly)throw new Error('wifi_policy_unavailable');window.AIBridgeWifiOnly.assertAllowed();const headers=Object.assign({'Accept':'application/json','Authorization':'Bearer '+token},options.headers||{});const r=await fetch(path,Object.assign({},options,{headers}));let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||('HTTP '+r.status));return data}
 async function connect(){
  token=tokenEl.value.trim();if(!token){setConnected(false,'Informe o token.');return}
  try{const d=await api('/v1/gpt6/status');const online=!!d.assistant?.online;setConnected(online,online?'🟢 GPT-6 online · '+(d.model||'modelo configurado'):'🟡 servidor autenticado, provedor de IA não configurado');add('Conexão autenticada com o AI Messenger.','sys')}
@@ -98,7 +98,7 @@ async function send(){
  finally{sendEl.disabled=!token||messageEl.disabled}
 }
 connectEl.onclick=connect;sendEl.onclick=send;
-micEl.onclick=()=>{if(!recognition||listening)return;try{recognition.start()}catch(e){add('Não foi possível iniciar o microfone: '+e.message,'sys')}};
+micEl.onclick=()=>{if(!recognition||listening)return;try{if(!window.AIBridgeWifiOnly)throw new Error('wifi_policy_unavailable');window.AIBridgeWifiOnly.assertAllowed();recognition.start()}catch(e){add('Microfone/rede bloqueado: '+e.message,'sys')}};
 stopVoiceEl.onclick=stopVoice;
 messageEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
 window.addEventListener('beforeunload',()=>{try{recognition?.stop()}catch{}window.speechSynthesis?.cancel()});
