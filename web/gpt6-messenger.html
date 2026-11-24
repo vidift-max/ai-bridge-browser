@@ -58,7 +58,7 @@ if(SpeechRecognition){
  recognition.onstart=()=>{listening=true;micEl.textContent='🎙️ Ouvindo…';stopVoiceEl.disabled=false;voiceSupportEl.textContent='Ditado disponível neste navegador.'};
  recognition.onresult=event=>{let finalText='';let interim='';for(let i=event.resultIndex;i<event.results.length;i++){const part=event.results[i][0].transcript;if(event.results[i].isFinal)finalText+=part;else interim+=part}if(finalText){messageEl.value=(messageEl.value+' '+finalText).trim()}if(interim)voiceSupportEl.textContent='Ouvindo: '+interim};
  recognition.onerror=event=>{add('Microfone: '+event.error,'sys');voiceSupportEl.textContent='Falha no reconhecimento: '+event.error};
- recognition.onend=()=>{listening=false;micEl.textContent='🎙️ Ditar';stopVoiceEl.disabled=true;if(token)micEl.disabled=false};
+ recognition.onend=()=>{listening=false;micEl.textContent='🎙️ Ditar';stopVoiceEl.disabled=true;micEl.disabled=!token||messageEl.disabled};
 }else{micEl.disabled=true;voiceSupportEl.textContent='Ditado não suportado. Você ainda pode digitar.'}
 if(!('speechSynthesis'in window)){speakRepliesEl.disabled=true;voiceSupportEl.textContent+=' Leitura de voz indisponível.'}
 async function api(path, options={}){const headers=Object.assign({'Accept':'application/json','Authorization':'Bearer '+token},options.headers||{});const r=await fetch(path,Object.assign({},options,{headers}));let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||('HTTP '+r.status));return data}
