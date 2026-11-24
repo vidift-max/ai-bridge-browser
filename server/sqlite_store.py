@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -127,6 +127,44 @@ class SQLiteMessengerStore:
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','5')")
             self._connection.commit()
             version = 5
+
+        if version < 6:
+            self._connection.executescript("""
+                CREATE TABLE IF NOT EXISTS conversation_admins (
+                    conversation_id TEXT NOT NULL,
+                    ai_id TEXT NOT NULL,
+                    PRIMARY KEY(conversation_id, ai_id)
+                );
+                CREATE TABLE IF NOT EXISTS room_invites (
+                    invite_id TEXT PRIMARY KEY,
+                    conversation_id TEXT NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    created_by_ai_id TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    expires_at REAL NOT NULL,
+                    max_uses INTEGER NOT NULL,
+                    uses INTEGER NOT NULL DEFAULT 0,
+                    revoked_at REAL
+                );
+                CREATE INDEX IF NOT EXISTS idx_room_invites_conversation
+                    ON room_invites(conversation_id, created_at);
+                CREATE TABLE IF NOT EXISTS join_requests (
+                    request_id TEXT PRIMARY KEY,
+                    invite_id TEXT NOT NULL,
+                    conversation_id TEXT NOT NULL,
+                    ai_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    decided_at REAL,
+                    decided_by_ai_id TEXT,
+                    UNIQUE(invite_id, ai_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_join_requests_room_status
+                    ON join_requests(conversation_id, status, created_at);
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','6')")
+            self._connection.commit()
+            version = 6
 
     def save_voice_mute(self, conversation_id: str, ai_id: str,
                         muted_by_ai_id: str, expires_at: float):
@@ -317,3 +355,133 @@ class SQLiteMessengerStore:
             "DELETE FROM audio_attachments WHERE object_id=?", (object_id,))
         self._connection.commit()
         return cursor.rowcount == 1
+
+    def save_conversation_admin(self, conversation_id: str, ai_id: str):
+        self._connection.execute(
+            "INSERT OR IGNORE INTO conversation_admins(conversation_id,ai_id) VALUES(?,?)",
+            (conversation_id, ai_id))
+        self._connection.commit()
+
+    def is_conversation_admin(self, conversation_id: str, ai_id: str) -> bool:
+        row = self._connection.execute(
+            "SELECT 1 FROM conversation_admins WHERE conversation_id=? AND ai_id=?",
+            (conversation_id, ai_id)).fetchone()
+        return row is not None
+
+    def create_room_invite(self, invite):
+        self._connection.execute(
+            """INSERT INTO room_invites(invite_id,conversation_id,token_hash,
+               created_by_ai_id,created_at,expires_at,max_uses,uses,revoked_at)
+               VALUES(?,?,?,?,?,?,?,0,NULL)""",
+            tuple(invite[key] for key in ("invite_id","conversation_id","token_hash",
+                "created_by_ai_id","created_at","expires_at","max_uses")))
+        self._connection.commit()
+
+    def get_room_invite(self, invite_id):
+        row = self._connection.execute(
+            "SELECT * FROM room_invites WHERE invite_id=?", (invite_id,)).fetchone()
+        return dict(row) if row else None
+
+    def find_room_invite_by_hash(self, token_hash):
+        row = self._connection.execute(
+            "SELECT * FROM room_invites WHERE token_hash=?", (token_hash,)).fetchone()
+        return dict(row) if row else None
+
+    def list_room_invites(self, conversation_id):
+        rows = self._connection.execute(
+            """SELECT invite_id,conversation_id,created_by_ai_id,created_at,
+               expires_at,max_uses,uses,revoked_at FROM room_invites
+               WHERE conversation_id=? ORDER BY created_at DESC""",
+            (conversation_id,)).fetchall()
+        return [dict(row) for row in rows]
+
+    def revoke_room_invite(self, invite_id, conversation_id, revoked_at):
+        cursor = self._connection.execute(
+            """UPDATE room_invites SET revoked_at=?
+               WHERE invite_id=? AND conversation_id=? AND revoked_at IS NULL""",
+            (revoked_at, invite_id, conversation_id))
+        self._connection.commit()
+        return cursor.rowcount == 1
+
+    def create_join_request(self, request):
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            invite = self._connection.execute(
+                "SELECT uses,max_uses,expires_at,revoked_at FROM room_invites WHERE invite_id=?",
+                (request["invite_id"],)).fetchone()
+            if (invite is None or invite["revoked_at"] is not None or
+                    invite["expires_at"] <= request["created_at"] or
+                    invite["uses"] >= invite["max_uses"]):
+                self._connection.rollback()
+                return None, "invite_unavailable"
+            existing = self._connection.execute(
+                "SELECT * FROM join_requests WHERE invite_id=? AND ai_id=?",
+                (request["invite_id"], request["ai_id"])).fetchone()
+            if existing:
+                self._connection.rollback()
+                return dict(existing), "request_exists"
+            self._connection.execute(
+                """INSERT INTO join_requests(request_id,invite_id,conversation_id,
+                   ai_id,status,created_at,decided_at,decided_by_ai_id)
+                   VALUES(?,?,?,?, 'PENDING', ?,NULL,NULL)""",
+                (request["request_id"],request["invite_id"],request["conversation_id"],
+                 request["ai_id"],request["created_at"]))
+            self._connection.execute(
+                "UPDATE room_invites SET uses=uses+1 WHERE invite_id=?",
+                (request["invite_id"],))
+            self._connection.commit()
+            return self._connection.execute(
+                "SELECT * FROM join_requests WHERE request_id=?",
+                (request["request_id"],)).fetchone(), "created"
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def list_join_requests(self, conversation_id, status="PENDING"):
+        rows = self._connection.execute(
+            """SELECT request_id,invite_id,conversation_id,ai_id,status,created_at,
+               decided_at,decided_by_ai_id FROM join_requests
+               WHERE conversation_id=? AND status=? ORDER BY created_at,request_id""",
+            (conversation_id,status)).fetchall()
+        return [dict(row) for row in rows]
+
+    def decide_join_request(self, conversation_id, request_id, decision,
+                            decided_by_ai_id, decided_at, members):
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._connection.execute(
+                """SELECT * FROM join_requests WHERE request_id=?
+                   AND conversation_id=?""", (request_id,conversation_id)).fetchone()
+            if row is None:
+                self._connection.rollback()
+                return None, "request_not_found"
+            if row["status"] != "PENDING":
+                self._connection.rollback()
+                return dict(row), "request_already_decided"
+            if decision == "APPROVE":
+                current = self._connection.execute(
+                    "SELECT member_ai_ids FROM conversations WHERE conversation_id=?",
+                    (conversation_id,)).fetchone()
+                if current is None:
+                    self._connection.rollback()
+                    return None, "conversation_not_found"
+                current_members = set(filter(None,current["member_ai_ids"].split(",")))
+                if row["ai_id"] not in current_members:
+                    if len(current_members) >= members:
+                        self._connection.rollback()
+                        return None, "conversation_member_limit"
+                    current_members.add(row["ai_id"])
+                    self._connection.execute(
+                        "UPDATE conversations SET member_ai_ids=? WHERE conversation_id=?",
+                        (",".join(sorted(current_members)),conversation_id))
+            self._connection.execute(
+                """UPDATE join_requests SET status=?,decided_at=?,decided_by_ai_id=?
+                   WHERE request_id=? AND status='PENDING'""",
+                (decision,decided_at,decided_by_ai_id,request_id))
+            self._connection.commit()
+            result = self._connection.execute(
+                "SELECT * FROM join_requests WHERE request_id=?", (request_id,)).fetchone()
+            return dict(result), "decided"
+        except Exception:
+            self._connection.rollback()
+            raise
