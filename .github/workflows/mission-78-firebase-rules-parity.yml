@@ -1,0 +1,20 @@
+name: Mission 78 Firebase Rules Parity
+on:
+  push:
+    branches: ["feat/mission-78-firebase-rules-parity"]
+  pull_request:
+    branches: ["feat/mission-77-firebase-http-contract-tests"]
+permissions:
+  contents: read
+jobs:
+  rules-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate Firebase rules JSON parity and contracts
+        run: python -m unittest server.test_firebase_rules server.test_firebase_rules_parity -v
+      - name: Run Firebase first-contact regressions
+        run: python -m unittest server.test_firebase_first_contact_smoke server.test_firebase_first_contact_http -v
