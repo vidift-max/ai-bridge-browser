@@ -40,7 +40,14 @@ class LocalAICapabilityContractTest(unittest.TestCase):
         api_start = page.index("async function api(")
         fetch_call = page.index("await fetch(path", api_start)
         self.assertLess(page.index("window.AIBridgeWifiOnly.assertAllowed()", api_start), fetch_call)
-        self.assertIn("window.AIBridgeWifiOnly.assertAllowed();recognition.start()", page)
+        microphone_start = page.index("micEl.onclick=")
+        microphone_end = page.index("stopVoiceEl.onclick=", microphone_start)
+        microphone_handler = page[microphone_start:microphone_end]
+        self.assertIn("window.AIBridgeWifiOnly.assertAllowed()", microphone_handler)
+        self.assertIn("recognition.start()", microphone_handler)
+        self.assertLess(
+            microphone_handler.index("window.AIBridgeWifiOnly.assertAllowed()"),
+            microphone_handler.index("recognition.start()"))
 
     def test_microphone_requires_verified_on_device_recognition(self):
         page = (Path(__file__).resolve().parent.parent / "web" / "gpt6-messenger.html").read_text(encoding="utf-8")
