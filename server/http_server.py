@@ -242,6 +242,30 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 self._json(400, {"error": "invalid_conversation_query"})
             return
+        presence_parts = parsed.path.split("/")
+        if (len(presence_parts) == 5 and presence_parts[1:3] == ["v1", "conversations"]
+                and presence_parts[4] == "presence" and presence_parts[3]):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                participants = self.backend.list_conversation_presence(
+                    self._auth(), presence_parts[3])
+                self._audit(identity, "ROOM_PRESENCE_LISTED", presence_parts[3],
+                            online_count=str(sum(1 for item in participants
+                                                  if item["status"] == "ONLINE")))
+                self._json(200, {"conversationId": presence_parts[3],
+                                 "participants": participants,
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except ValueError:
+                self._json(400, {"error": "invalid_conversation"})
+            return
         invite_parts = parsed.path.split("/")
         if len(invite_parts) == 4 and invite_parts[1:3] == ["v1", "invites"] and invite_parts[3]:
             try:
@@ -432,6 +456,32 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        presence_path = urlsplit(self.path).path
+        if presence_path in ("/v1/presence/heartbeat", "/v1/presence/leave"):
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if presence_path.endswith("/heartbeat"):
+                    payload = self._read_json(max_length=12000)
+                    active_rooms = payload.get("activeConversationIds", [])
+                    result = self.backend.heartbeat_presence(self._auth(), active_rooms)
+                    event_type = "AI_PRESENCE_HEARTBEAT"
+                else:
+                    result = {"left": self.backend.leave_presence(self._auth())}
+                    event_type = "AI_PRESENCE_LEFT"
+                self._audit(identity, event_type, principal.ai_id)
+                self._json(200, {"presence": result,
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError):
+                self._json(400, {"error": "invalid_presence_request"})
+            return
         invite_path = urlsplit(self.path).path.split("/")
         if len(invite_path) == 4 and invite_path[1:3] == ["v1", "invites"] and invite_path[3] == "redeem":
             try:
