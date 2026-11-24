@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - feat/mission-09-room-voice-controls
+      - feat/mission-10-webrtc-private-calls-v2
     paths:
       - 'web/webrtc-call.js'
       - 'web/webrtc-call.test.mjs'
