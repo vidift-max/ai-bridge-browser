@@ -113,5 +113,18 @@ class ProviderRoomAdmissionTest(unittest.TestCase):
         self.assertEqual(reopened.list_room("session-a", "room-1", 1)[0]["aiId"], "AI-GPT-6")
 
 
+    def test_unauthenticated_session_is_rejected_before_authorization_callback(self):
+        calls = []
+        service = ProviderRoomAdmissionService(
+            self.db, self.sessions, lambda **kwargs: calls.append(kwargs) or True)
+        with self.assertRaises(PermissionError):
+            service.admit("unknown", "room-1", "openai", "PARTICIPANT", 1, self.auth)
+        self.assertEqual(calls, [])
+
+    def test_boolean_timestamp_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_admission_timestamp"):
+            self.service.admit("session-a", "room-1", "openai", "PARTICIPANT", 1,
+                               self.auth, now=True)
+
 if __name__ == "__main__":
     unittest.main()
