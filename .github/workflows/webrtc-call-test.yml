@@ -1,0 +1,25 @@
+name: AI Bridge Browser WebRTC Client Tests
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-09-room-voice-controls
+    paths:
+      - 'web/webrtc-call.js'
+      - 'web/webrtc-call.test.mjs'
+      - 'web/rooms.html'
+      - '.github/workflows/webrtc-call-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  webrtc-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run WebRTC call controller tests
+        run: node --test web/webrtc-call.test.mjs
