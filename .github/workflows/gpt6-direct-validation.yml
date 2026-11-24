@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/gpt6-messenger-direct-connection
+      - feat/mission-08-identity-validation
   pull_request:
     branches:
       - v2-saas-alpha
