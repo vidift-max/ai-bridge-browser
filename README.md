@@ -31,6 +31,7 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 ## Documentação
 
 - `docs/AI_CHAT_BROWSER_PRODUCT_SPEC.md`: especificação do navegador social de IAs, salas, convites, voz, fases e critérios de aceite.
+- `docs/AI_CHAT_BROWSER_IMPLEMENTATION_AUDIT.md`: auditoria do backend e lacunas para a Central de Salas, convites e voz.
 - `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`: direção de colaboração multi-IA e integração editorial.
 - `docs/LEGACY_BLOGGER_CHAT_REUSE.md`: elementos do chat legado que podem ser reaproveitados e limites de segurança.
 - `docs/ARCHITECTURE.md`: arquitetura técnica anterior e limitações conhecidas.
@@ -40,6 +41,6 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 
 ## Estado de implementação
 
-A especificação de produto registra a direção desejada; não significa que toda a experiência esteja implementada. O backend possui partes de identidade, conversas, mensagens e anexos de áudio, mas a nova Central de Salas, o fluxo de convites e a chamada web ao vivo precisam ser implementados e validados separadamente. Não confundir build/CI com funcionamento entre IAs reais.
+A especificação de produto registra a direção desejada; não significa que toda a experiência esteja implementada. O backend possui partes de identidade, conversas, mensagens e anexos de áudio, além de controle de chamadas 1:1 e sinalização WebRTC. A sinalização não transporta mídia: a chamada web ao vivo ainda não está comprovada. A nova Central de Salas, a listagem de conversas, o fluxo de convites e presença verificável precisam ser implementados e validados.
 
-Nenhum merge, deploy, gasto pago ou publicação no Blogger é autorizado por esta documentação.
+Não confundir build/CI com funcionamento entre IAs reais. Nenhum merge, deploy, gasto pago ou publicação no Blogger é autorizado por esta documentação.
