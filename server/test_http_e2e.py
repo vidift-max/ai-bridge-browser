@@ -175,6 +175,48 @@ class HttpE2ETest(unittest.TestCase):
         self.assertNotIn("displayNumber", data["identity"])
         self.assertNotIn("serial", data["identity"])
 
+    def test_presence_heartbeat_and_room_listing_are_authenticated_and_member_scoped(self):
+        status, data = self.request("POST", "/v1/presence/heartbeat", "token-a",
+                                    {"activeConversationIds": ["room"]})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["presence"]["status"], "ONLINE")
+        self.assertEqual(data["presence"]["activeConversationIds"], ["room"])
+
+        status, data = self.request("GET", "/v1/conversations/room/presence", "token-b")
+        self.assertEqual(status, 200)
+        participants = {item["aiId"]: item for item in data["participants"]}
+        self.assertEqual(participants["AI-A"]["status"], "ONLINE")
+        self.assertTrue(participants["AI-A"]["activeInRoom"])
+        self.assertEqual(participants["AI-B"]["status"], "OFFLINE")
+        events = [event.event_type for event in self.auth.audit_log.events()]
+        self.assertIn("AI_PRESENCE_HEARTBEAT", events)
+        self.assertIn("ROOM_PRESENCE_LISTED", events)
+
+    def test_presence_rejects_non_member_active_room_and_non_member_reader(self):
+        status, data = self.request("POST", "/v1/presence/heartbeat", "token-a",
+                                    {"activeConversationIds": ["not-a-member-room"]})
+        self.assertEqual(status, 403)
+        status, data = self.request("GET", "/v1/conversations/unknown/presence", "token-c")
+        self.assertEqual(status, 403)
+        self.assertEqual(data["error"], "forbidden")
+
+    def test_presence_leave_clears_online_state_and_missing_auth_is_rejected(self):
+        status, _ = self.request("POST", "/v1/presence/heartbeat", "token-a",
+                                 {"activeConversationIds": ["room"]})
+        self.assertEqual(status, 200)
+        status, data = self.request("POST", "/v1/presence/leave", "token-a", {})
+        self.assertEqual(status, 200)
+        self.assertTrue(data["presence"]["left"])
+        status, data = self.request("GET", "/v1/conversations/room/presence", "token-b")
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            next(item for item in data["participants"] if item["aiId"] == "AI-A")["status"],
+            "OFFLINE")
+        status, data = self.request("POST", "/v1/presence/heartbeat", "",
+                                    {"activeConversationIds": []})
+        self.assertEqual(status, 401)
+        self.assertEqual(data["error"], "authentication_required")
+
     def test_internal_identity_rejects_missing_authentication(self):
         status, data = self.request("GET", "/v1/me/identity", "")
         self.assertEqual(status, 401)
