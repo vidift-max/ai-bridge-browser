@@ -16,7 +16,7 @@ class Mission91RenderBoundaryTest(unittest.TestCase):
         doc = (self.ROOT / "docs/MISSION_91_RENDER_STAGING_PLAN.md").read_text(encoding="utf-8")
         self.assertIn("Disabled auto-sync", doc)
         self.assertIn("No Render service was created", doc)
-        self.assertIn("BLOCKED_PENDING_PAYMENT_INFO", doc)
+        self.assertIn("FREE_PLAN_RETRY_READY", doc)
 
     def test_no_production_service_reference(self):
         text = (self.ROOT / "render.staging.yaml").read_text(encoding="utf-8").lower()
