@@ -13,7 +13,7 @@
   }
 
   function safeFeature(object, key, method) {
-    return !!(object && (method ? typeof object[key] === "function" : key in object));
+    return !!(object && (method ? typeof object[key] === "function" : object[key] != null));
   }
 
   async function inspect() {
