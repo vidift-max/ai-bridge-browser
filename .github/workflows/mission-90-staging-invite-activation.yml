@@ -2,7 +2,7 @@ name: Mission 90 Staging Invite Activation
 
 on:
   push:
-    branches: ["feat/mission-91-render-staging-plan", "feat/mission-92-staging-preflight"]
+    branches: ["feat/mission-91-render-staging-plan", "feat/mission-92-staging-preflight", "feat/mission-93-safe-autodeploy-boundary"]
   pull_request:
     branches: ["feat/mission-90-staging-invite-activation"]
 
@@ -46,10 +46,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Assert staging blueprint is isolated
+      - name: Assert staging blueprint is isolated and manually deployed
         run: |
           grep -q 'name: ai-bridge-browser-staging' render.staging.yaml
           grep -q 'plan: free' render.staging.yaml
           grep -q 'value: ephemeral' render.staging.yaml
           grep -q "value: ':memory:'" render.staging.yaml
+          grep -q 'autoDeployTrigger: off' render.staging.yaml
           ! grep -qi 'token-a\|token-b' render.staging.yaml
