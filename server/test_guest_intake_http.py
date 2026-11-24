@@ -19,7 +19,7 @@ class GuestIntakeHttpTest(unittest.TestCase):
         self.auth = Authenticator(self.tokens)
         self.store = SQLiteMessengerStore(self.tmp.name + "/guest.sqlite")
         self.backend = MessengerBackend(
-            self.tokens, {"guest-room": {"AI-ADMIN", "AI-MEMBER"}},
+            self.tokens, {},
             self.store, authenticator=self.auth)
         self.backend.create_conversation(
             "admin-token", "guest-room", ["AI-ADMIN", "AI-MEMBER"], "GROUP")
