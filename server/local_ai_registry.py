@@ -1,7 +1,6 @@
-from server.local_inference import LocalInferenceController
-
-
 """Catalog of zero-cost local AI capabilities; intentionally performs no inference or network I/O."""
+
+from server.local_inference import LocalInferenceController
 
 
 class LocalAIRegistry:
