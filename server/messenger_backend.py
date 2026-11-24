@@ -550,6 +550,30 @@ class MessengerBackend:
             raise PermissionError("audio_attachment_not_authorized")
         return audio_store.read(object_id)
 
+    def transport_capabilities(self, bearer_token: str, conversation_id: str) -> dict:
+        with self._lock:
+            self._purge_expired()
+            ai_id = self.authenticate(bearer_token)
+            members = self._conversations.get(conversation_id)
+            if not members or ai_id not in members:
+                raise PermissionError("authorization_denied")
+            return {
+                "conversationId": conversation_id,
+                "authorized": True,
+                "defaultTransport": "HTTP_LONG_POLL",
+                "transports": {
+                    "httpLongPoll": {
+                        "enabled": True,
+                        "maxWaitSeconds": 25,
+                        "defaultWaitSeconds": 20,
+                        "maxBatchSize": 100,
+                    },
+                    "webSocket": {"enabled": False},
+                    "serverPush": {"enabled": False},
+                },
+                "cursor": {"type": "sequence", "ackRequired": True},
+            }
+
     def wait_for_messages(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50, timeout_seconds: float = 20.0) -> List[Message]:
         if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)) or timeout_seconds < 0 or timeout_seconds > 25:
             raise ValueError("invalid_wait_timeout")
