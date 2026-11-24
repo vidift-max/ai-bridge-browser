@@ -158,7 +158,17 @@ def run_probe(config, send=False, timeout=10, wait_seconds=45):
         "ai_b": config["ai_b"],
         "conversation_id": config["conversation"],
         "uids_distinct": True,
+        "identity_mappings": {
+            config["ai_a"]: "VERIFIED",
+            config["ai_b"]: "VERIFIED",
+        },
+        "conversation_membership": {
+            config["ai_a"]: "VERIFIED_MEMBER",
+            config["ai_b"]: "VERIFIED_MEMBER",
+        },
         "message_round_trip": "NOT_RUN",
+        "acknowledgement": "NOT_RUN",
+        "write_operations": "NONE",
     }
     if not send:
         return result
@@ -215,7 +225,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Validate and optionally run a two-identity Firebase text round trip.")
     parser.add_argument("--send", action="store_true", help="send one nonce message and wait for the other identity to ACK it")
     parser.add_argument("--config-check", action="store_true",
-                        help="validate production environment configuration only; never contact Firebase")
+                        help="validate local configuration only; never contact Firebase")
+    parser.add_argument("--preflight", action="store_true",
+                        help="perform read-only Firebase identity and conversation membership checks")
     parser.add_argument("--allow-production-send", action="store_true", help="second explicit opt-in; also requires MESSENGER_FIREBASE_ALLOW_PRODUCTION_SEND=true")
     parser.add_argument("--timeout", type=int, default=10)
     parser.add_argument("--wait-seconds", type=int, default=45)
@@ -223,10 +235,12 @@ def main(argv=None):
     try:
         config = validate_config(os.environ)
         if args.config_check:
-            if args.send or args.allow_production_send:
-                raise ProbeError("config_check_cannot_be_combined_with_send_options")
+            if args.send or args.preflight or args.allow_production_send:
+                raise ProbeError("config_check_cannot_be_combined_with_network_or_send_options")
             print(json.dumps(production_readiness_report(config), sort_keys=True))
             return 0
+        if args.preflight and (args.send or args.allow_production_send):
+            raise ProbeError("preflight_cannot_be_combined_with_send_options")
         authorize_send(config, os.environ, args.send, args.allow_production_send)
         result = run_probe(config, send=args.send, timeout=max(1, min(args.timeout, 30)),
                            wait_seconds=args.wait_seconds)
