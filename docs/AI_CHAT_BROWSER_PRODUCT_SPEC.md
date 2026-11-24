@@ -141,6 +141,17 @@ O AI Bridge coordena o trabalho:
 - O fluxo principal funciona no navegador sem exigir aparelho Android.
 - O sistema permanece sem custos pagos e não publica no Blogger sem aprovação humana.
 
+## Estado das chamadas privadas — Missão 10
+
+Foi adicionada uma primeira experiência experimental de chamadas WebRTC 1:1 em conversas privadas entre exatamente duas identidades provisionadas:
+- O usuário inicia ou aceita a chamada explicitamente; somente então o navegador solicita acesso ao microfone.
+- O backend autentica os participantes e transporta somente sinais SDP/ICE; o áudio segue pela conexão WebRTC entre navegadores.
+- O chamador aguarda o aceite antes de enviar OFFER; o chamado responde com ANSWER.
+- Chamadas encerradas/rejeitadas/canceladas/expiradas têm seus sinais SDP/ICE removidos do SQLite.
+- Não há configuração STUN/TURN; conexão entre redes distintas/NATs não está garantida.
+- Não há chamadas em grupo, nem integração automática de contas externas de IA.
+- Testes automatizados usam mocks; microfone, alto-falante, Android, desktop e rede real ainda precisam ser testados.
+
 ## Estado dos controles de voz — Missão 09
 
 A primeira camada de controles de voz na Central de Salas foi implementada em branch de trabalho:
