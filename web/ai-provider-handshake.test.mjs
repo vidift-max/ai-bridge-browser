@@ -69,7 +69,7 @@ test("pending challenge capacity is bounded and expired entries are pruned",()=>
 test("nonce tracking capacity fails closed",()=>{
  const context={window:{},URL};vm.runInNewContext(source,context);let n=0;
  const h=context.window.AIBridgeProviderHandshake.create({nonceFactory:()=>"nonce-"+String(++n).padStart(32,"0")});
- for(let i=0;i<8192;i++)h.issue({challengeId:"c"+i,sessionId:"s"+i,providerId:"p1",origin:"https://provider.example",allowedCapabilities:["READ_STATUS"]});
+ for(let i=0;i<8192;i++){h.issue({challengeId:"c"+i,sessionId:"s"+i,providerId:"p1",origin:"https://provider.example",allowedCapabilities:["READ_STATUS"]});h.revoke("c"+i);}
  assert.throws(()=>h.issue({challengeId:"overflow",sessionId:"overflow",providerId:"p1",origin:"https://provider.example",allowedCapabilities:["READ_STATUS"]}),/NONCE_TRACKING_LIMIT/);
 });
 test("audit records exclude nonce proof and provider credentials",async()=>{
