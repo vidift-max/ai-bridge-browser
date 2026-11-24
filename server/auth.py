@@ -17,8 +17,8 @@ class Authenticator:
         self._registry = CredentialRegistry(token_to_ai_id, connection=connection)
         self.audit_log = audit_log or AuditLog()
 
-    def provision_ephemeral_credential(self, bearer_token: str, ai_id: str, expires_at):
-        return self._registry.provision_ephemeral(bearer_token, ai_id, expires_at)
+    def provision_ephemeral_credential(self, bearer_token: str, ai_id: str, expires_at, parent_token: str = ""):
+        return self._registry.provision_ephemeral(bearer_token, ai_id, expires_at, parent_token)
 
     def authenticate(self, bearer_token: str, now: Optional[datetime] = None) -> AuthenticatedPrincipal:
         if not bearer_token:
