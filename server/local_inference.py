@@ -33,7 +33,7 @@ class LocalInferenceController:
     def status(self) -> dict:
         engine = self._engine
         eligible = bool(
-            self._policy.enabled
+            self._policy.enabled is True
             and self._policy.allow_network is False
             and self._policy.allow_model_downloads is False
             and engine is not None
@@ -55,9 +55,9 @@ class LocalInferenceController:
 
     def execute(self, prompt: str, *, user_opt_in: bool = False,
                 max_output_tokens: int = 256) -> str:
-        if not self._policy.enabled:
+        if self._policy.enabled is not True:
             raise LocalInferenceError("LOCAL_INFERENCE_DISABLED_BY_POLICY")
-        if not user_opt_in:
+        if user_opt_in is not True:
             raise LocalInferenceError("EXPLICIT_OPT_IN_REQUIRED")
         status = self.status()
         if not status["inferenceAvailable"]:
