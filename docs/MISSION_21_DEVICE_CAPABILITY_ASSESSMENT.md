@@ -31,3 +31,29 @@ Os testes usam APIs simuladas em Node.js e testes de contrato Python. Não subst
 
 ## Separação de ambientes
 Este relatório descreve user_device_browser. O contrato da Missão 20 descreve um adaptador no server_host. Um não comprova nem habilita o outro.
+
+## Registro das 10 rodadas
+
+1. Expandida a sondagem local para WebGPU, WebNN, Workers, IndexedDB, armazenamento e contexto seguro.
+2. Criados testes Node.js com navegador e APIs simulados.
+3. Integrada a nova estrutura do relatório à interface da Central de Salas.
+4. Reforçados os testes de contrato Python para escopo, privacidade e ausência de inferência.
+5. Testada a interface: acessibilidade, relatório local e ausência de upload.
+6. Criado workflow de CI para testes do navegador, suíte backend e testes/build Android.
+7. Documentados os critérios de interpretação, privacidade, custo e limitações.
+8. Corrigida a detecção para APIs ausentes ou indefinidas falharem de forma conservadora.
+9. Ampliados os testes para hints desconhecidos, falhas de API e detecção WebNN sem criação de contexto.
+10. Integrada a missão e preparada a validação final no mesmo SHA, sem merge ou deploy.
+
+## Critérios de aceite e estado
+
+- [x] Sondagem somente após clique explícito.
+- [x] Nenhum relatório transmitido ou persistido.
+- [x] Sem download, instalação, benchmark ou inferência.
+- [x] WebGPU, WebNN, Workers, IndexedDB e armazenamento avaliados sem iniciar modelo.
+- [x] Hints de hardware apresentados em faixas aproximadas.
+- [x] Browser runtime separado do contrato server-host da Missão 20.
+- [ ] CI completo aprovado no SHA final (Node.js, backend e Android).
+- [ ] Validação física em tablet/telefone — fora do escopo desta missão; exige dispositivo disponível e autorização do usuário.
+
+Até a conclusão do CI, a implementação é considerada **CONCLUÍDA COM VALIDAÇÃO PENDENTE**, não PASS final.
