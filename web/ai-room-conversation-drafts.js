@@ -10,19 +10,22 @@
   }
   return Object.freeze({
    load(conversationId){
-    try{const value=storage.getItem(key(conversationId));if(value===null)return "";
+    const storageKey=key(conversationId);
+    try{const value=storage.getItem(storageKey);if(value===null)return "";
      const parsed=JSON.parse(value);return typeof parsed==="string"?parsed.slice(0,MAX_DRAFT_CHARS):"";
     }catch{return "";}
    },
    save(conversationId,draft){
     if(typeof draft!=="string")throw new Error("DRAFT_TEXT_REQUIRED");
     const normalized=draft.slice(0,MAX_DRAFT_CHARS);
-    try{if(!normalized.trim()){storage.removeItem(key(conversationId));return true;}
-     storage.setItem(key(conversationId),JSON.stringify(normalized));return true;
+    const storageKey=key(conversationId);
+    try{if(!normalized.trim()){storage.removeItem(storageKey);return true;}
+     storage.setItem(storageKey,JSON.stringify(normalized));return true;
     }catch{return false;}
    },
    clear(conversationId){
-    try{storage.removeItem(key(conversationId));return true;}catch{return false;}
+    const storageKey=key(conversationId);
+    try{storage.removeItem(storageKey);return true;}catch{return false;}
    }
   });
  }
