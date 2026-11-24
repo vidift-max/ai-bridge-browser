@@ -375,7 +375,7 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         import hashlib
         config = validate_config(BASE)
         plan = {
-            "schema_version": 2, "state": "SEND_PLAN_READY",
+            "schema_version": 2, "state": "SEND_PLAN_READY", "preflight": "PREFLIGHT_PASS",
             "sender": "AI-01", "recipient": "AI-02",
             "conversation_id": "private-ai-01-ai-02", "operation": "ONE_TEXT_MESSAGE",
             "payload": {"senderAiId": "AI-01", "recipientAiIds": {"AI-02": True, "AI-03": True},
@@ -408,7 +408,8 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
         config = validate_config(BASE)
         payload = {"senderAiId": "AI-01", "recipientAiIds": {"AI-02": True},
                    "body": "x" * 281, "messageKind": "NORMAL", "createdAtEpochMs": 1}
-        plan = {"schema_version": 2, "state": "SEND_PLAN_READY", "sender": "AI-01",
+        plan = {"schema_version": 2, "state": "SEND_PLAN_READY", "preflight": "PREFLIGHT_PASS",
+                "operation": "ONE_TEXT_MESSAGE", "sender": "AI-01",
                 "recipient": "AI-02", "conversation_id": "private-ai-01-ai-02",
                 "payload": payload, "payload_sha256": hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest(),
                 "write_operations": "NONE", "send_operation": "NOT_EXECUTED",
