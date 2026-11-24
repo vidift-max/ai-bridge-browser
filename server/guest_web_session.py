@@ -49,10 +49,6 @@ class GuestWebSessionService:
             self._authenticator.provision_ephemeral_credential(
                 token, principal.ai_id, expires_at, guest_credential)
         except Exception:
-            # Do not leave a usable in-memory session when child credential
-            # provisioning fails. If the registry partially persisted the
-            # child before raising, revoke it as well; a pre-insert failure
-            # is harmlessly ignored.
             with self._lock:
                 self._sessions.pop(token_hash, None)
             try:
@@ -91,8 +87,11 @@ class GuestWebSessionService:
             record = self._sessions.get(token_hash)
             if record is None or record.status != "ACTIVE":
                 return False
+            # Revoke the credential before changing the local state. If the
+            # persistent revocation fails, retain ACTIVE so a caller can
+            # safely retry instead of creating an in-memory/persistent split.
+            self._authenticator.revoke(session_token)
             self._sessions[token_hash] = GuestWebSession(
                 record.token_hash, record.ai_id, record.parent_credential,
                 record.created_at, record.expires_at, "REVOKED")
-            self._authenticator.revoke(session_token)
             return True
