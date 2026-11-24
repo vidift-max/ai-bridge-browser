@@ -9,6 +9,7 @@ from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
 from server.audio_blob_store import AudioBlobStore
 from server.presence_service import PresenceService
+from server.identity_directory import IdentityDirectory
 from server.retention_policy import (MESSAGE_NORMAL, MESSAGE_MISSION, CONVERSATION_GROUP,
                                      expires_at, is_expired, normalize_message_kind, normalize_conversation_kind)
 
@@ -49,13 +50,14 @@ class MessengerBackend:
     MAX_ID_LENGTH = 200
     MAX_ROOM_MEMBERS = 20
 
-    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None):
+    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None, identity_display_names=None):
         self._lock = RLock()
         self._tokens = dict(tokens)
         self._known_ai_ids = set(tokens.values())
         self._authenticator = authenticator or Authenticator(tokens)
         self._store = store or SQLiteMessengerStore(":memory:")
         self._presence = PresenceService(self._store._connection)
+        self._identities = IdentityDirectory(self._store._connection, self._known_ai_ids, identity_display_names)
         self._conversations = self._store.load_conversations()
         self._conversation_kinds = self._store.load_conversation_kinds()
         for conversation_id, members in conversations.items():
@@ -300,6 +302,22 @@ class MessengerBackend:
         self.authorize_member(ai_id, conversation_id)
         members = sorted(self._conversations.get(conversation_id, set()))
         return self._presence.list_room(conversation_id, members)
+
+    @_synchronized
+    def list_conversation_identities(self, bearer_token: str, conversation_id: str):
+        ai_id = self.authenticate(bearer_token)
+        self.authorize_member(ai_id, conversation_id)
+        members = sorted(self._conversations.get(conversation_id, set()))
+        identities = self._identities.list_members(members)
+        presence = {item["aiId"]: item for item in
+                    self._presence.list_room(conversation_id, members)}
+        result = []
+        for identity in identities:
+            state = presence[identity["aiId"]]
+            result.append({**identity, "status": state["status"],
+                           "activeInRoom": state["activeInRoom"],
+                           "lastSeenAt": state["lastSeenAt"]})
+        return result
 
     @_synchronized
     def conversation_members(self):
