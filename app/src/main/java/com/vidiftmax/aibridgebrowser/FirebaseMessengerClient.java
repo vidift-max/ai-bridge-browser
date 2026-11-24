@@ -130,12 +130,8 @@ public final class FirebaseMessengerClient {
     public JSONObject sendMessage(String conversationId, JSONArray recipients, String bodyText, String messageKind) throws Exception {
         MessengerRemoteConfig.validateMessageBody(bodyText);
         if (recipients == null || recipients.length() < 1) throw new IllegalArgumentException("message_recipients_required");
-        JSONObject recipientsObject = new JSONObject();
-        for (int i = 0; i < recipients.length(); i++) {
-            String id = MessengerRemoteConfig.validateAiId(recipients.optString(i, ""));
-            if (aiId.equals(id)) throw new IllegalArgumentException("invalid_message_recipient");
-            recipientsObject.put(id, true);
-        }
+        JSONObject room = getConversation(conversationId);
+        JSONObject recipientsObject = FirebaseMessageAdmission.validate(aiId, recipients, room);
         JSONObject message = new JSONObject()
                 .put("senderAiId", aiId)
                 .put("recipientAiIds", recipientsObject)
