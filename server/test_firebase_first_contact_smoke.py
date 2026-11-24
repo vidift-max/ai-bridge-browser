@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from tools.firebase_first_contact_smoke import ProbeError, validate_config, run_probe
+from tools.firebase_first_contact_smoke import ProbeError, validate_config, run_probe, authorize_send
 
 
 BASE = {
@@ -115,6 +115,32 @@ class FirebaseFirstContactSmokeTest(unittest.TestCase):
             request = urlopen.call_args.args[0]
             self.assertIn("ns=demo-ai-bridge-rules", request.full_url)
             self.assertIn("auth=secret-token", request.full_url)
+
+
+    def test_production_send_is_blocked_without_double_opt_in(self):
+        config = validate_config(BASE)
+        with self.assertRaisesRegex(ProbeError, "production_send_requires_cli_and_environment_opt_in"):
+            authorize_send(config, BASE, send=True, allow_production_send=False)
+        with self.assertRaisesRegex(ProbeError, "production_send_requires_cli_and_environment_opt_in"):
+            authorize_send(config, dict(BASE, MESSENGER_FIREBASE_ALLOW_PRODUCTION_SEND="true"),
+                           send=True, allow_production_send=False)
+        with self.assertRaisesRegex(ProbeError, "production_send_requires_cli_and_environment_opt_in"):
+            authorize_send(config, BASE, send=True, allow_production_send=True)
+
+    def test_production_send_requires_both_explicit_opt_ins(self):
+        config = validate_config(BASE)
+        env = dict(BASE, MESSENGER_FIREBASE_ALLOW_PRODUCTION_SEND="true")
+        authorize_send(config, env, send=True, allow_production_send=True)
+
+    def test_emulator_send_does_not_require_production_opt_in(self):
+        env = dict(BASE, MESSENGER_FIREBASE_DATABASE_URL="http://127.0.0.1:9000/?ns=demo-ai-bridge-rules",
+                   MESSENGER_FIREBASE_EMULATOR="true")
+        config = validate_config(env)
+        authorize_send(config, env, send=True, allow_production_send=False)
+
+    def test_preflight_never_requires_production_send_opt_in(self):
+        config = validate_config(BASE)
+        authorize_send(config, BASE, send=False, allow_production_send=False)
 
 
 
