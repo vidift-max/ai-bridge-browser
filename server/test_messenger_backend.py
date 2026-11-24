@@ -548,5 +548,35 @@ class MessengerBackendTest(unittest.TestCase):
         self.assertLessEqual(poll["maxBatchSize"], 100)
         self.assertLessEqual(poll["defaultWaitSeconds"], poll["maxWaitSeconds"])
 
+
+    def test_history_returns_acknowledged_messages_in_chronological_pages(self):
+        first = self.backend.submit("opaque-a", "history-1", "room-1",
+                                    ["AI-B"], "first", "history-req-1")
+        second = self.backend.submit("opaque-a", "history-2", "room-1",
+                                     ["AI-B"], "second", "history-req-2")
+        self.backend.acknowledge("opaque-b", first.message_id)
+        self.backend.acknowledge("opaque-b", second.message_id)
+        page = self.backend.history("opaque-b", "room-1", limit=1)
+        self.assertEqual([message.message_id for message in page], [second.message_id])
+        older = self.backend.history("opaque-b", "room-1",
+                                     before_sequence=second.sequence, limit=1)
+        self.assertEqual([message.message_id for message in older], [first.message_id])
+        self.assertEqual(self.backend.pending("opaque-b", "room-1"), [])
+
+    def test_history_includes_sender_messages_and_is_room_scoped(self):
+        sent = self.backend.submit("opaque-a", "history-sender", "room-1",
+                                   ["AI-B"], "sent by me", "history-sender-req")
+        self.assertEqual([message.message_id for message in
+                          self.backend.history("opaque-a", "room-1")], [sent.message_id])
+        with self.assertRaisesRegex(PermissionError, "authorization_denied"):
+            self.backend.history("opaque-c", "room-1")
+
+    def test_history_rejects_invalid_cursor_and_limit(self):
+        for cursor, limit in [(-1, 10), (True, 10), (2**53, 10), (0, 0), (0, 101)]:
+            with self.subTest(cursor=cursor, limit=limit):
+                with self.assertRaises(ValueError):
+                    self.backend.history("opaque-b", "room-1",
+                                         before_sequence=cursor, limit=limit)
+
 if __name__ == "__main__":
     unittest.main()
