@@ -77,6 +77,39 @@ class MessengerBackendTest(unittest.TestCase):
         self.assertEqual(msg.sender_ai_id,"AI-A")
         self.assertEqual(self.backend.pending("opaque-b","room-1")[0].message_id,"m-1")
 
+    def test_ack_requires_current_membership_in_the_message_room(self):
+        self.backend.submit("opaque-a", "ack-room-membership", "room-1",
+                            ["AI-B"], "hello", "ack-room-membership-req")
+        self.backend._conversations["room-1"].remove("AI-B")
+        with self.assertRaisesRegex(PermissionError, "authorization_denied"):
+            self.backend.acknowledge("opaque-b", "ack-room-membership")
+
+    def test_ack_rejects_non_recipient_and_sender(self):
+        self.backend.submit("opaque-a", "ack-recipient-only", "room-1",
+                            ["AI-B"], "hello", "ack-recipient-only-req")
+        for token in ("opaque-a", "opaque-c"):
+            with self.subTest(token=token):
+                with self.assertRaisesRegex(PermissionError, "authorization_denied"):
+                    self.backend.acknowledge(token, "ack-recipient-only")
+
+    def test_ack_is_idempotent_for_an_authorized_recipient(self):
+        message = self.backend.submit("opaque-a", "ack-idempotent", "room-1",
+                                      ["AI-B"], "hello", "ack-idempotent-req")
+        first = self.backend.acknowledge("opaque-b", "ack-idempotent")
+        second = self.backend.acknowledge("opaque-b", "ack-idempotent")
+        self.assertIs(first, message)
+        self.assertIs(second, message)
+        self.assertEqual(message.acknowledged_by, {"AI-B"})
+        self.assertEqual(self.backend.pending("opaque-b", "room-1"), [])
+
+    def test_ack_does_not_cross_authorize_another_room_member(self):
+        self.backend.create_conversation(
+            "opaque-a", "ack-other-room", ["AI-A", "AI-C"], "PRIVATE")
+        self.backend.submit("opaque-a", "ack-room-bound", "room-1",
+                            ["AI-B"], "hello", "ack-room-bound-req")
+        with self.assertRaisesRegex(PermissionError, "authorization_denied"):
+            self.backend.acknowledge("opaque-c", "ack-room-bound")
+
     def test_restart_recovers_message_and_ack(self):
         with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
             first=MessengerBackend({"opaque-a":"AI-A","opaque-b":"AI-B"},{"room-1":{"AI-A","AI-B"}},SQLiteMessengerStore(f.name))
