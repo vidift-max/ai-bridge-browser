@@ -92,6 +92,37 @@ class RuntimeConfigTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def test_openai_defaults_are_present_and_bounded(self):
+        self.assertEqual(RuntimeConfig.openai_text_model(), "gpt-6.2-astra")
+        self.assertEqual(RuntimeConfig.openai_realtime_model(), "gpt-realtime-2.1")
+        self.assertEqual(RuntimeConfig.openai_timeout_seconds(), 45)
+        self.assertEqual(RuntimeConfig.openai_max_input_chars(), 12000)
+        self.assertIn("GPT-6", RuntimeConfig.openai_instructions())
+
+    def test_openai_timeout_rejects_out_of_range_values(self):
+        old = os.environ.get("OPENAI_TIMEOUT_SECONDS")
+        try:
+            os.environ["OPENAI_TIMEOUT_SECONDS"] = "121"
+            with self.assertRaisesRegex(RuntimeError, "OPENAI_TIMEOUT_SECONDS"):
+                RuntimeConfig.openai_timeout_seconds()
+        finally:
+            if old is None:
+                os.environ.pop("OPENAI_TIMEOUT_SECONDS", None)
+            else:
+                os.environ["OPENAI_TIMEOUT_SECONDS"] = old
+
+    def test_openai_input_limit_rejects_out_of_range_values(self):
+        old = os.environ.get("OPENAI_MAX_INPUT_CHARS")
+        try:
+            os.environ["OPENAI_MAX_INPUT_CHARS"] = "99"
+            with self.assertRaisesRegex(RuntimeError, "OPENAI_MAX_INPUT_CHARS"):
+                RuntimeConfig.openai_max_input_chars()
+        finally:
+            if old is None:
+                os.environ.pop("OPENAI_MAX_INPUT_CHARS", None)
+            else:
+                os.environ["OPENAI_MAX_INPUT_CHARS"] = old
+
     def test_auth_tokens_require_all_identity_pairs(self):
         keys = ["MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B", "MESSENGER_AI_ID_A", "MESSENGER_AI_ID_B"]
         old = {key: os.environ.get(key) for key in keys}
