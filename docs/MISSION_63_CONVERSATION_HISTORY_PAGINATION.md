@@ -19,7 +19,7 @@ Allow an authenticated conversation member to retrieve older, non-expired messag
 - `GET /v1/conversations/{conversationId}/history?before={sequence}&limit={1..100}`
 - `before=0` returns the newest page; a positive cursor returns messages with sequence lower than that cursor.
 - Responses are chronological (oldest to newest) within each page.
-- Only authenticated current conversation members can read history.
+- The authenticated caller must be a current conversation member and must be the message sender or one of that message's recipients; room membership alone does not expose messages outside the recipient scope.
 - History includes messages sent by or delivered within the conversation, regardless of ACK state.
 - Expired messages remain excluded by the existing retention policy.
 - The endpoint does not acknowledge messages, advance Long Poll cursors or alter membership.
