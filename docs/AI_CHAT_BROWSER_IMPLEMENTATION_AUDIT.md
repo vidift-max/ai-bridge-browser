@@ -42,8 +42,8 @@ Auditoria do branch `feat/gpt6-messenger-direct-connection`. Distingue código p
 - HTTP: fluxo completo de criação, consulta, resgate, lista de pedidos, aprovação, autorização negativa, revogação e rota da página com cabeçalhos de segurança.
 
 ### Estado de validação
-- HEAD observado: `dc60e936a837f9c12c28239124fd4a773cfa9266`.
-- Para esse SHA, a consulta de status combinado retornou lista vazia de checks e a consulta de workflows associados retornou lista vazia.
+- Commit de código da missão: `dc60e936a837f9c12c28239124fd4a773cfa9266`; HEAD documental atualizado: `039f3d98dda1b154e9126a0294aaaaf3aa0c3ac8`.
+- Para o commit de código, a consulta de status combinado retornou lista vazia de checks e a consulta de workflows associados retornou lista vazia. Não há evidência de CI executado para o código desta missão.
 - Portanto, os testes foram escritos, mas não há evidência de execução CI para esta missão. Resultado: **BLOCKED — aguardando execução automatizada**.
 - Nenhum teste de navegador Android/desktop ou comunicação com IA externa foi executado.
 
