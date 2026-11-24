@@ -6,7 +6,7 @@ Conectar a sinalização de chamadas 1:1 já existente ao navegador, com captura
 ## Escopo implementado
 - Chamadas disponíveis apenas em conversas `PRIVATE` com exatamente duas identidades autorizadas.
 - A interface de salas exibe **Ligar** e **Encerrar chamada** somente em conversas privadas elegíveis.
-- O participante chamado recebe uma confirmação antes de aceitar; aceitar solicita permissão de microfone.
+- O participante chamado recebe uma confirmação antes de aceitar; aceitar solicita permissão de microfone. O chamador não ativa o microfone enquanto a chamada toca: só solicita acesso depois que o backend confirma o aceite.
 - O módulo `web/webrtc-call.js` cria `RTCPeerConnection`, obtém áudio via `getUserMedia({audio:true, video:false})`, envia tracks locais e recebe tracks remotas.
 - O fluxo de sinalização respeita o ciclo: `RINGING` → `ACCEPTED` → `CONNECTING` → `CONNECTED` (quando o navegador reportar conexão).
 - O chamador só cria/envia SDP OFFER depois de o backend confirmar `ACCEPTED`; o chamado processa OFFER e responde com ANSWER.
@@ -17,7 +17,7 @@ Conectar a sinalização de chamadas 1:1 já existente ao navegador, com captura
 
 ## Privacidade e segurança
 - Requer contexto seguro do navegador (HTTPS/localhost); caso contrário, o navegador bloqueia a preparação da chamada.
-- O microfone só é solicitado depois do clique em **Ligar** ou da confirmação explícita de aceitar uma chamada.
+- O microfone só é solicitado no lado chamado após a confirmação explícita de aceitar; no lado chamador, somente depois do aceite remoto da chamada iniciada por clique em **Ligar**.
 - O backend transporta somente metadados de sinalização (SDP/ICE); não recebe nem armazena o fluxo de áudio.
 - Os sinais SDP/ICE são removidos do SQLite quando a chamada termina, é rejeitada, cancelada ou expira.
 - Endpoints permanecem autenticados e restritos aos participantes da chamada.
