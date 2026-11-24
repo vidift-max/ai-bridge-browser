@@ -336,7 +336,7 @@ function createGuestRoomApp(doc = document, fetcher = fetch) {
 }
 const api = {
   requireSingleGuestRoom, buildGuestMessagePayload, createGuestRoomApp,
-  validateGuestTransportContract,
+  validateGuestTransportContract, buildGuestLongPollPath,
   createMessageDeduper, nextPollingDelayMs
 };
 if (typeof module !== "undefined" && module.exports) module.exports = api;
