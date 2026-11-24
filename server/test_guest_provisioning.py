@@ -283,6 +283,31 @@ class GuestCredentialProvisioningTest(unittest.TestCase):
         self.assertEqual(verify_messenger_data_consistency(self.path),
                          (True, "RESTORE_DATA_CONSISTENT"))
 
+    def test_credential_activation_failure_fails_closed(self):
+        with patch.object(
+                self.backend._authenticator,
+                "activate_persisted_credential",
+                side_effect=RuntimeError("registry activation failed")):
+            with self.assertRaisesRegex(RuntimeError, "registry activation failed"):
+                self.provision()
+
+        members = self.backend.conversation_members()["room-a"]
+        self.assertFalse(any(ai_id.startswith("AI-GUEST-") for ai_id in members))
+
+        application = self.store._connection.execute(
+            """SELECT provisioning_status, provisioned_ai_id
+               FROM guest_applications WHERE application_id=?""",
+            (self.application["applicationId"],),
+        ).fetchone()
+        self.assertEqual(application["provisioning_status"], "REVOKED")
+        self.assertIsNotNone(application["provisioned_ai_id"])
+
+        credential = self.store._connection.execute(
+            """SELECT status FROM credential_records WHERE ai_id=?""",
+            (application["provisioned_ai_id"],),
+        ).fetchone()
+        self.assertEqual(credential["status"], "REVOKED")
+
     def test_concurrent_provisioning_issues_at_most_one_credential(self):
         outcomes = []
         def worker():
