@@ -1,27 +1,27 @@
-# Mission 16 — OpenAI Request Verification & First Authorized Communication
+# Missão 17 — Modo Gratuito e Bloqueio de APIs Pagas
 
-## Ten rounds
-1. Rechecked Mission 15 PR #13 and its backend workflow; the workflow completed successfully.
-2. Audited the existing OpenAI Responses adapter, provider registry, authenticated status endpoint and request route.
-3. Created isolated branch `feat/mission-16-openai-live-validation` from Mission 15 head.
-4. Added in-memory proof metadata for a completed Responses API request: timestamp, response ID and model only.
-5. Kept `online=false` and `accountSessionConnected=false`; a successful API request is not a persistent ChatGPT session.
-6. Updated the provider catalog to expose `REQUEST_SUCCEEDED` only after a completed adapter response.
-7. Updated authenticated GPT-6 status and response payload semantics to expose request success without claiming continuous presence.
-8. Added deterministic adapter tests for successful mocked responses, server-side bearer usage, invalid/oversized inputs and incomplete upstream responses.
-9. Added provider-registry assertions and documentation for the distinction between configured, request-verified, online and consumer-session states.
-10. Added a dedicated CI workflow and opened a draft PR for review; no merge or deployment.
+## Dez rodadas
+1. Rechecamos a PR #14 e investigamos a CI: o teste falhou por uma chave `}` extra em `server/openai_text_adapter.py`.
+2. Confirmamos que a falha impedia a importação de seis módulos de teste; os demais testes continuaram executando.
+3. Criamos a branch isolada `feat/mission-17-free-mode-paid-api-guard`, baseada no head da Missão 16.
+4. Corrigimos o erro de sintaxe herdado da Missão 16.
+5. Criamos a configuração `OPENAI_API_CALLS_ENABLED`, com padrão `false` e validação estrita.
+6. Bloqueamos chamadas pagas na própria camada do adaptador, tanto Responses quanto Realtime.
+7. Bloqueamos as rotas HTTP de resposta e geração de client secret antes de qualquer acesso à rede.
+8. Atualizamos o catálogo: com a política fechada, capacidades pagas ficam vazias e o estado é `DISABLED_BY_POLICY`.
+9. Adicionamos testes de bloqueio sem rede, validação de configuração e visibilidade das capacidades.
+10. Atualizamos a documentação e abrimos PR draft para CI e revisão; nenhum merge ou deploy.
 
-## State model
-- `NOT_CONFIGURED`: no server API credential is configured.
-- `CONFIGURED_UNVERIFIED`: a credential exists, but no successful request has been observed by this process.
-- `REQUEST_SUCCEEDED`: at least one completed request succeeded in this process; this is historical request evidence, not a live connection.
-- `online` remains `false`; `accountSessionConnected` remains `false` for the API integration.
+## Política de custo
+- `OPENAI_API_CALLS_ENABLED=false` por padrão.
+- Chave API configurada não habilita chamadas.
+- Responses API e Realtime API falham antes de abrir conexão de rede quando o gate está fechado.
+- Nenhuma chave foi criada, armazenada ou exibida.
+- Nenhuma chamada real, simulada como faturamento, ou cobrança foi feita nesta missão.
+- A chave `OPENAI_API_CALLS_ENABLED=true` é apenas um interruptor técnico de configuração; não equivale à autorização do usuário. A política atual do projeto continua sendo não habilitar nem usar serviços pagos sem autorização explícita.
 
-The proof metadata is in memory and resets when the server process restarts. It contains no API key or message body.
+## Limitações
+Este trabalho não torna a OpenAI API gratuita. Ele evita que o AI Bridge faça chamadas a ela por acidente. O modo gratuito continua dependendo dos recursos locais, Wi-Fi e serviços cujos planos gratuitos sejam suficientes. Limites e termos de terceiros podem mudar.
 
-## Live-call boundary
-All Mission 16 automated network tests use mocked HTTP responses. No real API key was provisioned, no real or billable OpenAI request was made, and no physical browser/device test occurred. A live communication test remains blocked until the user provisions a server-side secret through a secure environment configuration path and explicitly authorizes one request.
-
-## Validation
+## Validação
 `python -m unittest discover -s server -p 'test_*.py' -v`
