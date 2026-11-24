@@ -53,7 +53,7 @@ class MessengerBackendTest(unittest.TestCase):
 
     def test_group_message_fans_out_only_to_selected_room_members(self):
         self.backend.create_conversation(
-            "opaque-a", "multi-ai-room", ["AI-A", "AI-B", "AI-C"], "GROUP")
+            "opaque-a", "multi-ai-room", ["AI-A", "AI-B", "AI-C", "AI-D"], "GROUP")
         message = self.backend.submit(
             "opaque-a", "multi-ai-group-msg", "multi-ai-room",
             ["AI-B", "AI-C"], "coordenação entre IAs", "multi-ai-group-req")
