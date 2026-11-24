@@ -124,7 +124,7 @@ function configureRoomCalls(room){
  const peerId=room.memberAiIds.find(id=>id!==identity.aiId);
  callClient=window.AIBridgeWebRTCCall.createClient({
   aiId:identity.aiId,api,
-  onState:(state,detail)=>{$('callStatus').textContent='Chamada: '+state+(detail?' · '+detail:'');$('endCall').disabled=!callClient?.getCall()},
+  onState:(state,detail)=>{const terminal=['REJECTED','CANCELLED','ENDED','TIMED_OUT'];$('callStatus').textContent='Chamada: '+state+(detail?' · '+detail:'');$('endCall').disabled=!callClient?.getCall()||terminal.includes(state);$('startCall').disabled=!!callClient?.getCall()&&!terminal.includes(state)},
   onRemoteStream:stream=>{$('remoteAudio').srcObject=stream;$('remoteAudio').play().catch(()=>{$('callStatus').textContent+=' · Toque em reproduzir para ouvir.'})}
  });
  $('startCall').disabled=false;$('endCall').disabled=true;
