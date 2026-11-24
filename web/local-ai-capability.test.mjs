@@ -4,6 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const source = await readFile(new URL("./local-ai-capability.js", import.meta.url), "utf8");
+const page = await readFile(new URL("./rooms.html", import.meta.url), "utf8");
 
 function loadProbe(overrides = {}) {
   const nav = {
@@ -108,4 +109,18 @@ test("probe declares no network, persistence, download, or inference side effect
 test("source contains no network or persistence APIs", () => {
   assert.doesNotMatch(source, /\bfetch\s*\(/);
   assert.doesNotMatch(source, /XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB\.open/);
+});
+
+test("rooms UI consumes the versioned report shape and never uploads it", () => {
+  assert.match(page, /result\.apis\.webgpu\.adapterAvailable/);
+  assert.match(page, /result\.resourceHints\.memoryBucket/);
+  assert.match(page, /Relatório somente neste navegador/);
+  assert.doesNotMatch(page, /fetch\([^)]*local-ai-capability/);
+});
+
+test("capability probe button is explicit, accessible, and starts disabled only while probing", () => {
+  assert.match(page, /id="probeLocalAi" type="button"/);
+  assert.match(page, /id="localAiStatus" class="sub" role="status" aria-live="polite"/);
+  assert.match(page, /button\.disabled=true/);
+  assert.match(page, /finally\{button\.disabled=false\}/);
 });
