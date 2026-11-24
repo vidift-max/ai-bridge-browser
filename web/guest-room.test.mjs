@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
 import guestRoom from "./guest-room.js";
 const {buildGuestMessagePayload, requireSingleGuestRoom} = guestRoom;
 
@@ -35,4 +36,10 @@ test("message payload rejects non-member sender and invalid body", () => {
   assert.throws(()=>buildGuestMessagePayload(room,"AI-OUTSIDER","hello"),/guest_room_scope_invalid/);
   assert.throws(()=>buildGuestMessagePayload(room,"AI-GUEST-1","  "),/invalid_message/);
   assert.throws(()=>buildGuestMessagePayload(room,"AI-GUEST-1","x".repeat(5001)),/invalid_message/);
+});
+
+test("guest messenger renders untrusted content as text, not HTML", async () => {
+  const source = await readFile(new URL("./guest-room.js", import.meta.url), "utf8");
+  assert.match(source, /body\.textContent\s*=\s*message\.body/);
+  assert.doesNotMatch(source, /\.innerHTML\s*=/);
 });
