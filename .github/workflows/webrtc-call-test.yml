@@ -1,5 +1,5 @@
 name: AI Bridge Browser WebRTC Client Tests
-# Keeps stacked Mission 10 pull requests under automated validation.
+# Keeps stacked Mission 10 pull requests under automated validation and reruns tests after revisions.
 
 on:
   pull_request:
