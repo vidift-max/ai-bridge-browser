@@ -2,7 +2,7 @@ name: Messenger Backend Test
 
 on:
   push:
-    branches: [v2-saas-alpha]
+    branches: [v2-saas-alpha, feat/mission-08-identity-validation]
     paths:
       - 'server/**'
       - 'render.yaml'
