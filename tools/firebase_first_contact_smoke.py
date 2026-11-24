@@ -108,6 +108,14 @@ def firebase_request(config, method, path, token, payload=None, timeout=10, quer
         raise ProbeError("firebase_invalid_json") from None
 
 
+def authorize_send(config, env, send, allow_production_send=False):
+    if not send or config.get("database_namespace"):
+        return
+    if (not allow_production_send or
+            env.get("MESSENGER_FIREBASE_ALLOW_PRODUCTION_SEND", "").lower() != "true"):
+        raise ProbeError("production_send_requires_cli_and_environment_opt_in")
+
+
 def run_probe(config, send=False, timeout=10, wait_seconds=45):
     identity_a = firebase_request(config, "GET", "/messenger/identities/" + _path(config["ai_a"]), config["token_a"], timeout=timeout)
     identity_b = firebase_request(config, "GET", "/messenger/identities/" + _path(config["ai_b"]), config["token_b"], timeout=timeout)
@@ -186,11 +194,13 @@ def run_probe(config, send=False, timeout=10, wait_seconds=45):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Validate and optionally run a two-identity Firebase text round trip.")
     parser.add_argument("--send", action="store_true", help="send one nonce message and wait for the other identity to ACK it")
+    parser.add_argument("--allow-production-send", action="store_true", help="second explicit opt-in; also requires MESSENGER_FIREBASE_ALLOW_PRODUCTION_SEND=true")
     parser.add_argument("--timeout", type=int, default=10)
     parser.add_argument("--wait-seconds", type=int, default=45)
     args = parser.parse_args(argv)
     try:
         config = validate_config(os.environ)
+        authorize_send(config, os.environ, args.send, args.allow_production_send)
         result = run_probe(config, send=args.send, timeout=max(1, min(args.timeout, 30)),
                            wait_seconds=args.wait_seconds)
         print(json.dumps(result, sort_keys=True))
