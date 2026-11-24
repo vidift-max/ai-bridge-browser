@@ -70,6 +70,12 @@ class GuestCredentialProvisioningTest(unittest.TestCase):
             self.backend.provision_guest_application(
                 "admin-token", "room-a", pending["applicationId"])
 
+    def test_application_cannot_be_provisioned_through_another_room_route(self):
+        with self.assertRaisesRegex(ValueError, "guest_application_unavailable"):
+            self.backend.provision_guest_application(
+                "admin-token", "room-b", self.application["applicationId"])
+        self.assertNotIn("AI-GUEST", ",".join(self.backend.conversation_members()["room-b"]))
+
     def test_non_admin_cannot_provision(self):
         with self.assertRaisesRegex(PermissionError, "room_admin_required"):
             self.backend.provision_guest_application(
@@ -111,6 +117,23 @@ class GuestCredentialProvisioningTest(unittest.TestCase):
         status = self.store._connection.execute(
             "SELECT status FROM credential_records WHERE ai_id=?", (ai_id,)).fetchone()[0]
         self.assertEqual(status, "REVOKED")
+
+    def test_revocation_survives_backend_restart(self):
+        result = self.provision()
+        token = result["credential"]
+        ai_id = result["identity"]["aiId"]
+        self.backend.revoke_guest_provisioning(
+            "admin-token", "room-a", self.application["applicationId"])
+        self.backend.close()
+        new_store = SQLiteMessengerStore(self.path)
+        new_backend = MessengerBackend(
+            self.tokens, {}, new_store, authenticator=Authenticator(self.tokens))
+        try:
+            with self.assertRaisesRegex(PermissionError, "authentication_required"):
+                new_backend.authenticate(token)
+            self.assertNotIn(ai_id, new_backend.conversation_members()["room-a"])
+        finally:
+            new_backend.close()
 
     def test_credential_expiry_is_enforced(self):
         result = self.provision()
