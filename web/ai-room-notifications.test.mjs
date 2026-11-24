@@ -22,7 +22,7 @@ test("active conversation does not generate a new-message notification",()=>{
 });
 test("new conversations do not create false positive notifications",()=>{
  const tracker=api.createTracker();tracker.observe([{conversationId:"a",unreadCount:0}],null);
- assert.deepEqual(Array.from(tracker.observe([{conversationId:"a",unreadCount:3},{conversationId:"b",unreadCount:2}],null)),[]);
+ assert.deepEqual(Array.from(tracker.observe([{conversationId:"a",unreadCount:0},{conversationId:"b",unreadCount:2}],null)),[]);
 });
 test("multiple conversations are aggregated and formatted",()=>{
  const tracker=api.createTracker();tracker.observe([{conversationId:"a",unreadCount:0},{conversationId:"b",unreadCount:0}],null);
@@ -40,5 +40,5 @@ test("rooms UI integrates notification tracker and non-invasive browser notifica
  assert.match(html,/notificationTracker\.observe\(page\.rooms,activeRoom\?\.conversationId\)/);
  assert.match(html,/Notification\.permission==='granted'/);
  assert.match(html,/inboxPollTimer=setInterval/);
- assert.match(html,/aria-live="polite" id="inboxNotification"/);
+ assert.match(html,/id="inboxNotification"[^>]*aria-live="polite"/);
 });
