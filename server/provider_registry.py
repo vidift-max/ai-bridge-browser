@@ -10,9 +10,16 @@ class ProviderRegistry:
         status = {}
         if self._openai is not None and hasattr(self._openai, "connection_status"):
             status = self._openai.connection_status()
+        api_calls_enabled = bool(
+            self._openai is not None
+            and hasattr(self._openai, "api_calls_enabled")
+            and self._openai.api_calls_enabled()
+        )
         openai_state = status.get(
             "connectionState",
-            "CONFIGURED_UNVERIFIED" if openai_configured else "NOT_CONFIGURED",
+            "DISABLED_BY_POLICY" if not api_calls_enabled else (
+                "CONFIGURED_UNVERIFIED" if openai_configured else "NOT_CONFIGURED"
+            ),
         )
         return [
             {
@@ -23,13 +30,14 @@ class ProviderRegistry:
                 "identityType": "project_api_credential",
                 "credentialSource": "OPENAI_API_KEY",
                 "configured": openai_configured,
+                "apiCallsEnabled": api_calls_enabled,
                 "connectionState": openai_state,
                 "lastSuccessfulRequestAt": status.get("lastSuccessfulRequestAt"),
                 "lastResponseId": status.get("lastResponseId"),
                 "lastSuccessfulModel": status.get("lastSuccessfulModel"),
                 "online": False,
                 "accountSessionConnected": False,
-                "capabilities": ["text_response", "realtime_client_secret"],
+                "capabilities": ["text_response", "realtime_client_secret"] if api_calls_enabled else [],
             },
             {
                 "providerId": "anthropic",
