@@ -8,9 +8,9 @@ class Mission91RenderBoundaryTest(unittest.TestCase):
     def test_staging_blueprint_isolated_and_persistent(self):
         text = (self.ROOT / "render.staging.yaml").read_text(encoding="utf-8")
         self.assertIn("name: ai-bridge-browser-staging", text)
-        self.assertIn("plan: starter", text)
-        self.assertIn("value: persistent", text)
-        self.assertIn("mountPath: /var/data", text)
+        self.assertIn("plan: free", text)
+        self.assertIn("value: ephemeral", text)
+        self.assertIn("value: ':memory:'", text)
 
     def test_staging_blueprint_does_not_auto_deploy_from_m91_contract(self):
         doc = (self.ROOT / "docs/MISSION_91_RENDER_STAGING_PLAN.md").read_text(encoding="utf-8")
