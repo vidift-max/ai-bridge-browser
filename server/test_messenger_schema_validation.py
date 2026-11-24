@@ -16,6 +16,27 @@ class MessengerSchemaValidationTests(unittest.TestCase):
             self.assertEqual(verify_messenger_schema(str(path)),
                              (True, "RESTORE_SCHEMA_COMPATIBLE"))
 
+    def test_accepts_legacy_schema_v6_with_invites(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "schema-v6.sqlite"
+            store = SQLiteMessengerStore(str(path))
+            store.close()
+            with sqlite3.connect(path) as connection:
+                connection.execute("DROP TABLE ai_identity_directory")
+                connection.execute("UPDATE schema_meta SET value='6' WHERE key='version'")
+            self.assertEqual(verify_messenger_schema(str(path)),
+                             (True, "RESTORE_SCHEMA_COMPATIBLE"))
+
+    def test_schema_v7_requires_identity_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "missing-identity.sqlite"
+            store = SQLiteMessengerStore(str(path))
+            store.close()
+            with sqlite3.connect(path) as connection:
+                connection.execute("DROP TABLE ai_identity_directory")
+            self.assertEqual(verify_messenger_schema(str(path)),
+                             (False, "RESTORE_SCHEMA_UNSUPPORTED"))
+
     def test_rejects_database_without_messenger_schema(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "other.sqlite"
