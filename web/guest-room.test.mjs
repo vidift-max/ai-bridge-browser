@@ -134,3 +134,34 @@ test("transport validator accepts the versioned bounded long-poll contract", () 
   });
 });
 
+
+test("transport validator rejects wrong room, version, authorization, and transport", () => {
+  const cases = [
+    [validTransportContract({conversationId: "room-b"}), "room-a"],
+    [validTransportContract({contractVersion: 2}), "room-a"],
+    [validTransportContract({authorized: false}), "room-a"],
+    [validTransportContract({defaultTransport: "WEBSOCKET"}), "room-a"]
+  ];
+  for (const [contract, roomId] of cases) {
+    assert.throws(() => validateGuestTransportContract(contract, roomId), /guest_transport_unavailable/);
+  }
+});
+
+test("transport validator rejects unsafe bounds, cursor changes, and unimplemented transports", () => {
+  const mutations = [
+    value => { value.transports.httpLongPoll.maxWaitSeconds = 26; },
+    value => { value.transports.httpLongPoll.defaultWaitSeconds = 30; },
+    value => { value.transports.httpLongPoll.maxBatchSize = 101; },
+    value => { value.transports.httpLongPoll.minWaitSeconds = -1; },
+    value => { value.cursor.ackRequired = false; },
+    value => { value.cursor.type = "opaque"; },
+    value => { value.transports.webSocket.enabled = true; },
+    value => { value.transports.serverPush.enabled = true; }
+  ];
+  for (const mutate of mutations) {
+    const contract = structuredClone(validTransportContract());
+    mutate(contract);
+    assert.throws(() => validateGuestTransportContract(contract, "room-a"), /guest_transport_unavailable/);
+  }
+});
+
