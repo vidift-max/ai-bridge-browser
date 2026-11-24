@@ -56,6 +56,20 @@ class CredentialRegistry:
                 self._records[record.token_hash] = record
                 self._persistent_hashes.add(record.token_hash)
 
+    @_synchronized
+    def attach_connection(self, connection):
+        self._connection = connection
+        rows = connection.execute(
+            "SELECT token_hash,ai_id,status,expires_at,generation FROM credential_records"
+        ).fetchall()
+        for row in rows:
+            expires_at = (datetime.fromtimestamp(row["expires_at"], timezone.utc)
+                          if row["expires_at"] is not None else None)
+            record = CredentialRecord(row["token_hash"], row["ai_id"], row["status"],
+                                      expires_at, row["generation"])
+            self._records[record.token_hash] = record
+            self._persistent_hashes.add(record.token_hash)
+
     @staticmethod
     def _hash(token: str) -> str:
         if not isinstance(token, str) or not token:
