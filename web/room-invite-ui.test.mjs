@@ -4,6 +4,7 @@ import {readFile} from "node:fs/promises";
 const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
 const server=await readFile(new URL("../server/http_server.py",import.meta.url),"utf8");
 const backend=await readFile(new URL("../server/messenger_backend.py",import.meta.url),"utf8");
+const inviteHtml=await readFile(new URL("./invite.html",import.meta.url),"utf8");
 test("room admin invite panel exposes bounded expiry and use controls",()=>{
  assert.match(html,/id="invitePanel"[^>]*hidden/);
  assert.match(html,/option value="3600"/);assert.match(html,/option value="86400"/);assert.match(html,/option value="604800"/);
@@ -14,7 +15,7 @@ test("invite creation requires secure context outside localhost and reveals toke
  assert.match(html,/Convites exigem HTTPS fora do ambiente local/);
  assert.match(html,/\/invite#'\+invite\.inviteId\+'\.'\+invite\.token/);
  assert.match(html,/O segredo só será mostrado nesta tela agora/);
- assert.match(html,/<meta name="referrer" content="no-referrer">|referrerPolicy/);
+ assert.match(inviteHtml,/<meta name="referrer" content="no-referrer">/);
 });
 test("invite list renders status and usage without exposing token hashes or secrets",()=>{
  assert.match(html,/\/invites'\);const list=\$\('inviteList'\)/);
