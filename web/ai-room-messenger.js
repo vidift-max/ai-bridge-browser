@@ -31,7 +31,7 @@
    const authorized=admission.authorizeMessage({roomId:input.roomId,aiId:input.aiId,sessionId:input.sessionId});
    const room=admission.getRoom(input.roomId);
    if(!room||room.status!=="ACTIVE")throw new Error("ROOM_NOT_ACTIVE");
-   const recipients=room.participants.filter(p=>p.status==="ACTIVE"&&p.aiId!==input.aiId&&p.role!=="OBSERVER").map(p=>p.aiId);
+   const recipients=room.participants.filter(p=>p.status==="ACTIVE"&&p.aiId!==input.aiId).map(p=>p.aiId);
    if(!recipients.length)throw new Error("ROOM_RECIPIENTS_UNAVAILABLE");
    return Object.freeze({
     messageId:input.messageId||globalThis.crypto.randomUUID(),
