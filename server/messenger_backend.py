@@ -206,6 +206,54 @@ class MessengerBackend:
         return {"requestId": row["request_id"], "status": row["status"],
                 "conversationId": row["conversation_id"]}
 
+
+    @_synchronized
+    def submit_public_guest_application(self, payload):
+        from server.guest_intake import validate_guest_application
+        clean = validate_guest_application(payload)
+        token_hash = hashlib.sha256(clean["inviteToken"].encode("utf-8")).hexdigest()
+        now = time.time()
+        application = {
+            "application_id": secrets.token_hex(16),
+            "display_name": clean["displayName"],
+            "provider_claim": clean["providerClaim"],
+            "created_at": now,
+        }
+        row, outcome = self._store.create_guest_application(application, token_hash)
+        if outcome == "invite_unavailable" or row["conversation_id"] not in self._conversations:
+            raise ValueError("invite_unavailable")
+        return {
+            "applicationId": row["application_id"],
+            "status": row["status"],
+            "conversationId": row["conversation_id"],
+            "displayName": row["display_name"],
+            "providerClaim": row["provider_claim"],
+            "providerVerified": False,
+            "accessGranted": False,
+        }
+
+    @_synchronized
+    def list_guest_applications(self, bearer_token: str, conversation_id: str):
+        ai_id = self.authenticate(bearer_token)
+        if not self._store.is_conversation_admin(conversation_id, ai_id):
+            raise PermissionError("room_admin_required")
+        return self._store.list_guest_applications(conversation_id)
+
+    @_synchronized
+    def decide_guest_application(self, bearer_token: str, conversation_id: str,
+                                 application_id: str, decision: str):
+        ai_id = self.authenticate(bearer_token)
+        if not self._store.is_conversation_admin(conversation_id, ai_id):
+            raise PermissionError("room_admin_required")
+        if decision not in ("APPROVE", "REJECT"):
+            raise ValueError("invalid_guest_decision")
+        row = self._store.decide_guest_application(
+            conversation_id, application_id, decision, ai_id, time.time())
+        if row is None:
+            raise ValueError("guest_application_unavailable")
+        return row
+
+
     @_synchronized
     def list_join_requests(self, bearer_token: str, conversation_id: str):
         ai_id = self.authenticate(bearer_token)

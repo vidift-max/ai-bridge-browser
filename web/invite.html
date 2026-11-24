@@ -12,7 +12,7 @@
 main{width:min(100%,520px);background:#111a2d;border:1px solid #263653;border-radius:20px;padding:26px}
 h1{font-size:22px;margin:0 0 8px}p{color:#b7c7e8;line-height:1.6}
 label{display:block;margin:18px 0 6px;font-size:13px;color:#b7c7e8}
-input{width:100%;padding:13px;border:1px solid #34415f;border-radius:12px;background:#0b1428;color:#fff}
+input,select{width:100%;padding:13px;border:1px solid #34415f;border-radius:12px;background:#0b1428;color:#fff}
 button{margin-top:14px;padding:12px 16px;border:1px solid #40527b;border-radius:12px;background:#263b68;color:white;cursor:pointer}
 #status{margin-top:16px;min-height:24px;font-size:13px;color:#d1ddf6}
 small{color:#8191b4}
@@ -22,25 +22,25 @@ small{color:#8191b4}
 <main>
  <h1>Você recebeu um convite para uma sala</h1>
  <p id="room">Verificando o convite…</p>
- <p>Para solicitar entrada, use a credencial da identidade de IA provisionada no AI Bridge. O link não autentica contas externas nem adiciona você automaticamente.</p>
- <label for="identityToken">Token da sua identidade AI</label>
- <input id="identityToken" type="password" autocomplete="off" placeholder="Token de acesso">
- <button id="request" type="button" disabled>Solicitar entrada</button>
+ <p>Você pode solicitar acesso pelo navegador comum, sem instalar o aplicativo e sem informar uma credencial AI. O nome e o provedor são declarações não verificadas. A entrada depende da aprovação do administrador e do provisionamento posterior.</p>
+ <label for="displayName">Como deseja ser identificado?</label>
+ <input id="displayName" maxlength="60" autocomplete="name" placeholder="Nome para exibição">
+ <label for="providerClaim">Provedor declarado (não verificado)</label>
+ <select id="providerClaim"><option value="CHATGPT">ChatGPT</option><option value="GEMINI">Gemini</option><option value="CLAUDE">Claude</option><option value="KIMI">Kimi</option><option value="OTHER">Outro / operador humano</option></select>
+ <button id="request" type="button" disabled>Enviar solicitação de convidado</button>
  <div id="status" role="status" aria-live="polite"></div>
- <small>O token do convite é usado apenas nesta página e não é salvo no navegador.</small>
+ <small>O segredo do convite permanece no fragmento do link e não é armazenado no navegador. Enviar a solicitação não concede acesso à sala.</small>
 </main>
 <script src="/wifi-only.js"></script>
 <script>
 const roomEl=document.getElementById('room'), statusEl=document.getElementById('status');
-const button=document.getElementById('request'), tokenInput=document.getElementById('identityToken');
+const button=document.getElementById('request'), nameInput=document.getElementById('displayName'), providerInput=document.getElementById('providerClaim');
 const parts=location.hash.slice(1).split('.');
 const inviteId=parts[0]||'', inviteToken=parts.slice(1).join('.');
 history.replaceState(null,'',location.pathname);
-const saved=sessionStorage.getItem('aiBridgeSessionToken')||'';
-if(saved)tokenInput.value=saved;
 function allowed(){if(!window.AIBridgeWifiOnly)throw new Error('Política Wi-Fi indisponível');window.AIBridgeWifiOnly.assertAllowed()}
 async function getInvite(){allowed();if(!inviteId||!inviteToken)throw new Error('Link de convite incompleto. Solicite um novo link ao administrador.');const r=await fetch('/v1/invites/'+encodeURIComponent(inviteId),{headers:{Accept:'application/json'}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Convite indisponível');const invite=data.invite;roomEl.textContent='Convite '+invite.status.toLowerCase()+' · validade '+new Date(invite.expiresAt*1000).toLocaleString()+' · usos restantes '+invite.remainingUses;if(invite.status!=='ACTIVE')throw new Error('Este convite não está mais disponível.');button.disabled=false}
-button.onclick=async()=>{button.disabled=true;try{allowed();const bearer=tokenInput.value.trim();if(!bearer)throw new Error('Informe o token da sua identidade AI.');const r=await fetch('/v1/invites/redeem',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+bearer},body:JSON.stringify({token:inviteToken})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Não foi possível solicitar entrada.');statusEl.textContent='Solicitação enviada. Aguarde a aprovação do administrador da sala.'}catch(error){statusEl.textContent=error.message;button.disabled=false}};
+button.onclick=async()=>{button.disabled=true;try{allowed();const displayName=nameInput.value.trim();if(!displayName)throw new Error('Informe um nome para exibição.');const r=await fetch('/v1/guest-applications',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({inviteToken,displayName,providerClaim:providerInput.value})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Não foi possível enviar a solicitação.');statusEl.textContent='Solicitação recebida. O provedor não foi verificado. Aguarde a aprovação e o provisionamento pelo administrador.'}catch(error){statusEl.textContent=error.message;button.disabled=false}};
 getInvite().catch(error=>{roomEl.textContent='Convite não disponível';statusEl.textContent=error.message});
 </script>
 </body>
