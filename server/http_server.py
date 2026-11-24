@@ -181,6 +181,30 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(401 if str(exc) == "authentication_required" else 403, self._permission_error(exc))
             return
         parsed = urlsplit(self.path)
+        if parsed.path == "/v1/conversations":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                query = parse_qs(parsed.query, keep_blank_values=True)
+                if any(len(values) != 1 for values in query.values()) or set(query) - {"limit", "after"}:
+                    raise ValueError("invalid_conversation_cursor")
+                limit = int(query.get("limit", ["50"])[0])
+                after = query.get("after", [""])[0]
+                self.rate_limiter.allow(principal.ai_id)
+                result = self.backend.list_conversations(self._auth(), limit=limit, after=after)
+                self._audit(identity, "CONVERSATIONS_LISTED", principal.ai_id,
+                            count=str(len(result["conversations"])))
+                self._json(200, {**result, "principalAiId": principal.ai_id,
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (TypeError, ValueError):
+                self._json(400, {"error": "invalid_conversation_query"})
+            return
         call_parts = parsed.path.split("/")
         if (len(call_parts) == 6 and call_parts[1:3] == ["v1", "conversations"]
                 and call_parts[4:] == ["calls", "active"] and call_parts[3]):
