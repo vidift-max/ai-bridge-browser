@@ -16,7 +16,7 @@ function loadVoice(overrides = {}) {
       return overrides.availability ?? "available";
     }
     constructor() {
-      this.processLocally = false;
+      if (!overrides.noLocalFlag) this.processLocally = false;
       state.recognition = this;
     }
     start() { this.started = true; if (this.onstart) this.onstart(); }
@@ -60,6 +60,21 @@ test("dictation is disabled when local language pack is not available", async ()
   await assert.rejects(
     api.createController().startDictation({ value: "", dispatchEvent() {} }),
     /LOCAL_LANGUAGE_PACK_NOT_AVAILABLE/
+  );
+});
+
+test("dictation stays disabled when recognition API is absent", async () => {
+  const { api } = loadVoice({ noRecognition: true });
+  const capability = await api.inspect();
+  assert.equal(capability.dictationAvailable, false);
+  assert.equal(capability.dictationReason, "LOCAL_SPEECH_RECOGNITION_UNAVAILABLE");
+});
+
+test("dictation refuses an implementation without the local-processing flag", async () => {
+  const { api } = loadVoice({ noLocalFlag: true });
+  await assert.rejects(
+    api.createController().startDictation({ value: "", dispatchEvent() {} }),
+    /LOCAL_PROCESSING_FLAG_UNSUPPORTED/
   );
 });
 
