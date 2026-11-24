@@ -50,14 +50,14 @@ class MessengerBackend:
     MAX_ID_LENGTH = 200
     MAX_ROOM_MEMBERS = 20
 
-    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None):
+    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None, identity_display_names=None):
         self._lock = RLock()
         self._tokens = dict(tokens)
         self._known_ai_ids = set(tokens.values())
         self._authenticator = authenticator or Authenticator(tokens)
         self._store = store or SQLiteMessengerStore(":memory:")
         self._presence = PresenceService(self._store._connection)
-        self._identities = IdentityDirectory(self._store._connection, self._known_ai_ids)
+        self._identities = IdentityDirectory(self._store._connection, self._known_ai_ids, identity_display_names)
         self._conversations = self._store.load_conversations()
         self._conversation_kinds = self._store.load_conversation_kinds()
         for conversation_id, members in conversations.items():
