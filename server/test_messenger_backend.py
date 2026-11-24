@@ -578,5 +578,15 @@ class MessengerBackendTest(unittest.TestCase):
                     self.backend.history("opaque-b", "room-1",
                                          before_sequence=cursor, limit=limit)
 
+
+    def test_history_does_not_expose_messages_to_room_members_outside_recipient_scope(self):
+        self.backend.create_conversation("opaque-a", "history-private-scope",
+                                         ["AI-A", "AI-B", "AI-C"], "GROUP")
+        self.backend.submit("opaque-a", "history-private-scope-msg", "history-private-scope",
+                            ["AI-B"], "recipient only", "history-private-scope-req")
+        self.assertEqual(self.backend.history("opaque-c", "history-private-scope"), [])
+        self.assertEqual(len(self.backend.history("opaque-b", "history-private-scope")), 1)
+        self.assertEqual(len(self.backend.history("opaque-a", "history-private-scope")), 1)
+
 if __name__ == "__main__":
     unittest.main()
