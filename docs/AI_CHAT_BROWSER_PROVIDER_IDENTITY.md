@@ -1,29 +1,27 @@
-# Mission 15 — Provider Identity Registry & First Authorized Connector
+# Mission 16 — OpenAI Request Verification & First Authorized Communication
 
 ## Ten rounds
-1. Audited Mission 14 and Mission 13 pull requests; both remain open and unmerged.
-2. Reviewed official provider documentation: OpenAI API uses API credentials and server-side bearer authentication; this is distinct from a ChatGPT consumer-account session.
-3. Confirmed the repository already contains a server-side OpenAI Responses adapter and authenticated GPT-6 routes; avoided duplicating the connector.
-4. Created an isolated Mission 15 branch based on Mission 14.
-5. Added a provider registry for OpenAI, Anthropic Claude API and Google Gemini API.
-6. Made provider identity explicit: project API credential, Console API credential, or developer API credential; these are not consumer account sessions.
-7. Added honest states: configured does not mean connected; OpenAI remains CONFIGURED_UNVERIFIED until a real successful request is observed.
-8. Added an authenticated provider catalog endpoint and tightened GPT-6 status semantics so configured credentials do not make the AI appear online.
-9. Added deterministic tests for provider states, unsupported providers, and credential-value non-disclosure.
-10. Added dedicated backend CI and documentation with the operational activation boundary.
+1. Rechecked Mission 15 PR #13 and its backend workflow; the workflow completed successfully.
+2. Audited the existing OpenAI Responses adapter, provider registry, authenticated status endpoint and request route.
+3. Created isolated branch `feat/mission-16-openai-live-validation` from Mission 15 head.
+4. Added in-memory proof metadata for a completed Responses API request: timestamp, response ID and model only.
+5. Kept `online=false` and `accountSessionConnected=false`; a successful API request is not a persistent ChatGPT session.
+6. Updated the provider catalog to expose `REQUEST_SUCCEEDED` only after a completed adapter response.
+7. Updated authenticated GPT-6 status and response payload semantics to expose request success without claiming continuous presence.
+8. Added deterministic adapter tests for successful mocked responses, server-side bearer usage, invalid/oversized inputs and incomplete upstream responses.
+9. Added provider-registry assertions and documentation for the distinction between configured, request-verified, online and consumer-session states.
+10. Added a dedicated CI workflow and opened a draft PR for review; no merge or deployment.
 
-## Provider feasibility result
-- OpenAI: an existing server-side Responses API adapter is implemented. It requires a separately provisioned OpenAI API credential; a ChatGPT subscription/session is not the same credential. The catalog reports only whether the server has a configured key, not whether the key is valid or the service is reachable.
-- Anthropic Claude: official Claude API access requires a Claude Console API key or a supported workload identity flow. This repository does not yet implement that connector.
-- Google Gemini: official Gemini API supports developer API credentials and OAuth flows depending on product. This repository does not yet implement that connector.
-- No browser scraping, cookie access, login automation, CAPTCHA/2FA bypass, or consumer account impersonation is supported.
+## State model
+- `NOT_CONFIGURED`: no server API credential is configured.
+- `CONFIGURED_UNVERIFIED`: a credential exists, but no successful request has been observed by this process.
+- `REQUEST_SUCCEEDED`: at least one completed request succeeded in this process; this is historical request evidence, not a live connection.
+- `online` remains `false`; `accountSessionConnected` remains `false` for the API integration.
 
-## API
-Authenticated `GET /v1/providers` returns a safe catalog. It never returns secret values.
-Existing authenticated `POST /v1/gpt6/respond` remains the OpenAI API message path. A successful response proves that one request completed; it does not create a persistent ChatGPT web session or a permanent online presence.
+The proof metadata is in memory and resets when the server process restarts. It contains no API key or message body.
 
-## Activation boundary
-No API key was supplied or activated in this mission. No paid API request was made. No real provider connectivity is claimed. To test a live connector later, an authorized server-side credential must be provisioned by the user and a single request must be explicitly approved, since API usage may incur charges.
+## Live-call boundary
+All Mission 16 automated network tests use mocked HTTP responses. No real API key was provisioned, no real or billable OpenAI request was made, and no physical browser/device test occurred. A live communication test remains blocked until the user provisions a server-side secret through a secure environment configuration path and explicitly authorizes one request.
 
 ## Validation
 `python -m unittest discover -s server -p 'test_*.py' -v`
