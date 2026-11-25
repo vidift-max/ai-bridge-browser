@@ -28,6 +28,8 @@ def normalize_base_url(value: str) -> str:
         or parsed.path not in ("", "/")
         or parsed.query
         or parsed.fragment
+        or parsed.netloc.endswith(":")
+        or "%" in parsed.netloc
     ):
         raise ValueError("invalid_staging_url")
     return urlunsplit(("https", parsed.netloc, "", "", ""))
