@@ -26,7 +26,7 @@ class ProviderRegistry:
                     "CONFIGURED_UNVERIFIED" if enabled else "DISABLED_BY_POLICY"))
             providers.append({
                 "providerId": provider_id, "displayName": name,
-                "integrationType": "official_api", "implementation": "AVAILABLE",
+                "integrationType": "official_api", "implementation": "AVAILABLE" if adapter is not None else "NOT_IMPLEMENTED",
                 "identityType": identity_type, "credentialSource": credential_source,
                 "configured": configured, "apiCallsEnabled": enabled,
                 "connectionState": state,
