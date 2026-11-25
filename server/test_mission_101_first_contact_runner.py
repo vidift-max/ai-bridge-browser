@@ -37,7 +37,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                 return 200, {"principalAiId": "AI-02", "messages": [{
                     "messageId": message_id["value"], "conversationId": "room",
                     "senderAiId": "AI-01", "body": "AI-01 -> AI-02 first-contact verification",
-                    "sequence": 1}]}
+                    "sequence": 150}]}
             if path == "/v1/messages":
                 self.assertEqual(token, "a")
                 self.assertNotIn("senderAiId", payload)
@@ -49,7 +49,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                 return 200, {"messageId": message_id["value"], "state": "ACKNOWLEDGED", "principalAiId": "AI-02"}
             if path.startswith("/v1/conversations/room/messages?"):
                 self.assertEqual(token, "b")
-                self.assertIn("after=0", path)
+                self.assertIn("after=149", path)
                 self.assertIn("limit=100", path)
                 return 200, {"principalAiId": "AI-02", "messages": []}
             self.fail("unexpected_request:" + path)
@@ -119,6 +119,28 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             self.fail("unexpected_request:" + path)
 
         with self.assertRaisesRegex(RuntimeError, "acknowledged_message_still_pending"):
+            runner.run_first_contact("https://stage.example", "room", "a", "b", fake_request)
+
+
+    def test_rejects_missing_or_invalid_received_sequence_before_ack(self):
+        import threading
+        ready = threading.Event()
+
+        def fake_request(base, path, token, method="GET", payload=None):
+            if path == "/v1/me/identity":
+                return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
+            if path.startswith("/v1/conversations/room/messages/wait?"):
+                ready.wait(1)
+                return 200, {"principalAiId": "AI-02", "messages": [{
+                    "messageId": "target", "conversationId": "room",
+                    "senderAiId": "AI-01", "body": "AI-01 -> AI-02 first-contact verification",
+                    "sequence": True}]}
+            if path == "/v1/messages":
+                ready.set()
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+            self.fail("unexpected_request:" + path)
+
+        with self.assertRaisesRegex(RuntimeError, "received_message_sequence_invalid"):
             runner.run_first_contact("https://stage.example", "room", "a", "b", fake_request)
 
     def test_response_decoder_never_echoes_untrusted_body(self):
