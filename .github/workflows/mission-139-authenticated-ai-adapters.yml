@@ -6,6 +6,8 @@ on:
     paths:
       - "web/ai-agent-adapter.js"
       - "web/ai-agent-adapter.test.mjs"
+      - "web/ai-conversation-runtime.js"
+      - "web/ai-conversation-runtime.test.mjs"
       - "web/ai-conversation-loop.js"
       - "web/ai-conversation-loop.test.mjs"
       - ".github/workflows/mission-139-authenticated-ai-adapters.yml"
@@ -21,4 +23,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test web/ai-agent-adapter.test.mjs web/ai-conversation-loop.test.mjs
+      - run: node --test web/ai-agent-adapter.test.mjs web/ai-conversation-loop.test.mjs web/ai-conversation-runtime.test.mjs
