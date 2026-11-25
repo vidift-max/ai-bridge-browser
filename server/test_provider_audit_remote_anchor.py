@@ -110,7 +110,8 @@ class ProviderAuditRemoteAnchorTests(unittest.TestCase):
     def test_older_local_checkpoint_is_rejected_after_newer_anchor(self):
         self._claim("old", 1.0)
         self._checkpoint(10.0)
-        with open(self.checkpoint_path, encoding="utf-8") as handle:\n            old_checkpoint = handle.read()
+        with open(self.checkpoint_path, encoding="utf-8") as handle:
+            old_checkpoint = handle.read()
         publish_provider_audit_remote_anchor(
             self.store, self.checkpoint_path, self.key, self.remote)
         self._claim("new", 2.0)
@@ -142,7 +143,10 @@ class ProviderAuditRemoteAnchorTests(unittest.TestCase):
         publish_provider_audit_remote_anchor(
             self.store, self.checkpoint_path, self.key, self.remote)
         self.remote.records[0]["checkpoint_audit_id"] = 999
-        result = verify_provider_audit_remote_anchor(\n            self.store, self.checkpoint_path, self.key, self.remote)\n        self.assertFalse(result["valid"])\n        self.assertEqual(result["reason"], "remote_anchor_record_invalid")
+        result = verify_provider_audit_remote_anchor(
+            self.store, self.checkpoint_path, self.key, self.remote)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["reason"], "remote_anchor_record_invalid")
 
     def test_remote_unavailability_fails_closed_without_local_mutation(self):
         self._claim("offline", 1.0)
