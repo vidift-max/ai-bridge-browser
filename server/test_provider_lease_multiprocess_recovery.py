@@ -18,21 +18,29 @@ def _claim_worker(database_path, request_id, start_event, result_queue, now):
         store.close()
 
 
-def _crash_after_claim_worker(database_path, request_id):
+def _crash_after_claim_worker(database_path, request_id, now):
     store = SQLiteMessengerStore(database_path)
     store.claim_provider_request(
         "AI-MP", request_id, "payload-digest", "room-mp", "AI-MP",
-        100.0, lease_seconds=30.0)
+        now, lease_seconds=30.0)
     # Deliberately bypass cleanup to model abrupt process death after durable claim.
     os._exit(0)
 
 
-def _reclaim_worker(database_path, request_id, result_queue):
+def _claim_then_crash_worker(database_path, request_id, now):
+    store = SQLiteMessengerStore(database_path)
+    store.claim_provider_request(
+        "AI-MP", request_id, "payload-digest", "room-mp", "AI-MP",
+        now, lease_seconds=30.0)
+    os._exit(0)
+
+
+def _reclaim_worker(database_path, request_id, result_queue, now=130.0):
     store = SQLiteMessengerStore(database_path)
     try:
         row, outcome = store.claim_provider_request(
             "AI-MP", request_id, "payload-digest", "room-mp", "AI-MP",
-            130.0, lease_seconds=30.0)
+            now, lease_seconds=30.0)
         result_queue.put((outcome, row["attempt_generation"], row["status"]))
     finally:
         store.close()
@@ -88,7 +96,7 @@ class ProviderLeaseMultiprocessRecoveryTests(unittest.TestCase):
         results = self.ctx.Queue()
         crashed = self.ctx.Process(
             target=_crash_after_claim_worker,
-            args=(self.database_path, "crash-recovery"),
+            args=(self.database_path, "crash-recovery", 100.0),
         )
         crashed.start()
         self._join_successfully(crashed)
@@ -124,7 +132,7 @@ class ProviderLeaseMultiprocessRecoveryTests(unittest.TestCase):
         results = self.ctx.Queue()
         recovered = self.ctx.Process(
             target=_reclaim_worker,
-            args=(self.database_path, "stale-after-restart", results),
+            args=(self.database_path, "stale-after-restart", results, 130.0),
         )
         recovered.start()
         self._join_successfully(recovered)
@@ -144,6 +152,79 @@ class ProviderLeaseMultiprocessRecoveryTests(unittest.TestCase):
             self.assertIsNone(store.connection.execute(
                 "SELECT message_id FROM messages WHERE message_id='stale-message'"
             ).fetchone())
+        finally:
+            store.close()
+
+
+    def test_repeated_process_crashes_advance_generation_without_losing_lease_state(self):
+        request_id = "repeated-crash"
+        for attempt, now in enumerate((100.0, 130.0, 160.0), start=1):
+            crashed = self.ctx.Process(
+                target=_claim_then_crash_worker,
+                args=(self.database_path, request_id, now),
+            )
+            crashed.start()
+            self._join_successfully(crashed)
+            store = SQLiteMessengerStore(self.database_path)
+            try:
+                row = store.get_provider_request("AI-MP", request_id)
+                self.assertEqual(row["status"], "PROCESSING")
+                self.assertEqual(row["attempt_generation"], attempt)
+                self.assertEqual(row["updated_at"], now)
+            finally:
+                store.close()
+
+        results = self.ctx.Queue()
+        final_recovery = self.ctx.Process(
+            target=_reclaim_worker,
+            args=(self.database_path, request_id, results, 190.0),
+        )
+        final_recovery.start()
+        self._join_successfully(final_recovery)
+        self.assertEqual(results.get(timeout=5), ("claimed", 4, "PROCESSING"))
+        store = SQLiteMessengerStore(self.database_path)
+        try:
+            row = store.get_provider_request("AI-MP", request_id)
+            self.assertEqual(row["attempt_generation"], 4)
+            self.assertEqual(row["status"], "PROCESSING")
+            self.assertEqual(row["updated_at"], 190.0)
+        finally:
+            store.close()
+
+    def test_only_one_independent_process_reclaims_after_crash(self):
+        request_id = "crash-reclaim-race"
+        crashed = self.ctx.Process(
+            target=_crash_after_claim_worker,
+            args=(self.database_path, request_id, 100.0),
+        )
+        crashed.start()
+        self._join_successfully(crashed)
+
+        results = self.ctx.Queue()
+        workers = [
+            self.ctx.Process(
+                target=_reclaim_worker,
+                args=(self.database_path, request_id, results, 130.0),
+            )
+            for _ in range(5)
+        ]
+        for worker in workers:
+            worker.start()
+        outcomes = []
+        try:
+            for _ in workers:
+                outcomes.append(results.get(timeout=15))
+        finally:
+            for worker in workers:
+                self._join_successfully(worker)
+
+        self.assertEqual(outcomes.count(("claimed", 2, "PROCESSING")), 1)
+        self.assertEqual(outcomes.count(("existing", 2, "PROCESSING")), 4)
+        store = SQLiteMessengerStore(self.database_path)
+        try:
+            row = store.get_provider_request("AI-MP", request_id)
+            self.assertEqual(row["attempt_generation"], 2)
+            self.assertEqual(row["status"], "PROCESSING")
         finally:
             store.close()
 

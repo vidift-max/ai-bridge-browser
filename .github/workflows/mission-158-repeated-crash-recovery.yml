@@ -1,0 +1,26 @@
+name: Mission 158 Repeated Crash Recovery CI
+
+on:
+  push:
+    branches:
+      - feat/mission-158-repeated-crash-recovery
+  pull_request:
+    branches:
+      - feat/mission-157-provider-lease-multiprocess-recovery
+    paths:
+      - "server/sqlite_store.py"
+      - "server/test_provider_lease_multiprocess_recovery.py"
+      - ".github/workflows/mission-158-repeated-crash-recovery.yml"
+      - "docs/MISSION_158_REPEATED_CRASH_RECOVERY.md"
+
+jobs:
+  repeated-crash-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_lease_multiprocess_recovery server.test_provider_request_store server.test_provider_host_messenger_http
