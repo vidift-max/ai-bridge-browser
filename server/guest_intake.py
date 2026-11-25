@@ -12,6 +12,18 @@ _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 _SPACE = re.compile(r"\s+")
 
 
+def decode_status_capability(value):
+    """Decode exactly 32 random bytes from canonical unpadded base64url."""
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{43}", value):
+        raise ValueError("invalid_guest_application")
+    try:
+        raw = base64.b64decode(value + "=", altchars=b"-_", validate=True)
+    except (binascii.Error, ValueError):
+        raise ValueError("invalid_guest_application")
+    if len(raw) != 32 or base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=") != value:
+        raise ValueError("invalid_guest_application")
+    return raw
+
 def validate_guest_application(payload):
     if not isinstance(payload, dict):
         raise ValueError("invalid_guest_application")
