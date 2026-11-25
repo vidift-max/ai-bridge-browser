@@ -26,3 +26,8 @@ The integration tests start an actual ThreadingHTTPServer on loopback and send H
 ## Evidence boundary
 
 This proves a real HTTP listener and request/response behavior inside CI on loopback. It does not prove public network access, TLS, production identity, secret rotation, distributed rate limiting, remote storage in a separate trust domain, or connection to the main MessengerHandler process. The adapter is opt-in and not mounted into the application's main server startup. No non-loopback listener, deployment, external service, real secret, paid API, device activation, or merge was performed.
+
+
+## CI correction note
+
+The first CI run executed 92 tests and found one integration-test setup error: the response-header test sent an unauthenticated GET even though the M164 service correctly rejects unauthenticated access. The test now supplies its explicit test bearer token and closes HTTP responses deterministically. This was a test-fixture correction; the service's authentication behavior was not weakened.
