@@ -7,7 +7,7 @@ const loopSource=await readFile(new URL("./ai-conversation-loop.js",import.meta.
 const runtimeSource=await readFile(new URL("./ai-conversation-runtime.js",import.meta.url),"utf8");
 function fixture(){
  const calls=[],shown=[];
- const scope={window:{}};
+ const scope={window:{},AbortController};
  vm.runInNewContext(adapterSource,scope);vm.runInNewContext(loopSource,scope);vm.runInNewContext(runtimeSource,scope);
  const getContext=()=>({room:{conversationId:"private-1",kind:"PRIVATE",memberAiIds:["AI-ONE","AI-TWO"]},identity:{aiId:"AI-ONE"}});
  const runtime=scope.window.AIBridgeConversationRuntime.create({
@@ -26,7 +26,7 @@ test("runtime composes attested agent responses with bounded controller",async()
  assert.equal(f.shown.every(x=>x.conversationId==="private-1"&&x.runId==="runtime-1"),true);
 });
 test("runtime fails closed when provider attestation is invalid",async()=>{
- const scope={window:{}};vm.runInNewContext(adapterSource,scope);vm.runInNewContext(loopSource,scope);vm.runInNewContext(runtimeSource,scope);
+ const scope={window:{},AbortController};vm.runInNewContext(adapterSource,scope);vm.runInNewContext(loopSource,scope);vm.runInNewContext(runtimeSource,scope);
  const runtime=scope.window.AIBridgeConversationRuntime.create({
   getContext:()=>({room:{conversationId:"p",kind:"PRIVATE",memberAiIds:["A","B"]},identity:{aiId:"A"}}),
   requestAgent:async r=>({conversationId:r.conversationId,agentId:r.agentId,body:"forged",attestation:"bad"}),
