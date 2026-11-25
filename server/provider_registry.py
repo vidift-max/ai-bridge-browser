@@ -34,7 +34,7 @@ class ProviderRegistry:
                 "lastResponseId": status.get("lastResponseId"),
                 "lastSuccessfulModel": status.get("lastSuccessfulModel"),
                 "online": False, "accountSessionConnected": False,
-                "capabilities": ["text_response"] if enabled else [],
+                "capabilities": (["text_response", "realtime_client_secret"] if provider_id == "openai" else ["text_response"]) if enabled else [],
             })
         return providers
 
