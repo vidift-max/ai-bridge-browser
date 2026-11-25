@@ -25,7 +25,7 @@ class Mission130StatusCapabilityDesignTest(unittest.TestCase):
     def test_lookup_uses_post_and_body_not_url(self):
         self.assertIn("POST /v1/guest-applications/status", self.spec)
         self.assertIn("rather than query strings", self.spec)
-        self.assertIn("never put it in the invite URL", self.spec)
+        self.assertIn("do not put it in the invite URL", self.spec)
 
     def test_response_excludes_sensitive_application_and_identity_data(self):
         for forbidden in ("display name", "provider claim", "administrator identity",
