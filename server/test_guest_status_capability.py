@@ -172,5 +172,16 @@ class GuestStatusCapabilityTest(unittest.TestCase):
 
 
 
+    def test_capability_cannot_be_reused_for_a_different_application(self):
+        cap = capability(17)
+        self.submit(name="First Guest", cap=cap)
+        status, result = self.submit(name="Different Guest", cap=cap)
+        self.assertEqual(status, 202)
+        self.assertEqual(result["application"], {"duplicate": True, "accessGranted": False, "providerVerified": False})
+        count = self.store.connection.execute("SELECT COUNT(*) FROM guest_applications").fetchone()[0]
+        self.assertEqual(count, 1)
+
+
+
 if __name__ == "__main__":
     unittest.main()
