@@ -158,16 +158,43 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertEqual(self.backend.history("peer-token", "private-room"), [])
 
 
-    def test_replayed_provider_request_is_rejected_without_second_provider_call(self):
+    def test_replayed_provider_request_returns_durable_cached_response(self):
         first_status, first = self.request("user-token", self.payload())
         second_status, second = self.request("user-token", self.payload())
         self.assertEqual(first_status, 201)
-        self.assertEqual(second_status, 409)
-        self.assertEqual(second["error"], "duplicate_request")
+        self.assertEqual(second_status, 200)
+        self.assertTrue(second["idempotentReplay"])
+        self.assertEqual(second["message"]["messageId"], first["message"]["messageId"])
+        self.assertEqual(second["attestation"], first["attestation"])
         self.assertEqual(len(self.provider.calls), 1)
         peer_history = self.backend.history("peer-token", "private-room")
         self.assertEqual(len(peer_history), 1)
-        self.assertEqual(peer_history[0].message_id, first["message"]["messageId"])
+
+    def test_replay_survives_provider_host_instance_loss(self):
+        first_status, first = self.request("user-token", self.payload())
+        self.assertEqual(first_status, 201)
+        old_host = self.host
+        self.host = AuthenticatedProviderHost(
+            authenticate=self.backend.authenticate,
+            authorize_agent=old_host._authorize_agent,
+            resolve_provider=old_host._resolve_provider,
+            attestation_key=b"m" * 32,
+            server_identity="AI-BRIDGE-MESSENGER-TEST",
+        )
+        MessengerHandler.provider_host = self.host
+        second_status, second = self.request("user-token", self.payload())
+        self.assertEqual(second_status, 200)
+        self.assertTrue(second["idempotentReplay"])
+        self.assertEqual(second["message"]["messageId"], first["message"]["messageId"])
+        self.assertEqual(len(self.provider.calls), 1)
+
+    def test_payload_change_for_existing_request_is_conflict(self):
+        first_status, _ = self.request("user-token", self.payload())
+        second_status, second = self.request("user-token", self.payload(prompt="texto diferente"))
+        self.assertEqual(first_status, 201)
+        self.assertEqual(second_status, 409)
+        self.assertEqual(second["error"], "provider_request_payload_conflict")
+        self.assertEqual(len(self.provider.calls), 1)
 
     def test_provider_error_does_not_create_room_message(self):
         self.provider.respond = lambda _prompt: (_ for _ in ()).throw(

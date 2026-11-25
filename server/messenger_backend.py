@@ -475,6 +475,29 @@ class MessengerBackend:
         return result
 
     @_synchronized
+    @_synchronized
+    def claim_provider_request(self, bearer_token: str, request_id: str, request_digest: str,
+                               conversation_id: str, agent_id: str):
+        principal = self._authenticator.authenticate(bearer_token)
+        return self._store.claim_provider_request(
+            principal.ai_id, request_id, request_digest, conversation_id, agent_id, time.time())
+
+    @_synchronized
+    def complete_provider_request(self, bearer_token: str, request_id: str, request_digest: str,
+                                  response_text: str, provider_id: str, model: str,
+                                  attestation: dict, message_id: str):
+        principal = self._authenticator.authenticate(bearer_token)
+        return self._store.complete_provider_request(
+            principal.ai_id, request_id, request_digest, response_text, provider_id,
+            model, attestation, message_id, time.time())
+
+    @_synchronized
+    def fail_provider_request(self, bearer_token: str, request_id: str, request_digest: str,
+                               error_code: str):
+        principal = self._authenticator.authenticate(bearer_token)
+        return self._store.fail_provider_request(
+            principal.ai_id, request_id, request_digest, error_code, time.time())
+
     def conversation_members(self):
         """Return a defensive snapshot for server-side room authorization."""
         return {conversation_id: set(members)
@@ -550,6 +573,17 @@ class MessengerBackend:
             raise PermissionError("internal_identity_not_authorized")
         return self._submit_as(sender_ai_id, message_id, conversation_id,
                                recipient_ai_ids, body, client_request_id, message_kind)
+
+    @_synchronized
+    def get_authorized_message(self, bearer_token: str, message_id: str):
+        ai_id = self.authenticate(bearer_token)
+        message = self._messages.get(message_id)
+        if message is None:
+            return None
+        members = self._conversations.get(message.conversation_id, set())
+        if ai_id not in members:
+            raise PermissionError("authorization_denied")
+        return message
 
     def message_expires_at(self, message: Message) -> float:
         return expires_at(message.created_at_epoch_seconds,

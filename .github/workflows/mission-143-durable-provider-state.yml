@@ -1,0 +1,30 @@
+name: Mission 143 Durable Provider State
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-142-provider-host-messenger-integration
+    paths:
+      - "server/sqlite_store.py"
+      - "server/messenger_backend.py"
+      - "server/http_server.py"
+      - "server/ai_provider_host.py"
+      - "server/agent_provider_registry.py"
+      - "server/test_provider_request_store.py"
+      - "server/test_provider_host_messenger_http.py"
+      - "server/test_agent_provider_registry.py"
+      - ".github/workflows/mission-143-durable-provider-state.yml"
+      - "docs/MISSION_143_DURABLE_PROVIDER_STATE.md"
+  push:
+    branches:
+      - feat/mission-143-durable-provider-state
+
+jobs:
+  durable-provider-state-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest server.test_provider_request_store server.test_agent_provider_registry server.test_ai_provider_host server.test_ai_provider_host_contract_spec server.test_provider_host_messenger_http server.test_http_server server.test_messenger_backend

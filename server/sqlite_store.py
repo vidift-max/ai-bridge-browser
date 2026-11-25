@@ -5,7 +5,7 @@ import hmac
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -255,6 +255,32 @@ class SQLiteMessengerStore:
                 "INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','11')")
             self._connection.commit()
             version = 11
+
+        if version < 12:
+            self._connection.executescript("""
+                CREATE TABLE IF NOT EXISTS provider_request_records (
+                    principal_ai_id TEXT NOT NULL,
+                    request_id TEXT NOT NULL,
+                    request_digest TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('PROCESSING','COMPLETED','FAILED')),
+                    conversation_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    response_text TEXT,
+                    provider_id TEXT,
+                    model TEXT,
+                    attestation_json TEXT,
+                    message_id TEXT,
+                    error_code TEXT,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL,
+                    PRIMARY KEY(principal_ai_id, request_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_provider_request_message
+                    ON provider_request_records(message_id);
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','12')")
+            self._connection.commit()
+            version = 12
 
     def create_guest_application(self, application, token_hash, status_capability_hash=None, status_capability_expires_at=None):
         """Atomically persist an application and optional digest-only status capability."""
@@ -512,6 +538,106 @@ class SQLiteMessengerStore:
                  "senderAiId":row["sender_ai_id"],"kind":row["kind"],
                  "payload":json.loads(row["payload_json"]),
                  "createdAt":row["created_at"]} for row in rows]
+
+    def get_provider_request(self, principal_ai_id, request_id):
+        row = self._connection.execute(
+            "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+            (principal_ai_id, request_id)).fetchone()
+        return dict(row) if row else None
+
+    def claim_provider_request(self, principal_ai_id, request_id, request_digest,
+                               conversation_id, agent_id, now):
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._connection.execute(
+                "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                (principal_ai_id, request_id)).fetchone()
+            if row is not None:
+                if row["request_digest"] != request_digest:
+                    self._connection.rollback()
+                    return dict(row), "conflict"
+                if row["status"] == "FAILED":
+                    self._connection.execute(
+                        """UPDATE provider_request_records
+                           SET status='PROCESSING',error_code=NULL,updated_at=?
+                           WHERE principal_ai_id=? AND request_id=? AND status='FAILED'""",
+                        (now, principal_ai_id, request_id))
+                    row = self._connection.execute(
+                        "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                        (principal_ai_id, request_id)).fetchone()
+                    self._connection.commit()
+                    return dict(row), "claimed"
+                self._connection.rollback()
+                return dict(row), "existing"
+            self._connection.execute(
+                """INSERT INTO provider_request_records(
+                   principal_ai_id,request_id,request_digest,status,conversation_id,agent_id,
+                   created_at,updated_at)
+                   VALUES(?,?,?,?,?,?,?,?)""",
+                (principal_ai_id,request_id,request_digest,"PROCESSING",
+                 conversation_id,agent_id,now,now))
+            row = self._connection.execute(
+                "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                (principal_ai_id, request_id)).fetchone()
+            self._connection.commit()
+            return dict(row), "claimed"
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def complete_provider_request(self, principal_ai_id, request_id, request_digest,
+                                  response_text, provider_id, model, attestation,
+                                  message_id, now):
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._connection.execute(
+                "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                (principal_ai_id, request_id)).fetchone()
+            if row is None or row["request_digest"] != request_digest:
+                self._connection.rollback()
+                raise ValueError("provider_request_not_claimed")
+            if row["status"] == "COMPLETED":
+                self._connection.rollback()
+                return dict(row)
+            self._connection.execute(
+                """UPDATE provider_request_records
+                   SET status='COMPLETED',response_text=?,provider_id=?,model=?,
+                       attestation_json=?,message_id=?,updated_at=?,error_code=NULL
+                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING'""",
+                (response_text,provider_id,model,json.dumps(attestation,separators=(",",":")),
+                 message_id,now,principal_ai_id,request_id))
+            row = self._connection.execute(
+                "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                (principal_ai_id, request_id)).fetchone()
+            self._connection.commit()
+            return dict(row)
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def fail_provider_request(self, principal_ai_id, request_id, request_digest,
+                               error_code, now):
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._connection.execute(
+                "SELECT request_digest,status FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                (principal_ai_id, request_id)).fetchone()
+            if row is None or row["request_digest"] != request_digest:
+                self._connection.rollback()
+                return False
+            if row["status"] == "COMPLETED":
+                self._connection.rollback()
+                return False
+            self._connection.execute(
+                """UPDATE provider_request_records
+                   SET status='FAILED',error_code=?,updated_at=?
+                   WHERE principal_ai_id=? AND request_id=?""",
+                (error_code,now,principal_ai_id,request_id))
+            self._connection.commit()
+            return True
+        except Exception:
+            self._connection.rollback()
+            raise
 
     def close(self):
         self._connection.close()
