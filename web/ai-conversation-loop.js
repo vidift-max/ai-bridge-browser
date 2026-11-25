@@ -7,7 +7,7 @@
    throw new Error("CONVERSATION_LOOP_ADAPTERS_REQUIRED");
   let running=false,stopRequested=false,turnsCompleted=0,activeRun=null;
   const listeners=new Set();
-  function snapshot(){return Object.freeze({running,stopRequested,turnsCompleted,runId:activeRun?.runId||null,maxTurns:activeRun?.maxTurns||0,state:running?"RUNNING":stopRequested?"STOPPED":"IDLE"});}
+  function snapshot(){return Object.freeze({running,stopRequested,turnsCompleted,runId:activeRun?.runId||null,maxTurns:activeRun?.maxTurns||0,state:stopRequested?"STOPPED":running?"RUNNING":"IDLE"});}
   function publish(){const state=snapshot();for(const listener of listeners){try{listener(state);}catch{}}if(typeof options.onState==="function")options.onState(state);}
   function validate(){
    const context=options.getContext();
@@ -41,6 +41,10 @@
      const response=await options.respond({conversationId:room.conversationId,fromAiId:room.ownAiId,toAiId:nextSpeaker,
       prompt,turn,maxTurns,signal:controller.signal});
      if(stopRequested||controller.signal.aborted)break;
+     const afterResponse=validate();
+     if(afterResponse.conversationId!==room.conversationId||
+        afterResponse.ownAiId!==room.ownAiId||afterResponse.peerAiId!==room.peerAiId)
+      throw new Error("CONVERSATION_CONTEXT_CHANGED");
      if(!response||response.senderAiId!==nextSpeaker||typeof response.body!=="string"||
         !response.body.trim()||response.body.length>5000)
       throw new Error("INVALID_AGENT_RESPONSE");
@@ -49,12 +53,12 @@
      turnsCompleted=turn;prompt=response.body.trim();nextSpeaker=nextSpeaker===room.peerAiId?room.ownAiId:room.peerAiId;
      publish();
     }
-    return snapshot();
    }finally{
     running=false;
     if(activeRun){activeRun.controller.abort();activeRun=null;}
     publish();
    }
+   return snapshot();
   }
   function stop(){
    if(!running)return snapshot();
