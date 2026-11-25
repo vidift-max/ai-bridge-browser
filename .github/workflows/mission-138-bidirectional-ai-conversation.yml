@@ -1,0 +1,34 @@
+name: M138 Bidirectional AI Conversation
+
+on:
+  push:
+    branches:
+      - feat/mission-138-bidirectional-ai-conversation
+  pull_request:
+    branches:
+      - feat/mission-137-direct-ai-text-bridge
+
+permissions:
+  contents: read
+
+jobs:
+  conversation-loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate bounded bidirectional conversation controller
+        run: node --test web/ai-conversation-loop.test.mjs
+      - name: Regression test M137 linking and Messenger UI
+        run: node --test web/ai-room-creation.test.mjs web/ai-room-ui-messenger.test.mjs
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Regression test authenticated private text delivery
+        run: python -m unittest server.test_direct_private_bridge server.test_messenger_backend
