@@ -369,6 +369,14 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
             elif ai_id in members or credentials.get(ai_id) != "REVOKED":
                 return False, "RESTORE_DATA_GUEST_PROVISIONING_INVALID"
 
+    if version_row and version_row[0] == "10":
+        for row in connection.execute("SELECT application_id,created_at,status_capability_hash,status_capability_expires_at FROM guest_applications"):
+            digest, expiry = row["status_capability_hash"], row["status_capability_expires_at"]
+            if ((digest is None and expiry is not None)
+                    or (digest is not None and (not isinstance(digest, str) or len(digest) != 64
+                        or any(ch not in "0123456789abcdef" for ch in digest)
+                        or not isinstance(expiry, (int, float)) or expiry <= row["created_at"]))):
+                return False, "RESTORE_DATA_GUEST_STATUS_CAPABILITY_INVALID"
     for row in connection.execute(
         "SELECT object_id, message_id, conversation_id, sender_ai_id, content_type, size, sha256 "
         "FROM audio_attachments"
