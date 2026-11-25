@@ -5,7 +5,7 @@ import hmac
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -248,21 +248,34 @@ class SQLiteMessengerStore:
             self._connection.commit()
             version = 10
 
+        if version < 11:
+            self._connection.execute(
+                "ALTER TABLE guest_applications ADD COLUMN status_capability_revoked_at REAL")
+            self._connection.execute(
+                "INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','11')")
+            self._connection.commit()
+            version = 11
+
     def create_guest_application(self, application, token_hash, status_capability_hash=None, status_capability_expires_at=None):
         """Atomically persist an application and optional digest-only status capability."""
         self._connection.execute("BEGIN IMMEDIATE")
         try:
             invite = self._connection.execute("SELECT * FROM room_invites WHERE token_hash=?", (token_hash,)).fetchone()
             now = application["created_at"]
-            if invite is None or invite["revoked_at"] is not None or invite["expires_at"] <= now:
+            if invite is None:
                 self._connection.rollback()
                 return None, "invite_unavailable"
+            # A capability-bound retry may recover its own receipt after invite expiry
+            # or revocation; it must never create a new application in that state.
             existing = self._connection.execute("SELECT * FROM guest_applications WHERE invite_id=? AND display_name=?", (invite["invite_id"], application["display_name"])).fetchone()
             if existing is not None:
                 stored, supplied = existing["status_capability_hash"], status_capability_hash
                 replay = bool(stored and supplied and existing["status_capability_expires_at"] is not None and existing["status_capability_expires_at"] > now and hmac.compare_digest(stored, supplied))
                 self._connection.rollback()
                 return dict(existing), "request_replay" if replay else "request_exists"
+            if invite["revoked_at"] is not None or invite["expires_at"] <= now:
+                self._connection.rollback()
+                return None, "invite_unavailable"
             if status_capability_hash:
                 capability_owner = self._connection.execute("SELECT application_id FROM guest_applications WHERE status_capability_hash=?", (status_capability_hash,)).fetchone()
                 if capability_owner is not None:
@@ -282,13 +295,13 @@ class SQLiteMessengerStore:
 
     def get_guest_application_status(self, status_capability_hash, now):
         """Return only public lifecycle state for a valid, unexpired capability."""
-        row = self._connection.execute("""SELECT status,provisioning_status,created_at,decided_at,provisioned_at,status_capability_expires_at FROM guest_applications WHERE status_capability_hash=?""", (status_capability_hash,)).fetchone()
+        row = self._connection.execute("""SELECT status,provisioning_status,created_at,decided_at,provisioned_at,status_capability_expires_at,status_capability_revoked_at FROM guest_applications WHERE status_capability_hash=?""", (status_capability_hash,)).fetchone()
         if row is None or row["status_capability_expires_at"] is None or row["status_capability_expires_at"] <= now:
             return None
         if row["provisioning_status"] == "REVOKED": state = "REVOKED"
         elif row["provisioning_status"] == "ACTIVE": state = "ACTIVE"
         else: state = row["status"]
-        updated = max(v for v in (row["created_at"], row["decided_at"], row["provisioned_at"]) if v is not None)
+        updated = max(v for v in (row["created_at"], row["decided_at"], row["provisioned_at"], row["status_capability_revoked_at"]) if v is not None)
         return {"state": state, "updatedAt": updated}
 
     def provision_guest_application(self, conversation_id, application_id, ai_id, display_name,
@@ -370,9 +383,10 @@ class SQLiteMessengerStore:
                 "UPDATE credential_records SET status='REVOKED' WHERE ai_id=? AND status='ACTIVE'",
                 (ai_id,))
             self._connection.execute(
-                """UPDATE guest_applications SET provisioning_status='REVOKED'
+                """UPDATE guest_applications
+                   SET provisioning_status='REVOKED',status_capability_revoked_at=?
                    WHERE application_id=? AND conversation_id=? AND provisioning_status='ACTIVE'""",
-                (application_id, conversation_id))
+                (revoked_at, application_id, conversation_id))
             self._connection.commit()
             return {"ai_id": ai_id, "conversation_id": conversation_id, "token_hash": credential["token_hash"] if credential else None}
         except Exception:
