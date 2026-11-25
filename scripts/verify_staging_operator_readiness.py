@@ -42,9 +42,17 @@ def audit_blueprint(source: str) -> list[str]:
         failures.append("persistent_disk_absent")
     if re.search(r"(?im)^\s*mountPath:", source):
         failures.append("persistent_mount_absent")
+    lines = source.splitlines()
     for key in ("MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B"):
-        block = re.search(rf"- key:\s*{key}\s*\n(?P<body>(?:\s+.*\n)*)", source)
-        if not block or not re.search(r"sync:\s*false", block.group("body")):
+        start = next((index for index, line in enumerate(lines)
+                      if re.match(rf"\s*- key:\s*{key}\s*$", line)), None)
+        if start is None:
+            failures.append(key.lower() + "_manual_secret")
+            continue
+        end = next((index for index in range(start + 1, len(lines))
+                    if re.match(r"\s*- key:", lines[index])), len(lines))
+        block = "\n".join(lines[start + 1:end])
+        if not re.search(r"(?m)^\s+sync:\s*false\s*$", block):
             failures.append(key.lower() + "_manual_secret")
     return failures
 
