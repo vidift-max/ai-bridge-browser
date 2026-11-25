@@ -83,6 +83,42 @@ class AuthenticatedProviderHostTest(unittest.TestCase):
         self.assertEqual(error.exception.status, 409)
         self.assertEqual(len(self.calls), 1)
 
+    def test_provider_failure_releases_replay_reservation_for_retry(self):
+        now = [100.0]
+        attempts = []
+        def provider(_prompt):
+            attempts.append("called")
+            if len(attempts) == 1:
+                raise RuntimeError("temporary provider failure")
+            return {"text": "ok", "providerId": "fake", "model": "v1"}
+        host = AuthenticatedProviderHost(
+            authenticate=lambda _token: "AI-ALPHA",
+            authorize_agent=lambda *_args: True,
+            resolve_provider=lambda _agent: provider,
+            attestation_key=b"f" * 32,
+            clock=lambda: now[0],
+        )
+        with self.assertRaisesRegex(ProviderHostError, "provider_execution_failed"):
+            host.execute("good-token", self.request)
+        result = host.execute("good-token", self.request)
+        self.assertEqual(result["text"], "ok")
+        self.assertEqual(attempts, ["called", "called"])
+
+    def test_invalid_provider_response_releases_replay_reservation_for_retry(self):
+        responses = [
+            {"text": "bad", "providerId": "fake"},
+            {"text": "ok", "providerId": "fake", "model": "v1"},
+        ]
+        host = AuthenticatedProviderHost(
+            authenticate=lambda _token: "AI-ALPHA",
+            authorize_agent=lambda *_args: True,
+            resolve_provider=lambda _agent: lambda _prompt: responses.pop(0),
+            attestation_key=b"i" * 32,
+        )
+        with self.assertRaisesRegex(ProviderHostError, "invalid_provider_response"):
+            host.execute("good-token", self.request)
+        self.assertEqual(host.execute("good-token", self.request)["text"], "ok")
+
     def test_replay_guard_expires_and_allows_new_attempt(self):
         now = [100.0]
         host = AuthenticatedProviderHost(
