@@ -1,0 +1,39 @@
+name: Mission 135 GPT-6 Primary Rooms Integration
+
+on:
+  push:
+    branches:
+      - feat/mission-135-gpt6-main-rooms-integration
+  pull_request:
+    branches:
+      - feat/mission-134-gpt6-collective-room-agent
+    paths:
+      - "server/http_server.py"
+      - "server/test_gpt6_room_agent_http.py"
+      - "web/rooms.html"
+      - "web/ai-room-gpt6.js"
+      - "web/ai-room-gpt6.test.mjs"
+      - "web/ai-room-creation.test.mjs"
+      - "docs/MISSION_135_GPT6_MAIN_ROOMS_INTEGRATION.md"
+      - ".github/workflows/mission-135-gpt6-main-rooms-integration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  primary-room-gpt6:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run GPT-6 room backend and HTTP tests
+        run: python -m unittest server.test_gpt6_room_agent server.test_gpt6_room_agent_http -v
+      - name: Run primary room UI and bridge tests
+        run: node --test web/ai-room-gpt6.test.mjs web/ai-room-creation.test.mjs web/ai-room-ui-messenger.test.mjs
+      - name: Compile server modules
+        run: python -m py_compile server/http_server.py server/gpt6_room_agent.py

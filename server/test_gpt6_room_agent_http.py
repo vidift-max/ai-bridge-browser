@@ -100,6 +100,19 @@ class GPT6RoomAgentHttpTest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(data["error"], "invalid_gpt6_room_request")
 
+    def test_primary_room_gpt6_asset_is_served_with_safe_headers(self):
+        connection = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        connection.request("GET", "/ai-room-gpt6.js")
+        response = connection.getresponse()
+        body = response.read().decode("utf-8")
+        headers = dict(response.getheaders())
+        connection.close()
+        self.assertEqual(response.status, 200)
+        self.assertIn("AIBridgeRoomGPT6", body)
+        self.assertEqual(headers.get("Content-Type"), "text/javascript; charset=utf-8")
+        self.assertEqual(headers.get("Cache-Control"), "no-store")
+        self.assertEqual(headers.get("X-Content-Type-Options"), "nosniff")
+
 
 if __name__ == "__main__":
     unittest.main()
