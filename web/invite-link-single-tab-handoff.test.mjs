@@ -35,7 +35,7 @@ test("invite browser handoff preserves the fragment for the invite page and reje
   assert.match(route, /uri\.getRawFragment\(\)/);
   assert.match(route, /uri\.getRawQuery\(\) != null/);
   assert.match(route, /https:\/\//);
-  assert.match(route, /\.web\\\.app/);
+  assert.ok(route.includes("\\\\.web\\\\.app"));
 });
 
 test("invite handoff does not itself grant room membership", () => {
