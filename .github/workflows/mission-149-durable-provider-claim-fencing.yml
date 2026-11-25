@@ -3,17 +3,17 @@ name: Mission 149 Durable Provider Claim Fencing CI
 on:
   push:
     branches:
-      - feat/mission-149-replay-reservation-fencing
+      - feat/mission-149-durable-provider-claim-fencing
   pull_request:
     branches:
       - feat/mission-148-replay-reservation-fencing
     paths:
       - "server/ai_provider_host.py"
       - "server/test_ai_provider_host.py"
-      - ".github/workflows/mission-149-replay-reservation-fencing.yml"
+      - ".github/workflows/mission-149-durable-provider-claim-fencing.yml"
 
 jobs:
-  replay-reservation-fencing:
+  durable-provider-claim-fencing:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
