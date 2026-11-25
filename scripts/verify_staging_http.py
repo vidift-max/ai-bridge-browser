@@ -52,9 +52,13 @@ def check(base_url: str, path: str) -> tuple[int, dict]:
     )
     try:
         with urlopen(request, timeout=10) as response:
-            return response.status, _json_object(response.read())
+            payload = _json_object(response.read())
+            status_value = payload.get("status")
+            safe_status = status_value if status_value in ("ok", "ready", "starting") else "unrecognized"
+            return response.status, {"status": safe_status}
     except HTTPError as exc:
-        return exc.code, _json_object(exc.read())
+        # Never expose arbitrary upstream error bodies in CLI output.
+        return exc.code, {"error": "http_error"}
     except (URLError, TimeoutError, OSError) as exc:
         return 0, {"error": type(exc).__name__}
 
