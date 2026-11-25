@@ -991,7 +991,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 identity = self._principal()
                 self.backend.assert_authenticated_principal(self._auth(), identity.principal)
                 payload = self._read_json(max_length=12000)
-                if set(payload) != {"conversationId", "attestation", "responseText"}:
+                if set(payload) != {"conversationId", "agentId", "attestation", "responseText"}:
                     raise ValueError("invalid_attestation_verification")
                 members = self.backend.conversation_members().get(payload["conversationId"], set())
                 kinds = self.backend.conversation_kinds()
@@ -999,7 +999,15 @@ class MessengerHandler(BaseHTTPRequestHandler):
                         or kinds.get(payload["conversationId"]) != "PRIVATE"):
                     self._json(403, {"error": "private_two_member_room_required"})
                     return
-                valid = self.provider_host.verify_attestation(
+                statement = (payload["attestation"].get("statement")
+                             if isinstance(payload["attestation"], dict) else None)
+                binding_matches = (
+                    isinstance(statement, dict)
+                    and statement.get("conversationId") == payload["conversationId"]
+                    and statement.get("agentId") == payload["agentId"]
+                    and payload["agentId"] in members
+                )
+                valid = binding_matches and self.provider_host.verify_attestation(
                     payload["attestation"], payload["responseText"])
                 self._json(200, {"valid": bool(valid)})
             except PermissionError as exc:
