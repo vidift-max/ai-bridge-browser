@@ -20,6 +20,17 @@ def _validate_provider_lease_seconds(value):
         raise ValueError("invalid_provider_lease")
 
 
+def _validate_provider_timestamp(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("invalid_provider_timestamp")
+    try:
+        valid = math.isfinite(float(value))
+    except (OverflowError, ValueError):
+        valid = False
+    if not valid:
+        raise ValueError("invalid_provider_timestamp")
+
+
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
 
@@ -570,6 +581,7 @@ class SQLiteMessengerStore:
     def claim_provider_request(self, principal_ai_id, request_id, request_digest,
                                conversation_id, agent_id, now, lease_seconds=360.0):
         """Claim a durable provider attempt; reclaim stale PROCESSING rows with a new fence."""
+        _validate_provider_timestamp(now)
         _validate_provider_lease_seconds(lease_seconds)
         self._connection.execute("BEGIN IMMEDIATE")
         try:
@@ -619,6 +631,7 @@ class SQLiteMessengerStore:
     def renew_provider_request_lease(self, principal_ai_id, request_id, request_digest,
                                      attempt_generation, now, lease_seconds=360.0):
         """Extend only a still-live PROCESSING claim owned by this generation."""
+        _validate_provider_timestamp(now)
         _validate_provider_lease_seconds(lease_seconds)
         cursor = self._connection.execute(
             """UPDATE provider_request_records
@@ -635,6 +648,7 @@ class SQLiteMessengerStore:
                                            message, attestation, provider_id, model, now, attempt_generation=1,
                                            lease_seconds=360.0):
         """Atomically persist the provider message and mark its request COMPLETED."""
+        _validate_provider_timestamp(now)
         _validate_provider_lease_seconds(lease_seconds)
         self._connection.execute("BEGIN IMMEDIATE")
         try:
