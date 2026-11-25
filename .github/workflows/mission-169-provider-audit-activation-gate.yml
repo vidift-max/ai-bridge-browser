@@ -1,0 +1,39 @@
+name: Mission 169 Provider Audit Messenger Activation Gate
+
+on:
+  push:
+    branches:
+      - feat/mission-169-provider-audit-activation-gate
+  pull_request:
+    branches:
+      - feat/mission-168-browser-test-abortcontroller-context
+    paths:
+      - "server/provider_audit_messenger_activation.py"
+      - "server/test_provider_audit_messenger_activation.py"
+      - "server/provider_audit_remote_service.py"
+      - "server/provider_audit_messenger_http_integration.py"
+      - "server/test_provider_audit_messenger_http_integration.py"
+      - "server/test_provider_audit_http_server_factory.py"
+      - "server/test_provider_audit_http_transport.py"
+      - "server/test_provider_audit_remote_service.py"
+      - "server/test_provider_audit_durable_anchor.py"
+      - "server/test_provider_audit_remote_anchor.py"
+      - "server/test_provider_audit_external_checkpoint.py"
+      - "server/test_provider_audit_chain_integrity.py"
+      - "server/test_provider_lease_audit_trail.py"
+      - "server/test_provider_request_store.py"
+      - "server/test_provider_lease_multiprocess_recovery.py"
+      - ".github/workflows/mission-169-provider-audit-activation-gate.yml"
+      - "docs/MISSION_169_PROVIDER_AUDIT_ACTIVATION_GATE.md"
+
+jobs:
+  provider-audit-activation-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_audit_messenger_activation server.test_provider_audit_messenger_http_integration server.test_http_server server.test_provider_audit_http_server_factory server.test_provider_audit_http_transport server.test_provider_audit_remote_service server.test_provider_audit_durable_anchor server.test_provider_audit_remote_anchor server.test_provider_audit_external_checkpoint server.test_provider_audit_chain_integrity server.test_provider_lease_audit_trail server.test_provider_request_store server.test_provider_lease_multiprocess_recovery
