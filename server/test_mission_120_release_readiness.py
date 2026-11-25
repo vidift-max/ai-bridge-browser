@@ -64,13 +64,22 @@ class Mission120ReleaseReadinessTest(unittest.TestCase):
         result = self.run_gate(env=env)
         self.assertEqual(result["result"], "NO_GO")
 
-    def test_execution_approval_flags_must_remain_unset(self):
-        env = ENV.copy()
-        env["MESSENGER_FIRST_CONTACT_EXECUTE"] = "true"
-        result = self.run_gate(env=env)
-        self.assertEqual(result["result"], "NO_GO")
-        self.assertIn("execution_authorization_must_remain_unset",
-                      result["failures"])
+    def test_every_execution_and_bound_approval_value_must_remain_unset(self):
+        approval_keys = (
+            "MESSENGER_FIRST_CONTACT_STAGING_AUTHORIZED",
+            "MESSENGER_FIRST_CONTACT_EXECUTE",
+            "MESSENGER_FIRST_CONTACT_APPROVED_ORIGIN",
+            "MESSENGER_FIRST_CONTACT_APPROVED_CONVERSATION_ID",
+            "MESSENGER_FIRST_CONTACT_APPROVED_OPERATION_ID",
+        )
+        for key in approval_keys:
+            env = ENV.copy()
+            env[key] = "true" if key.endswith(("AUTHORIZED", "EXECUTE")) else "stale-value"
+            with self.subTest(key=key):
+                result = self.run_gate(env=env)
+                self.assertEqual(result["result"], "NO_GO")
+                self.assertIn("execution_authorization_must_remain_unset",
+                              result["failures"])
 
     def test_missing_operation_id_fails_closed(self):
         env = ENV.copy()
