@@ -95,6 +95,27 @@ class ProviderRequestStoreTests(unittest.TestCase):
         self.assertEqual(row["request_digest"], "digest-c")
 
 
+    def test_provider_lease_renewal_and_expired_generation_rejection(self):
+        store = SQLiteMessengerStore(":memory:")
+        first, outcome = store.claim_provider_request(
+            "AI-01", "req-lease", "digest-lease", "room-1", "AI-01", 100.0,
+            lease_seconds=360.0)
+        self.assertEqual(outcome, "claimed")
+        self.assertTrue(store.renew_provider_request_lease(
+            "AI-01", "req-lease", "digest-lease", 1, 200.0, 360.0))
+        self.assertFalse(store.renew_provider_request_lease(
+            "AI-01", "req-lease", "digest-lease", 1, 561.0, 360.0))
+        second, outcome = store.claim_provider_request(
+            "AI-01", "req-lease", "digest-lease", "room-1", "AI-01", 561.0,
+            lease_seconds=360.0)
+        self.assertEqual(outcome, "claimed")
+        self.assertEqual(second["attempt_generation"], 2)
+        self.assertFalse(store.renew_provider_request_lease(
+            "AI-01", "req-lease", "digest-lease", 1, 562.0, 360.0))
+        self.assertTrue(store.renew_provider_request_lease(
+            "AI-01", "req-lease", "digest-lease", 2, 562.0, 360.0))
+        store.close()
+
     def test_stale_provider_attempt_is_fenced_after_lease_reclaim(self):
         store = SQLiteMessengerStore(":memory:")
         first, outcome = store.claim_provider_request(
