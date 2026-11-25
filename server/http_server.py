@@ -1056,7 +1056,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "invalid_provider_request"})
             except RuntimeError as exc:
                 if request_claimed and request_id and request_digest:
-                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, str(exc))
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, str(exc), attempt_generation)
                 code = str(exc)
                 self._json(503, {"error": code if code in (
                     "openai_api_calls_disabled", "openai_api_not_configured",
