@@ -17,12 +17,15 @@ BASE = {
     "MESSENGER_AI_ID_B": "AI-02",
     "MESSENGER_TOKEN_AI_A": "synthetic-token-a",
     "MESSENGER_TOKEN_AI_B": "synthetic-token-b",
+    "MESSENGER_FIRST_CONTACT_APPROVED_ORIGIN": "https://stage.example",
+    "MESSENGER_FIRST_CONTACT_APPROVED_CONVERSATION_ID": "room-114",
+    "MESSENGER_FIRST_CONTACT_APPROVED_OPERATION_ID": "m114-operation-0001",
 }
 
 
 class Mission114AuthorizationGateTest(unittest.TestCase):
     def test_valid_explicit_staging_configuration_passes_offline(self):
-        result = validate_environment(BASE.copy())
+        result = validate_environment(BASE.copy(), "https://stage.example", "room-114", "m114-operation-0001")
         self.assertEqual(result["result"], "PASS")
         self.assertEqual(result["network"], "NOT_CONTACTED")
         self.assertNotIn("synthetic-token", str(result))
@@ -39,7 +42,7 @@ class Mission114AuthorizationGateTest(unittest.TestCase):
             env = BASE.copy()
             env[key] = value
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, expected):
-                validate_environment(env)
+                validate_environment(env, "https://stage.example", "room-114", "m114-operation-0001")
 
     def test_fixed_identities_and_distinct_credentials_are_required(self):
         for key, value in (
@@ -51,13 +54,31 @@ class Mission114AuthorizationGateTest(unittest.TestCase):
             env = BASE.copy()
             env[key] = value
             with self.subTest(key=key), self.assertRaises(ValueError):
-                validate_environment(env)
+                validate_environment(env, "https://stage.example", "room-114", "m114-operation-0001")
 
     def test_missing_authorization_fails_closed(self):
         env = BASE.copy()
         del env["MESSENGER_FIRST_CONTACT_STAGING_AUTHORIZED"]
         with self.assertRaisesRegex(ValueError, "explicit_staging_authorization_required"):
             validate_environment(env)
+
+
+    def test_approval_is_bound_to_exact_origin_conversation_and_operation(self):
+        for key, value, expected in (
+            ("MESSENGER_FIRST_CONTACT_APPROVED_ORIGIN", "https://other.example", "approved_origin_mismatch"),
+            ("MESSENGER_FIRST_CONTACT_APPROVED_CONVERSATION_ID", "other-room", "approved_conversation_mismatch"),
+            ("MESSENGER_FIRST_CONTACT_APPROVED_OPERATION_ID", "m114-operation-0002", "approved_operation_mismatch"),
+        ):
+            env = BASE.copy()
+            env[key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, expected):
+                validate_environment(env, "https://stage.example", "room-114", "m114-operation-0001")
+
+    def test_missing_exact_operation_binding_fails_closed(self):
+        env = BASE.copy()
+        del env["MESSENGER_FIRST_CONTACT_APPROVED_OPERATION_ID"]
+        with self.assertRaisesRegex(ValueError, "approved_operation_mismatch"):
+            validate_environment(env, "https://stage.example", "room-114", "m114-operation-0001")
 
 
 if __name__ == "__main__":

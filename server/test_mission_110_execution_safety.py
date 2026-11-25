@@ -35,7 +35,10 @@ class Mission110ExecutionSafetyTest(unittest.TestCase):
                                      "MESSENGER_ENVIRONMENT": "staging",
                                      "MESSENGER_ALLOW_EPHEMERAL_STAGING": "true",
                                      "MESSENGER_STORAGE_MODE": "ephemeral",
-                                     "MESSENGER_DB_PATH": ":memory:"}), \
+                                     "MESSENGER_DB_PATH": ":memory:",
+                                     "MESSENGER_FIRST_CONTACT_APPROVED_ORIGIN": "https://stage.example",
+                                     "MESSENGER_FIRST_CONTACT_APPROVED_CONVERSATION_ID": "room",
+                                     "MESSENGER_FIRST_CONTACT_APPROVED_OPERATION_ID": "m110-operation-0001"}), \
              patch.object(runner, "run_first_contact", return_value={"result": "PASS"}) as execute:
             self.assertEqual(runner.main(), 0)
             execute.assert_called_once_with("https://stage.example", "room", "secret-a", "secret-b",
@@ -94,6 +97,27 @@ class Mission110ExecutionSafetyTest(unittest.TestCase):
             destination.server_close()
             redirect_thread.join(timeout=2)
             destination_thread.join(timeout=2)
+
+
+    def test_cli_rejects_stale_approval_for_different_operation_before_contact(self):
+        with patch.object(sys, "argv", ["verify_first_contact.py", "--execute", "https://stage.example", "room"]):
+            with patch.dict(os.environ, {
+                "MESSENGER_FIRST_CONTACT_EXECUTE": "true",
+                "MESSENGER_FIRST_CONTACT_STAGING_AUTHORIZED": "true",
+                "MESSENGER_TOKEN_AI_A": "secret-a",
+                "MESSENGER_TOKEN_AI_B": "secret-b",
+                "MESSENGER_FIRST_CONTACT_OPERATION_ID": "m116-operation-0001",
+                "MESSENGER_ENVIRONMENT": "staging",
+                "MESSENGER_ALLOW_EPHEMERAL_STAGING": "true",
+                "MESSENGER_STORAGE_MODE": "ephemeral",
+                "MESSENGER_DB_PATH": ":memory:",
+                "MESSENGER_FIRST_CONTACT_APPROVED_ORIGIN": "https://stage.example",
+                "MESSENGER_FIRST_CONTACT_APPROVED_CONVERSATION_ID": "room",
+                "MESSENGER_FIRST_CONTACT_APPROVED_OPERATION_ID": "m116-operation-stale",
+            }, clear=True):
+                with patch.object(runner, "run_first_contact") as execute:
+                    self.assertEqual(runner.main(), 1)
+                    execute.assert_not_called()
 
 
 if __name__ == "__main__":
