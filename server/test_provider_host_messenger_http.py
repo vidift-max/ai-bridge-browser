@@ -264,7 +264,7 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
 
         verify_status, verified = self.request_path(
             "user-token", "/v1/ai/provider/attestation/verify",
-            {"conversationId": "private-room",
+            {"conversationId": "private-room", "agentId": "AI-PEER",
              "attestation": result["attestation"],
              "responseText": result["message"]["body"]})
         self.assertEqual(verify_status, 200)
