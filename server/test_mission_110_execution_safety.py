@@ -29,10 +29,12 @@ class Mission110ExecutionSafetyTest(unittest.TestCase):
         with patch.object(sys, "argv", ["verify_first_contact.py", "--execute", "https://stage.example", "room"]), \
              patch.dict(os.environ, {"MESSENGER_FIRST_CONTACT_EXECUTE": "true",
                                      "MESSENGER_TOKEN_AI_A": "secret-a",
-                                     "MESSENGER_TOKEN_AI_B": "secret-b"}), \
+                                     "MESSENGER_TOKEN_AI_B": "secret-b",
+                                     "MESSENGER_FIRST_CONTACT_OPERATION_ID": "m110-operation-0001"}), \
              patch.object(runner, "run_first_contact", return_value={"result": "PASS"}) as execute:
             self.assertEqual(runner.main(), 0)
-            execute.assert_called_once_with("https://stage.example", "room", "secret-a", "secret-b")
+            execute.assert_called_once_with("https://stage.example", "room", "secret-a", "secret-b",
+                                             operation_id="m110-operation-0001")
 
     def test_redirect_is_not_followed_and_bearer_is_not_forwarded(self):
         destination_hits = []
