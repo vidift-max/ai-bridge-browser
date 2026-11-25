@@ -16,3 +16,8 @@
 ## Data minimization and evidence boundary
 
 Audit events intentionally exclude prompt text, provider response bodies, API credentials, attestation signatures, and raw payloads. Event writes are performed in the same SQLite transaction as the associated state transition, so a rolled-back transition does not leave a committed success event. The query is a store-level API; no new public HTTP audit endpoint or production dashboard is introduced. Tests use local SQLite and fake provider data only. No live inference, paid API use, deployment, device activation, or merge is included.
+
+
+## CI correction note
+
+The first CI run exposed that the schema migration constant still declared version 13 after adding migration 14. The constant is now 14; the follow-up CI must validate the migration and all prior lease regressions on the corrected head.
