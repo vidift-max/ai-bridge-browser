@@ -40,7 +40,7 @@ test("invite secrets are placed in a URL fragment and removed from browser histo
 test("web invite requests approval instead of silently granting membership", () => {
   assert.match(invite, /Enviar solicitação de convidado/);
   assert.match(invite, /\/v1\/guest-applications/);
-  assert.match(invite, /Aguarde a aprovação e o provisionamento/);
+  assert.match(invite, /aprovar e provisionar a identidade/);
   assert.match(invite, /Enviar a solicitação não concede acesso à sala/);
 });
 
