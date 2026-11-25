@@ -41,7 +41,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] not in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"):
+    if not version_row or version_row[0] not in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     required_columns = {
         "schema_meta": {"key", "value"},
@@ -58,10 +58,10 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         required_columns["voice_mutes"] = {
             "conversation_id", "ai_id", "muted_by_ai_id", "expires_at",
         }
-    if version_row[0] in ("4", "5", "6", "7", "8", "9", "10"):
+    if version_row[0] in ("4", "5", "6", "7", "8", "9", "10", "11"):
         required_columns["conversations"].add("kind")
         required_columns["messages"].update({"kind", "created_at_epoch_seconds"})
-    if version_row[0] in ("5", "6", "7", "8", "9", "10"):
+    if version_row[0] in ("5", "6", "7", "8", "9", "10", "11"):
         required_columns["voice_calls"] = {
             "call_id", "conversation_id", "caller_ai_id", "callee_ai_id",
             "state", "created_at", "expires_at", "updated_at",
@@ -69,7 +69,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         required_columns["voice_call_signals"] = {
             "signal_id", "call_id", "sender_ai_id", "kind", "payload_json", "created_at",
         }
-    if version_row[0] in ("6", "7", "8", "9", "10"):
+    if version_row[0] in ("6", "7", "8", "9", "10", "11"):
         required_columns["conversation_admins"] = {"conversation_id", "ai_id"}
         required_columns["room_invites"] = {
             "invite_id", "conversation_id", "token_hash", "created_by_ai_id",
@@ -79,11 +79,11 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
             "request_id", "invite_id", "conversation_id", "ai_id", "status",
             "created_at", "decided_at", "decided_by_ai_id",
         }
-    if version_row[0] in ("7", "8", "9", "10"):
+    if version_row[0] in ("7", "8", "9", "10", "11"):
         required_columns["ai_identity_directory"] = {
             "internal_number", "ai_id", "display_name", "created_at",
         }
-    if version_row[0] in ("8", "9", "10"):
+    if version_row[0] in ("8", "9", "10", "11"):
         required_columns["guest_applications"] = {
             "application_id", "invite_id", "conversation_id", "display_name",
             "provider_claim", "provider_verified", "status", "created_at",
@@ -202,7 +202,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if version_row and version_row[0] in ("3", "4", "5", "6", "7", "8", "9", "10"):
+    if version_row and version_row[0] in ("3", "4", "5", "6", "7", "8", "9", "10", "11"):
         for row in connection.execute(
             "SELECT conversation_id, ai_id, muted_by_ai_id, expires_at FROM voice_mutes"
         ):
@@ -214,7 +214,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                     or row["expires_at"] <= 0):
                 return False, "RESTORE_DATA_VOICE_MUTE_INVALID"
 
-    if version_row and version_row[0] in ("5", "6", "7", "8", "9", "10"):
+    if version_row and version_row[0] in ("5", "6", "7", "8", "9", "10", "11"):
         calls = {}
         allowed_states = {"RINGING", "ACCEPTED", "CONNECTING", "CONNECTED",
                           "REJECTED", "CANCELLED", "TIMED_OUT", "ENDED", "FAILED"}
@@ -246,7 +246,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                     or row["created_at"] <= 0):
                 return False, "RESTORE_DATA_VOICE_SIGNAL_INVALID"
 
-    if version_row and version_row[0] in ("6", "7", "8", "9", "10"):
+    if version_row and version_row[0] in ("6", "7", "8", "9", "10", "11"):
         for row in connection.execute(
             "SELECT conversation_id, ai_id FROM conversation_admins"
         ):
@@ -290,7 +290,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                     or (row["status"] == "APPROVED" and row["ai_id"] not in conversations[row["conversation_id"]])):
                 return False, "RESTORE_DATA_JOIN_REQUEST_INVALID"
 
-    if version_row and version_row[0] in ("7", "8", "9", "10"):
+    if version_row and version_row[0] in ("7", "8", "9", "10", "11"):
         seen_numbers = set()
         seen_ai_ids = set()
         for row in connection.execute(
@@ -307,7 +307,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
             seen_numbers.add(row["internal_number"])
             seen_ai_ids.add(row["ai_id"])
 
-    if version_row and version_row[0] in ("8", "9", "10"):
+    if version_row and version_row[0] in ("8", "9", "10", "11"):
         invites_for_guests = {row["invite_id"]: row["conversation_id"] for row in connection.execute(
             "SELECT invite_id,conversation_id FROM room_invites")}
         for row in connection.execute(
@@ -329,7 +329,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
                          or row["decided_by_ai_id"] not in conversations[row["conversation_id"]]))):
                 return False, "RESTORE_DATA_GUEST_APPLICATION_INVALID"
 
-    if version_row and version_row[0] in ("9", "10"):
+    if version_row and version_row[0] in ("9", "10", "11"):
         identities = {row["ai_id"] for row in connection.execute(
             "SELECT ai_id FROM ai_identity_directory")}
         credentials = {}
@@ -371,7 +371,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
             elif ai_id in members or credentials.get(ai_id) != "REVOKED":
                 return False, "RESTORE_DATA_GUEST_PROVISIONING_INVALID"
 
-    if version_row and version_row[0] == "10":
+    if version_row and version_row[0] in ("10", "11"):
         for row in connection.execute("SELECT application_id,created_at,status_capability_hash,status_capability_expires_at FROM guest_applications"):
             digest, expiry = row["status_capability_hash"], row["status_capability_expires_at"]
             if ((digest is None and expiry is not None)
