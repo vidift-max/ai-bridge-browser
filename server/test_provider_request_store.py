@@ -54,6 +54,21 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "SELECT body FROM messages WHERE message_id='msg-atomic'").fetchone()["body"], "already there")
         self.assertEqual(store.get_provider_request("AI-01", "req-atomic")["status"], "PROCESSING")
 
+    def test_same_request_claim_is_stable_across_two_store_connections(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "concurrent.sqlite")
+            first = SQLiteMessengerStore(path)
+            second = SQLiteMessengerStore(path)
+            _, first_outcome = first.claim_provider_request(
+                "AI-01", "req-concurrent", "digest", "room", "AI-01", 1.0)
+            row, second_outcome = second.claim_provider_request(
+                "AI-01", "req-concurrent", "digest", "room", "AI-01", 2.0)
+            self.assertEqual(first_outcome, "claimed")
+            self.assertEqual(second_outcome, "existing")
+            self.assertEqual(row["status"], "PROCESSING")
+            first.close()
+            second.close()
+
     def test_same_request_recovers_completed_record(self):
         store = SQLiteMessengerStore(":memory:")
         row, outcome = store.claim_provider_request(
