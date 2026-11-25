@@ -195,7 +195,10 @@ class ProviderAuditAnchorHTTPTransportTests(unittest.TestCase):
             response = urllib.request.urlopen(request, timeout=3)
         except urllib.error.HTTPError as exc:
             response = exc
-        return response.code, json.loads(response.read().decode("utf-8"))
+        try:
+            return response.code, json.loads(response.read().decode("utf-8"))
+        finally:
+            response.close()
 
     def _record(self):
         checkpoint = {
@@ -255,9 +258,16 @@ class ProviderAuditAnchorHTTPTransportTests(unittest.TestCase):
 
     def test_real_http_response_has_security_headers(self):
         import urllib.request
-        response = urllib.request.urlopen(self.base_url + "/v1/audit-anchor/latest")
-        self.assertEqual(response.headers.get("Cache-Control"), "no-store")
-        self.assertEqual(response.headers.get("X-Content-Type-Options"), "nosniff")
+        request = urllib.request.Request(
+            self.base_url + "/v1/audit-anchor/latest",
+            headers={"Authorization": "Bearer http-test-token"})
+        response = urllib.request.urlopen(request)
+        try:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers.get("Cache-Control"), "no-store")
+            self.assertEqual(response.headers.get("X-Content-Type-Options"), "nosniff")
+        finally:
+            response.close()
 
 
 if __name__ == "__main__":
