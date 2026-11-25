@@ -23,6 +23,8 @@ def build_provider_audit_messenger_service(
         raise ValueError("invalid_provider_audit_enabled")
     if not enabled:
         return None
+    if anchor is None:
+        raise ValueError("provider_audit_anchor_required")
     if not isinstance(anchor, ProviderAuditAnchor):
         raise ValueError("provider_audit_anchor_contract_invalid")
     if not callable(authenticate_token):
