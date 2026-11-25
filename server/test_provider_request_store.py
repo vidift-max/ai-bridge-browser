@@ -54,6 +54,49 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "SELECT body FROM messages WHERE message_id='msg-atomic'").fetchone()["body"], "already there")
         self.assertEqual(store.get_provider_request("AI-01", "req-atomic")["status"], "PROCESSING")
 
+    def test_provider_lease_timestamp_rejects_non_finite_and_non_numeric_values(self):
+        store = SQLiteMessengerStore(":memory:")
+        for value in (float("nan"), float("inf"), float("-inf"), True, "100"):
+            with self.subTest(value=repr(value)):
+                with self.assertRaisesRegex(ValueError, "invalid_provider_timestamp"):
+                    store.claim_provider_request(
+                        "AI-01", "invalid-time-claim", "digest", "room", "AI-01", value)
+        row, outcome = store.claim_provider_request(
+            "AI-01", "valid-time", "digest", "room", "AI-01", 100.0)
+        self.assertEqual(outcome, "claimed")
+        original_updated_at = row["updated_at"]
+        for value in (float("nan"), float("inf"), float("-inf"), True, "100"):
+            with self.subTest(renewal_time=repr(value)):
+                with self.assertRaisesRegex(ValueError, "invalid_provider_timestamp"):
+                    store.renew_provider_request_lease(
+                        "AI-01", "valid-time", "digest", 1, value)
+                self.assertEqual(
+                    store.get_provider_request("AI-01", "valid-time")["updated_at"],
+                    original_updated_at)
+        message = type("Message", (), {
+            "message_id": "msg-invalid-time",
+            "conversation_id": "room",
+            "sender_ai_id": "AI-01",
+            "recipient_ai_ids": ("AI-02",),
+            "body": "must not persist",
+            "client_request_id": "provider-host:valid-time",
+            "sequence": 1,
+            "kind": "NORMAL",
+            "created_at_epoch_seconds": 101.0,
+        })()
+        for value in (float("nan"), float("inf"), float("-inf"), True, "100"):
+            with self.subTest(completion_time=repr(value)):
+                with self.assertRaisesRegex(ValueError, "invalid_provider_timestamp"):
+                    store.save_provider_message_and_complete(
+                        "AI-01", "valid-time", "digest", message,
+                        {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                        "fake", "model", value, 1)
+                self.assertIsNone(store.connection.execute(
+                    "SELECT message_id FROM messages WHERE message_id='msg-invalid-time'").fetchone())
+                self.assertEqual(
+                    store.get_provider_request("AI-01", "valid-time")["status"], "PROCESSING")
+        store.close()
+
     def test_provider_lease_duration_rejects_non_finite_and_non_positive_values(self):
         store = SQLiteMessengerStore(":memory:")
         for value in (0, -1, float("nan"), float("inf"), float("-inf"), True):
