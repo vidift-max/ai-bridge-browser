@@ -1,6 +1,6 @@
 # M138 — Bidirectional AI Conversation Controller
 
-Status: implementation and automated validation pending CI; live provider integration is explicitly out of scope for this branch.
+Status: implementation committed; automated validation is running on the draft PR. Live provider integration is explicitly out of scope for this branch.
 Base: M137 branch head `09904a8312eac7a85a3859c757286eff20c6f867`.
 Branch: `feat/mission-138-bidirectional-ai-conversation`.
 
