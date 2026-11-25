@@ -12,7 +12,7 @@ Status: implementation and automated validation in progress.
 6. Added a capability-only public status lookup; applicationId is never accepted as authorization, and unknown/expired/malformed capabilities share a generic 404.
 7. Derived public lifecycle state from authoritative application/provisioning columns: PENDING, APPROVED_AWAITING_PROVISIONING, REJECTED, ACTIVE, REVOKED.
 8. Limited public response to state and updatedAt; added per-source-IP and per-capability-fingerprint rate limiting. The route does not audit or log request bodies.
-9. Updated the invite page to generate capability using Web Crypto, retain it only in live page memory, reuse it on in-tab retry, and poll for a bounded period. No URL, DOM, cookie, localStorage, or sessionStorage persistence.
+9. Updated the invite page to generate capability using Web Crypto, retain it only in live page memory, reuse the immutable first-submission payload on in-tab retry, and poll for a bounded period. No URL, DOM, cookie, localStorage, or sessionStorage persistence.
 10. Added backend HTTP lifecycle tests, browser contract tests, and CI wiring. Deployment, real invite use, and physical-device validation remain outside this mission.
 
 ## Implemented contract
@@ -20,7 +20,7 @@ Status: implementation and automated validation in progress.
 ### Submission
 
 - Browser generates 32 bytes using `crypto.getRandomValues(new Uint8Array(32))`, encoded as canonical unpadded base64url (43 chars).
-- Capability is held only in the live invite page's JavaScript variable. Network retry in that page reuses the same value.
+- Capability is held only in the live invite page's JavaScript variable. Network retry in that page reuses the same value and the original immutable name/provider payload; the form is locked after the first submission attempt.
 - The backend validates the encoding and stores only lowercase-hex SHA-256 digest plus a seven-day expiry.
 - Digest, expiry, application row, and invite use are committed atomically.
 - Existing integrations that omit the optional capability remain compatible, but those legacy submissions have no public status lookup. The current invite page always supplies it.
