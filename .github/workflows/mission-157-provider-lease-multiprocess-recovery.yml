@@ -1,0 +1,26 @@
+name: Mission 157 Provider Lease Multiprocess Recovery CI
+
+on:
+  push:
+    branches:
+      - feat/mission-157-provider-lease-multiprocess-recovery
+  pull_request:
+    branches:
+      - feat/mission-156-provider-lease-concurrency-stress
+    paths:
+      - "server/sqlite_store.py"
+      - "server/test_provider_lease_multiprocess_recovery.py"
+      - ".github/workflows/mission-157-provider-lease-multiprocess-recovery.yml"
+      - "docs/MISSION_157_PROVIDER_LEASE_MULTIPROCESS_RECOVERY.md"
+
+jobs:
+  provider-lease-multiprocess-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_lease_multiprocess_recovery server.test_provider_request_store server.test_provider_host_messenger_http
