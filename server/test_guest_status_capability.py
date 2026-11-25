@@ -151,5 +151,26 @@ class GuestStatusCapabilityTest(unittest.TestCase):
             (legacy["applicationId"],)).fetchone()[0])
 
 
+    def test_schema_v9_migration_preserves_legacy_rows_without_public_capability(self):
+        import sqlite3
+        legacy_path = self.tmp.name + "/legacy-v9.sqlite"
+        with sqlite3.connect(legacy_path) as connection:
+            connection.execute("CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            connection.execute("INSERT INTO schema_meta(key,value) VALUES('version','9')")
+            connection.execute("CREATE TABLE guest_applications (application_id TEXT PRIMARY KEY, status TEXT, provisioning_status TEXT)")
+            connection.execute("INSERT INTO guest_applications(application_id,status,provisioning_status) VALUES('legacy-app','PENDING','NOT_STARTED')")
+        migrated = SQLiteMessengerStore(legacy_path)
+        try:
+            row = migrated.connection.execute("SELECT application_id,status_capability_hash,status_capability_expires_at FROM guest_applications WHERE application_id='legacy-app'").fetchone()
+            self.assertEqual(row["application_id"], "legacy-app")
+            self.assertIsNone(row["status_capability_hash"])
+            self.assertIsNone(row["status_capability_expires_at"])
+            version = migrated.connection.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]
+            self.assertEqual(version, "10")
+        finally:
+            migrated.close()
+
+
+
 if __name__ == "__main__":
     unittest.main()
