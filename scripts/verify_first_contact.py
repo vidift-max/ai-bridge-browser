@@ -2,6 +2,7 @@
 """Run a bounded, credential-redacting AI-01 -> AI-02 first-contact proof."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import secrets
@@ -52,7 +53,7 @@ def _require(status: int, body: dict, expected_status: int, label: str) -> dict:
 
 
 def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
-                      token_ai_02: str, request=request_json) -> dict:
+                      token_ai_02: str, request=request_json, operation_id: str | None = None) -> dict:
     base_url = normalize_base_url(base_url)
     if (not isinstance(conversation_id, str) or not conversation_id.strip()
             or len(conversation_id) > 200
@@ -63,6 +64,11 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
             or token_ai_01 == token_ai_02
             or any(char in token_ai_01 + token_ai_02 for char in "\r\n")):
         raise ValueError("distinct_ai_credentials_required")
+
+    if operation_id is not None:
+        if (not isinstance(operation_id, str) or len(operation_id) < 16 or len(operation_id) > 128
+                or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for char in operation_id)):
+            raise ValueError("invalid_operation_id")
 
     identity_a = _require(*request(base_url, "/v1/me/identity", token_ai_01),
                           200, "identity_ai_01")
@@ -76,8 +82,10 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
     encoded_room = quote(conversation_id, safe="")
     wait_path = (f"/v1/conversations/{encoded_room}/messages/wait?" +
                  urlencode({"after": "0", "limit": "10", "timeout": "25"}))
-    message_id = "first-contact-" + secrets.token_hex(12)
-    request_id = "first-contact-request-" + secrets.token_hex(12)
+    operation_id = operation_id or secrets.token_urlsafe(24)
+    operation_digest = hashlib.sha256(operation_id.encode("ascii")).hexdigest()[:24]
+    message_id = "first-contact-" + operation_digest
+    request_id = "first-contact-request-" + operation_digest
     body_text = "AI-01 -> AI-02 first-contact verification"
 
     with ThreadPoolExecutor(max_workers=1) as pool:
@@ -168,8 +176,10 @@ def main() -> int:
         return 2
     token_a = os.environ.get("MESSENGER_TOKEN_AI_A", "")
     token_b = os.environ.get("MESSENGER_TOKEN_AI_B", "")
+    operation_id = os.environ.get("MESSENGER_FIRST_CONTACT_OPERATION_ID", "")
     try:
-        result = run_first_contact(sys.argv[2], sys.argv[3], token_a, token_b)
+        result = run_first_contact(sys.argv[2], sys.argv[3], token_a, token_b,
+                                   operation_id=operation_id)
     except (ValueError, RuntimeError, TimeoutError) as exc:
         print(json.dumps({"result": "NO_GO", "reason": str(exc)}, sort_keys=True))
         return 1
