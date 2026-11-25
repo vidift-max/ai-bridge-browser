@@ -7,7 +7,7 @@ function fixture(overrides={}){
  let context={room:{conversationId:"private-1",kind:"PRIVATE",memberAiIds:["AI-ONE","AI-TWO"]},identity:{aiId:"AI-ONE"}};
  const delivered=[],requests=[],states=[];
  let sequence=0;
- const scope={window:{}};vm.runInNewContext(source,scope);
+ const scope={window:{},AbortController};vm.runInNewContext(source,scope);
  const loop=scope.window.AIBridgeConversationLoop.create({
   getContext:()=>context,
   respond:async request=>{requests.push(request);return {senderAiId:request.toAiId,body:"reply-"+(++sequence)};},
