@@ -110,10 +110,15 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
             or acknowledged.get("messageId") != message_id):
         raise RuntimeError("ack_contract_mismatch")
 
-    # Start at the beginning: using the message sequence as the cursor would
-    # hide the very message whose removal from the pending queue we must prove.
+    # Query immediately before the received message's sequence. This keeps
+    # the target inside the bounded page even when the conversation has >100
+    # pending messages; using its own sequence would hide it.
+    sequence = item.get("sequence")
+    if (isinstance(sequence, bool) or not isinstance(sequence, int)
+            or sequence < 1 or sequence > 9007199254740991):
+        raise RuntimeError("received_message_sequence_invalid")
     pending_path = (f"/v1/conversations/{encoded_room}/messages?" +
-                    urlencode({"after": "0", "limit": "100"}))
+                    urlencode({"after": str(sequence - 1), "limit": "100"}))
     pending_status, pending_body = request(base_url, pending_path, token_ai_02)
     pending = _require(pending_status, pending_body, 200, "post_ack_pending_check")
     if pending.get("principalAiId") != "AI-02":
