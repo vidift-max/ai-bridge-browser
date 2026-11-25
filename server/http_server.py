@@ -1,5 +1,6 @@
 import json
 import hashlib
+from server.provider_request_lease import ProviderRequestLeaseKeeper
 from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from server.auth import Authenticator
@@ -992,7 +993,20 @@ class MessengerHandler(BaseHTTPRequestHandler):
                         })
                         return
                 request_claimed = True
-                result = self.provider_host.execute(self._auth(), payload, skip_replay_guard=True)
+                lease_lost = False
+                def renew_claim():
+                    nonlocal lease_lost
+                    renewed = self.backend.renew_provider_request_lease(
+                        self._auth(), request_id, request_digest, attempt_generation,
+                        lease_seconds=360.0)
+                    if not renewed:
+                        lease_lost = True
+                    return renewed
+
+                with ProviderRequestLeaseKeeper(renew_claim, interval_seconds=60.0) as lease_keeper:
+                    result = self.provider_host.execute(self._auth(), payload, skip_replay_guard=True)
+                    if lease_lost or lease_keeper.lost:
+                        raise ProviderHostError("provider_request_lease_lost", 409)
                 response_text = result["text"]
                 if len(response_text) > self.backend.MAX_BODY_LENGTH:
                     raise ValueError("provider_response_too_large")
@@ -1018,6 +1032,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     ).hexdigest()[:40],
                     conversation_id, recipients, response_text,
                     "provider-host:" + request_id)
+                if lease_lost or lease_keeper.lost:
+                    raise ProviderHostError("provider_request_lease_lost", 409)
                 self.backend.save_provider_message_and_complete(
                     self._auth(), request_id, request_digest, message,
                     attestation, statement["providerId"], statement["model"], attempt_generation)
