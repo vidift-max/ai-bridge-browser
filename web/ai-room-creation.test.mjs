@@ -68,6 +68,31 @@ test("group room may explicitly include the server-owned GPT-6 identity",()=>{
  const payload=creation.buildPayload("GROUP",["AI-CLAUDE","AI-GPT6"],"AI-USER","group-gpt6");
  assert.deepEqual(payload.memberAiIds,["AI-USER","AI-CLAUDE","AI-GPT6"]);
 });
-test("link button installer is exposed and keeps linking separate from group creation",()=>{
- assert.equal(typeof creation.installLinkButton,"function");
+test("Vincular IA button switches to private mode and focuses the peer selector",()=>{
+ class Element {
+  constructor(id=""){this.id=id;this.listeners={};this.options=[];this.value="GROUP";this.textContent="";this.inserted=null;this.focused=false;this.attributes={};}
+  addEventListener(name,fn){(this.listeners[name]||(this.listeners[name]=[])).push(fn);}
+  dispatchEvent(event){for(const fn of this.listeners[event.type]||[])fn(event);return true;}
+  setAttribute(name,value){this.attributes[name]=value;}
+  insertAdjacentElement(position,element){this.inserted={position,element};}
+  focus(){this.focused=true;}
+  scrollIntoView(){}
+  click(){for(const fn of this.listeners.click||[])fn({type:"click"});}
+ }
+ const elements={
+  conversationCreateHeading:new Element("heading"),
+  conversationKind:new Element("kind"),
+  conversationPeers:new Element("peers"),
+  createConversationButton:new Element("create"),
+  conversationCreateHint:new Element("hint")
+ };
+ const doc={getElementById:id=>elements[id]||null,createElement:()=>new Element()};
+ assert.equal(creation.installLinkButton(doc),true);
+ const button=elements.conversationCreateHeading.inserted.element;
+ assert.equal(button.textContent,"Vincular IA");
+ button.click();
+ assert.equal(elements.conversationKind.value,"PRIVATE");
+ assert.equal(elements.conversationPeers.focused,true);
+ assert.equal(elements.createConversationButton.textContent,"Vincular IA e abrir conversa");
+ assert.match(elements.conversationCreateHint.textContent,/já provisionada e autorizada/);
 });
