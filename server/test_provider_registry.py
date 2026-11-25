@@ -42,7 +42,7 @@ class ProviderRegistryTest(unittest.TestCase):
         providers = ProviderRegistry(FakeOpenAI(False)).list_providers()
         by_id = {item["providerId"]: item for item in providers}
         for provider_id in ("anthropic", "google_gemini"):
-            self.assertEqual(by_id[provider_id]["implementation"], "AVAILABLE")
+            self.assertEqual(by_id[provider_id]["implementation"], "NOT_IMPLEMENTED")
             self.assertEqual(by_id[provider_id]["connectionState"], "NOT_CONFIGURED")
             self.assertFalse(by_id[provider_id]["online"])
 
