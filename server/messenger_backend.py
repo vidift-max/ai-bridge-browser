@@ -228,7 +228,11 @@ class MessengerBackend:
         capability_expires_at = now + 7 * 24 * 60 * 60 if capability_hash else None
         application = {"application_id": secrets.token_hex(16), "display_name": clean["displayName"], "provider_claim": clean["providerClaim"], "created_at": now}
         row, outcome = self._store.create_guest_application(application, token_hash, capability_hash, capability_expires_at)
-        if outcome == "invite_unavailable" or row["conversation_id"] not in self._conversations:
+        if outcome == "invite_unavailable":
+            raise ValueError("invite_unavailable")
+        if outcome == "request_exists" and row is None:
+            return {"duplicate": True, "accessGranted": False, "providerVerified": False}
+        if row is None or row["conversation_id"] not in self._conversations:
             raise ValueError("invite_unavailable")
         if outcome == "request_exists":
             return {"duplicate": True, "accessGranted": False, "providerVerified": False}
