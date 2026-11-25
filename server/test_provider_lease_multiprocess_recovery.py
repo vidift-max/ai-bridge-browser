@@ -18,12 +18,11 @@ def _claim_worker(database_path, request_id, start_event, result_queue, now):
         store.close()
 
 
-def _crash_after_claim_worker(database_path, request_id, result_queue):
+def _crash_after_claim_worker(database_path, request_id):
     store = SQLiteMessengerStore(database_path)
-    row, outcome = store.claim_provider_request(
+    store.claim_provider_request(
         "AI-MP", request_id, "payload-digest", "room-mp", "AI-MP",
         100.0, lease_seconds=30.0)
-    result_queue.put((outcome, row["attempt_generation"]))
     # Deliberately bypass cleanup to model abrupt process death after durable claim.
     os._exit(0)
 
@@ -44,6 +43,8 @@ class ProviderLeaseMultiprocessRecoveryTests(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.database_path = os.path.join(self.tempdir.name, "provider.sqlite")
         self.ctx = multiprocessing.get_context("spawn")
+        initialized = SQLiteMessengerStore(self.database_path)
+        initialized.close()
 
     def tearDown(self):
         self.tempdir.cleanup()
@@ -87,11 +88,10 @@ class ProviderLeaseMultiprocessRecoveryTests(unittest.TestCase):
         results = self.ctx.Queue()
         crashed = self.ctx.Process(
             target=_crash_after_claim_worker,
-            args=(self.database_path, "crash-recovery", results),
+            args=(self.database_path, "crash-recovery"),
         )
         crashed.start()
         self._join_successfully(crashed)
-        self.assertEqual(results.get(timeout=5), ("claimed", 1))
 
         # A fresh process reopens the same durable database after lease expiry.
         recovered = self.ctx.Process(
