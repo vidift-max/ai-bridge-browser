@@ -483,6 +483,22 @@ class MessengerBackend:
             principal.ai_id, request_id, request_digest, conversation_id, agent_id, time.time())
 
     @_synchronized
+    def save_provider_message_and_complete(self, bearer_token: str, request_id: str,
+                                           request_digest: str, message: Message,
+                                           attestation: dict, provider_id: str, model: str):
+        principal = self.authenticate(bearer_token)
+        result, created = self._store.save_provider_message_and_complete(
+            principal, request_id, request_digest, message, attestation,
+            provider_id, model, time.time())
+        if created:
+            self._messages[message.message_id] = message
+            self._idempotency[(message.sender_ai_id, message.client_request_id)] = message.message_id
+            self._next_sequence[message.conversation_id] = max(
+                self._next_sequence.get(message.conversation_id, 0), message.sequence)
+            self._message_condition.notify_all()
+        return result, created
+
+    @_synchronized
     def complete_provider_request(self, bearer_token: str, request_id: str, request_digest: str,
                                   response_text: str, provider_id: str, model: str,
                                   attestation: dict, message_id: str):
