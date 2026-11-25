@@ -185,6 +185,37 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "ack_contract_mismatch"):
             runner.run_first_contact("https://stage.example", "room", "a", "b", fake_request)
 
+    def test_does_not_run_pending_check_when_ack_contract_fails(self):
+        import threading
+        ready = threading.Event()
+        mid = {"value": None}
+        pending_called = {"value": False}
+
+        def fake_request(base, path, token, method="GET", payload=None):
+            if path == "/v1/me/identity":
+                return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
+                ready.wait(1)
+                return 200, {"principalAiId": "AI-02", "messages": [{
+                    "messageId": mid["value"], "conversationId": "room",
+                    "senderAiId": "AI-01",
+                    "body": "AI-01 -> AI-02 first-contact verification",
+                    "sequence": 1}]}
+            if path == "/v1/messages":
+                mid["value"] = payload["messageId"]
+                ready.set()
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+            if path.endswith("/ack"):
+                return 200, {"messageId": "wrong", "state": "ACKNOWLEDGED", "principalAiId": "AI-02"}
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=0" in path:
+                pending_called["value"] = True
+                return 200, {"principalAiId": "AI-02", "messages": []}
+            self.fail("unexpected_request:" + path)
+
+        with self.assertRaisesRegex(RuntimeError, "ack_contract_mismatch"):
+            runner.run_first_contact("https://stage.example", "room", "a", "b", fake_request)
+        self.assertFalse(pending_called["value"])
+
     def test_rejects_pending_check_for_wrong_principal(self):
         import threading
         ready = threading.Event()
