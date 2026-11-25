@@ -196,8 +196,9 @@ def main() -> int:
     token_b = os.environ.get("MESSENGER_TOKEN_AI_B", "")
     operation_id = os.environ.get("MESSENGER_FIRST_CONTACT_OPERATION_ID", "")
     try:
-        validate_environment(os.environ)
-        result = run_first_contact(sys.argv[2], sys.argv[3], token_a, token_b,
+        normalized_origin = normalize_base_url(sys.argv[2])
+        validate_environment(os.environ, normalized_origin, sys.argv[3], operation_id)
+        result = run_first_contact(normalized_origin, sys.argv[3], token_a, token_b,
                                    operation_id=operation_id)
     except (ValueError, RuntimeError, TimeoutError) as exc:
         print(json.dumps({"result": "NO_GO", "reason": str(exc)}, sort_keys=True))
