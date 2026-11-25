@@ -17,7 +17,7 @@ class ProviderRegistryTest(unittest.TestCase):
     def test_openai_key_configuration_is_not_reported_as_online(self):
         provider = ProviderRegistry(FakeOpenAI(True)).get_provider("openai")
         self.assertTrue(provider["configured"])
-        self.assertEqual(provider["connectionState"], "DISABLED_BY_POLICY")
+        self.assertEqual(provider["connectionState"], "NOT_CONFIGURED")
         self.assertFalse(provider["apiCallsEnabled"])
         self.assertEqual(provider["capabilities"], [])
         self.assertFalse(provider["online"])
