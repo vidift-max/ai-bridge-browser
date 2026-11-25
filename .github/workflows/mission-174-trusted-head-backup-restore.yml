@@ -1,0 +1,28 @@
+name: Mission 174 Trusted Head Backup Restore
+
+on:
+  push:
+    branches:
+      - feat/mission-174-trusted-head-backup-restore
+  pull_request:
+    branches:
+      - feat/mission-173-audit-chain-recovery-security
+    paths:
+      - "server/provider_audit_trusted_head_backup.py"
+      - "server/test_provider_audit_trusted_head_backup.py"
+      - "server/provider_audit_durable_anchor.py"
+      - "server/test_provider_audit_chain_recovery_security.py"
+      - ".github/workflows/mission-174-trusted-head-backup-restore.yml"
+      - "docs/MISSION_174_TRUSTED_HEAD_BACKUP_RESTORE.md"
+
+jobs:
+  trusted-head-backup-restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_audit_trusted_head_backup server.test_provider_audit_chain_recovery_security server.test_provider_audit_remote_anchor_conformance server.test_provider_audit_anchor_protocol server.test_provider_audit_remote_anchor server.test_provider_audit_durable_anchor server.test_provider_audit_remote_service server.test_provider_audit_messenger_activation server.test_provider_audit_messenger_http_integration server.test_provider_audit_http_server_factory server.test_provider_audit_http_transport
