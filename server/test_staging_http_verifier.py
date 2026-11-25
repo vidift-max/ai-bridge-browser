@@ -78,12 +78,12 @@ class StagingVerifierTest(unittest.TestCase):
         self.assertEqual(body, {"error": "http_error"})
         self.assertNotIn("secret-value", str(body))
 
-    def test_http_error_with_invalid_utf8_returns_sanitized_body(self):
+    def test_http_error_with_invalid_utf8_returns_generic_error(self):
         error = HTTPError("https://stage.example/healthz", 502, "Bad Gateway", {}, BytesIO(b"\xff"))
         with patch.object(verifier, "urlopen", side_effect=error):
             status, body = verifier.check("https://stage.example", "/healthz")
         self.assertEqual(status, 502)
-        self.assertEqual(body, {"error": "invalid_json_response"})
+        self.assertEqual(body, {"error": "http_error"})
 
 
 if __name__ == "__main__":
