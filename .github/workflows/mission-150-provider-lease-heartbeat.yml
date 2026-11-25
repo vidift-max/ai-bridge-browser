@@ -7,7 +7,7 @@ on:
       - feat/mission-150-provider-lease-heartbeat
   pull_request:
     branches:
-      - feat/mission-148-replay-reservation-fencing
+      - feat/mission-149-durable-provider-claim-fencing
     paths:
       - "server/sqlite_store.py"
       - "server/messenger_backend.py"
