@@ -54,6 +54,7 @@ class Mission110ExecutionSafetyTest(unittest.TestCase):
                 self.send_response(302)
                 self.send_header("Location", f"http://127.0.0.1:{destination.server_port}/capture")
                 self.end_headers()
+                self.wfile.write(b"sensitive-token")
             def log_message(self, *args):
                 pass
 
@@ -73,11 +74,6 @@ class Mission110ExecutionSafetyTest(unittest.TestCase):
             destination.server_close()
             redirect_thread.join(timeout=2)
             destination_thread.join(timeout=2)
-
-    def test_redirect_error_does_not_echo_secret_or_response_body(self):
-        status, body = runner._decode(b'{"error":"sensitive-token"}'), None
-        self.assertEqual(status, {"error": "sensitive-token"})
-        self.assertIsNone(body)
 
 
 if __name__ == "__main__":
