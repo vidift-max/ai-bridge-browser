@@ -128,6 +128,65 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertFalse(keeper.lost)
         self.assertEqual(calls, [])
 
+    def test_provider_lease_keeper_reports_clean_shutdown(self):
+        keeper = ProviderRequestLeaseKeeper(lambda: True, interval_seconds=10.0)
+        with keeper:
+            self.assertFalse(keeper.stopped)
+        self.assertTrue(keeper.stopped)
+        self.assertFalse(keeper.lost)
+        self.assertFalse(keeper._thread.is_alive())
+
+    def test_provider_lease_keeper_fails_closed_when_renewal_is_still_running(self):
+        started = threading.Event()
+        release = threading.Event()
+        callback_finished = threading.Event()
+
+        def blocked_renewal():
+            started.set()
+            try:
+                release.wait(2.0)
+                return True
+            finally:
+                callback_finished.set()
+
+        keeper = ProviderRequestLeaseKeeper(
+            blocked_renewal, interval_seconds=0.01, shutdown_timeout_seconds=0.02)
+        with keeper:
+            self.assertTrue(started.wait(1.0))
+        self.assertFalse(keeper.stopped)
+        self.assertTrue(keeper.lost)
+        release.set()
+        self.assertTrue(callback_finished.wait(1.0))
+        keeper._thread.join(timeout=1.0)
+        self.assertFalse(keeper._thread.is_alive())
+
+    def test_provider_lease_keeper_marks_exception_as_lost_and_stops(self):
+        def failed_renewal():
+            raise RuntimeError("simulated renewal failure")
+
+        keeper = ProviderRequestLeaseKeeper(
+            failed_renewal, interval_seconds=0.01, shutdown_timeout_seconds=1.0)
+        with keeper:
+            self.assertTrue(keeper._stop.wait(1.0))
+        self.assertTrue(keeper.lost)
+        self.assertTrue(keeper.stopped)
+
+    def test_provider_lease_keeper_rejects_non_finite_timeouts(self):
+        for value in (float("nan"), float("inf"), float("-inf"), True):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    ProviderRequestLeaseKeeper(lambda: True, interval_seconds=value)
+                with self.assertRaises(ValueError):
+                    ProviderRequestLeaseKeeper(
+                        lambda: True, shutdown_timeout_seconds=value)
+
+    def test_provider_lease_keeper_cannot_be_started_twice(self):
+        keeper = ProviderRequestLeaseKeeper(lambda: True, interval_seconds=10.0)
+        with keeper:
+            pass
+        with self.assertRaisesRegex(RuntimeError, "already_started"):
+            keeper.__enter__()
+
     def test_provider_reply_is_authenticated_persisted_and_delivered_to_peer(self):
         status, data = self.request("user-token", self.payload())
         self.assertEqual(status, 201)
