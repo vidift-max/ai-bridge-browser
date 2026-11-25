@@ -27,7 +27,7 @@ class ProviderRegistryTest(unittest.TestCase):
     def test_missing_openai_key_is_not_configured(self):
         provider = ProviderRegistry(FakeOpenAI(False)).get_provider("openai")
         self.assertFalse(provider["configured"])
-        self.assertEqual(provider["connectionState"], "DISABLED_BY_POLICY")
+        self.assertEqual(provider["connectionState"], "NOT_CONFIGURED")
         self.assertFalse(provider["apiCallsEnabled"])
 
     def test_paid_capabilities_appear_only_when_gate_is_open(self):
@@ -43,7 +43,7 @@ class ProviderRegistryTest(unittest.TestCase):
         by_id = {item["providerId"]: item for item in providers}
         for provider_id in ("anthropic", "google_gemini"):
             self.assertEqual(by_id[provider_id]["implementation"], "NOT_IMPLEMENTED")
-            self.assertEqual(by_id[provider_id]["connectionState"], "NOT_IMPLEMENTED")
+            self.assertEqual(by_id[provider_id]["connectionState"], "NOT_CONFIGURED")
             self.assertFalse(by_id[provider_id]["online"])
 
     def test_catalog_never_contains_credential_values(self):

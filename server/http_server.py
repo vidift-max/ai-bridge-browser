@@ -15,6 +15,8 @@ from server.provider_registry import ProviderRegistry
 from server.gpt6_room_agent import GPT6RoomAgent
 from server.ai_provider_host import AuthenticatedProviderHost, ProviderHostError
 from server.ai_conversation_host import AgentSessionError, AgentSessionRegistry, TwoAgentConversationHost
+from server.provider_adapters import AnthropicTextAdapter, GeminiTextAdapter
+from server.agent_provider_router import AgentProviderRouter
 
 
 def _unique_json_object(pairs):
@@ -62,6 +64,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     voice_calls=None
     openai_text=None
     provider_registry=None
+    agent_provider_router=None
     gpt6_room_agent=None
     provider_host=None
     agent_session_registry=None
@@ -540,6 +543,27 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(429, {"error": "rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc) == "authentication_required" else 403, self._permission_error(exc))
+            return
+        if self.path == "/v1/ai/provider/readiness":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                router = self.agent_provider_router
+                if router is None:
+                    self._json(503, {"error": "agent_provider_router_unavailable"})
+                    return
+                self._audit(identity, "AGENT_PROVIDER_READINESS_READ", principal.ai_id)
+                self._json(200, {
+                    "assignments": router.readiness(sorted(set(RuntimeConfig.auth_tokens().values()))),
+                    "correlationId": identity.correlation_id,
+                })
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
             return
         if self.path == "/v1/gpt6/status":
             try:
@@ -1632,7 +1656,15 @@ def serve(host="127.0.0.1",port=8080):
     MessengerHandler.operational=OperationalRuntime()
     MessengerHandler.audio_store=AudioBlobStore(str(Path(RuntimeConfig.storage_path()).resolve().parent / "audio"))
     MessengerHandler.openai_text=OpenAITextAdapter()
-    MessengerHandler.provider_registry=ProviderRegistry(MessengerHandler.openai_text)
+    anthropic_text = AnthropicTextAdapter()
+    gemini_text = GeminiTextAdapter()
+    provider_adapters = {
+        "openai": MessengerHandler.openai_text,
+        "anthropic": anthropic_text,
+        "google_gemini": gemini_text,
+    }
+    MessengerHandler.provider_registry=ProviderRegistry(adapters=provider_adapters)
+    MessengerHandler.agent_provider_router=AgentProviderRouter(provider_adapters)
     MessengerHandler.gpt6_room_agent=GPT6RoomAgent(backend, MessengerHandler.openai_text)
     MessengerHandler.provider_host = None
     MessengerHandler.agent_session_registry = None
@@ -1649,18 +1681,9 @@ def serve(host="127.0.0.1",port=8080):
             return (principal_id == agent_id and len(members) == 2
                     and agent_id in members and kinds.get(conversation_id) == "PRIVATE")
         def resolve_agent_provider(agent_id):
-            if (agent_id not in set(tokens.values())
-                    or not MessengerHandler.openai_text.enabled()
-                    or not MessengerHandler.openai_text.api_calls_enabled()):
+            if agent_id not in set(tokens.values()):
                 return None
-            def invoke(prompt):
-                response = MessengerHandler.openai_text.respond(prompt)
-                return {
-                    "text": response.get("text", ""),
-                    "providerId": "openai",
-                    "model": response.get("model", MessengerHandler.openai_text.model),
-                }
-            return invoke
+            return MessengerHandler.agent_provider_router.resolve(agent_id)
         MessengerHandler.provider_host = AuthenticatedProviderHost(
             authenticate=backend.authenticate,
             authorize_agent=authorize_provider_agent,
