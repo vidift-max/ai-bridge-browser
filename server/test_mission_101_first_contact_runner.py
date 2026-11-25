@@ -27,6 +27,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         import threading
         delivered = threading.Event()
         message_id = {"value": None}
+        events = []
 
         def fake_request(base, path, token, method="GET", payload=None):
             if path == "/v1/me/identity":
@@ -46,9 +47,13 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                 return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
             if path.endswith("/ack"):
                 self.assertEqual(token, "b")
+                events.append("ack")
                 return 200, {"messageId": message_id["value"], "state": "ACKNOWLEDGED", "principalAiId": "AI-02"}
             if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=0" in path:
                 self.assertEqual(token, "b")
+                events.append("pending")
+                self.assertEqual(events, ["ack", "pending"])
+                self.assertIn("after=149", path)
                 self.assertIn("after=149", path)
                 self.assertIn("limit=100", path)
                 self.assertIn("timeout=0", path)
