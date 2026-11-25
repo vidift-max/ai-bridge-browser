@@ -9,9 +9,14 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from verify_staging_http import normalize_base_url
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def request_json(base_url: str, path: str, token: str, method: str = "GET",
@@ -23,7 +28,7 @@ def request_json(base_url: str, path: str, token: str, method: str = "GET",
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     request = Request(base_url + path, data=body, headers=headers, method=method)
     try:
-        with urlopen(request, timeout=30) as response:
+        with build_opener(_NoRedirectHandler).open(request, timeout=30) as response:
             return response.status, _decode(response.read())
     except HTTPError as exc:
         # Never echo response bodies or request headers: either could contain secrets.
@@ -155,13 +160,16 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print("usage: verify_first_contact.py https://staging.example CONVERSATION_ID")
+    if len(sys.argv) != 4 or sys.argv[1] != "--execute":
+        print("usage: verify_first_contact.py --execute https://staging.example CONVERSATION_ID")
+        return 2
+    if os.environ.get("MESSENGER_FIRST_CONTACT_EXECUTE") != "true":
+        print(json.dumps({"result": "NO_GO", "reason": "explicit_execution_gate_required"}, sort_keys=True))
         return 2
     token_a = os.environ.get("MESSENGER_TOKEN_AI_A", "")
     token_b = os.environ.get("MESSENGER_TOKEN_AI_B", "")
     try:
-        result = run_first_contact(sys.argv[1], sys.argv[2], token_a, token_b)
+        result = run_first_contact(sys.argv[2], sys.argv[3], token_a, token_b)
     except (ValueError, RuntimeError, TimeoutError) as exc:
         print(json.dumps({"result": "NO_GO", "reason": str(exc)}, sort_keys=True))
         return 1
