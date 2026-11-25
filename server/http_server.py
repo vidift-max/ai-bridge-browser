@@ -1,5 +1,6 @@
 import json
 import hashlib
+import os
 from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from server.auth import Authenticator
@@ -13,6 +14,7 @@ from pathlib import Path
 from server.openai_text_adapter import OpenAITextAdapter
 from server.provider_registry import ProviderRegistry
 from server.gpt6_room_agent import GPT6RoomAgent
+from server.ai_provider_host import AuthenticatedProviderHost, ProviderHostError
 
 
 def _unique_json_object(pairs):
@@ -61,6 +63,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     openai_text=None
     provider_registry=None
     gpt6_room_agent=None
+    provider_host=None
     guest_sessions=None
 
     def _auth(self):
@@ -923,6 +926,64 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        if urlsplit(self.path).path == "/v1/ai/provider/respond":
+            try:
+                if self.provider_host is None:
+                    self._json(503, {"error": "provider_host_not_configured"})
+                    return
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                payload = self._read_json(max_length=6000)
+                result = self.provider_host.execute(self._auth(), payload)
+                response_text = result["text"]
+                if len(response_text) > self.backend.MAX_BODY_LENGTH:
+                    raise ValueError("provider_response_too_large")
+                conversation_id = payload["conversationId"]
+                agent_id = payload["agentId"]
+                members = self.backend.conversation_members().get(conversation_id, set())
+                recipients = sorted(members - {agent_id})
+                request_digest = hashlib.sha256(
+                    (agent_id + ":" + payload["requestId"]).encode("utf-8")
+                ).hexdigest()[:40]
+                message = self.backend.submit(
+                    self._auth(),
+                    "provider-" + request_digest,
+                    conversation_id,
+                    recipients,
+                    response_text,
+                    "provider-host:" + payload["requestId"],
+                )
+                self._audit(identity, "AI_PROVIDER_RESPONSE_PERSISTED",
+                            message.message_id, provider=result["attestation"]["statement"]["providerId"],
+                            model=result["attestation"]["statement"]["model"])
+                self._json(201, {
+                    "message": {
+                        "messageId": message.message_id,
+                        "conversationId": message.conversation_id,
+                        "senderAiId": message.sender_ai_id,
+                        "recipientAiIds": list(message.recipient_ai_ids),
+                        "sequence": message.sequence,
+                        "body": message.body,
+                    },
+                    "attestation": result["attestation"],
+                })
+            except ProviderHostError as exc:
+                self._json(exc.status, {"error": exc.code})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self._json(400, {"error": "invalid_provider_request"})
+            except RuntimeError as exc:
+                code = str(exc)
+                self._json(503, {"error": code if code in (
+                    "openai_api_calls_disabled", "openai_api_not_configured",
+                    "provider_host_not_configured") else "provider_execution_unavailable"})
+            return
         if urlsplit(self.path).path == "/v1/guest-sessions":
             try:
                 if self.guest_sessions is None:
@@ -1479,6 +1540,36 @@ def serve(host="127.0.0.1",port=8080):
     MessengerHandler.openai_text=OpenAITextAdapter()
     MessengerHandler.provider_registry=ProviderRegistry(MessengerHandler.openai_text)
     MessengerHandler.gpt6_room_agent=GPT6RoomAgent(backend, MessengerHandler.openai_text)
+    MessengerHandler.provider_host = None
+    host_key_hex = RuntimeConfig.optional("AI_PROVIDER_HOST_HMAC_KEY_HEX", "")
+    if host_key_hex:
+        try:
+            host_key = bytes.fromhex(host_key_hex)
+        except ValueError as exc:
+            raise RuntimeError("invalid_runtime_config:AI_PROVIDER_HOST_HMAC_KEY_HEX") from exc
+        def authorize_provider_agent(principal_id, conversation_id, agent_id):
+            members = backend.conversation_members().get(conversation_id, set())
+            kinds = backend.conversation_kinds()
+            return (principal_id == agent_id and len(members) == 2
+                    and agent_id in members and kinds.get(conversation_id) == "PRIVATE")
+        def resolve_agent_provider(agent_id):
+            if agent_id not in set(tokens.values()):
+                return None
+            def invoke(prompt):
+                response = MessengerHandler.openai_text.respond(prompt)
+                return {
+                    "text": response.get("output_text", ""),
+                    "providerId": "openai",
+                    "model": response.get("model", MessengerHandler.openai_text.model),
+                }
+            return invoke
+        MessengerHandler.provider_host = AuthenticatedProviderHost(
+            authenticate=backend.authenticate,
+            authorize_agent=authorize_provider_agent,
+            resolve_provider=resolve_agent_provider,
+            attestation_key=host_key,
+            server_identity="AI-BRIDGE-MESSENGER",
+        )
     from server.guest_web_session import GuestWebSessionService
     MessengerHandler.guest_sessions=GuestWebSessionService(authenticator)
     server = ThreadingHTTPServer((host, port), MessengerHandler)
