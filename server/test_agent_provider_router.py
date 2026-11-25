@@ -1,7 +1,7 @@
 import json
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from server.agent_provider_router import AgentProviderRouter
 from server.provider_adapters import AnthropicTextAdapter, GeminiTextAdapter
@@ -65,6 +65,43 @@ class ProviderAdapterGateTest(unittest.TestCase):
             self.assertFalse(adapter.api_calls_enabled())
             with self.assertRaisesRegex(RuntimeError, "google_gemini_api_calls_disabled"):
                 adapter.respond("hello")
+
+
+    def test_anthropic_adapter_uses_messages_endpoint_and_private_header(self):
+        import json
+        payload = {"id": "msg-test", "model": "claude-test",
+                   "content": [{"type": "text", "text": "Claude respondeu"}]}
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        response.read.return_value = json.dumps(payload).encode()
+        with patch.dict(os.environ, {"ANTHROPIC_API_CALLS_ENABLED": "true"}), \\
+             patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
+            result = AnthropicTextAdapter(api_key="private-anthropic-key").respond("oi")
+        request = call.call_args.args[0]
+        self.assertEqual(request.full_url, "https://api.anthropic.com/v1/messages")
+        self.assertEqual(request.get_header("X-api-key"), "private-anthropic-key")
+        self.assertEqual(json.loads(request.data)["messages"][0]["content"], "oi")
+        self.assertEqual(result["text"], "Claude respondeu")
+        self.assertEqual(result["responseId"], "msg-test")
+
+    def test_gemini_adapter_uses_generate_content_and_private_header(self):
+        import json
+        payload = {"responseId": "gemini-test", "model": "gemini-test",
+                   "candidates": [{"content": {"parts": [{"text": "Gemini respondeu"}]}}]}
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        response.read.return_value = json.dumps(payload).encode()
+        with patch.dict(os.environ, {"GEMINI_API_CALLS_ENABLED": "true"}), \\
+             patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
+            result = GeminiTextAdapter(api_key="private-gemini-key").respond("oi")
+        request = call.call_args.args[0]
+        self.assertIn(":generateContent", request.full_url)
+        self.assertNotIn("private-gemini-key", request.full_url)
+        self.assertEqual(request.get_header("X-goog-api-key"), "private-gemini-key")
+        self.assertEqual(json.loads(request.data)["contents"][0]["parts"][0]["text"], "oi")
+        self.assertEqual(result["text"], "Gemini respondeu")
 
     def test_provider_adapters_reject_empty_and_oversized_prompts(self):
         for adapter in (AnthropicTextAdapter(api_key="k"),
