@@ -33,7 +33,8 @@ class SQLiteDurableAuditAnchor:
         return connection
 
     def _initialize(self):
-        with self._connect() as connection:
+        connection = self._connect()
+        try:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS provider_audit_anchor_records (
@@ -53,6 +54,8 @@ class SQLiteDurableAuditAnchor:
                 BEFORE DELETE ON provider_audit_anchor_records
                 BEGIN SELECT RAISE(ABORT, 'anchor_records_are_append_only'); END
             """)
+        finally:
+            connection.close()
 
     def read_latest(self):
         with self._connect() as connection:
