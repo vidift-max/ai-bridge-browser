@@ -6,7 +6,7 @@ on:
       - feat/mission-137-direct-ai-text-bridge
   pull_request:
     branches:
-      - feat/mission-137-direct-ai-text-bridge
+      - feat/mission-136-android-browser-apk-readiness
 
 permissions:
   contents: read
