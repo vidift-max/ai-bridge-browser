@@ -17,7 +17,7 @@
 
 Set `MESSENGER_FIRST_CONTACT_OPERATION_ID` to a unique, non-secret operation label of 16–128 allowed characters before execution. Keep that exact value for any recovery attempt related to the same intended first contact. The runner hashes it into stable `messageId` and `clientRequestId` values. Do not invent a new operation ID after an ambiguous timeout.
 
-This is client-side idempotency-key stability. End-to-end duplicate suppression still depends on the server enforcing `clientRequestId`/message ID idempotency; this mission's unit tests do not claim to prove that behavior against a live deployed service. The runner does not automatically retry a failed or ambiguous POST.
+The backend implementation already indexes idempotency by authenticated sender plus `clientRequestId`: an identical replay returns the original message, while reuse with different message content/recipients is rejected as an idempotency conflict. Existing backend regressions cover conflict rejection and concurrent identical submissions. M111 adds `server.test_messenger_backend` to this mission's CI command so that server-side contract is exercised alongside the stable client identifiers. This is source/CI evidence, not proof against a live deployed service. The runner does not automatically retry a failed or ambiguous POST.
 
 ## Evidence and safety boundary
 
