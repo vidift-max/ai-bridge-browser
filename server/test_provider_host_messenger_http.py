@@ -5,6 +5,7 @@ from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 
 from server.ai_provider_host import AuthenticatedProviderHost
+from server.agent_provider_router import AgentProviderRouter
 from server.ai_conversation_host import AgentSessionRegistry, TwoAgentConversationHost
 from server.auth import Authenticator
 from server.http_server import MessengerHandler
@@ -97,6 +98,18 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         if token:
             headers["Authorization"] = "Bearer " + token
         connection.request("POST", path, body=json.dumps(payload), headers=headers)
+        response = connection.getresponse()
+        data = json.loads(response.read().decode("utf-8"))
+        connection.close()
+        return response.status, data
+
+
+    def request_get(self, token, path):
+        connection = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+        headers = {}
+        if token:
+            headers["Authorization"] = "Bearer " + token
+        connection.request("GET", path, headers=headers)
         response = connection.getresponse()
         data = json.loads(response.read().decode("utf-8"))
         connection.close()
@@ -276,6 +289,88 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
              "responseText": result["message"]["body"]})
         self.assertEqual(mismatch_status, 200)
         self.assertFalse(mismatch["valid"])
+
+
+    def test_independent_provider_router_completes_http_round_trip_and_persists_authorship(self):
+        class Adapter:
+            def __init__(self, provider_id):
+                self.provider_id = provider_id
+                self.calls = []
+            def enabled(self): return True
+            def api_calls_enabled(self): return True
+            def respond(self, prompt):
+                self.calls.append(prompt)
+                return {"text": self.provider_id + " reply: " + prompt,
+                        "providerId": self.provider_id, "model": self.provider_id + "-test"}
+
+        openai = Adapter("openai-test")
+        claude = Adapter("anthropic-test")
+        router = AgentProviderRouter(
+            {"openai": openai, "anthropic": claude},
+            {"AI-USER": "openai", "AI-PEER": "anthropic"},
+        )
+
+        def authorize(principal, conversation_id, agent_id):
+            members = self.backend.conversation_members().get(conversation_id, set())
+            return (principal == agent_id and len(members) == 2 and agent_id in members
+                    and self.backend.conversation_kinds().get(conversation_id) == "PRIVATE")
+
+        def resolve(agent_id):
+            return router.resolve(agent_id)
+
+        routed_host = AuthenticatedProviderHost(
+            authenticate=self.backend.authenticate, authorize_agent=authorize,
+            resolve_provider=resolve, attestation_key=b"m" * 32,
+            server_identity="AI-BRIDGE-MESSENGER-ROUTER-TEST")
+        sessions = AgentSessionRegistry(self.backend, ttl_seconds=60)
+        MessengerHandler.provider_host = routed_host
+        MessengerHandler.agent_session_registry = sessions
+        MessengerHandler.conversation_host = TwoAgentConversationHost(
+            self.backend, routed_host, sessions)
+        MessengerHandler.agent_provider_router = router
+
+        for token, expected_ai in (("user-token", "AI-USER"), ("peer-token", "AI-PEER")):
+            status, data = self.request_path(
+                token, "/v1/ai/conversation/session/register",
+                {"conversationId": "private-room"})
+            self.assertEqual(status, 201)
+            self.assertEqual(data["session"]["aiId"], expected_ai)
+
+        status_a, first = self.request_path(
+            "user-token", "/v1/ai/conversation/turn",
+            {"conversationId": "private-room", "agentId": "AI-PEER",
+             "requestId": "m179-roundtrip-a", "prompt": "Olá, IA-B"})
+        self.assertEqual(status_a, 201)
+        self.assertEqual(first["message"]["senderAiId"], "AI-PEER")
+        self.assertIn("anthropic-test", first["attestation"]["statement"]["providerId"])
+        self.assertTrue(routed_host.verify_attestation(
+            first["attestation"], first["message"]["body"]))
+
+        status_b, second = self.request_path(
+            "peer-token", "/v1/ai/conversation/turn",
+            {"conversationId": "private-room", "agentId": "AI-USER",
+             "requestId": "m179-roundtrip-b", "prompt": first["message"]["body"]})
+        self.assertEqual(status_b, 201)
+        self.assertEqual(second["message"]["senderAiId"], "AI-USER")
+        self.assertIn("openai-test", second["attestation"]["statement"]["providerId"])
+        self.assertTrue(routed_host.verify_attestation(
+            second["attestation"], second["message"]["body"]))
+
+        expected = [first["message"]["messageId"], second["message"]["messageId"]]
+        self.assertEqual([m.message_id for m in self.backend.history(
+            "user-token", "private-room")], expected)
+        self.assertEqual([m.message_id for m in self.backend.history(
+            "peer-token", "private-room")], expected)
+        self.assertEqual(claude.calls, ["Olá, IA-B"])
+        self.assertEqual(openai.calls, [first["message"]["body"]])
+
+        ready_status, ready = self.request_get("user-token", "/v1/ai/provider/readiness")
+        self.assertEqual(ready_status, 200)
+        readiness = {item["aiId"]: item for item in ready["assignments"]}
+        self.assertEqual(readiness["AI-USER"]["providerId"], "openai")
+        self.assertEqual(readiness["AI-PEER"]["providerId"], "anthropic")
+        self.assertTrue(readiness["AI-USER"]["apiCallsEnabled"])
+        self.assertTrue(readiness["AI-PEER"]["apiCallsEnabled"])
 
     def test_coordinated_turn_requires_peer_to_register_first(self):
         self.request_path("user-token", "/v1/ai/conversation/session/register",
