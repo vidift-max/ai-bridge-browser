@@ -37,13 +37,15 @@ class AgentProviderRouterTest(unittest.TestCase):
         self.assertEqual(router.readiness(["AI-B"])[0]["state"], "NOT_CONFIGURED")
 
     def test_invalid_assignments_rejected(self):
-        for value in ('{"AI-A":"unknown"}', '{"not-an-ai":"openai"}', '[]', '{'):
+        values = (
+            '{"AI-A":"unknown"}', '{"not-an-ai":"openai"}', '[]', '{',
+            '{"AI-A":"openai","AI-A":"anthropic"}')
+        for value in values:
             with self.subTest(value=value), self.assertRaises(ValueError):
                 AgentProviderRouter({}, value)
 
     def test_readiness_never_exposes_credentials(self):
-        router = AgentProviderRouter({"anthropic": FakeAdapter()},
-                                     {"AI-A": "anthropic"})
+        router = AgentProviderRouter({"anthropic": FakeAdapter()}, {"AI-A": "anthropic"})
         encoded = json.dumps(router.readiness(["AI-A"]))
         self.assertNotIn("secret", encoded)
         self.assertNotIn("api_key", encoded)
@@ -66,16 +68,15 @@ class ProviderAdapterGateTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "google_gemini_api_calls_disabled"):
                 adapter.respond("hello")
 
-
     def test_anthropic_adapter_uses_messages_endpoint_and_private_header(self):
-        import json
         payload = {"id": "msg-test", "model": "claude-test",
                    "content": [{"type": "text", "text": "Claude respondeu"}]}
         response = MagicMock()
         response.__enter__ = MagicMock(return_value=response)
         response.__exit__ = MagicMock(return_value=False)
         response.read.return_value = json.dumps(payload).encode()
-        with patch.dict(os.environ, {"ANTHROPIC_API_CALLS_ENABLED": "true"}), patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
+        with patch.dict(os.environ, {"ANTHROPIC_API_CALLS_ENABLED": "true"}), patch(
+                "server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
             result = AnthropicTextAdapter(api_key="private-anthropic-key").respond("oi")
         request = call.call_args.args[0]
         self.assertEqual(request.full_url, "https://api.anthropic.com/v1/messages")
@@ -85,14 +86,14 @@ class ProviderAdapterGateTest(unittest.TestCase):
         self.assertEqual(result["responseId"], "msg-test")
 
     def test_gemini_adapter_uses_generate_content_and_private_header(self):
-        import json
         payload = {"responseId": "gemini-test", "model": "gemini-test",
                    "candidates": [{"content": {"parts": [{"text": "Gemini respondeu"}]}}]}
         response = MagicMock()
         response.__enter__ = MagicMock(return_value=response)
         response.__exit__ = MagicMock(return_value=False)
         response.read.return_value = json.dumps(payload).encode()
-        with patch.dict(os.environ, {"GEMINI_API_CALLS_ENABLED": "true"}), patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
+        with patch.dict(os.environ, {"GEMINI_API_CALLS_ENABLED": "true"}), patch(
+                "server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
             result = GeminiTextAdapter(api_key="private-gemini-key").respond("oi")
         request = call.call_args.args[0]
         self.assertIn(":generateContent", request.full_url)
@@ -102,10 +103,11 @@ class ProviderAdapterGateTest(unittest.TestCase):
         self.assertEqual(result["text"], "Gemini respondeu")
 
     def test_provider_adapters_reject_empty_and_oversized_prompts(self):
-        for adapter in (AnthropicTextAdapter(api_key="k"),
-                        GeminiTextAdapter(api_key="k")):
-            with self.assertRaises(ValueError): adapter.respond("")
-            with self.assertRaises(ValueError): adapter.respond("x" * 5001)
+        for adapter in (AnthropicTextAdapter(api_key="k"), GeminiTextAdapter(api_key="k")):
+            with self.assertRaises(ValueError):
+                adapter.respond("")
+            with self.assertRaises(ValueError):
+                adapter.respond("x" * 5001)
 
 
 if __name__ == "__main__":
