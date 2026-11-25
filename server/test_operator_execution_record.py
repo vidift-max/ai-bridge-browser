@@ -65,6 +65,14 @@ class OperatorExecutionRecordTest(unittest.TestCase):
         self.assertEqual(result["state"], EXECUTED)
         self.assertTrue(result["valid"])
 
+    def test_executed_without_evidence_blocks(self):
+        result = evaluate_operator_record(OperatorExecutionRecord(
+            state=EXECUTED, operator_authorized=True, provider_calls_authorized=True,
+            execution_started=True, execution_finished=True, first_round_trip_succeeded=True,
+            stopped_after_first_round_trip=True,
+        ))
+        self.assertEqual(result["state"], BLOCKED)
+
     def test_executed_without_stop_blocks(self):
         result = evaluate_operator_record(OperatorExecutionRecord(
             state=EXECUTED, operator_authorized=True, provider_calls_authorized=True,
