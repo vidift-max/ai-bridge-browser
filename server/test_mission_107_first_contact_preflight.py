@@ -18,7 +18,7 @@ class FirstContactPreflightTest(unittest.TestCase):
                       "https://stage.example/#fragment", "https://stage.example:",
                       "https://stage.example:99999", "https://stage.example:abc",
                       " https://stage.example", "https://stage.example ",
-                      "https://stage.example\\n.evil", "https://stage.example/%2f"):
+                      "https://stage.example" + chr(10) + ".evil", "https://stage.example/%2f"):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "invalid_staging_url"):
                 preflight.validate(value, "room", "a", "b")
 
@@ -32,7 +32,7 @@ class FirstContactPreflightTest(unittest.TestCase):
             preflight.validate("https://stage.example", "room", "a", "b", "AI-A", "AI-B")
 
     def test_rejects_empty_oversized_or_control_character_conversation_id(self):
-        for conversation in ("", "  ", "x" * 201, "room\\nforged"):
+        for conversation in ("", "  ", "x" * 201, "room" + chr(10) + "forged"):
             with self.subTest(conversation=conversation), self.assertRaisesRegex(ValueError, "invalid_conversation_id"):
                 preflight.validate("https://stage.example", conversation, "a", "b")
 
