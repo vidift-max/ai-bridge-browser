@@ -28,6 +28,23 @@ class AuthenticatedProviderHostTest(unittest.TestCase):
             "prompt": "Olá, IA.",
         }
 
+    def test_verify_attestation_accepts_expected_context_and_rejects_mismatch(self):
+        host = self.make_host()
+        result = host.execute("token-user", {
+            "conversationId": "room-1",
+            "agentId": "AI-01",
+            "requestId": "req-145",
+            "prompt": "hello",
+        })
+        statement = result["attestation"]["statement"]
+        expected = {key: statement[key] for key in (
+            "conversationId", "agentId", "requestId", "principal",
+            "serverIdentity", "providerId", "model",
+        )}
+        self.assertTrue(host.verify_attestation(result["attestation"], result["text"], expected=expected))
+        expected["requestId"] = "wrong"
+        self.assertFalse(host.verify_attestation(result["attestation"], result["text"], expected=expected))
+
     def test_missing_bearer_is_rejected_before_provider(self):
         with self.assertRaisesRegex(ProviderHostError, "authentication_required") as error:
             self.host.execute(None, self.request)
