@@ -6,6 +6,7 @@ database by the operator. This module never persists the signing key.
 import hashlib
 import hmac
 import json
+import math
 import os
 import tempfile
 import time
@@ -47,7 +48,9 @@ def _read_checkpoint(checkpoint_path, signing_key):
                 or not isinstance(payload["event_hash"], str)
                 or len(payload["event_hash"]) != 64
                 or not isinstance(payload["created_at"], (int, float))
-                or isinstance(payload["created_at"], bool)):
+                or isinstance(payload["created_at"], bool)
+                or not math.isfinite(float(payload["created_at"]))
+                or any(ch not in "0123456789abcdef" for ch in payload["event_hash"])):
             raise ValueError("invalid_checkpoint_format")
         expected = hmac.new(_key_bytes(signing_key), _canonical(payload).encode("utf-8"),
                             hashlib.sha256).hexdigest()
@@ -74,7 +77,8 @@ def create_provider_audit_checkpoint(store, checkpoint_path, signing_key, create
         audit_id = int(row["audit_id"]) if row else 0
         event_hash = row["event_hash"] if row else _GENESIS_HASH
         timestamp = time.time() if created_at is None else created_at
-        if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)):
+        if (isinstance(timestamp, bool) or not isinstance(timestamp, (int, float))
+                or not math.isfinite(float(timestamp))):
             raise ValueError("invalid_checkpoint_timestamp")
         payload = {
             "version": _CHECKPOINT_VERSION,
