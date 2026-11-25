@@ -212,14 +212,13 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
 
         peer_history = self.backend.history("peer-token", "private-room")
         user_history = self.backend.history("user-token", "private-room")
-        self.assertEqual(
-            [item.message_id for item in peer_history],
-            [first_message["messageId"], third_message["messageId"]],
-        )
-        self.assertEqual(
-            [item.message_id for item in user_history],
-            [second_message["messageId"]],
-        )
+        expected_history = [
+            first_message["messageId"],
+            second_message["messageId"],
+            third_message["messageId"],
+        ]
+        self.assertEqual([item.message_id for item in peer_history], expected_history)
+        self.assertEqual([item.message_id for item in user_history], expected_history)
         self.assertEqual(self.provider.calls, [
             "IA-A: apresente-se para IA-B.",
             second_message["body"],
