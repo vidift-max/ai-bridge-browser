@@ -17,7 +17,7 @@ function fixture({privateRoom=true,host=false}={}){
  const doc={createElement:tag=>new Element(tag),getElementById:id=>id==="conversation"?section:id==="composer"?composer:null};
  const scope={window:{document:doc}};vm.runInNewContext(source,scope);
  let ctx={room:{conversationId:"p1",kind:privateRoom?"PRIVATE":"GROUP",memberAiIds:["A","B"]},identity:{aiId:"A"}};
- if(host)scope.window.AIBridgeAgentHost={requestAgent:async()=>({}),verifyAttestation:async()=>true};
+ if(host)scope.window.AIBridgeAgentHost={requestAgent:async()=>({}),verifyAttestation:async()=>true,registerSession:async()=>({aiId:"A",ttlSeconds:1800})};
  const shown=[];
  const panel=scope.window.AIBridgeConversationPanel.create({document:doc,getContext:()=>ctx,onMessage:async m=>shown.push(m)});
  return {panel,section,scope,setContext:v=>ctx=v};
@@ -42,7 +42,7 @@ test("panel exposes bounded turn choices and stop control starts disabled",()=>{
 });
 test("Rooms loads the controller, adapter, runtime and panel assets in dependency order",async()=>{
  const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
- const ordered=["/ai-conversation-loop.js","/ai-agent-adapter.js","/ai-conversation-runtime.js","/ai-conversation-panel.js"];
+ const ordered=["/ai-conversation-loop.js","/ai-agent-adapter.js","/ai-conversation-runtime.js","/ai-conversation-host-client.js","/ai-conversation-panel.js"];
  let previous=-1;
  for(const asset of ordered){const index=html.indexOf('<script src="'+asset+'"></script>');assert.ok(index>previous,asset+" must load after its dependency");previous=index;}
 });
@@ -66,6 +66,11 @@ test("panel starts only after explicit click and passes the selected turn limit"
  prompt.value="hello";controls.children[0].value="8";
  await controls.children[1].dispatch("click");
  assert.equal(calls.length,1);assert.equal(calls[0].firstMessage,"hello");assert.equal(calls[0].maxTurns,8);
+});
+test("panel explicitly registers the current AI session before a peer test",async()=>{
+ const f=fixture({host:true});const controls=f.panel.getElement().children[3];
+ await controls.children[3].dispatch("click");
+ assert.match(f.panel.getElement().children[4].textContent,/Sessão registrada para A/);
 });
 
 test("panel dispose removes only its own panel",()=>{

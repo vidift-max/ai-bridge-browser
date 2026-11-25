@@ -5,6 +5,7 @@ from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 
 from server.ai_provider_host import AuthenticatedProviderHost
+from server.ai_conversation_host import AgentSessionRegistry, TwoAgentConversationHost
 from server.auth import Authenticator
 from server.http_server import MessengerHandler
 from server.messenger_backend import MessengerBackend
@@ -67,9 +68,13 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
             attestation_key=b"m" * 32,
             server_identity="AI-BRIDGE-MESSENGER-TEST",
         )
+        self.sessions = AgentSessionRegistry(self.backend, ttl_seconds=60)
+        self.conversation_host = TwoAgentConversationHost(self.backend, self.host, self.sessions)
         MessengerHandler.backend = self.backend
         MessengerHandler.authenticator = self.auth
         MessengerHandler.provider_host = self.host
+        MessengerHandler.agent_session_registry = self.sessions
+        MessengerHandler.conversation_host = self.conversation_host
         MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MessengerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -81,20 +86,24 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.thread.join(timeout=2)
         self.backend.close()
         MessengerHandler.provider_host = None
+        MessengerHandler.agent_session_registry = None
+        MessengerHandler.conversation_host = None
         MessengerHandler.backend = None
         MessengerHandler.authenticator = None
 
-    def request(self, token, payload):
+    def request_path(self, token, path, payload):
         connection = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
         headers = {"Content-Type": "application/json"}
         if token:
             headers["Authorization"] = "Bearer " + token
-        connection.request("POST", "/v1/ai/provider/respond",
-                           body=json.dumps(payload), headers=headers)
+        connection.request("POST", path, body=json.dumps(payload), headers=headers)
         response = connection.getresponse()
         data = json.loads(response.read().decode("utf-8"))
         connection.close()
         return response.status, data
+
+    def request(self, token, payload):
+        return self.request_path(token, "/v1/ai/provider/respond", payload)
 
     def payload(self, **overrides):
         value = {
@@ -230,6 +239,63 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
                                                      second_message["body"]))
         self.assertTrue(self.host.verify_attestation(third["attestation"],
                                                      third_message["body"]))
+
+
+    def test_two_agent_session_registration_and_coordinated_turn_endpoint(self):
+        status_a, session_a = self.request_path(
+            "user-token", "/v1/ai/conversation/session/register",
+            {"conversationId": "private-room"})
+        status_b, session_b = self.request_path(
+            "peer-token", "/v1/ai/conversation/session/register",
+            {"conversationId": "private-room"})
+        self.assertEqual(status_a, 201)
+        self.assertEqual(status_b, 201)
+        self.assertEqual(session_a["session"]["aiId"], "AI-USER")
+        self.assertEqual(session_b["session"]["aiId"], "AI-PEER")
+
+        status, result = self.request_path(
+            "user-token", "/v1/ai/conversation/turn",
+            {"conversationId": "private-room", "agentId": "AI-PEER",
+             "requestId": "m177-http-b", "prompt": "Olá, IA parceira."})
+        self.assertEqual(status, 201)
+        self.assertEqual(result["message"]["senderAiId"], "AI-PEER")
+        self.assertEqual(result["message"]["recipientAiIds"], ["AI-USER"])
+        self.assertEqual(self.peer_provider.calls, ["Olá, IA parceira."])
+
+        verify_status, verified = self.request_path(
+            "user-token", "/v1/ai/provider/attestation/verify",
+            {"conversationId": "private-room", "agentId": "AI-PEER",
+             "attestation": result["attestation"],
+             "responseText": result["message"]["body"]})
+        self.assertEqual(verify_status, 200)
+        self.assertTrue(verified["valid"])
+        mismatch_status, mismatch = self.request_path(
+            "user-token", "/v1/ai/provider/attestation/verify",
+            {"conversationId": "private-room", "agentId": "AI-USER",
+             "attestation": result["attestation"],
+             "responseText": result["message"]["body"]})
+        self.assertEqual(mismatch_status, 200)
+        self.assertFalse(mismatch["valid"])
+
+    def test_coordinated_turn_requires_peer_to_register_first(self):
+        self.request_path("user-token", "/v1/ai/conversation/session/register",
+                          {"conversationId": "private-room"})
+        status, result = self.request_path(
+            "user-token", "/v1/ai/conversation/turn",
+            {"conversationId": "private-room", "agentId": "AI-PEER",
+             "requestId": "m177-http-missing", "prompt": "Olá"})
+        self.assertEqual(status, 409)
+        self.assertEqual(result["error"], "agent_session_not_registered")
+        self.assertEqual(self.peer_provider.calls, [])
+
+    def test_session_registration_rejects_non_private_room(self):
+        self.backend.create_conversation(
+            "user-token", "group-room", ["AI-USER", "AI-PEER"], "GROUP")
+        status, result = self.request_path(
+            "user-token", "/v1/ai/conversation/session/register",
+            {"conversationId": "group-room"})
+        self.assertEqual(status, 403)
+        self.assertEqual(result["error"], "private_two_member_room_required")
 
 
 if __name__ == "__main__":

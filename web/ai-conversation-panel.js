@@ -16,9 +16,10 @@
   const turns=doc.createElement("select");turns.id="aiConversationTurns";turns.setAttribute("aria-label","Quantidade máxima de turnos");
   for(const n of [2,4,6,8,10,12,16,20]){const option=doc.createElement("option");option.value=String(n);option.textContent=n+" turnos";if(n===6)option.selected=true;turns.append(option)}
   const start=doc.createElement("button");start.type="button";start.textContent="Iniciar conversa entre IAs";
+  const register=doc.createElement("button");register.type="button";register.textContent="Registrar esta IA na sala";
   const stop=doc.createElement("button");stop.type="button";stop.textContent="Parar";stop.disabled=true;
   const status=doc.createElement("span");status.className="sub";status.setAttribute("role","status");status.setAttribute("aria-live","polite");
-  const controls=doc.createElement("div");controls.className="participant-toolbar";controls.append(turns,start,stop);
+  const controls=doc.createElement("div");controls.className="participant-toolbar";controls.append(turns,start,stop,register);
   panel.append(heading,description,prompt,controls,status);
   const composer=doc.getElementById("composer");section.insertBefore(panel,composer||null);
   let runtime=null,running=false,disposed=false;
@@ -35,10 +36,11 @@
    const valid=allowed(),provider=host();
    start.disabled=running||!valid||!provider;
    stop.disabled=!running;
+   register.disabled=running||!valid||!provider||typeof provider.registerSession!=="function";
    if(running)status.textContent="Conversa em andamento. Turnos concluídos: "+(runtime?.snapshot().turnsCompleted||0)+".";
    else if(!valid)status.textContent="Bloqueado: abra uma conversa privada com exatamente duas identidades autorizadas.";
    else if(!provider)status.textContent="Aguardando host de provedores autenticados. Nenhuma IA foi acionada.";
-   else status.textContent="Host disponível. A conversa só começará após seu clique.";
+   else status.textContent="Host disponível. As duas IAs devem registrar suas próprias sessões nesta sala antes do teste.";
   }
   function createRuntime(){
    const provider=host();
@@ -64,6 +66,15 @@
    catch(error){status.textContent="Conversa não concluída: "+error.message;}
    finally{running=false;refresh();}
   }
+  register.addEventListener("click",async()=>{
+   try{
+    const provider=host();
+    if(!provider||typeof provider.registerSession!=="function")throw new Error("AGENT_SESSION_REGISTRATION_UNAVAILABLE");
+    const session=await provider.registerSession();
+    refresh();
+    status.textContent="Sessão registrada para "+session.aiId+". Validade aproximada: "+Math.round(session.ttlSeconds/60)+" minuto(s).";
+   }catch(error){refresh();status.textContent="Não foi possível registrar esta IA: "+error.message;}
+  });
   start.addEventListener("click",()=>{begin().catch(error=>{status.textContent="Não foi possível iniciar: "+error.message;refresh()})});
   stop.addEventListener("click",()=>{runtime?.stop();status.textContent="Solicitando parada segura…"});
   function setContext(){if(running&&runtime)runtime.stop();refresh();}
