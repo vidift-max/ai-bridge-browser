@@ -8,7 +8,7 @@ class Element{
  append(...items){this.children.push(...items);}
  setAttribute(k,v){this.attributes[k]=v;}
  addEventListener(k,fn){(this.listeners[k]||(this.listeners[k]=[])).push(fn);}
- dispatch(k){for(const fn of this.listeners[k]||[])fn({preventDefault(){}});}
+ async dispatch(k){for(const fn of this.listeners[k]||[])await fn({preventDefault(){}});}
  remove(){this.removed=true;}
  insertBefore(child){this.children.push(child);}
 }
@@ -56,6 +56,16 @@ test("Rooms does not create a fake provider host or automatically start a run",a
  const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
  assert.doesNotMatch(html,/AIBridgeAgentHost\s*=\s*\{/);
  assert.doesNotMatch(html,/\.start\(\{firstMessage:/);
+});
+
+test("panel starts only after explicit click and passes the selected turn limit",async()=>{
+ const f=fixture({host:true});
+ const calls=[];
+ f.scope.window.AIBridgeConversationRuntime={create:options=>({start:async config=>{calls.push(config);options.onState({state:"RUNNING",turnsCompleted:0,maxTurns:config.maxTurns});await options.onMessage({conversationId:"p1",senderAiId:"B",recipientAiId:"A",body:"reply",turn:1});return {turnsCompleted:config.maxTurns};},stop:()=>{},snapshot:()=>({turnsCompleted:0})})};
+ const children=f.panel.getElement().children, prompt=children[2],controls=children[3];
+ prompt.value="hello";controls.children[0].value="8";
+ await controls.children[1].dispatch("click");
+ assert.equal(calls.length,1);assert.equal(calls[0].firstMessage,"hello");assert.equal(calls[0].maxTurns,8);
 });
 
 test("panel dispose removes only its own panel",()=>{
