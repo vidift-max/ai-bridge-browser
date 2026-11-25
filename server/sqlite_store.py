@@ -18,6 +18,11 @@ class SQLiteMessengerStore:
         self._connection.row_factory = sqlite3.Row
         self._migrate()
 
+    @property
+    def connection(self):
+        """Expose the live connection for read-only operational integrity checks."""
+        return self._connection
+
     def _migrate(self):
         self._connection.execute("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         row = self._connection.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()

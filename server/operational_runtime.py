@@ -4,6 +4,7 @@ from server.recovery import (
     verify_sqlite_recovery,
     verify_messenger_schema,
     verify_messenger_data_consistency,
+    verify_messenger_connection,
 )
 from server.backup import create_sqlite_backup
 
@@ -23,12 +24,16 @@ class OperationalRuntime:
             metadata=metadata,
         )
 
-    def check_storage(self, path: str, *, correlation_id=None):
-        checks = (
-            verify_sqlite_recovery(path),
-            verify_messenger_schema(path),
-            verify_messenger_data_consistency(path),
-        )
+    def check_storage(self, path: str, *, correlation_id=None, connection=None):
+        if path == ":memory:":
+            checks = (verify_messenger_connection(connection),) if connection is not None else (
+                (False, "STORAGE_CONNECTION_REQUIRED"),)
+        else:
+            checks = (
+                verify_sqlite_recovery(path),
+                verify_messenger_schema(path),
+                verify_messenger_data_consistency(path),
+            )
         ok, code = next(((False, result[1]) for result in checks if not result[0]),
                         (True, "STORAGE_RECOVERY_OK"))
         self.record(
