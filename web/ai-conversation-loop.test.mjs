@@ -96,7 +96,7 @@ test("provider errors stop the loop and do not create phantom deliveries",async(
  assert.equal(f.loop.snapshot().running,false);assert.equal(f.delivered.length,0);
 });
 test("conversation controller exports a bounded default and maximum",()=>{
- const scope={window:{}};vm.runInNewContext(source,scope);
+ const scope={window:{},AbortController};vm.runInNewContext(source,scope);
  assert.equal(scope.window.AIBridgeConversationLoop.DEFAULT_TURNS,6);
  assert.equal(scope.window.AIBridgeConversationLoop.MAX_TURNS,20);
 });
