@@ -13,12 +13,11 @@ on:
       - "server/http_server.py"
       - "server/test_provider_request_store.py"
       - "server/test_provider_host_messenger_http.py"
-      - "docs/MISSION_154_PROVIDER_CLOCK_INTEGRITY.md"
       - ".github/workflows/mission-154-provider-clock-integrity.yml"
       - "docs/MISSION_154_PROVIDER_CLOCK_INTEGRITY.md"
 
 jobs:
-  provider-lease-completion-fencing:
+  provider-clock-integrity:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
