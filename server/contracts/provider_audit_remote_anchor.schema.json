@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Provider Audit Remote Anchor Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "sequence",
+    "previous_digest",
+    "checkpoint_audit_id",
+    "checkpoint_event_hash",
+    "checkpoint_created_at",
+    "checkpoint_signature",
+    "record_digest"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "previous_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "checkpoint_audit_id": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "checkpoint_event_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "checkpoint_created_at": {
+      "type": "number"
+    },
+    "checkpoint_signature": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "record_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
