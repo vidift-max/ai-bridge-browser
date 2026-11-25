@@ -1005,7 +1005,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
 
                 with ProviderRequestLeaseKeeper(renew_claim, interval_seconds=60.0) as lease_keeper:
                     result = self.provider_host.execute(self._auth(), payload, skip_replay_guard=True)
-                    if lease_lost or lease_keeper.lost:
+                    if lease_lost or lease_keeper.lost or not lease_keeper.stopped:
                         raise ProviderHostError("provider_request_lease_lost", 409)
                 response_text = result["text"]
                 if len(response_text) > self.backend.MAX_BODY_LENGTH:
@@ -1032,7 +1032,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     ).hexdigest()[:40],
                     conversation_id, recipients, response_text,
                     "provider-host:" + request_id)
-                if lease_lost or lease_keeper.lost:
+                if lease_lost or lease_keeper.lost or not lease_keeper.stopped:
                     raise ProviderHostError("provider_request_lease_lost", 409)
                 self.backend.save_provider_message_and_complete(
                     self._auth(), request_id, request_digest, message,
