@@ -1,5 +1,4 @@
 name: Mission 153 Provider Lease Completion Fencing CI
-# Validates keeper state snapshots, strict renewal results, and fail-closed route behavior.
 
 on:
   push:
@@ -13,14 +12,12 @@ on:
       - "server/messenger_backend.py"
       - "server/http_server.py"
       - "server/test_provider_request_store.py"
-      - "server/test_provider_host_messenger_http.py
-      - "docs/MISSION_153_PROVIDER_LEASE_RECOVERY.md""
-      - "server/provider_request_lease.py"
+      - "server/test_provider_host_messenger_http.py"
       - ".github/workflows/mission-153-provider-lease-recovery.yml"
-      - "docs/MISSION_152_LEASE_KEEPER_OBSERVABILITY.md"
+      - "docs/MISSION_153_PROVIDER_LEASE_RECOVERY.md"
 
 jobs:
-  provider-lease-heartbeat:
+  provider-lease-completion-fencing:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
