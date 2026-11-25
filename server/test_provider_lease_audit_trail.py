@@ -13,12 +13,12 @@ class ProviderLeaseAuditTrailTests(unittest.TestCase):
     def events(self, request_id):
         return self.store.list_provider_request_audit_events("AI-AUDIT", request_id)
 
-    def test_schema_v14_records_claim_recovery_renewal_failure_and_retry(self):
+    def test_schema_v15_records_claim_recovery_renewal_failure_and_retry(self):
         self.assertEqual(
             self.store.connection.execute(
                 "SELECT value FROM schema_meta WHERE key='version'"
             ).fetchone()["value"],
-            "14",
+            "15",
         )
         _, outcome = self.store.claim_provider_request(
             "AI-AUDIT", "audit-lifecycle", "digest", "room", "AI-AUDIT",
