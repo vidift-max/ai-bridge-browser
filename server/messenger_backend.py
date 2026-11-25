@@ -505,7 +505,7 @@ class MessengerBackend:
         existing_id = self._idempotency.get(key)
         if existing_id:
             existing = self._messages[existing_id]
-            same = (existing.message_id, existing.conversation_id, existing.body, existing.recipient_ai_ids) == (message_id, conversation_id, body, recipient_ids)
+            same = (existing.message_id, existing.conversation_id, existing.body, existing.recipient_ai_ids, existing.kind) == (message_id, conversation_id, body, recipient_ids, normalized_kind)
             if same:
                 return existing
             raise ValueError("idempotency_conflict")
