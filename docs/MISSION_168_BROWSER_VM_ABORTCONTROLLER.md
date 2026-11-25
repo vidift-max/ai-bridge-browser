@@ -17,6 +17,16 @@ vm.runInNewContext(source, scope);
 
 This keeps the production controller unchanged and makes the test environment accurately provide the browser API dependency it exercises. The existing stop, abort, overlapping-run, provider-failure, and context-change tests exercise the behavior.
 
+## Controller regressions found after fixing the sandbox
+
+With the test environment corrected, three previously masked controller defects became visible and were fixed in `web/ai-conversation-loop.js`:
+
+- `start()` now returns the terminal snapshot after its `finally` cleanup, rather than evaluating and returning a stale RUNNING snapshot before cleanup.
+- `stop()` reports STOPPED immediately in its snapshot, even while the awaited provider operation is still unwinding.
+- The controller revalidates the room and identity after the asynchronous provider response and before delivery, preventing a response from being delivered after the active context changes.
+
+The existing tests assert the terminal IDLE state, stop snapshot, and zero delivery when the room context changes during the provider await. Production behavior is strengthened rather than weakening those assertions.
+
 ## Verification
 
 The dedicated workflow pins Node.js 22, verifies that the runtime exposes `AbortController`, runs the conversation controller tests, and then runs the full `web/*.test.mjs` suite.
