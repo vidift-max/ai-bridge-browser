@@ -269,6 +269,13 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
              "responseText": result["message"]["body"]})
         self.assertEqual(verify_status, 200)
         self.assertTrue(verified["valid"])
+        mismatch_status, mismatch = self.request_path(
+            "user-token", "/v1/ai/provider/attestation/verify",
+            {"conversationId": "private-room", "agentId": "AI-USER",
+             "attestation": result["attestation"],
+             "responseText": result["message"]["body"]})
+        self.assertEqual(mismatch_status, 200)
+        self.assertFalse(mismatch["valid"])
 
     def test_coordinated_turn_requires_peer_to_register_first(self):
         self.request_path("user-token", "/v1/ai/conversation/session/register",
