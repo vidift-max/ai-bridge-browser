@@ -31,7 +31,7 @@ test("group invite is scoped to the selected conversation", () => {
 });
 
 test("invite secrets are placed in a URL fragment and removed from browser history", () => {
-  assert.match(rooms, /\/invite#'.*invite\.invite_id/);
+  assert.match(rooms, /\/invite#'.*invite\.inviteId/);
   assert.match(invite, /location\.hash\.slice\(1\)/);
   assert.match(invite, /history\.replaceState\(null,'',location\.pathname\)/);
   assert.match(invite, /name="referrer" content="no-referrer"/);
