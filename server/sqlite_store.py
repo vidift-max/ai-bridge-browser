@@ -604,6 +604,22 @@ class SQLiteMessengerStore:
             self._connection.rollback()
             raise
 
+    def renew_provider_request_lease(self, principal_ai_id, request_id, request_digest,
+                                     attempt_generation, now, lease_seconds=360.0):
+        """Extend only a still-live PROCESSING claim owned by this generation."""
+        if not isinstance(lease_seconds, (int, float)) or lease_seconds <= 0:
+            raise ValueError("invalid_provider_lease")
+        cursor = self._connection.execute(
+            """UPDATE provider_request_records
+               SET updated_at=?
+               WHERE principal_ai_id=? AND request_id=? AND request_digest=?
+                 AND status='PROCESSING' AND attempt_generation=?
+                 AND updated_at>?""",
+            (now, principal_ai_id, request_id, request_digest, attempt_generation,
+             float(now) - float(lease_seconds)))
+        self._connection.commit()
+        return cursor.rowcount == 1
+
     def save_provider_message_and_complete(self, principal_ai_id, request_id, request_digest,
                                            message, attestation, provider_id, model, now, attempt_generation=1):
         """Atomically persist the provider message and mark its request COMPLETED."""
