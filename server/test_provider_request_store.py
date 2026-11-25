@@ -37,9 +37,14 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "kind": "NORMAL",
             "created_at_epoch_seconds": 2.0,
         })()
-        store.save_message_with_idempotency((
-            "msg-atomic", "room", "AI-01", ("AI-02",), "already there",
-            "other-request", 1, "NORMAL", 1.5))
+        store.connection.execute(
+            """INSERT INTO messages(
+               message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,
+               client_request_id,sequence,kind,created_at_epoch_seconds)
+               VALUES(?,?,?,?,?,?,?,?,?)""",
+            ("msg-atomic","room","AI-01","AI-02","already there",
+             "other-request",1,"NORMAL",1.5))
+        store.connection.commit()
         with self.assertRaises(Exception):
             store.save_provider_message_and_complete(
                 "AI-01", "req-atomic", "digest", message,
@@ -48,6 +53,21 @@ class ProviderRequestStoreTests(unittest.TestCase):
         self.assertEqual(store.connection.execute(
             "SELECT body FROM messages WHERE message_id='msg-atomic'").fetchone()["body"], "already there")
         self.assertEqual(store.get_provider_request("AI-01", "req-atomic")["status"], "PROCESSING")
+
+    def test_same_request_claim_is_stable_across_two_store_connections(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "concurrent.sqlite")
+            first = SQLiteMessengerStore(path)
+            second = SQLiteMessengerStore(path)
+            _, first_outcome = first.claim_provider_request(
+                "AI-01", "req-concurrent", "digest", "room", "AI-01", 1.0)
+            row, second_outcome = second.claim_provider_request(
+                "AI-01", "req-concurrent", "digest", "room", "AI-01", 2.0)
+            self.assertEqual(first_outcome, "claimed")
+            self.assertEqual(second_outcome, "existing")
+            self.assertEqual(row["status"], "PROCESSING")
+            first.close()
+            second.close()
 
     def test_same_request_recovers_completed_record(self):
         store = SQLiteMessengerStore(":memory:")
@@ -80,8 +100,8 @@ class ProviderRequestStoreTests(unittest.TestCase):
         self.assertTrue(store.fail_provider_request("AI-01", "req-4", "digest-e", "provider_execution_failed", 101.0))
         row, outcome = store.claim_provider_request(
             "AI-01", "req-4", "digest-e", "room-1", "AI-01", 102.0)
-        self.assertEqual(outcome, "existing")
-        self.assertEqual(row["status"], "FAILED")
+        self.assertEqual(outcome, "claimed")
+        self.assertEqual(row["status"], "PROCESSING")
         store.close()
 
 

@@ -147,9 +147,9 @@ class AuthenticatedProviderHost:
         expected_digest = hashlib.sha256(response_text.encode("utf-8")).hexdigest()
         if not hmac.compare_digest(statement.get("responseSha256", ""), expected_digest):
             return False
-        expected = hmac.new(self._key, self._canonical(statement),
-                            hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, signature):
+        expected_signature = hmac.new(self._key, self._canonical(statement),
+                                      hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected_signature, signature):
             return False
         if expected is not None:
             if not isinstance(expected, dict):
