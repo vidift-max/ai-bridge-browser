@@ -1,4 +1,5 @@
 import sqlite3
+import hashlib
 import json
 import time
 import hmac
@@ -6,7 +7,7 @@ import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 
 def _validate_provider_lease_seconds(value):
@@ -29,6 +30,25 @@ def _validate_provider_timestamp(value):
         valid = False
     if not valid:
         raise ValueError("invalid_provider_timestamp")
+
+
+_PROVIDER_AUDIT_GENESIS_HASH = "0" * 64
+
+
+def _provider_audit_event_hash(row, previous_hash):
+    payload = {
+        "audit_id": int(row["audit_id"]),
+        "principal_ai_id": row["principal_ai_id"],
+        "request_id": row["request_id"],
+        "attempt_generation": int(row["attempt_generation"]),
+        "event_type": row["event_type"],
+        "event_at": float(row["event_at"]),
+        "from_status": row["from_status"],
+        "to_status": row["to_status"],
+        "error_code": row["error_code"],
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256((previous_hash + canonical).encode("utf-8")).hexdigest()
 
 
 class SQLiteMessengerStore:
@@ -335,6 +355,25 @@ class SQLiteMessengerStore:
             self._connection.commit()
             version = 14
 
+        if version < 15:
+            self._connection.execute(
+                "ALTER TABLE provider_request_audit_events ADD COLUMN previous_hash TEXT NOT NULL DEFAULT ''")
+            self._connection.execute(
+                "ALTER TABLE provider_request_audit_events ADD COLUMN event_hash TEXT NOT NULL DEFAULT ''")
+            previous_hash = _PROVIDER_AUDIT_GENESIS_HASH
+            rows = self._connection.execute(
+                "SELECT * FROM provider_request_audit_events ORDER BY audit_id").fetchall()
+            for row in rows:
+                event_hash = _provider_audit_event_hash(row, previous_hash)
+                self._connection.execute(
+                    "UPDATE provider_request_audit_events SET previous_hash=?,event_hash=? WHERE audit_id=?",
+                    (previous_hash, event_hash, row["audit_id"]))
+                previous_hash = event_hash
+            self._connection.execute(
+                "INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','15')")
+            self._connection.commit()
+            version = 15
+
     def create_guest_application(self, application, token_hash, status_capability_hash=None, status_capability_expires_at=None):
         """Atomically persist an application and optional digest-only status capability."""
         self._connection.execute("BEGIN IMMEDIATE")
@@ -601,19 +640,55 @@ class SQLiteMessengerStore:
     def _record_provider_request_audit(self, principal_ai_id, request_id,
                                        attempt_generation, event_type, event_at,
                                        from_status, to_status, error_code=None):
-        self._connection.execute(
+        previous = self._connection.execute(
+            "SELECT event_hash FROM provider_request_audit_events ORDER BY audit_id DESC LIMIT 1"
+        ).fetchone()
+        previous_hash = previous["event_hash"] if previous else _PROVIDER_AUDIT_GENESIS_HASH
+        cursor = self._connection.execute(
             """INSERT INTO provider_request_audit_events(
                principal_ai_id,request_id,attempt_generation,event_type,event_at,
-               from_status,to_status,error_code) VALUES(?,?,?,?,?,?,?,?)""",
+               from_status,to_status,error_code,previous_hash,event_hash)
+               VALUES(?,?,?,?,?,?,?,?,?,?)""",
             (principal_ai_id,request_id,attempt_generation,event_type,event_at,
-             from_status,to_status,error_code))
+             from_status,to_status,error_code,previous_hash,""))
+        audit_id = cursor.lastrowid
+        row = self._connection.execute(
+            "SELECT * FROM provider_request_audit_events WHERE audit_id=?", (audit_id,)
+        ).fetchone()
+        event_hash = _provider_audit_event_hash(row, previous_hash)
+        self._connection.execute(
+            "UPDATE provider_request_audit_events SET event_hash=? WHERE audit_id=?",
+            (event_hash,audit_id))
+
+    def verify_provider_request_audit_chain(self):
+        previous_hash = _PROVIDER_AUDIT_GENESIS_HASH
+        checked = 0
+        for row in self._connection.execute(
+                "SELECT * FROM provider_request_audit_events ORDER BY audit_id"):
+            expected = _provider_audit_event_hash(row, previous_hash)
+            if row["previous_hash"] != previous_hash or not hmac.compare_digest(
+                    row["event_hash"], expected):
+                return {
+                    "valid": False,
+                    "events_checked": checked,
+                    "first_invalid_audit_id": row["audit_id"],
+                    "last_valid_hash": previous_hash,
+                }
+            previous_hash = expected
+            checked += 1
+        return {
+            "valid": True,
+            "events_checked": checked,
+            "first_invalid_audit_id": None,
+            "last_valid_hash": previous_hash,
+        }
 
     def list_provider_request_audit_events(self, principal_ai_id, request_id, limit=100):
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
             raise ValueError("invalid_provider_audit_limit")
         rows = self._connection.execute(
             """SELECT audit_id,principal_ai_id,request_id,attempt_generation,event_type,
-                      event_at,from_status,to_status,error_code
+                      event_at,from_status,to_status,error_code,previous_hash,event_hash
                FROM provider_request_audit_events
                WHERE principal_ai_id=? AND request_id=? ORDER BY audit_id LIMIT ?""",
             (principal_ai_id,request_id,limit)).fetchall()
