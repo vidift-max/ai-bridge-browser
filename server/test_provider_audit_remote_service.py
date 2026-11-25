@@ -157,6 +157,66 @@ class ProviderAuditRemoteServiceTests(unittest.TestCase):
         self.assertEqual(status, 503)
         self.assertEqual(body["error"], "anchor_unavailable")
 
+    def test_authenticator_exception_fails_closed_as_unauthorized(self):
+        def broken_authenticator(_token):
+            raise RuntimeError("auth backend unavailable")
+        service = ProviderAuditRemoteService(
+            self.anchor, broken_authenticator,
+            authorize_principal=lambda _principal: True)
+        status, body = service.handle(
+            "GET", "/v1/audit-anchor/latest", self.headers)
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"], "authentication_required")
+
+    def test_authenticator_must_return_a_valid_principal(self):
+        for invalid_principal in ("", None, 7, object(), "x" * 129):
+            with self.subTest(principal=type(invalid_principal).__name__):
+                service = ProviderAuditRemoteService(
+                    self.anchor, lambda _token, value=invalid_principal: value,
+                    authorize_principal=lambda _principal: True)
+                status, body = service.handle(
+                    "GET", "/v1/audit-anchor/latest", self.headers)
+                self.assertEqual(status, 401)
+                self.assertEqual(body["error"], "authentication_required")
+
+    def test_authorizer_exception_fails_closed_as_forbidden(self):
+        def broken_authorizer(_principal):
+            raise RuntimeError("policy backend unavailable")
+        service = ProviderAuditRemoteService(
+            self.anchor, lambda _token: "service-agent", broken_authorizer)
+        status, body = service.handle(
+            "GET", "/v1/audit-anchor/latest", self.headers)
+        self.assertEqual(status, 403)
+        self.assertEqual(body["error"], "forbidden")
+
+    def test_authorizer_requires_literal_true_not_truthy_value(self):
+        for decision in (1, "allow", object()):
+            with self.subTest(decision=type(decision).__name__):
+                service = ProviderAuditRemoteService(
+                    self.anchor, lambda _token: "service-agent",
+                    lambda _principal, value=decision: value)
+                status, body = service.handle(
+                    "GET", "/v1/audit-anchor/latest", self.headers)
+                self.assertEqual(status, 403)
+                self.assertEqual(body["error"], "forbidden")
+
+    def test_checkpoint_write_failure_fails_closed_as_unavailable(self):
+        class BrokenAppendAnchor:
+            def read_latest(self):
+                return None
+
+            def append_checkpoint(self, _expected_sequence, _record):
+                raise OSError("storage unavailable")
+        service = ProviderAuditRemoteService(
+            BrokenAppendAnchor(), lambda _token: "service-agent",
+            authorize_principal=lambda _principal: True)
+        status, body = service.handle(
+            "POST", "/v1/audit-anchor/checkpoints",
+            {**self.headers, "Content-Type": "application/json"},
+            json.dumps({"expected_sequence": 0, "record": self._record()}).encode())
+        self.assertEqual(status, 503)
+        self.assertEqual(body["error"], "anchor_unavailable")
+
 
 if __name__ == "__main__":
     unittest.main()
