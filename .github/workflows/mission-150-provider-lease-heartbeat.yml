@@ -1,0 +1,29 @@
+name: Mission 150 Provider Lease Heartbeat CI
+# Final validation includes schema migration, lease reclaim, and stale-generation regression tests.
+
+on:
+  push:
+    branches:
+      - feat/mission-150-provider-lease-heartbeat
+  pull_request:
+    branches:
+      - feat/mission-148-replay-reservation-fencing
+    paths:
+      - "server/sqlite_store.py"
+      - "server/messenger_backend.py"
+      - "server/http_server.py"
+      - "server/test_provider_request_store.py"
+      - "server/test_provider_host_messenger_http.py"
+      - "server/provider_request_lease.py"
+      - ".github/workflows/mission-150-provider-lease-heartbeat.yml"
+
+jobs:
+  provider-lease-heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_ai_provider_host server.test_provider_request_store server.test_provider_host_messenger_http server.test_ai_provider_host_contract_spec server.test_http_server server.test_messenger_backend server.test_agent_provider_registry
