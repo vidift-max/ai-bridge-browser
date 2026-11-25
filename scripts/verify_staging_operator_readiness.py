@@ -38,7 +38,7 @@ def audit_blueprint(source: str) -> list[str]:
     for name, pattern in checks:
         if not re.search(pattern, source):
             failures.append(name)
-    if re.search(r"(?im)^\s*type:\s*disk\s*$", source):
+    if re.search(r"(?im)^\s*-\s*type:\s*disk\s*$", source):
         failures.append("persistent_disk_absent")
     if re.search(r"(?im)^\s*mountPath:", source):
         failures.append("persistent_mount_absent")
