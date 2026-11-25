@@ -1,0 +1,37 @@
+name: Mission 177 Multi-Agent Host Session Bridge
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-176-two-ai-roundtrip-readiness
+    paths:
+      - "server/ai_conversation_host.py"
+      - "server/test_ai_conversation_host.py"
+      - "server/http_server.py"
+      - "server/test_provider_host_messenger_http.py"
+      - "web/ai-conversation-host-client.js"
+      - "web/ai-conversation-host-client.test.mjs"
+      - "web/ai-conversation-panel.js"
+      - "web/ai-conversation-panel.test.mjs"
+      - "web/rooms.html"
+      - ".github/workflows/mission-177-multi-agent-host-session-bridge.yml"
+      - "docs/MISSION_177_MULTI_AGENT_HOST_SESSION_BRIDGE.md"
+  push:
+    branches:
+      - feat/mission-177-multi-agent-host-session-bridge
+
+jobs:
+  multi-agent-host:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_ai_conversation_host server.test_provider_host_messenger_http server.test_ai_provider_host server.test_http_server server.test_messenger_backend
+      - run: node --test web/ai-conversation-host-client.test.mjs web/ai-conversation-loop.test.mjs web/ai-conversation-panel.test.mjs
