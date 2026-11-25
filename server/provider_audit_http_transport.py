@@ -6,7 +6,9 @@ Deployments must provide TLS and lifecycle management at their boundary.
 """
 import json
 from http.server import BaseHTTPRequestHandler
+from urllib.parse import urlsplit
 from server.provider_audit_http_dispatch import (
+    PROVIDER_AUDIT_PATHS,
     dispatch_provider_audit_request,
     read_provider_audit_request_body,
 )
@@ -47,6 +49,10 @@ def make_provider_audit_http_handler(service):
             )
 
         def _dispatch(self):
+            if urlsplit(self.path).path not in PROVIDER_AUDIT_PATHS:
+                self.close_connection = True
+                self._respond(404, {"error": "not_found"})
+                return
             body, error = self._request_body()
             if error is not None:
                 self.close_connection = True
