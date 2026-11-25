@@ -14,6 +14,7 @@ on:
       - "web/ai-conversation-host-client.test.mjs"
       - "web/ai-conversation-panel.js"
       - "web/ai-conversation-panel.test.mjs"
+      - "web/ai-conversation-runtime.test.mjs"
       - ".github/workflows/mission-179-two-agent-roundtrip-proof.yml"
       - "docs/MISSION_179_TWO_AGENT_ROUNDTRIP_PROOF.md"
   push:
