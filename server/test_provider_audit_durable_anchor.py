@@ -9,6 +9,9 @@ from server.provider_audit_remote_anchor import (
     _record_from_checkpoint,
 )
 from server.provider_audit_durable_anchor import SQLiteDurableAuditAnchor
+from server.provider_audit_checkpoint import create_provider_audit_checkpoint
+from server.provider_audit_remote_anchor import publish_provider_audit_remote_anchor, verify_provider_audit_remote_anchor
+from server.sqlite_store import SQLiteMessengerStore
 
 
 class DurableAuditAnchorTests(unittest.TestCase):
@@ -137,6 +140,21 @@ class DurableAuditAnchorTests(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertEqual(self.anchor.verify_history()["records_checked"], 1)
 
+    def test_checkpoint_publication_uses_durable_backend_across_restart(self):
+        main_db = os.path.join(self.directory.name, "main.sqlite")
+        checkpoint = os.path.join(self.directory.name, "checkpoint.json")
+        key = b"m163-test-only-signing-key-material-32-bytes"
+        store = SQLiteMessengerStore(main_db)
+        try:
+            store.claim_provider_request("AI-DURABLE", "req-1", "digest", "room", "AI-DURABLE", 1.0)
+            create_provider_audit_checkpoint(store, checkpoint, key, created_at=10.0)
+            published = publish_provider_audit_remote_anchor(store, checkpoint, key, self.anchor)
+            restarted = SQLiteDurableAuditAnchor(self.path)
+            self.assertEqual(restarted.read_latest(), published)
+            result = verify_provider_audit_remote_anchor(store, checkpoint, key, restarted)
+            self.assertTrue(result["valid"])
+        finally:
+            store.close()
     def test_memory_database_is_rejected_for_durable_backend(self):
         with self.assertRaisesRegex(ValueError, "durable_anchor_path_required"):
             SQLiteDurableAuditAnchor(":memory:")
