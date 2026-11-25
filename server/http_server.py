@@ -1264,7 +1264,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self.backend.assert_authenticated_sender(self._auth(), claimed_sender)
                 msg=self.backend.submit(self._auth(),payload["messageId"],payload["conversationId"],payload["recipientAiIds"],payload["body"],payload["clientRequestId"],payload.get("messageKind","NORMAL"))
                 self._audit(identity, "MESSAGE_SUBMITTED", msg.message_id, sequence=str(msg.sequence))
-                self._json(200,{"messageId":msg.message_id,"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"messageKind":msg.kind,"createdAtEpochMs":int(msg.created_at_epoch_seconds*1000),"correlationId":identity.correlation_id})
+                self._json(200,{"messageId":msg.message_id,"conversationId":msg.conversation_id,"recipientAiIds":list(msg.recipient_ai_ids),"sequence":msg.sequence,"state":"QUEUED","senderAiId":msg.sender_ai_id,"messageKind":msg.kind,"createdAtEpochMs":int(msg.created_at_epoch_seconds*1000),"correlationId":identity.correlation_id})
             except RateLimitExceeded:
                 self._json(429,{"error":"rate_limit_exceeded"})
             except PermissionError as exc:
