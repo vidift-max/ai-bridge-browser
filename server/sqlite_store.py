@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 
 def _validate_provider_lease_seconds(value):
