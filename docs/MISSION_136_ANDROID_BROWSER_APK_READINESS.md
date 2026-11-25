@@ -1,6 +1,6 @@
 # M136 — Android Browser APK Readiness
 
-Status: IN PROGRESS until Android Build workflow completes successfully on this branch.
+Status: PASS — Android debug APK built and uploaded successfully. Physical tablet installation and live collective-room connectivity remain unverified.
 
 Base: `f2ab4695b26a46ecffde05dc980ec11aae270fb2` (M135 approved head).
 Branch: `feat/mission-136-android-browser-apk-readiness`
@@ -20,7 +20,7 @@ Make the existing Android application build workflow produce a downloadable, ins
 7. Added M135 and M136 target branches to pull-request triggers for Android validation.
 8. Documented the exact GitHub Actions artifact name, APK filename, and distinction between source ZIP, debug APK, and unsigned/release-preparation output.
 9. Added this mission record with explicit limitations and acceptance criteria.
-10. Validate the resulting workflow run, confirm artifact availability, and record the final SHA/CI result. This round remains pending until GitHub Actions reports success and the artifact is present.
+10. Validated Android Build run #1112 (`45571636197`) on head `4a18a5435bb549ec5e63d7c084a86d98a77f8d05`: unit tests SUCCESS, debug APK build SUCCESS, debug artifact upload SUCCESS, release-preparation build/upload SUCCESS; final signed-release job SKIPPED as intended because no release signing secrets were configured. Artifact `ai-phone-debug-apk` (ID `15002995352`, 26,053,775 bytes, SHA-256 `cdf4e1304b1423f799a9650ecb0bb68dca5b8011d522f6a214fb0c8655656b6d`) confirmed present and unexpired. Round 10 COMPLETE.
 
 ## Acceptance criteria
 
@@ -33,6 +33,15 @@ Make the existing Android application build workflow produce a downloadable, ins
 ## Tablet installation path after CI
 
 Open the successful Android Build workflow run in GitHub Actions, download artifact `ai-phone-debug-apk`, extract the artifact ZIP, then tap `app-debug.apk` on Android and approve installation from that source if Android asks. The first launch opens the Android app; use **Ferramentas → Abrir navegador e Central de Controle** to open the browser. Actual collective-room use still requires a reachable HTTPS rooms server and authorized login/configuration.
+
+## Verified build evidence
+
+- Workflow run: `45571636197` (Android Build #1112)
+- Head SHA: `4a18a5435bb549ec5e63d7c084a86d98a77f8d05`
+- Debug artifact: `ai-phone-debug-apk`, artifact ID `15002995352`, 26,053,775 bytes, SHA-256 `cdf4e1304b1423f799a9650ecb0bb68dca5b8011d522f6a214fb0c8655656b6d`
+- Release-preparation artifact: `ai-phone-release-preparation`, artifact ID `15003360083`
+- Debug tests/build/upload: SUCCESS; release-preparation build/upload: SUCCESS; final signed release: SKIPPED (expected; no signing secrets).
+- Artifact expiry: 2027-02-23.
 
 ## Current limitations
 
