@@ -90,13 +90,14 @@ class HttpContractTest(unittest.TestCase):
 
     def test_authenticated_conversation_runtime_assets_are_allowlisted(self):
         constants = MessengerHandler.do_GET.__code__.co_consts
+        routes = [value for value in constants if isinstance(value, tuple)]
         for asset in (
             "/ai-conversation-loop.js",
             "/ai-agent-adapter.js",
             "/ai-conversation-runtime.js",
             "/ai-conversation-panel.js",
         ):
-            self.assertIn(asset, constants)
+            self.assertTrue(any(asset in route for route in routes), asset)
         self.assertTrue(hasattr(MessengerHandler, "_ai_conversation_script"))
 
     def test_conversation_asset_handler_rejects_unlisted_files(self):
