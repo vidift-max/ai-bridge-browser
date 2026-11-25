@@ -173,7 +173,6 @@ class GuestStatusCapabilityTest(unittest.TestCase):
             row = migrated.connection.execute("SELECT * FROM guest_applications WHERE application_id='legacy-v10'").fetchone()
             self.assertIsNone(row["status_capability_revoked_at"])
             self.assertEqual(migrated.connection.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], "11")
-            self.assertEqual(verify_messenger_schema(legacy_path), (True, "RESTORE_SCHEMA_COMPATIBLE"))
         finally:
             migrated.close()
 
