@@ -1005,7 +1005,12 @@ class MessengerHandler(BaseHTTPRequestHandler):
 
                 with ProviderRequestLeaseKeeper(renew_claim, interval_seconds=60.0) as lease_keeper:
                     result = self.provider_host.execute(self._auth(), payload, skip_replay_guard=True)
-                if lease_lost or lease_keeper.lost or not lease_keeper.stopped:
+                lease_snapshot = lease_keeper.snapshot()
+                if lease_lost or lease_snapshot["lost"] or not lease_snapshot["stopped"]:
+                    self._audit(identity, "AI_PROVIDER_LEASE_KEEPER_FAILED",
+                                request_id, failure_reason=lease_snapshot["failureReason"] or
+                                ("renewal_rejected" if lease_lost else "lease_state_uncertain"),
+                                renewal_count=lease_snapshot["renewalCount"])
                     raise ProviderHostError("provider_request_lease_lost", 409)
                 response_text = result["text"]
                 if len(response_text) > self.backend.MAX_BODY_LENGTH:
@@ -1032,7 +1037,12 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     ).hexdigest()[:40],
                     conversation_id, recipients, response_text,
                     "provider-host:" + request_id)
-                if lease_lost or lease_keeper.lost or not lease_keeper.stopped:
+                lease_snapshot = lease_keeper.snapshot()
+                if lease_lost or lease_snapshot["lost"] or not lease_snapshot["stopped"]:
+                    self._audit(identity, "AI_PROVIDER_LEASE_KEEPER_FAILED",
+                                request_id, failure_reason=lease_snapshot["failureReason"] or
+                                ("renewal_rejected" if lease_lost else "lease_state_uncertain"),
+                                renewal_count=lease_snapshot["renewalCount"])
                     raise ProviderHostError("provider_request_lease_lost", 409)
                 self.backend.save_provider_message_and_complete(
                     self._auth(), request_id, request_digest, message,
