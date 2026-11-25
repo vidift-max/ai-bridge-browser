@@ -21,7 +21,7 @@ class ProviderAuditMessengerHTTPIntegrationTests(unittest.TestCase):
             self.anchor,
             authenticate_token=lambda token: "messenger-test-agent" if token == "valid-token" else None,
             authorize_principal=lambda principal: principal == "messenger-test-agent",
-            max_body_bytes=256,
+            max_body_bytes=2048,
         )
         handler = type(
             "ConfiguredMessengerHandler",
@@ -97,7 +97,7 @@ class ProviderAuditMessengerHTTPIntegrationTests(unittest.TestCase):
     def test_oversized_body_is_rejected_before_service_dispatch(self):
         status, _, body = self._request(
             "POST", "/v1/audit-anchor/checkpoints",
-            body=b"x" * 257,
+            body=b"x" * 2049,
             headers={"Authorization": "Bearer valid-token",
                      "Content-Type": "application/json"})
         self.assertEqual(status, 413)
