@@ -9,7 +9,7 @@ const http = await readFile(new URL("../server/http_server.py", import.meta.url)
 
 test("successful invite submission renders a pending receipt with application reference", () => {
   assert.match(invite, /id="receipt" hidden aria-live="polite"/);
-  assert.match(invite, /application\.status!=='PENDING'/);
+  assert.match(invite, /includes\(application\.status\)/);
   assert.match(invite, /application\.applicationId/);
   assert.match(invite, /Código de acompanhamento:/);
 });
