@@ -19,14 +19,14 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
 
     def test_rejects_invalid_conversation_before_network(self):
         request = Mock()
-        for room in ("", "  ", "x" * 201, "room\\nforged", "room\\tforged"):
+        for room in ("", "  ", "x" * 201, "room\nforged", "room\tforged"):
             with self.subTest(room=room), self.assertRaisesRegex(ValueError, "invalid_conversation_id"):
                 runner.run_first_contact("https://stage.example", room, "a", "b", request)
         request.assert_not_called()
 
     def test_rejects_whitespace_or_header_control_credentials_before_network(self):
         request = Mock()
-        for a, b in ((" ", "b"), ("a", "  "), ("bad\\r\\ntoken", "b")):
+        for a, b in ((" ", "b"), ("a", "  "), ("bad\r\ntoken", "b")):
             with self.subTest(a=a, b=b), self.assertRaisesRegex(ValueError, "distinct_ai_credentials_required"):
                 runner.run_first_contact("https://stage.example", "room", a, b, request)
         request.assert_not_called()
