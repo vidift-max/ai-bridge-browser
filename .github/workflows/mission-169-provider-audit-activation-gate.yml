@@ -11,7 +11,6 @@ on:
       - "server/provider_audit_messenger_activation.py"
       - "server/test_provider_audit_messenger_activation.py"
       - "server/provider_audit_remote_service.py"
-      - "server/provider_audit_messenger_http_integration.py"
       - "server/test_provider_audit_messenger_http_integration.py"
       - "server/test_provider_audit_http_server_factory.py"
       - "server/test_provider_audit_http_transport.py"
