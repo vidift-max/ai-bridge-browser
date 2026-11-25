@@ -95,8 +95,8 @@ class Mission122LongPollDeliveryProofTest(unittest.TestCase):
         status_b, identity_b = self.request(
             "GET", "/v1/me/identity", "synthetic-token-ai02")
         self.assertEqual((status_a, status_b), (200, 200))
-        self.assertEqual(identity_a["aiId"], "AI-01")
-        self.assertEqual(identity_b["aiId"], "AI-02")
+        self.assertEqual(identity_a["identity"]["aiId"], "AI-01")
+        self.assertEqual(identity_b["identity"]["aiId"], "AI-02")
 
     def test_long_poll_receives_message_after_sender_posts(self):
         with ThreadPoolExecutor(max_workers=1) as pool:
