@@ -89,6 +89,7 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         MessengerHandler.provider_host = None
         MessengerHandler.agent_session_registry = None
         MessengerHandler.conversation_host = None
+        MessengerHandler.agent_provider_router = None
         MessengerHandler.backend = None
         MessengerHandler.authenticator = None
 
