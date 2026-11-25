@@ -131,7 +131,7 @@ class AuthenticatedProviderHost:
                             "algorithm": "HMAC-SHA256"},
         }
 
-    def verify_attestation(self, attestation):
+    def verify_attestation(self, attestation, response_text):
         if not isinstance(attestation, dict) or set(attestation) != {
                 "statement", "signature", "algorithm"}:
             return False
@@ -140,6 +140,11 @@ class AuthenticatedProviderHost:
         if not isinstance(statement, dict) or not isinstance(signature, str):
             return False
         if attestation["algorithm"] != "HMAC-SHA256":
+            return False
+        if not isinstance(response_text, str):
+            return False
+        expected_digest = hashlib.sha256(response_text.encode("utf-8")).hexdigest()
+        if not hmac.compare_digest(statement.get("responseSha256", ""), expected_digest):
             return False
         expected = hmac.new(self._key, self._canonical(statement),
                             hashlib.sha256).hexdigest()
