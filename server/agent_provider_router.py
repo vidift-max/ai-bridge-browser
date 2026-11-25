@@ -23,6 +23,9 @@ class AgentProviderRouter:
                 raise ValueError("invalid_runtime_config:MESSENGER_AI_PROVIDER_MAP")
         self._assignments = dict(raw)
 
+    def assigned_ai_ids(self):
+        return tuple(sorted(self._assignments))
+
     def assignment(self, ai_id):
         return self._assignments.get(ai_id)
 

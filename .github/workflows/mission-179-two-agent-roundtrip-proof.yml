@@ -1,0 +1,38 @@
+name: Mission 179 Two-Agent Round Trip Proof
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-178-independent-agent-providers
+    paths:
+      - "server/ai_conversation_host.py"
+      - "server/agent_provider_router.py"
+      - "server/http_server.py"
+      - "server/test_ai_conversation_host.py"
+      - "server/test_provider_host_messenger_http.py"
+      - "web/ai-conversation-host-client.js"
+      - "web/ai-conversation-host-client.test.mjs"
+      - "web/ai-conversation-panel.js"
+      - "web/ai-conversation-panel.test.mjs"
+      - "web/ai-conversation-runtime.test.mjs"
+      - ".github/workflows/mission-179-two-agent-roundtrip-proof.yml"
+      - "docs/MISSION_179_TWO_AGENT_ROUNDTRIP_PROOF.md"
+  push:
+    branches:
+      - feat/mission-179-two-agent-roundtrip-proof
+
+jobs:
+  two-agent-roundtrip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_ai_conversation_host server.test_provider_host_messenger_http server.test_agent_provider_router server.test_provider_registry server.test_ai_provider_host server.test_http_server server.test_messenger_backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test web/ai-conversation-host-client.test.mjs web/ai-conversation-panel.test.mjs web/ai-conversation-runtime.test.mjs
