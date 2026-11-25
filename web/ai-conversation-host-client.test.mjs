@@ -34,6 +34,7 @@ test("host client verifies attestations through the server without exposing its 
  assert.equal(await f.client.verifyAttestation(result),true);
  assert.equal(f.calls[0].path,"/v1/ai/provider/attestation/verify");
  assert.equal(JSON.parse(f.calls[0].options.body).responseText,"Resposta");
+ assert.equal(JSON.parse(f.calls[0].options.body).agentId,"AI-B");
 });
 test("host client refuses group rooms and identities outside the room",async()=>{
  const f=fixture({privateRoom:false});
