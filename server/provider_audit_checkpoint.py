@@ -88,8 +88,7 @@ def create_provider_audit_checkpoint(store, checkpoint_path, signing_key, create
         connection.rollback()
         raise
 
-    destination = Path(checkpoint_path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination = Path(checkpoint_path)\n    if str(destination.resolve()) == str(Path(store._database_path).resolve()):\n        raise ValueError("checkpoint_must_be_separate_from_database")\n    destination.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary_path = tempfile.mkstemp(prefix=".provider-audit-checkpoint-",
                                           dir=str(destination.parent))
     try:
