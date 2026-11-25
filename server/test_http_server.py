@@ -63,6 +63,12 @@ class HttpContractTest(unittest.TestCase):
         self.assertTrue(hasattr(MessengerHandler, "provider_registry"))
 
 
+
+    def test_authenticated_provider_response_route_is_defined(self):
+        constants = MessengerHandler.do_POST.__code__.co_consts
+        self.assertIn("/v1/ai/provider/respond", constants)
+        self.assertTrue(hasattr(MessengerHandler, "provider_host"))
+
     def test_gpt6_status_distinguishes_request_success_from_online_presence(self):
         constants = MessengerHandler.do_GET.__code__.co_consts
         self.assertIn("connection_status", constants)
