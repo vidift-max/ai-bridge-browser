@@ -30,7 +30,7 @@ class StagingVerifierTest(unittest.TestCase):
                 verifier.normalize_base_url(value)
 
     def test_rejects_missing_host_invalid_port_and_control_whitespace(self):
-        for value in ("https:///missing-host", "https://stage.example:bad",
+        for value in ("https:///missing-host", "https://stage.example:bad", "https://stage.example:",
                       "https://stage.example\n.evil", " https://stage.example"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 verifier.normalize_base_url(value)
