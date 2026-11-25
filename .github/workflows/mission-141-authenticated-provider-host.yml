@@ -6,6 +6,8 @@ on:
     paths:
       - "server/ai_provider_host.py"
       - "server/test_ai_provider_host.py"
+      - "server/ai_provider_host_contract.json"
+      - "server/test_ai_provider_host_contract_spec.py"
       - "docs/MISSION_141_AUTHENTICATED_PROVIDER_HOST.md"
       - ".github/workflows/mission-141-authenticated-provider-host.yml"
   push:
@@ -19,4 +21,4 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m unittest server.test_ai_provider_host server.test_provider_registry server.test_openai_text_adapter
+      - run: python -m unittest server.test_ai_provider_host server.test_ai_provider_host_contract_spec server.test_provider_registry server.test_openai_text_adapter
