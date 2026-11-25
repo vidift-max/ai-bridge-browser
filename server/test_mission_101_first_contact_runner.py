@@ -88,7 +88,6 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                     "messageId": "wrong", "conversationId": "room",
                     "senderAiId": "AI-01", "body": "tampered", "sequence": 1}]}
             if path == "/v1/messages":
-                message_id["value"] = payload["messageId"]
                 ready.set()
                 return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
             self.fail("unexpected_request:" + path)
@@ -139,6 +138,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                     "senderAiId": "AI-01", "body": "AI-01 -> AI-02 first-contact verification",
                     "sequence": True}]}
             if path == "/v1/messages":
+                message_id["value"] = payload["messageId"]
                 ready.set()
                 return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
             self.fail("unexpected_request:" + path)
