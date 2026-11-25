@@ -40,7 +40,6 @@ class ProviderAuditMessengerHTTPIntegrationTests(unittest.TestCase):
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=3)
-        self.anchor.close()
         self.directory.cleanup()
 
     def _request(self, method, path, body=None, headers=None):
