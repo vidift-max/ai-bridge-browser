@@ -50,15 +50,17 @@
     body:message.body,attestation:JSON.stringify(result.attestation)};
   }
   function currentRoomMembers(){return options.getContext()?.room?.memberAiIds||[];}
-  async function verifyAttestation(result){
+  async function verifyAttestation(result,expected){
    const current=context();
-   if(!result||typeof result.attestation!=="string"||typeof result.body!=="string")
+   if(!result||typeof result.attestation!=="string"||typeof result.body!=="string"||
+      typeof result.agentId!=="string"||!currentRoomMembers().includes(result.agentId)||
+      (expected&&expected.conversationId!==current.conversationId))
     return false;
    let attestation;
    try{attestation=JSON.parse(result.attestation)}catch{return false}
    const response=await options.api("/v1/ai/provider/attestation/verify",{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({conversationId:current.conversationId,
+    body:JSON.stringify({conversationId:current.conversationId,agentId:result.agentId,
      attestation,responseText:result.body})
    });
    return response?.valid===true;
