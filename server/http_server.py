@@ -12,6 +12,7 @@ from server.audio_blob_store import AudioBlobStore
 from pathlib import Path
 from server.openai_text_adapter import OpenAITextAdapter
 from server.provider_registry import ProviderRegistry
+from server.gpt6_room_agent import GPT6RoomAgent
 
 
 def _unique_json_object(pairs):
@@ -59,6 +60,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     voice_calls=None
     openai_text=None
     provider_registry=None
+    gpt6_room_agent=None
     guest_sessions=None
 
     def _auth(self):
@@ -506,6 +508,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     "transport": "OpenAI Responses API" if configured else "not_configured",
                     **connection,
                     "configured": configured,
+                    "apiCallsEnabled": bool(self.openai_text is not None and self.openai_text.api_calls_enabled()),
                     "model": self.openai_text.model if self.openai_text is not None else None,
                     "correlationId": identity.correlation_id,
                 })
@@ -1211,6 +1214,42 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(502, {"error": str(exc)})
             return
 
+        if urlsplit(self.path).path == "/v1/gpt6/room/respond":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                if self.gpt6_room_agent is None:
+                    self._json(503, {"error": "gpt6_room_agent_unavailable"})
+                    return
+                payload = self._read_json(max_length=12000)
+                if set(payload) != {"conversationId", "message", "clientRequestId"}:
+                    raise ValueError("invalid_gpt6_room_request")
+                result = self.gpt6_room_agent.respond(
+                    self._auth(), payload["conversationId"], payload["message"],
+                    payload["clientRequestId"])
+                self._audit(identity, "GPT6_ROOM_RESPONSE_CREATED",
+                            result["assistantMessage"]["messageId"],
+                            model=result.get("model") or "unknown")
+                self._json(200, result)
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except RuntimeError as exc:
+                if str(exc) in ("openai_api_calls_disabled", "openai_api_not_configured",
+                                "gpt6_room_agent_unavailable"):
+                    self._json(503, {"error": str(exc)})
+                elif str(exc).startswith("openai_http_"):
+                    self._json(502, {"error": "openai_upstream_error"})
+                else:
+                    self._json(502, {"error": "gpt6_provider_error"})
+            except (TypeError, ValueError, KeyError):
+                self._json(400, {"error": "invalid_gpt6_room_request"})
+            return
+
         if self.path == "/v1/gpt6/respond":
             try:
                 identity = self._principal()
@@ -1377,7 +1416,7 @@ def serve(host="127.0.0.1",port=8080):
     from server.voice_room_control import VoiceRoomControl
     store=SQLiteMessengerStore(RuntimeConfig.storage_path())
     voice_control=VoiceRoomControl(RuntimeConfig.voice_admin_ids(tokens), store=store)
-    backend=MessengerBackend(tokens,{"default":set(tokens.values())},store,authenticator=authenticator)
+    backend=MessengerBackend(tokens,{"default":set(tokens.values()) | {"AI-GPT6"}},store,authenticator=authenticator,identity_display_names={"AI-GPT6":"GPT-6"},internal_ai_ids={"AI-GPT6"})
     MessengerHandler.backend=backend
     MessengerHandler.authenticator=authenticator
     MessengerHandler.voice_control=voice_control
@@ -1388,6 +1427,7 @@ def serve(host="127.0.0.1",port=8080):
     MessengerHandler.audio_store=AudioBlobStore(str(Path(RuntimeConfig.storage_path()).resolve().parent / "audio"))
     MessengerHandler.openai_text=OpenAITextAdapter()
     MessengerHandler.provider_registry=ProviderRegistry(MessengerHandler.openai_text)
+    MessengerHandler.gpt6_room_agent=GPT6RoomAgent(backend, MessengerHandler.openai_text)
     from server.guest_web_session import GuestWebSessionService
     MessengerHandler.guest_sessions=GuestWebSessionService(authenticator)
     server = ThreadingHTTPServer((host, port), MessengerHandler)
