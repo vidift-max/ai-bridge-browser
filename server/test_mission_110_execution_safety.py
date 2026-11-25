@@ -43,14 +43,16 @@ class Mission110ExecutionSafetyTest(unittest.TestCase):
 
 
     def test_cli_requires_staging_authorization_before_any_contact(self):
-        with patch.object(sys, "argv", ["verify_first_contact.py", "--execute", "https://stage.example", "room"]), \\
-             patch.dict(os.environ, {"MESSENGER_FIRST_CONTACT_EXECUTE": "true",
-                                     "MESSENGER_TOKEN_AI_A": "secret-a",
-                                     "MESSENGER_TOKEN_AI_B": "secret-b",
-                                     "MESSENGER_FIRST_CONTACT_OPERATION_ID": "m114-operation-0001"}, clear=True), \\
-             patch.object(runner, "run_first_contact") as execute:
-            self.assertEqual(runner.main(), 1)
-            execute.assert_not_called()
+        with patch.object(sys, "argv", ["verify_first_contact.py", "--execute", "https://stage.example", "room"]):
+            with patch.dict(os.environ, {
+                "MESSENGER_FIRST_CONTACT_EXECUTE": "true",
+                "MESSENGER_TOKEN_AI_A": "secret-a",
+                "MESSENGER_TOKEN_AI_B": "secret-b",
+                "MESSENGER_FIRST_CONTACT_OPERATION_ID": "m114-operation-0001",
+            }, clear=True):
+                with patch.object(runner, "run_first_contact") as execute:
+                    self.assertEqual(runner.main(), 1)
+                    execute.assert_not_called()
 
     def test_redirect_is_not_followed_and_bearer_is_not_forwarded(self):
         destination_hits = []
