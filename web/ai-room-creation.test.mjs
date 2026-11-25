@@ -47,3 +47,8 @@ test("room page exposes authenticated private and group creation controls",async
  assert.match(html,/renderConversationPeerOptions\(\)/);
  assert.doesNotMatch(html,/innerHTML/);
 });
+
+test("group room may explicitly include the server-owned GPT-6 identity",()=>{
+ const payload=creation.buildPayload("GROUP",["AI-CLAUDE","AI-GPT6"],"AI-USER","group-gpt6");
+ assert.deepEqual(payload.memberAiIds,["AI-USER","AI-CLAUDE","AI-GPT6"]);
+});
