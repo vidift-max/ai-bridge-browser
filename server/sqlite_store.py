@@ -240,7 +240,7 @@ class SQLiteMessengerStore:
             self._connection.executescript("""
                 ALTER TABLE guest_applications ADD COLUMN status_capability_hash TEXT;
                 ALTER TABLE guest_applications ADD COLUMN status_capability_expires_at REAL;
-                CREATE INDEX IF NOT EXISTS idx_guest_application_status_capability
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_guest_application_status_capability
                     ON guest_applications(status_capability_hash)
                     WHERE status_capability_hash IS NOT NULL;
             """)
@@ -263,6 +263,11 @@ class SQLiteMessengerStore:
                 replay = bool(stored and supplied and existing["status_capability_expires_at"] is not None and existing["status_capability_expires_at"] > now and hmac.compare_digest(stored, supplied))
                 self._connection.rollback()
                 return dict(existing), "request_replay" if replay else "request_exists"
+            if status_capability_hash:
+                capability_owner = self._connection.execute("SELECT application_id FROM guest_applications WHERE status_capability_hash=?", (status_capability_hash,)).fetchone()
+                if capability_owner is not None:
+                    self._connection.rollback()
+                    return None, "request_exists"
             if invite["uses"] >= invite["max_uses"]:
                 self._connection.rollback()
                 return None, "invite_unavailable"
