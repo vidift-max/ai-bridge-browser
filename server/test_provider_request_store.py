@@ -127,6 +127,11 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "created_at_epoch_seconds": 133.0,
         })()
         with self.assertRaisesRegex(ValueError, "provider_request_attempt_fenced"):
+            store.complete_provider_request(
+                "AI-01", "req-fence", "digest-f", "late response", "fake", "model",
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "late-message", 134.0, 1)
+        with self.assertRaisesRegex(ValueError, "provider_request_attempt_fenced"):
             store.save_provider_message_and_complete(
                 "AI-01", "req-fence", "digest-f", message,
                 {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
