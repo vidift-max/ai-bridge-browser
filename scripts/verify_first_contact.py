@@ -52,6 +52,14 @@ def _require(status: int, body: dict, expected_status: int, label: str) -> dict:
     return body
 
 
+def _operation_identifiers(operation_id: str) -> tuple[str, str]:
+    if (not isinstance(operation_id, str) or len(operation_id) < 16 or len(operation_id) > 128
+            or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for char in operation_id)):
+        raise ValueError("invalid_operation_id")
+    digest = hashlib.sha256(operation_id.encode("ascii")).hexdigest()[:24]
+    return "first-contact-" + digest, "first-contact-request-" + digest
+
+
 def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
                       token_ai_02: str, request=request_json, operation_id: str | None = None) -> dict:
     base_url = normalize_base_url(base_url)
@@ -66,9 +74,7 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
         raise ValueError("distinct_ai_credentials_required")
 
     if operation_id is not None:
-        if (not isinstance(operation_id, str) or len(operation_id) < 16 or len(operation_id) > 128
-                or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for char in operation_id)):
-            raise ValueError("invalid_operation_id")
+        _operation_identifiers(operation_id)
 
     identity_a = _require(*request(base_url, "/v1/me/identity", token_ai_01),
                           200, "identity_ai_01")
@@ -83,9 +89,7 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
     wait_path = (f"/v1/conversations/{encoded_room}/messages/wait?" +
                  urlencode({"after": "0", "limit": "10", "timeout": "25"}))
     operation_id = operation_id or secrets.token_urlsafe(24)
-    operation_digest = hashlib.sha256(operation_id.encode("ascii")).hexdigest()[:24]
-    message_id = "first-contact-" + operation_digest
-    request_id = "first-contact-request-" + operation_digest
+    message_id, request_id = _operation_identifiers(operation_id)
     body_text = "AI-01 -> AI-02 first-contact verification"
 
     with ThreadPoolExecutor(max_workers=1) as pool:
