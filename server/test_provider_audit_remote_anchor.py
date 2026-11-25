@@ -29,6 +29,9 @@ class FakeRemoteAnchor:
     def append_checkpoint(self, expected_sequence, record):
         if not self.available:
             raise ConnectionError("remote_anchor_unavailable")
+        if type(expected_sequence) is not int or expected_sequence < 0:
+            raise ValueError("remote_anchor_expected_sequence_invalid")
+        _validate_record(record)
         with self.lock:
             actual = self.records[-1]["sequence"] if self.records else 0
             if expected_sequence != actual:
@@ -40,7 +43,6 @@ class FakeRemoteAnchor:
                 raise ValueError("remote_anchor_chain_conflict")
             if self.records and record["checkpoint_audit_id"] <= self.records[-1]["checkpoint_audit_id"]:
                 raise ValueError("remote_anchor_audit_id_not_monotonic")
-            _validate_record(record)
             self.records.append(dict(record))
             return dict(record)
 
