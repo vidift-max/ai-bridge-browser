@@ -1,0 +1,29 @@
+name: Mission 163 Provider Audit Durable Backend CI
+
+on:
+  push:
+    branches:
+      - feat/mission-163-provider-audit-durable-backend
+  pull_request:
+    branches:
+      - feat/mission-162-provider-audit-remote-anchor
+    paths:
+      - "server/provider_audit_durable_anchor.py"
+      - "server/test_provider_audit_durable_anchor.py"
+      - "server/provider_audit_remote_anchor.py"
+      - "server/provider_audit_checkpoint.py"
+      - "server/sqlite_store.py"
+      - ".github/workflows/mission-163-provider-audit-durable-backend.yml"
+      - "docs/MISSION_163_PROVIDER_AUDIT_DURABLE_BACKEND.md"
+
+jobs:
+  provider-audit-durable-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_audit_durable_anchor server.test_provider_audit_remote_anchor server.test_provider_audit_external_checkpoint server.test_provider_audit_chain_integrity server.test_provider_lease_audit_trail server.test_provider_request_store server.test_provider_lease_multiprocess_recovery
