@@ -23,6 +23,32 @@ class ProviderRequestStoreTests(unittest.TestCase):
             self.assertEqual(row["request_digest"], "digest-a")
             reopened.close()
 
+    def test_atomic_provider_message_completion_rolls_back_together(self):
+        store = SQLiteMessengerStore(":memory:")
+        store.claim_provider_request("AI-01", "req-atomic", "digest", "room", "AI-01", 1.0)
+        message = type("Message", (), {
+            "message_id": "msg-atomic",
+            "conversation_id": "room",
+            "sender_ai_id": "AI-01",
+            "recipient_ai_ids": ("AI-02",),
+            "body": "hello",
+            "client_request_id": "provider-host:req-atomic",
+            "sequence": 1,
+            "kind": "NORMAL",
+            "created_at_epoch_seconds": 2.0,
+        })()
+        store.save_message_with_idempotency((
+            "msg-atomic", "room", "AI-01", ("AI-02",), "already there",
+            "other-request", 1, "NORMAL", 1.5))
+        with self.assertRaises(Exception):
+            store.save_provider_message_and_complete(
+                "AI-01", "req-atomic", "digest", message,
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "provider", "model", 2.0)
+        self.assertEqual(store.connection.execute(
+            "SELECT body FROM messages WHERE message_id='msg-atomic'").fetchone()["body"], "already there")
+        self.assertEqual(store.get_provider_request("AI-01", "req-atomic")["status"], "PROCESSING")
+
     def test_same_request_recovers_completed_record(self):
         store = SQLiteMessengerStore(":memory:")
         row, outcome = store.claim_provider_request(

@@ -958,6 +958,22 @@ class MessengerHandler(BaseHTTPRequestHandler):
                         if message is None:
                             self._json(409, {"error": "provider_message_unavailable"})
                             return
+                        attestation = json.loads(record["attestation_json"])
+                        statement = attestation.get("statement", {}) if isinstance(attestation, dict) else {}
+                        expected_attestation = {
+                            "conversationId": record["conversation_id"],
+                            "agentId": record["agent_id"],
+                            "requestId": request_id,
+                            "principal": principal.ai_id,
+                            "providerId": record["provider_id"],
+                            "model": record["model"],
+                        }
+                        if (message.body != record["response_text"] or
+                                message.message_id != record["message_id"] or
+                                not self.provider_host.verify_attestation(
+                                    attestation, message.body, expected=expected_attestation)):
+                            self._json(500, {"error": "provider_attestation_integrity_failure"})
+                            return
                         self._json(200, {
                             "message": {
                                 "messageId": message.message_id,
@@ -967,7 +983,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                                 "sequence": message.sequence,
                                 "body": message.body,
                             },
-                            "attestation": json.loads(record["attestation_json"]),
+                            "attestation": attestation,
                             "idempotentReplay": True,
                         })
                         return
@@ -978,21 +994,30 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     raise ValueError("provider_response_too_large")
                 members = self.backend.conversation_members().get(conversation_id, set())
                 recipients = sorted(members - {agent_id})
-                message = self.backend.submit(
+                attestation = result["attestation"]
+                statement = attestation["statement"]
+                expected_attestation = {
+                    "conversationId": conversation_id,
+                    "agentId": agent_id,
+                    "requestId": request_id,
+                    "principal": principal.ai_id,
+                    "providerId": statement["providerId"],
+                    "model": statement["model"],
+                }
+                if not self.provider_host.verify_attestation(
+                        attestation, response_text, expected=expected_attestation):
+                    raise ProviderHostError("invalid_provider_attestation", 502)
+                message = self.backend.prepare_provider_message(
                     self._auth(),
                     "provider-" + hashlib.sha256(
                         (agent_id + ":" + request_id).encode("utf-8")
                     ).hexdigest()[:40],
-                    conversation_id,
-                    recipients,
-                    response_text,
-                    "provider-host:" + request_id,
-                )
-                self.backend.complete_provider_request(
-                    self._auth(), request_id, request_digest, response_text,
-                    result["attestation"]["statement"]["providerId"],
-                    result["attestation"]["statement"]["model"],
-                    result["attestation"], message.message_id)
+                    conversation_id, recipients, response_text,
+                    "provider-host:" + request_id)
+                self.backend.save_provider_message_and_complete(
+                    self._auth(), request_id, request_digest, message,
+                    attestation, statement["providerId"], statement["model"])
+                request_claimed = False
                 self._audit(identity, "AI_PROVIDER_RESPONSE_PERSISTED",
                             message.message_id, provider=result["attestation"]["statement"]["providerId"],
                             model=result["attestation"]["statement"]["model"])

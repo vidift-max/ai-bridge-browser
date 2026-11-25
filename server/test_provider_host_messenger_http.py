@@ -116,6 +116,28 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertTrue(self.host.verify_attestation(data["attestation"], message["body"]))
         self.assertEqual(self.provider.calls, ["Diga olá para a outra IA."])
 
+    def test_attestation_is_bound_to_request_identity_and_response(self):
+        status, data = self.request("user-token", self.payload())
+        self.assertEqual(status, 201)
+        statement = data["attestation"]["statement"]
+        expected = {
+            "conversationId": "private-room",
+            "agentId": "AI-USER",
+            "requestId": "provider-req-001",
+            "principal": "AI-USER",
+            "serverIdentity": "AI-BRIDGE-MESSENGER-TEST",
+            "providerId": "fake-test-provider",
+            "model": "fake-messenger-model",
+        }
+        self.assertTrue(self.host.verify_attestation(
+            data["attestation"], data["message"]["body"], expected=expected))
+        tampered = dict(data["attestation"])
+        tampered["statement"] = dict(statement, requestId="other-request")
+        self.assertFalse(self.host.verify_attestation(
+            tampered, data["message"]["body"], expected=expected))
+        self.assertFalse(self.host.verify_attestation(
+            data["attestation"], data["message"]["body"] + " alterado", expected=expected))
+
     def test_missing_authentication_is_rejected_before_provider(self):
         status, data = self.request(None, self.payload())
         self.assertEqual(status, 401)
@@ -187,6 +209,17 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertTrue(second["idempotentReplay"])
         self.assertEqual(second["message"]["messageId"], first["message"]["messageId"])
         self.assertEqual(len(self.provider.calls), 1)
+
+    def test_durable_attestation_tampering_fails_closed_on_replay(self):
+        first_status, first = self.request("user-token", self.payload())
+        self.assertEqual(first_status, 201)
+        self.store.connection.execute(
+            "UPDATE provider_request_records SET response_text=? WHERE principal_ai_id=? AND request_id=?",
+            ("tampered", "AI-USER", "provider-req-001"))
+        self.store.connection.commit()
+        second_status, second = self.request("user-token", self.payload())
+        self.assertEqual(second_status, 500)
+        self.assertEqual(second["error"], "provider_attestation_integrity_failure")
 
     def test_payload_change_for_existing_request_is_conflict(self):
         first_status, _ = self.request("user-token", self.payload())
