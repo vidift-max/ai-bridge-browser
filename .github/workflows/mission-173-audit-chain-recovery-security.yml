@@ -25,4 +25,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m compileall -q server
-      - run: python -m unittest server.test_provider_audit_chain_recovery_security server.test_provider_audit_remote_anchor_conformance server.test_provider_audit_durable_anchor server.test_provider_audit_remote_anchor
+      - run: python -m unittest server.test_provider_audit_chain_recovery_security server.test_provider_audit_remote_anchor_conformance server.test_provider_audit_anchor_protocol server.test_provider_audit_remote_anchor server.test_provider_audit_durable_anchor server.test_provider_audit_remote_service server.test_provider_audit_messenger_activation server.test_provider_audit_messenger_http_integration server.test_provider_audit_http_server_factory server.test_provider_audit_http_transport
