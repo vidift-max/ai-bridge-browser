@@ -30,3 +30,8 @@ The reference implementation enables WAL, `synchronous=FULL`, and a bounded busy
 This is a durable local reference adapter, not a production remote service. A separate SQLite file is not automatically a separate physical device, host, account, or trust domain. A privileged administrator who can alter the database file or drop triggers can rewrite history; the verifier detects tested tampering but cannot establish immutability against an administrator controlling the database and its backups.
 
 No network transport, remote authentication, cloud service, independent operator, production credentials, or deployment was added. The tests use temporary local SQLite files and threads. They establish application behavior and local persistence in CI, not remote durability, multi-region consistency, or protection from host-level compromise.
+
+
+## CI validation notes
+
+The first CI attempt exposed two incorrect assertions in the new tests and a pre-existing race in the inherited audit-chain test: independent test threads were all trying to run schema migrations on a brand-new SQLite file. The assertions were corrected, and the inherited concurrency test now initializes its schema before racing independent append connections. This preserves the intended concurrency test while removing unrelated migration contention. The final exact-head CI run is recorded in the PR description.
