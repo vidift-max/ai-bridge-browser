@@ -54,7 +54,6 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                 events.append("pending")
                 self.assertEqual(events, ["ack", "pending"])
                 self.assertIn("after=149", path)
-                self.assertIn("after=149", path)
                 self.assertIn("limit=100", path)
                 self.assertIn("timeout=0", path)
                 return 200, {"principalAiId": "AI-02", "messages": []}
