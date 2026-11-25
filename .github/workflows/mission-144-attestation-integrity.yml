@@ -25,4 +25,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: python -m compileall -q server
       - run: python -m unittest server.test_provider_request_store server.test_provider_host_messenger_http server.test_ai_provider_host server.test_ai_provider_host_contract_spec server.test_http_server server.test_messenger_backend server.test_agent_provider_registry
