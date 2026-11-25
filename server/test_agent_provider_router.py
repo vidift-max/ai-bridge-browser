@@ -72,11 +72,10 @@ class ProviderAdapterGateTest(unittest.TestCase):
         payload = {"id": "msg-test", "model": "claude-test",
                    "content": [{"type": "text", "text": "Claude respondeu"}]}
         response = MagicMock()
-        response.__enter__ = Mock(return_value=response)
-        response.__exit__ = Mock(return_value=False)
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
         response.read.return_value = json.dumps(payload).encode()
-        with patch.dict(os.environ, {"ANTHROPIC_API_CALLS_ENABLED": "true"}), \\
-             patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
+        with patch.dict(os.environ, {"ANTHROPIC_API_CALLS_ENABLED": "true"}), patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
             result = AnthropicTextAdapter(api_key="private-anthropic-key").respond("oi")
         request = call.call_args.args[0]
         self.assertEqual(request.full_url, "https://api.anthropic.com/v1/messages")
@@ -89,12 +88,11 @@ class ProviderAdapterGateTest(unittest.TestCase):
         import json
         payload = {"responseId": "gemini-test", "model": "gemini-test",
                    "candidates": [{"content": {"parts": [{"text": "Gemini respondeu"}]}}]}
-        response = Mock()
+        response = MagicMock()
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
         response.read.return_value = json.dumps(payload).encode()
-        with patch.dict(os.environ, {"GEMINI_API_CALLS_ENABLED": "true"}), \\
-             patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
+        with patch.dict(os.environ, {"GEMINI_API_CALLS_ENABLED": "true"}), patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
             result = GeminiTextAdapter(api_key="private-gemini-key").respond("oi")
         request = call.call_args.args[0]
         self.assertIn(":generateContent", request.full_url)
