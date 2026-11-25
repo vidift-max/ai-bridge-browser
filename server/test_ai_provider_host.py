@@ -83,6 +83,41 @@ class AuthenticatedProviderHostTest(unittest.TestCase):
         self.assertEqual(error.exception.status, 409)
         self.assertEqual(len(self.calls), 1)
 
+    def test_replay_guard_expires_and_allows_new_attempt(self):
+        now = [100.0]
+        host = AuthenticatedProviderHost(
+            authenticate=lambda token: "AI-ALPHA" if token == "good-token" else None,
+            authorize_agent=lambda *_args: True,
+            resolve_provider=lambda _agent: lambda _prompt: {"text": "ok", "providerId": "fake", "model": "v1"},
+            attestation_key=b"r" * 32,
+            clock=lambda: now[0],
+            replay_ttl_seconds=10,
+        )
+        host.execute("good-token", self.request)
+        with self.assertRaisesRegex(ProviderHostError, "duplicate_request"):
+            host.execute("good-token", self.request)
+        now[0] = 110.0
+        result = host.execute("good-token", self.request)
+        self.assertEqual(result["text"], "ok")
+
+    def test_replay_capacity_ignores_expired_entries(self):
+        now = [100.0]
+        host = AuthenticatedProviderHost(
+            authenticate=lambda _token: "AI-ALPHA",
+            authorize_agent=lambda *_args: True,
+            resolve_provider=lambda _agent: lambda _prompt: {"text": "ok", "providerId": "fake", "model": "v1"},
+            attestation_key=b"c" * 32,
+            clock=lambda: now[0],
+            max_requests=1,
+            replay_ttl_seconds=5,
+        )
+        host.execute("good-token", self.request)
+        other = dict(self.request, requestId="req-002")
+        with self.assertRaisesRegex(ProviderHostError, "host_capacity_reached"):
+            host.execute("good-token", other)
+        now[0] = 105.0
+        host.execute("good-token", other)
+
     def test_extra_client_fields_are_rejected(self):
         request = dict(self.request, senderAiId="AI-BETA")
         with self.assertRaisesRegex(ProviderHostError, "invalid_provider_host_request"):
@@ -104,6 +139,24 @@ class AuthenticatedProviderHostTest(unittest.TestCase):
         with self.assertRaisesRegex(ProviderHostError, "provider_unavailable") as error:
             host.execute("token", self.request)
         self.assertEqual(error.exception.status, 503)
+
+    def test_invalid_replay_configuration_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "max_requests_must_be_positive"):
+            AuthenticatedProviderHost(
+                authenticate=lambda _token: "AI-ALPHA",
+                authorize_agent=lambda *_args: True,
+                resolve_provider=lambda _agent: None,
+                attestation_key=b"x" * 32,
+                max_requests=0,
+            )
+        with self.assertRaisesRegex(ValueError, "replay_ttl_seconds_must_be_positive"):
+            AuthenticatedProviderHost(
+                authenticate=lambda _token: "AI-ALPHA",
+                authorize_agent=lambda *_args: True,
+                resolve_provider=lambda _agent: None,
+                attestation_key=b"x" * 32,
+                replay_ttl_seconds=0,
+            )
 
     def test_short_attestation_key_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "attestation_key_must_be_at_least_32_bytes"):
