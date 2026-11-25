@@ -15,6 +15,11 @@ from server.openai_text_adapter import OpenAITextAdapter
 from server.provider_registry import ProviderRegistry
 from server.gpt6_room_agent import GPT6RoomAgent
 from server.ai_provider_host import AuthenticatedProviderHost, ProviderHostError
+from server.provider_audit_http_dispatch import (
+    PROVIDER_AUDIT_PATHS,
+    dispatch_provider_audit_request,
+    read_provider_audit_request_body,
+)
 
 
 def _unique_json_object(pairs):
@@ -64,6 +69,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     provider_registry=None
     gpt6_room_agent=None
     provider_host=None
+    provider_audit_service=None
     guest_sessions=None
 
     def _auth(self):
@@ -96,6 +102,42 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.authenticator.audit_log.record(event_type, subject, ai_id=identity.principal.ai_id, metadata=metadata, correlation_id=identity.correlation_id)
         if self.operational is not None:
             self.operational.record(event_type, correlation_id=identity.correlation_id, principal=identity.principal.ai_id, metadata=metadata)
+
+    def _provider_audit_request(self):
+        service = self.provider_audit_service
+        if service is None:
+            self._json(404, {"error": "not_found"})
+            return
+        max_body_bytes = getattr(service, "max_body_bytes", None)
+        if type(max_body_bytes) is not int or max_body_bytes < 1:
+            self._json(503, {"error": "provider_audit_service_unavailable"})
+            return
+        body, error = read_provider_audit_request_body(
+            self.headers, self.command, self.rfile, max_body_bytes,
+        )
+        if error is not None:
+            status, payload = error
+        else:
+            status, payload = dispatch_provider_audit_request(
+                service, self.command, self.path,
+                {
+                    "Authorization": self.headers.get("Authorization", ""),
+                    "Content-Type": self.headers.get("Content-Type", ""),
+                },
+                body,
+            )
+        data = json.dumps(
+            payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False,
+        ).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _permission_error(self, exc):
         return {"error": "authentication_required" if str(exc) == "authentication_required" else "forbidden"}
@@ -392,6 +434,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
+        if urlsplit(self.path).path in PROVIDER_AUDIT_PATHS:
+            self._provider_audit_request()
+            return
         if self.path in ("/guest", "/guest/"):
             self._guest_web()
             return
@@ -926,6 +971,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        if urlsplit(self.path).path in PROVIDER_AUDIT_PATHS:
+            self._provider_audit_request()
+            return
         if urlsplit(self.path).path == "/v1/ai/provider/respond":
             request_claimed = False
             request_digest = None
