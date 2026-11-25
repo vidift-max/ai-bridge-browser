@@ -59,7 +59,8 @@ class SQLiteMessengerStore:
             raise ValueError("storage_path_required")
         if path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self._database_path = path\n        self._connection = sqlite3.connect(path, check_same_thread=False)
+        self._database_path = path
+        self._connection = sqlite3.connect(path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._migrate()
 
