@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m unittest server.test_staging_activation_contract server.test_m91_render_staging_boundary server.test_http_e2e server.test_staging_http_verifier server.test_mission_97_android_checkout server.test_mission_99_message_contract server.test_mission_101_first_contact_runner server.test_runtime_config -v
+      - run: python -m unittest server.test_staging_activation_contract server.test_m91_render_staging_boundary server.test_http_e2e server.test_staging_http_verifier server.test_mission_97_android_checkout server.test_mission_99_message_contract server.test_mission_101_first_contact_runner server.test_mission_107_first_contact_preflight server.test_runtime_config -v
       - run: python -m py_compile scripts/verify_staging_http.py scripts/verify_first_contact.py
 
   browser-invite-contract:
