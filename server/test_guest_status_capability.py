@@ -191,7 +191,7 @@ class GuestStatusCapabilityTest(unittest.TestCase):
             self.assertIsNone(row["status_capability_hash"])
             self.assertIsNone(row["status_capability_expires_at"])
             version = migrated.connection.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]
-            self.assertEqual(version, "10")
+            self.assertEqual(version, "11")
         finally:
             migrated.close()
 
