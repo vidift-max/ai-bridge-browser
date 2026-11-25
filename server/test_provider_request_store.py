@@ -528,5 +528,35 @@ class ProviderRequestStoreTests(unittest.TestCase):
 
 
 
+    def test_duplicate_concurrent_completions_return_one_durable_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "duplicate-completion.sqlite")
+            stores = [SQLiteMessengerStore(path) for _ in range(2)]
+            try:
+                stores[0].claim_provider_request(
+                    "AI-01", "duplicate-completion", "digest", "room-1", "AI-01",
+                    100.0, lease_seconds=30.0)
+                barrier = Barrier(2)
+                def complete(index):
+                    barrier.wait()
+                    return stores[index].complete_provider_request(
+                        "AI-01", "duplicate-completion", "digest", f"response-{index}",
+                        "fake", "model", {"statement": {}, "signature": "sig",
+                        "algorithm": "HMAC-SHA256"}, f"message-{index}", 101.0,
+                        lease_seconds=30.0)
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    results = list(pool.map(complete, range(2)))
+                self.assertEqual(results[0]["status"], "COMPLETED")
+                self.assertEqual(results[1]["status"], "COMPLETED")
+                self.assertEqual(results[0]["message_id"], results[1]["message_id"])
+                row = stores[0].get_provider_request("AI-01", "duplicate-completion")
+                self.assertEqual(row["status"], "COMPLETED")
+                self.assertIn(row["message_id"], ("message-0", "message-1"))
+            finally:
+                for store in stores:
+                    store.close()
+
+
+
 if __name__ == "__main__":
     unittest.main()
