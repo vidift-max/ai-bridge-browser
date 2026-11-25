@@ -1,4 +1,5 @@
 import json
+import hashlib
 from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from server.auth import Authenticator
@@ -900,10 +901,14 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         if urlsplit(self.path).path == "/v1/guest-applications/status":
             try:
-                self.rate_limiter.allow("guest-status:" + self.client_address[0])
+                self.rate_limiter.allow("guest-status-ip:" + self.client_address[0])
                 payload = self._read_json(max_length=256)
                 if not isinstance(payload, dict) or set(payload) != {"statusCapability"}:
                     raise ValueError("guest_application_status_unavailable")
+                from server.guest_intake import decode_status_capability
+                raw_capability = decode_status_capability(payload.get("statusCapability"))
+                fingerprint = hashlib.sha256(raw_capability).hexdigest()
+                self.rate_limiter.allow("guest-status-capability:" + fingerprint)
                 result = self.backend.get_public_guest_application_status(payload.get("statusCapability"))
                 self._json(200, {"status": {"state": result["state"], "updatedAt": result["updatedAt"]}})
             except RateLimitExceeded:
