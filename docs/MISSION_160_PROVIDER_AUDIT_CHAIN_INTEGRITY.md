@@ -18,3 +18,8 @@
 The chain is an unkeyed SHA-256 integrity chain. It detects accidental or partial tampering, interior deletion, and reordering when the attacker does not recompute the entire suffix. It does not prevent a privileged attacker from rewriting events and recomputing all subsequent hashes. Removing the final event cannot be detected from the same database alone without an independently stored or signed checkpoint. This mission does not add such an external anchor or claim immutable/WORM storage.
 
 The v14-to-v15 migration backfills hashes over the existing rows; it establishes a verifiable baseline at migration time, but cannot prove those legacy rows were untampered before migration. Verification is store-level only. Tests use local SQLite and controlled concurrent threads. No live provider inference, paid API use, deployment, device activation, or merge is included.
+
+
+## Regression-suite alignment
+
+The inherited M159 audit lifecycle test was updated to expect schema v15 after this migration. The dedicated M160 workflow runs that regression suite together with the new chain-integrity, provider request-store, and multiprocess recovery tests.
