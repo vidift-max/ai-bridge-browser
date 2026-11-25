@@ -30,5 +30,5 @@ test("Rooms page uses GPT-6 bridge in the existing composer and exposes opt-in g
  const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
  assert.match(html,/<script src="\/ai-room-gpt6\.js"><\/script>/);
  assert.match(html,/id="includeGpt6InGroup"/);assert.match(html,/AIBridgeRoomGPT6\.create/);
- assert.match(html,/memberAiIds\\?\.includes\('AI-GPT6'\)/);assert.match(html,/await loadMessages\(\)/);
+ assert.ok(html.includes("memberAiIds?.includes('AI-GPT6')"));assert.match(html,/await loadMessages\(\)/);
 });
