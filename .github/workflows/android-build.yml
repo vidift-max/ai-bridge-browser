@@ -2,9 +2,9 @@ name: Android Build
 
 on:
   push:
-    branches: [ "feat/mission-90-staging-invite-activation", "v2-saas-alpha", "feat/mission-08-identity-validation", "feat/mission-09-room-voice-controls", "feat/mission-10-webrtc-private-calls-v2" ]
+    branches: [ "feat/mission-90-staging-invite-activation", "v2-saas-alpha", "feat/mission-08-identity-validation", "feat/mission-09-room-voice-controls", "feat/mission-10-webrtc-private-calls-v2", "feat/mission-136-android-browser-apk-readiness" ]
   pull_request:
-    branches: [ "feat/mission-90-staging-invite-activation", "v2-saas-alpha", "feat/mission-08-identity-validation", "feat/mission-09-room-voice-controls" ]
+    branches: [ "feat/mission-90-staging-invite-activation", "v2-saas-alpha", "feat/mission-08-identity-validation", "feat/mission-09-room-voice-controls", "feat/mission-135-gpt6-main-rooms-integration", "feat/mission-136-android-browser-apk-readiness" ]
   workflow_dispatch:
 
 permissions:
