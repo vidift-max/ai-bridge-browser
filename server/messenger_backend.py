@@ -475,21 +475,20 @@ class MessengerBackend:
         return result
 
     @_synchronized
-    @_synchronized
     def claim_provider_request(self, bearer_token: str, request_id: str, request_digest: str,
-                               conversation_id: str, agent_id: str):
+                               conversation_id: str, agent_id: str, lease_seconds: float = 360.0):
         principal = self._authenticator.authenticate(bearer_token)
         return self._store.claim_provider_request(
-            principal.ai_id, request_id, request_digest, conversation_id, agent_id, time.time())
+            principal.ai_id, request_id, request_digest, conversation_id, agent_id, time.time(), lease_seconds)
 
     @_synchronized
     def save_provider_message_and_complete(self, bearer_token: str, request_id: str,
                                            request_digest: str, message: Message,
-                                           attestation: dict, provider_id: str, model: str):
+                                           attestation: dict, provider_id: str, model: str, attempt_generation: int = 1):
         principal = self.authenticate(bearer_token)
         result, created = self._store.save_provider_message_and_complete(
             principal, request_id, request_digest, message, attestation,
-            provider_id, model, time.time())
+            provider_id, model, time.time(), attempt_generation)
         if created:
             self._messages[message.message_id] = message
             self._idempotency[(message.sender_ai_id, message.client_request_id)] = message.message_id
@@ -501,18 +500,18 @@ class MessengerBackend:
     @_synchronized
     def complete_provider_request(self, bearer_token: str, request_id: str, request_digest: str,
                                   response_text: str, provider_id: str, model: str,
-                                  attestation: dict, message_id: str):
+                                  attestation: dict, message_id: str, attempt_generation: int = 1):
         principal = self._authenticator.authenticate(bearer_token)
         return self._store.complete_provider_request(
             principal.ai_id, request_id, request_digest, response_text, provider_id,
-            model, attestation, message_id, time.time())
+            model, attestation, message_id, time.time(), attempt_generation)
 
     @_synchronized
     def fail_provider_request(self, bearer_token: str, request_id: str, request_digest: str,
-                               error_code: str):
+                               error_code: str, attempt_generation: int = 1):
         principal = self._authenticator.authenticate(bearer_token)
         return self._store.fail_provider_request(
-            principal.ai_id, request_id, request_digest, error_code, time.time())
+            principal.ai_id, request_id, request_digest, error_code, time.time(), attempt_generation)
 
     def conversation_members(self):
         """Return a defensive snapshot for server-side room authorization."""

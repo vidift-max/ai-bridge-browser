@@ -929,6 +929,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
             request_claimed = False
             request_digest = None
             request_id = None
+            attempt_generation = None
             try:
                 if self.provider_host is None:
                     self._json(503, {"error": "provider_host_not_configured"})
@@ -946,6 +947,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 ).hexdigest()
                 record, outcome = self.backend.claim_provider_request(
                     self._auth(), request_id, request_digest, conversation_id, agent_id)
+                if outcome == "claimed":
+                    request_claimed = True
+                    attempt_generation = int(record["attempt_generation"])
                 if outcome == "conflict":
                     self._json(409, {"error": "provider_request_payload_conflict"})
                     return
@@ -1016,7 +1020,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     "provider-host:" + request_id)
                 self.backend.save_provider_message_and_complete(
                     self._auth(), request_id, request_digest, message,
-                    attestation, statement["providerId"], statement["model"])
+                    attestation, statement["providerId"], statement["model"], attempt_generation)
                 request_claimed = False
                 self._audit(identity, "AI_PROVIDER_RESPONSE_PERSISTED",
                             message.message_id, provider=result["attestation"]["statement"]["providerId"],
@@ -1035,24 +1039,24 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 })
             except ProviderHostError as exc:
                 if request_claimed and request_id and request_digest:
-                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, exc.code)
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, exc.code, attempt_generation)
                 self._json(exc.status, {"error": exc.code})
             except RateLimitExceeded:
                 if request_claimed and request_id and request_digest:
-                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, "rate_limit_exceeded")
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, "rate_limit_exceeded", attempt_generation)
                 self._json(429, {"error": "rate_limit_exceeded"})
             except PermissionError as exc:
                 if request_claimed and request_id and request_digest:
-                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, str(exc))
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, str(exc), attempt_generation)
                 self._json(401 if str(exc) == "authentication_required" else 403,
                            self._permission_error(exc))
             except (KeyError, TypeError, ValueError, json.JSONDecodeError):
                 if request_claimed and request_id and request_digest:
-                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, "invalid_provider_request")
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, "invalid_provider_request", attempt_generation)
                 self._json(400, {"error": "invalid_provider_request"})
             except RuntimeError as exc:
                 if request_claimed and request_id and request_digest:
-                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, str(exc))
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, str(exc), attempt_generation)
                 code = str(exc)
                 self._json(503, {"error": code if code in (
                     "openai_api_calls_disabled", "openai_api_not_configured",

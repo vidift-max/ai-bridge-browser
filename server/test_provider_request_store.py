@@ -7,7 +7,7 @@ from server.sqlite_store import SQLiteMessengerStore
 
 
 class ProviderRequestStoreTests(unittest.TestCase):
-    def test_schema_v12_and_durable_claim_lifecycle(self):
+    def test_schema_v13_and_durable_claim_lifecycle(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "messenger.sqlite")
             store = SQLiteMessengerStore(path)
@@ -93,6 +93,70 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "AI-01", "req-3", "digest-d", "room-1", "AI-01", 101.0)
         self.assertEqual(outcome, "conflict")
         self.assertEqual(row["request_digest"], "digest-c")
+
+
+    def test_stale_provider_attempt_is_fenced_after_lease_reclaim(self):
+        store = SQLiteMessengerStore(":memory:")
+        first, outcome = store.claim_provider_request(
+            "AI-01", "req-fence", "digest-f", "room-1", "AI-01", 100.0,
+            lease_seconds=30.0)
+        self.assertEqual(outcome, "claimed")
+        self.assertEqual(first["attempt_generation"], 1)
+
+        second, outcome = store.claim_provider_request(
+            "AI-01", "req-fence", "digest-f", "room-1", "AI-01", 131.0,
+            lease_seconds=30.0)
+        self.assertEqual(outcome, "claimed")
+        self.assertEqual(second["attempt_generation"], 2)
+
+        self.assertFalse(store.fail_provider_request(
+            "AI-01", "req-fence", "digest-f", "late_failure", 132.0, 1))
+        row = store.get_provider_request("AI-01", "req-fence")
+        self.assertEqual(row["status"], "PROCESSING")
+        self.assertEqual(row["attempt_generation"], 2)
+
+        message = type("Message", (), {
+            "message_id": "msg-fenced",
+            "conversation_id": "room-1",
+            "sender_ai_id": "AI-01",
+            "recipient_ai_ids": ("AI-02",),
+            "body": "current attempt",
+            "client_request_id": "provider-host:req-fence",
+            "sequence": 1,
+            "kind": "NORMAL",
+            "created_at_epoch_seconds": 133.0,
+        })()
+        with self.assertRaisesRegex(ValueError, "provider_request_attempt_fenced"):
+            store.complete_provider_request(
+                "AI-01", "req-fence", "digest-f", "late response", "fake", "model",
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "late-message", 134.0, 1)
+        with self.assertRaisesRegex(ValueError, "provider_request_attempt_fenced"):
+            store.save_provider_message_and_complete(
+                "AI-01", "req-fence", "digest-f", message,
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "fake", "model", 134.0, 1)
+        completed, created = store.save_provider_message_and_complete(
+            "AI-01", "req-fence", "digest-f", message,
+            {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+            "fake", "model", 135.0, 2)
+        self.assertTrue(created)
+        self.assertEqual(completed["status"], "COMPLETED")
+        self.assertEqual(completed["attempt_generation"], 2)
+        store.close()
+
+    def test_unexpired_processing_claim_is_not_stolen(self):
+        store = SQLiteMessengerStore(":memory:")
+        first, outcome = store.claim_provider_request(
+            "AI-01", "req-live", "digest-live", "room-1", "AI-01", 100.0,
+            lease_seconds=30.0)
+        self.assertEqual(outcome, "claimed")
+        second, outcome = store.claim_provider_request(
+            "AI-01", "req-live", "digest-live", "room-1", "AI-01", 129.0,
+            lease_seconds=30.0)
+        self.assertEqual(outcome, "existing")
+        self.assertEqual(second["attempt_generation"], first["attempt_generation"])
+        store.close()
 
     def test_failed_request_can_be_claimed_again_after_restart(self):
         store = SQLiteMessengerStore(":memory:")
