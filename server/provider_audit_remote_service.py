@@ -33,6 +33,10 @@ class ProviderAuditRemoteService:
                  clock=time.monotonic):
         if not callable(authenticate_token):
             raise ValueError("authenticate_token_required")
+        if authorize_principal is not None and not callable(authorize_principal):
+            raise ValueError("authorize_principal_invalid")
+        if not callable(clock):
+            raise ValueError("clock_invalid")
         if type(max_body_bytes) is not int or not 256 <= max_body_bytes <= 65536:
             raise ValueError("invalid_max_body_bytes")
         if type(requests_per_window) is not int or requests_per_window < 1:
@@ -41,7 +45,7 @@ class ProviderAuditRemoteService:
             raise ValueError("invalid_rate_window")
         self.anchor = anchor
         self.authenticate_token = authenticate_token
-        self.authorize_principal = authorize_principal or (lambda _principal: True)
+        self.authorize_principal = authorize_principal or (lambda _principal: False)
         self.max_body_bytes = max_body_bytes
         self.requests_per_window = requests_per_window
         self.window_seconds = float(window_seconds)
