@@ -206,6 +206,11 @@ class ProviderAuditAnchorHTTPTransportTests(unittest.TestCase):
         }
         return _record_from_checkpoint(checkpoint, None)
 
+    def test_non_loopback_bind_is_rejected(self):
+        from server.provider_audit_remote_service import create_provider_audit_anchor_http_server
+        with self.assertRaisesRegex(ValueError, "non_loopback_bind_requires_explicit_deployment_adapter"):
+            create_provider_audit_anchor_http_server(self.service, host="0.0.0.0")
+
     def test_http_server_binds_to_loopback_by_default(self):
         self.assertIn(self.server.server_address[0], ("127.0.0.1", "::1"))
 
