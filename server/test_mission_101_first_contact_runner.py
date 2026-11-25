@@ -88,6 +88,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                     "messageId": "wrong", "conversationId": "room",
                     "senderAiId": "AI-01", "body": "tampered", "sequence": 1}]}
             if path == "/v1/messages":
+                message_id["value"] = payload["messageId"]
                 ready.set()
                 return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
             self.fail("unexpected_request:" + path)
@@ -126,6 +127,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
     def test_rejects_missing_or_invalid_received_sequence_before_ack(self):
         import threading
         ready = threading.Event()
+        message_id = {"value": None}
 
         def fake_request(base, path, token, method="GET", payload=None):
             if path == "/v1/me/identity":
@@ -133,7 +135,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
                 ready.wait(1)
                 return 200, {"principalAiId": "AI-02", "messages": [{
-                    "messageId": "target", "conversationId": "room",
+                    "messageId": message_id["value"], "conversationId": "room",
                     "senderAiId": "AI-01", "body": "AI-01 -> AI-02 first-contact verification",
                     "sequence": True}]}
             if path == "/v1/messages":
