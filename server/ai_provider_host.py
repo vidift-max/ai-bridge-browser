@@ -67,7 +67,7 @@ class AuthenticatedProviderHost:
             raise ProviderHostError("prompt_too_large")
         return {key: request[key] for key in sorted(self.REQUIRED_FIELDS)}
 
-    def execute(self, bearer_token, request):
+    def execute(self, bearer_token, request, *, skip_replay_guard=False):
         if not isinstance(bearer_token, str) or not bearer_token.strip():
             raise ProviderHostError("authentication_required", 401)
         validated = self._validate(request)
@@ -85,13 +85,14 @@ class AuthenticatedProviderHost:
         if not allowed:
             raise ProviderHostError("agent_not_authorized_for_private_room", 403)
 
-        replay_key = (str(principal), validated["requestId"])
-        with self._lock:
-            if replay_key in self._seen:
-                raise ProviderHostError("duplicate_request", 409)
-            if len(self._seen) >= self._max_requests:
-                raise ProviderHostError("host_capacity_reached", 429)
-            self._seen.add(replay_key)
+        if not skip_replay_guard:
+            replay_key = (str(principal), validated["requestId"])
+            with self._lock:
+                if replay_key in self._seen:
+                    raise ProviderHostError("duplicate_request", 409)
+                if len(self._seen) >= self._max_requests:
+                    raise ProviderHostError("host_capacity_reached", 429)
+                self._seen.add(replay_key)
 
         try:
             provider = self._resolve_provider(validated["agentId"])
