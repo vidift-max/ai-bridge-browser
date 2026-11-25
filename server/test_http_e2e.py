@@ -380,6 +380,8 @@ class HttpE2ETest(unittest.TestCase):
             "recipientAiIds": ["AI-B"], "body": "hello over local HTTP",
             "clientRequestId": "req-http-1"})
         self.assertEqual(status, 200); self.assertEqual(sent["senderAiId"], "AI-A")
+        self.assertEqual(sent["conversationId"], "room")
+        self.assertEqual(sent["recipientAiIds"], ["AI-B"])
 
         status, pending = self.request("GET", "/v1/conversations/room/messages", "token-b")
         self.assertEqual(status, 200); self.assertEqual(pending["principalAiId"], "AI-B")
@@ -444,6 +446,10 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(retry_status, 200)
         self.assertEqual(first["messageId"], retry["messageId"])
         self.assertEqual(first["sequence"], retry["sequence"])
+        self.assertEqual(first["conversationId"], "room")
+        self.assertEqual(first["recipientAiIds"], ["AI-B"])
+        self.assertEqual(retry["conversationId"], "room")
+        self.assertEqual(retry["recipientAiIds"], ["AI-B"])
 
         status, pending = self.request("GET", "/v1/conversations/room/messages", "token-b")
         self.assertEqual(status, 200)
