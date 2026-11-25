@@ -1,6 +1,5 @@
 import json
 import hashlib
-import os
 from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from server.auth import Authenticator
@@ -1558,7 +1557,7 @@ def serve(host="127.0.0.1",port=8080):
             def invoke(prompt):
                 response = MessengerHandler.openai_text.respond(prompt)
                 return {
-                    "text": response.get("output_text", ""),
+                    "text": response.get("text", ""),
                     "providerId": "openai",
                     "model": response.get("model", MessengerHandler.openai_text.model),
                 }
