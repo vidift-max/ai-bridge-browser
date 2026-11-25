@@ -7,6 +7,7 @@ import unittest
 from server.provider_audit_remote_anchor import (
     _GENESIS_DIGEST,
     _record_from_checkpoint,
+    _record_digest,
 )
 from server.provider_audit_durable_anchor import SQLiteDurableAuditAnchor
 from server.provider_audit_checkpoint import create_provider_audit_checkpoint
@@ -70,7 +71,9 @@ class DurableAuditAnchorTests(unittest.TestCase):
         self.assertIsNone(self.anchor.read_latest())
 
     def test_broken_previous_digest_is_rejected(self):
-        record = self._record(1, 10, "f" * 64)
+        record = self._record(1, 10, _GENESIS_DIGEST)
+        record["previous_digest"] = "f" * 64
+        record["record_digest"] = _record_digest(record)
         with self.assertRaisesRegex(ValueError, "remote_anchor_chain_conflict"):
             self.anchor.append_checkpoint(0, record)
 
@@ -113,8 +116,9 @@ class DurableAuditAnchorTests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
-        with self.assertRaises(ValueError):
-            self.anchor.verify_history()
+        result = self.anchor.verify_history()
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["first_invalid_sequence"], 1)
 
     def test_concurrent_initial_append_has_exactly_one_winner(self):
         barrier = threading.Barrier(2)
