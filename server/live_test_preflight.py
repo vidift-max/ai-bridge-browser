@@ -35,8 +35,12 @@ def parse_assignment_map(raw):
         return {}
     try:
         value = json.loads(raw, object_pairs_hook=_duplicate_rejector)
-    except (TypeError, ValueError):
-        raise ValueError("invalid_provider_assignment")
+    except ValueError as exc:
+        if str(exc) == "duplicate_provider_assignment":
+            raise
+        raise ValueError("invalid_provider_assignment") from exc
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("invalid_provider_assignment") from exc
     if not isinstance(value, dict):
         raise ValueError("invalid_provider_assignment")
     for ai_id, provider in value.items():
