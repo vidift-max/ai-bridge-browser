@@ -7,6 +7,7 @@ on:
     paths:
       - "web/ai-conversation-loop.js"
       - "web/ai-conversation-loop.test.mjs"
+      - "web/ai-conversation-runtime.test.mjs"
       - ".github/workflows/mission-168-browser-vm-abortcontroller.yml"
       - "docs/MISSION_168_BROWSER_VM_ABORTCONTROLLER.md"
   pull_request:
