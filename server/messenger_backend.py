@@ -482,6 +482,15 @@ class MessengerBackend:
             principal.ai_id, request_id, request_digest, conversation_id, agent_id, time.time(), lease_seconds)
 
     @_synchronized
+    def renew_provider_request_lease(self, bearer_token: str, request_id: str,
+                                     request_digest: str, attempt_generation: int,
+                                     lease_seconds: float = 360.0):
+        principal = self._authenticator.authenticate(bearer_token)
+        return self._store.renew_provider_request_lease(
+            principal.ai_id, request_id, request_digest, attempt_generation,
+            time.time(), lease_seconds)
+
+    @_synchronized
     def save_provider_message_and_complete(self, bearer_token: str, request_id: str,
                                            request_digest: str, message: Message,
                                            attestation: dict, provider_id: str, model: str, attempt_generation: int = 1):
