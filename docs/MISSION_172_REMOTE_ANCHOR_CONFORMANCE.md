@@ -13,6 +13,9 @@ domain.
 - Stale expected-sequence rejection without overwriting the committed head.
 - Sequence-gap rejection without mutation.
 - Two concurrent initial writers yield exactly one committed winner.
+- Previous-digest forks and non-monotonic checkpoint audit IDs are rejected.
+- Tampered record digests and boolean expected-sequence values are rejected.
+- SQLite committed state remains readable after reopening the adapter.
 - Exact HTTP retry of the latest committed record is idempotent.
 - A different record targeting the same sequence returns HTTP 409.
 - A simulated response timeout after durable commit returns HTTP 503; retrying
@@ -21,7 +24,9 @@ domain.
 
 The timeout test deliberately models a lost response after commit. It does
 not simulate a real network, distributed consensus, replica failover, or
-power-loss durability.
+power-loss durability. The fake adapter's validation is aligned with the
+reference backend so that both exercise the same expected-sequence input
+contract.
 
 ## Evidence boundary
 
