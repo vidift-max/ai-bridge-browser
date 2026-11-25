@@ -23,10 +23,12 @@ class AuthenticatedProviderHost:
     REQUIRED_FIELDS = {"conversationId", "agentId", "requestId", "prompt"}
     MAX_PROMPT_CHARS = 5000
     MAX_REQUEST_ID_CHARS = 128
+    MAX_RESPONSE_CHARS = 20000
+    DEFAULT_REPLAY_TTL_SECONDS = 300
 
     def __init__(self, *, authenticate, authorize_agent, resolve_provider,
                  attestation_key, server_identity="AI-BRIDGE-HOST",
-                 clock=None, max_requests=10000):
+                 clock=None, max_requests=10000, replay_ttl_seconds=DEFAULT_REPLAY_TTL_SECONDS):
         if not callable(authenticate) or not callable(authorize_agent):
             raise ValueError("authentication_and_authorization_required")
         if not callable(resolve_provider):
@@ -41,8 +43,13 @@ class AuthenticatedProviderHost:
         self._key = attestation_key
         self.server_identity = server_identity
         self._clock = clock or time.time
+        if not isinstance(max_requests, int) or max_requests < 1:
+            raise ValueError("max_requests_must_be_positive")
+        if not isinstance(replay_ttl_seconds, (int, float)) or replay_ttl_seconds <= 0:
+            raise ValueError("replay_ttl_seconds_must_be_positive")
         self._max_requests = max_requests
-        self._seen = set()
+        self._replay_ttl_seconds = float(replay_ttl_seconds)
+        self._seen = {}
         self._lock = threading.Lock()
 
     @staticmethod
@@ -87,12 +94,17 @@ class AuthenticatedProviderHost:
 
         if not skip_replay_guard:
             replay_key = (str(principal), validated["requestId"])
+            now = float(self._clock())
             with self._lock:
+                expired = [key for key, seen_at in self._seen.items()
+                           if now - seen_at >= self._replay_ttl_seconds]
+                for key in expired:
+                    del self._seen[key]
                 if replay_key in self._seen:
                     raise ProviderHostError("duplicate_request", 409)
                 if len(self._seen) >= self._max_requests:
                     raise ProviderHostError("host_capacity_reached", 429)
-                self._seen.add(replay_key)
+                self._seen[replay_key] = now
 
         try:
             provider = self._resolve_provider(validated["agentId"])
@@ -102,7 +114,7 @@ class AuthenticatedProviderHost:
             if not isinstance(result, dict) or set(result) != {"text", "providerId", "model"}:
                 raise ProviderHostError("invalid_provider_response", 502)
             text = result["text"]
-            if not isinstance(text, str) or not text.strip() or len(text) > 20000:
+            if not isinstance(text, str) or not text.strip() or len(text) > self.MAX_RESPONSE_CHARS:
                 raise ProviderHostError("invalid_provider_text", 502)
             for field in ("providerId", "model"):
                 if not isinstance(result[field], str) or not result[field].strip():
