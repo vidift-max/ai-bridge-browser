@@ -573,6 +573,27 @@ class MessengerBackend:
         return message
 
     @_synchronized
+    def prepare_provider_message(self, bearer_token: str, message_id: str,
+                                 conversation_id: str, recipient_ai_ids: List[str],
+                                 body: str, client_request_id: str) -> Message:
+        sender = self.authenticate(bearer_token)
+        if not isinstance(body, str) or not body.strip() or len(body) > self.MAX_BODY_LENGTH:
+            raise ValueError("invalid_message")
+        recipient_ids = self.authorize_recipients(sender, conversation_id, recipient_ai_ids)
+        existing_id = self._idempotency.get((sender, client_request_id))
+        if existing_id:
+            existing = self._messages[existing_id]
+            if (existing.message_id, existing.conversation_id, existing.body,
+                    existing.recipient_ai_ids) == (message_id, conversation_id, body, recipient_ids):
+                return existing
+            raise ValueError("idempotency_conflict")
+        if message_id in self._messages:
+            raise ValueError("message_id_conflict")
+        sequence = self._next_sequence.get(conversation_id, 0) + 1
+        return Message(message_id, conversation_id, sender, recipient_ids, body,
+                       client_request_id, sequence, set(), MESSAGE_NORMAL, time.time())
+
+    @_synchronized
     def submit(self, bearer_token: str, message_id: str, conversation_id: str,
                recipient_ai_ids: List[str], body: str, client_request_id: str,
                message_kind: str = MESSAGE_NORMAL) -> Message:
