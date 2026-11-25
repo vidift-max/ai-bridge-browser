@@ -16,7 +16,7 @@
 ## Claim semantics
 
 - A new request starts at generation 1.
-- A matching PROCESSING request remains owned by its current generation until its lease expires (default 120 seconds).
+- A matching PROCESSING request remains owned by its current generation until its lease expires (default 360 seconds).
 - A matching FAILED request can be reclaimed immediately.
 - Every reclaim increments `attempt_generation`.
 - Completion and failure must present the generation returned by the successful claim.
