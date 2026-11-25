@@ -111,18 +111,55 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         buildChrome();
+        String incomingInviteUrl = inviteUrlFromIntent(getIntent());
         if (savedInstanceState != null) automationPaused = savedInstanceState.getBoolean(STATE_PAUSED, false);
-        if (restoreDurableTabs()) return;
+        if (restoreDurableTabs()) {
+            if (incomingInviteUrl != null) openInviteInCurrentTab(incomingInviteUrl);
+            return;
+        }
         if (savedInstanceState != null) {
             ArrayList<String> urls = savedInstanceState.getStringArrayList(STATE_URLS);
             if (urls != null && !urls.isEmpty()) {
                 for (String url : urls) addTab(url, false);
                 int requested = savedInstanceState.getInt(STATE_ACTIVE, 0);
                 selectTab(Math.max(0, Math.min(requested, tabs.size() - 1)));
+                if (incomingInviteUrl != null) openInviteInCurrentTab(incomingInviteUrl);
                 return;
             }
         }
         addTab(HOME_URL, true);
+        if (incomingInviteUrl != null) openInviteInCurrentTab(incomingInviteUrl);
+    }
+
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String inviteUrl = inviteUrlFromIntent(intent);
+        if (inviteUrl != null) openInviteInCurrentTab(inviteUrl);
+        else Toast.makeText(this, "Link não reconhecido pelo AI Bridge Browser.", Toast.LENGTH_LONG).show();
+    }
+
+    private String inviteUrlFromIntent(android.content.Intent intent) {
+        Uri data = intent == null ? null : intent.getData();
+        return InviteBrowserRoute.toWebUrl(data == null ? null : data.toString());
+    }
+
+    private void openInviteInCurrentTab(String inviteUrl) {
+        WebView current = currentWebView();
+        if (current == null) {
+            addTab(HOME_URL, true);
+            current = currentWebView();
+        }
+        if (current == null) return;
+        if (showingControlCenter) {
+            showingControlCenter = false;
+            controlCenterView.setVisibility(View.GONE);
+            frameHost.setVisibility(View.VISIBLE);
+        }
+        current.loadUrl(inviteUrl);
+        addressBar.setText(inviteUrl);
+        audioStatus.setText("Convite aberto na aba atual. A entrada na sala depende da validação e aprovação do servidor.");
     }
 
     private void buildChrome() {
