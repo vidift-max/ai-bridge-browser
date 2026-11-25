@@ -37,12 +37,16 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "kind": "NORMAL",
             "created_at_epoch_seconds": 2.0,
         })()
+        store.save_message_with_idempotency((
+            "msg-atomic", "room", "AI-01", ("AI-02",), "already there",
+            "other-request", 1, "NORMAL", 1.5))
         with self.assertRaises(Exception):
             store.save_provider_message_and_complete(
                 "AI-01", "req-atomic", "digest", message,
-                {"bad": "attestation"}, "provider", "model", 2.0)
-        self.assertIsNone(store.connection.execute(
-            "SELECT 1 FROM messages WHERE message_id='msg-atomic'").fetchone())
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "provider", "model", 2.0)
+        self.assertEqual(store.connection.execute(
+            "SELECT body FROM messages WHERE message_id='msg-atomic'").fetchone()["body"], "already there")
         self.assertEqual(store.get_provider_request("AI-01", "req-atomic")["status"], "PROCESSING")
 
     def test_same_request_recovers_completed_record(self):
