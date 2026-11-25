@@ -926,6 +926,9 @@ class MessengerHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if urlsplit(self.path).path == "/v1/ai/provider/respond":
+            request_claimed = False
+            request_digest = None
+            request_id = None
             try:
                 if self.provider_host is None:
                     self._json(503, {"error": "provider_host_not_configured"})
@@ -935,25 +938,61 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 self.rate_limiter.allow(principal.ai_id)
                 payload = self._read_json(max_length=24000)
-                result = self.provider_host.execute(self._auth(), payload)
+                conversation_id = payload["conversationId"]
+                agent_id = payload["agentId"]
+                request_id = payload["requestId"]
+                request_digest = hashlib.sha256(
+                    json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+                ).hexdigest()
+                record, outcome = self.backend.claim_provider_request(
+                    self._auth(), request_id, request_digest, conversation_id, agent_id)
+                if outcome == "conflict":
+                    self._json(409, {"error": "provider_request_payload_conflict"})
+                    return
+                if outcome == "existing":
+                    if record["status"] == "PROCESSING":
+                        self._json(409, {"error": "provider_request_in_progress"})
+                        return
+                    if record["status"] == "COMPLETED":
+                        message = self.backend.get_authorized_message(self._auth(), record["message_id"])
+                        if message is None:
+                            self._json(409, {"error": "provider_message_unavailable"})
+                            return
+                        self._json(200, {
+                            "message": {
+                                "messageId": message.message_id,
+                                "conversationId": message.conversation_id,
+                                "senderAiId": message.sender_ai_id,
+                                "recipientAiIds": list(message.recipient_ai_ids),
+                                "sequence": message.sequence,
+                                "body": message.body,
+                            },
+                            "attestation": json.loads(record["attestation_json"]),
+                            "idempotentReplay": True,
+                        })
+                        return
+                request_claimed = True
+                result = self.provider_host.execute(self._auth(), payload, skip_replay_guard=True)
                 response_text = result["text"]
                 if len(response_text) > self.backend.MAX_BODY_LENGTH:
                     raise ValueError("provider_response_too_large")
-                conversation_id = payload["conversationId"]
-                agent_id = payload["agentId"]
                 members = self.backend.conversation_members().get(conversation_id, set())
                 recipients = sorted(members - {agent_id})
-                request_digest = hashlib.sha256(
-                    (agent_id + ":" + payload["requestId"]).encode("utf-8")
-                ).hexdigest()[:40]
                 message = self.backend.submit(
                     self._auth(),
-                    "provider-" + request_digest,
+                    "provider-" + hashlib.sha256(
+                        (agent_id + ":" + request_id).encode("utf-8")
+                    ).hexdigest()[:40],
                     conversation_id,
                     recipients,
                     response_text,
-                    "provider-host:" + payload["requestId"],
+                    "provider-host:" + request_id,
                 )
+                self.backend.complete_provider_request(
+                    self._auth(), request_id, request_digest, response_text,
+                    result["attestation"]["statement"]["providerId"],
+                    result["attestation"]["statement"]["model"],
+                    result["attestation"], message.message_id)
                 self._audit(identity, "AI_PROVIDER_RESPONSE_PERSISTED",
                             message.message_id, provider=result["attestation"]["statement"]["providerId"],
                             model=result["attestation"]["statement"]["model"])
@@ -967,17 +1006,28 @@ class MessengerHandler(BaseHTTPRequestHandler):
                         "body": message.body,
                     },
                     "attestation": result["attestation"],
+                    "idempotentReplay": False,
                 })
             except ProviderHostError as exc:
+                if request_claimed and request_id and request_digest:
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, exc.code)
                 self._json(exc.status, {"error": exc.code})
             except RateLimitExceeded:
+                if request_claimed and request_id and request_digest:
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, "rate_limit_exceeded")
                 self._json(429, {"error": "rate_limit_exceeded"})
             except PermissionError as exc:
+                if request_claimed and request_id and request_digest:
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, str(exc))
                 self._json(401 if str(exc) == "authentication_required" else 403,
                            self._permission_error(exc))
             except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                if request_claimed and request_id and request_digest:
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, "invalid_provider_request")
                 self._json(400, {"error": "invalid_provider_request"})
             except RuntimeError as exc:
+                if request_claimed and request_id and request_digest:
+                    self.backend.fail_provider_request(self._auth(), request_id, request_digest, str(exc))
                 code = str(exc)
                 self._json(503, {"error": code if code in (
                     "openai_api_calls_disabled", "openai_api_not_configured",
