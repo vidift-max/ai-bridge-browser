@@ -65,7 +65,8 @@ class ProviderAuditExternalCheckpointTests(unittest.TestCase):
     def test_modified_checkpoint_signature_is_rejected(self):
         self._claim("signature")
         create_provider_audit_checkpoint(self.store, self.checkpoint_path, self.key, 5.0)
-        with open(self.checkpoint_path, encoding="utf-8") as handle:\n            document = json.load(handle)
+        with open(self.checkpoint_path, encoding="utf-8") as handle:
+            document = json.load(handle)
         document["audit_id"] = 99
         with open(self.checkpoint_path, "w", encoding="utf-8") as handle:
             json.dump(document, handle)
