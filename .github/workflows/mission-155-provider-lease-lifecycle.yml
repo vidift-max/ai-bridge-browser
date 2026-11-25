@@ -1,0 +1,28 @@
+name: Mission 155 Provider Lease Lifecycle CI
+
+on:
+  push:
+    branches:
+      - feat/mission-155-provider-lease-lifecycle
+  pull_request:
+    branches:
+      - feat/mission-154-provider-clock-integrity
+    paths:
+      - "server/sqlite_store.py"
+      - "server/messenger_backend.py"
+      - "server/http_server.py"
+      - "server/test_provider_request_store.py"
+      - "server/test_provider_host_messenger_http.py"
+      - ".github/workflows/mission-155-provider-lease-lifecycle.yml"
+      - "docs/MISSION_155_PROVIDER_LEASE_LIFECYCLE.md"
+
+jobs:
+  provider-lease-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_ai_provider_host server.test_provider_request_store server.test_provider_host_messenger_http server.test_ai_provider_host_contract_spec server.test_http_server server.test_messenger_backend server.test_agent_provider_registry
