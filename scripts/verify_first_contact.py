@@ -117,8 +117,8 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
     if (isinstance(sequence, bool) or not isinstance(sequence, int)
             or sequence < 1 or sequence > 9007199254740991):
         raise RuntimeError("received_message_sequence_invalid")
-    pending_path = (f"/v1/conversations/{encoded_room}/messages?" +
-                    urlencode({"after": str(sequence - 1), "limit": "100"}))
+    pending_path = (f"/v1/conversations/{encoded_room}/messages/wait?" +
+                    urlencode({"after": str(sequence - 1), "limit": "100", "timeout": "0"}))
     pending_status, pending_body = request(base_url, pending_path, token_ai_02)
     pending = _require(pending_status, pending_body, 200, "post_ack_pending_check")
     if pending.get("principalAiId") != "AI-02":
