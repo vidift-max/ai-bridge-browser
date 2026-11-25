@@ -958,6 +958,22 @@ class MessengerHandler(BaseHTTPRequestHandler):
                         if message is None:
                             self._json(409, {"error": "provider_message_unavailable"})
                             return
+                        attestation = json.loads(record["attestation_json"])
+                        statement = attestation.get("statement", {}) if isinstance(attestation, dict) else {}
+                        expected_attestation = {
+                            "conversationId": record["conversation_id"],
+                            "agentId": record["agent_id"],
+                            "requestId": request_id,
+                            "principal": principal.ai_id,
+                            "providerId": record["provider_id"],
+                            "model": record["model"],
+                        }
+                        if (message.body != record["response_text"] or
+                                message.message_id != record["message_id"] or
+                                not self.provider_host.verify_attestation(
+                                    attestation, message.body, expected=expected_attestation)):
+                            self._json(500, {"error": "provider_attestation_integrity_failure"})
+                            return
                         self._json(200, {
                             "message": {
                                 "messageId": message.message_id,
@@ -967,7 +983,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                                 "sequence": message.sequence,
                                 "body": message.body,
                             },
-                            "attestation": json.loads(record["attestation_json"]),
+                            "attestation": attestation,
                             "idempotentReplay": True,
                         })
                         return
