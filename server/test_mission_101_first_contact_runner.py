@@ -31,7 +31,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         def fake_request(base, path, token, method="GET", payload=None):
             if path == "/v1/me/identity":
                 return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
-            if path.startswith("/v1/conversations/room/messages/wait?"):
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
                 self.assertEqual(token, "b")
                 self.assertTrue(delivered.wait(2))
                 return 200, {"principalAiId": "AI-02", "messages": [{
@@ -66,7 +66,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         def fake_request(base, path, token, method="GET", payload=None):
             if path == "/v1/me/identity":
                 return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
-            if path.startswith("/v1/conversations/room/messages/wait?"):
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
                 return 200, {"principalAiId": "AI-03", "messages": []}
             if path == "/v1/messages":
                 return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
@@ -82,7 +82,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         def fake_request(base, path, token, method="GET", payload=None):
             if path == "/v1/me/identity":
                 return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
-            if path.startswith("/v1/conversations/room/messages/wait?"):
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
                 ready.wait(1)
                 return 200, {"principalAiId": "AI-02", "messages": [{
                     "messageId": "wrong", "conversationId": "room",
@@ -103,7 +103,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         def fake_request(base, path, token, method="GET", payload=None):
             if path == "/v1/me/identity":
                 return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
-            if path.startswith("/v1/conversations/room/messages/wait?"):
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
                 ready.wait(1)
                 return 200, {"principalAiId": "AI-02", "messages": [{
                     "messageId": mid["value"], "conversationId": "room",
@@ -130,7 +130,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         def fake_request(base, path, token, method="GET", payload=None):
             if path == "/v1/me/identity":
                 return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
-            if path.startswith("/v1/conversations/room/messages/wait?"):
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
                 ready.wait(1)
                 return 200, {"principalAiId": "AI-02", "messages": [{
                     "messageId": "target", "conversationId": "room",
@@ -158,7 +158,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         def fake_request(base, path, token, method="GET", payload=None):
             if path == "/v1/me/identity":
                 return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
-            if path.startswith("/v1/conversations/room/messages/wait?"):
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
                 ready.wait(1)
                 return 200, {"principalAiId": "AI-02", "messages": [{
                     "messageId": mid["value"], "conversationId": "room",
@@ -184,7 +184,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
         def fake_request(base, path, token, method="GET", payload=None):
             if path == "/v1/me/identity":
                 return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
-            if path.startswith("/v1/conversations/room/messages/wait?"):
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
                 ready.wait(1)
                 return 200, {"principalAiId": "AI-02", "messages": [{
                     "messageId": mid["value"], "conversationId": "room",
