@@ -13,6 +13,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from verify_staging_http import normalize_base_url
+from verify_first_contact_authorization import validate_environment
 
 
 class _NoRedirectHandler(HTTPRedirectHandler):
@@ -195,6 +196,7 @@ def main() -> int:
     token_b = os.environ.get("MESSENGER_TOKEN_AI_B", "")
     operation_id = os.environ.get("MESSENGER_FIRST_CONTACT_OPERATION_ID", "")
     try:
+        validate_environment(os.environ)
         result = run_first_contact(sys.argv[2], sys.argv[3], token_a, token_b,
                                    operation_id=operation_id)
     except (ValueError, RuntimeError, TimeoutError) as exc:
