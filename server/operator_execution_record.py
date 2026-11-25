@@ -59,6 +59,8 @@ def evaluate_operator_record(
             errors.append("authorized state cannot claim a completed turn")
 
     if record.state == EXECUTED:
+        if evidence is None:
+            errors.append("executed state requires execution evidence")
         if not (record.operator_authorized and record.provider_calls_authorized):
             errors.append("executed state requires both authorizations")
         if not (record.execution_started and record.execution_finished):
