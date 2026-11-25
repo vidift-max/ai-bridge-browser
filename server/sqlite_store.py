@@ -555,7 +555,7 @@ class SQLiteMessengerStore:
         return dict(row) if row else None
 
     def claim_provider_request(self, principal_ai_id, request_id, request_digest,
-                               conversation_id, agent_id, now, lease_seconds=120.0):
+                               conversation_id, agent_id, now, lease_seconds=360.0):
         """Claim a durable provider attempt; reclaim stale PROCESSING rows with a new fence."""
         if not isinstance(lease_seconds, (int, float)) or lease_seconds <= 0:
             raise ValueError("invalid_provider_lease")
@@ -652,7 +652,7 @@ class SQLiteMessengerStore:
 
     def complete_provider_request(self, principal_ai_id, request_id, request_digest,
                                   response_text, provider_id, model, attestation,
-                                  message_id, now):
+                                  message_id, now, attempt_generation=1):
         self._connection.execute("BEGIN IMMEDIATE")
         try:
             row = self._connection.execute(
@@ -664,13 +664,16 @@ class SQLiteMessengerStore:
             if row["status"] == "COMPLETED":
                 self._connection.rollback()
                 return dict(row)
+            if row["status"] != "PROCESSING" or int(row["attempt_generation"]) != int(attempt_generation):
+                self._connection.rollback()
+                raise ValueError("provider_request_attempt_fenced")
             self._connection.execute(
                 """UPDATE provider_request_records
                    SET status='COMPLETED',response_text=?,provider_id=?,model=?,
                        attestation_json=?,message_id=?,updated_at=?,error_code=NULL
-                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING'""",
+                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING' AND attempt_generation=?""",
                 (response_text,provider_id,model,json.dumps(attestation,separators=(",",":")),
-                 message_id,now,principal_ai_id,request_id))
+                 message_id,now,principal_ai_id,request_id,attempt_generation))
             row = self._connection.execute(
                 "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
                 (principal_ai_id, request_id)).fetchone()
