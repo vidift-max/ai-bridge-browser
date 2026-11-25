@@ -56,3 +56,10 @@ test("invite page calls the read-only status endpoint with bounded polling", () 
   assert.match(invite, /statusEl\.textContent='Estado atualizado: '\+state/);
   assert.match(invite, /A consulta não concede acesso à sala/);
 });
+
+test("in-tab retries reuse one immutable payload and cannot bind the capability to another name", () => {
+  assert.match(invite, /let pendingSubmission=null/);
+  assert.match(invite, /pendingSubmission=\{inviteToken,displayName,providerClaim:providerInput\.value,statusCapability\}/);
+  assert.match(invite, /JSON\.stringify\(pendingSubmission\)/);
+  assert.match(invite, /nameInput\.disabled=true;providerInput\.disabled=true/);
+});
