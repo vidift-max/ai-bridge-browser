@@ -168,12 +168,15 @@ class ProviderAuditRemoteAnchorTests(unittest.TestCase):
         errors = []
 
         def worker():
-            barrier.wait(timeout=5)
+            worker_store = SQLiteMessengerStore(self.db_path)
             try:
+                barrier.wait(timeout=5)
                 results.append(publish_provider_audit_remote_anchor(
-                    self.store, self.checkpoint_path, self.key, self.remote))
+                    worker_store, self.checkpoint_path, self.key, self.remote))
             except Exception as exc:
                 errors.append(exc)
+            finally:
+                worker_store.close()
 
         threads = [threading.Thread(target=worker) for _ in range(2)]
         for thread in threads:
