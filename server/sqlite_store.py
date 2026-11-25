@@ -619,8 +619,7 @@ class SQLiteMessengerStore:
     def renew_provider_request_lease(self, principal_ai_id, request_id, request_digest,
                                      attempt_generation, now, lease_seconds=360.0):
         """Extend only a still-live PROCESSING claim owned by this generation."""
-        if not isinstance(lease_seconds, (int, float)) or lease_seconds <= 0:
-            raise ValueError("invalid_provider_lease")
+        _validate_provider_lease_seconds(lease_seconds)
         cursor = self._connection.execute(
             """UPDATE provider_request_records
                SET updated_at=MAX(updated_at, ?)
