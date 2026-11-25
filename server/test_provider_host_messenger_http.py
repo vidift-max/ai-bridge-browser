@@ -187,6 +187,73 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "already_started"):
             keeper.__enter__()
 
+    def test_provider_lease_keeper_snapshot_tracks_successful_renewals(self):
+        renewed = threading.Event()
+
+        def renew():
+            renewed.set()
+            return True
+
+        keeper = ProviderRequestLeaseKeeper(renew, interval_seconds=0.01)
+        with keeper:
+            self.assertTrue(renewed.wait(1.0))
+            snapshot = keeper.snapshot()
+            self.assertTrue(snapshot["started"])
+            self.assertFalse(snapshot["lost"])
+            self.assertEqual(snapshot["renewalCount"], 1)
+            self.assertIsInstance(snapshot["lastSuccessfulRenewalMonotonic"], float)
+        final = keeper.snapshot()
+        self.assertTrue(final["stopped"])
+        self.assertFalse(final["lost"])
+        self.assertIsNone(final["failureReason"])
+
+    def test_provider_lease_keeper_rejects_non_boolean_success_values(self):
+        for result in (1, "true", object()):
+            with self.subTest(result_type=type(result).__name__):
+                keeper = ProviderRequestLeaseKeeper(
+                    lambda result=result: result, interval_seconds=0.01)
+                with keeper:
+                    self.assertTrue(keeper._stop.wait(1.0))
+                snapshot = keeper.snapshot()
+                self.assertTrue(snapshot["lost"])
+                self.assertEqual(snapshot["failureReason"], "invalid_renewal_result")
+                self.assertEqual(snapshot["renewalCount"], 0)
+
+    def test_provider_lease_keeper_snapshot_reports_rejected_and_exception_reasons(self):
+        cases = (
+            (lambda: False, "renewal_rejected"),
+            (lambda: (_ for _ in ()).throw(RuntimeError("private detail")), "renewal_exception"),
+        )
+        for callback, expected_reason in cases:
+            with self.subTest(reason=expected_reason):
+                keeper = ProviderRequestLeaseKeeper(callback, interval_seconds=0.01)
+                with keeper:
+                    self.assertTrue(keeper._stop.wait(1.0))
+                snapshot = keeper.snapshot()
+                self.assertTrue(snapshot["lost"])
+                self.assertTrue(snapshot["stopped"])
+                self.assertEqual(snapshot["failureReason"], expected_reason)
+
+    def test_provider_lease_keeper_snapshot_reports_shutdown_timeout(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def blocked():
+            started.set()
+            release.wait(2.0)
+            return True
+
+        keeper = ProviderRequestLeaseKeeper(
+            blocked, interval_seconds=0.01, shutdown_timeout_seconds=0.02)
+        with keeper:
+            self.assertTrue(started.wait(1.0))
+        snapshot = keeper.snapshot()
+        self.assertTrue(snapshot["lost"])
+        self.assertFalse(snapshot["stopped"])
+        self.assertEqual(snapshot["failureReason"], "shutdown_timeout")
+        release.set()
+        keeper._thread.join(timeout=1.0)
+
     def test_provider_reply_is_authenticated_persisted_and_delivered_to_peer(self):
         status, data = self.request("user-token", self.payload())
         self.assertEqual(status, 201)
