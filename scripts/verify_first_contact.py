@@ -49,9 +49,14 @@ def _require(status: int, body: dict, expected_status: int, label: str) -> dict:
 def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
                       token_ai_02: str, request=request_json) -> dict:
     base_url = normalize_base_url(base_url)
-    if not conversation_id or len(conversation_id) > 200:
+    if (not isinstance(conversation_id, str) or not conversation_id.strip()
+            or len(conversation_id) > 200
+            or any(ord(char) < 32 or ord(char) == 127 for char in conversation_id)):
         raise ValueError("invalid_conversation_id")
-    if not token_ai_01 or not token_ai_02 or token_ai_01 == token_ai_02:
+    if (not isinstance(token_ai_01, str) or not token_ai_01.strip()
+            or not isinstance(token_ai_02, str) or not token_ai_02.strip()
+            or token_ai_01 == token_ai_02
+            or any(char in token_ai_01 + token_ai_02 for char in "\\r\\n")):
         raise ValueError("distinct_ai_credentials_required")
 
     identity_a = _require(*request(base_url, "/v1/me/identity", token_ai_01),
