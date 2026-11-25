@@ -64,10 +64,11 @@ class GuestStatusCapabilityTest(unittest.TestCase):
         })
 
     def test_schema_v10_adds_nullable_digest_columns(self):
-        self.assertEqual(SCHEMA_VERSION, 10)
+        self.assertEqual(SCHEMA_VERSION, 11)
         columns = {row["name"] for row in self.store.connection.execute("PRAGMA table_info(guest_applications)")}
         self.assertIn("status_capability_hash", columns)
         self.assertIn("status_capability_expires_at", columns)
+        self.assertIn("status_capability_revoked_at", columns)
         self.assertEqual(verify_messenger_schema(self.tmp.name + "/guest-status.sqlite"),
                          (True, "RESTORE_SCHEMA_COMPATIBLE"))
 
@@ -115,9 +116,12 @@ class GuestStatusCapabilityTest(unittest.TestCase):
         self.backend.decide_guest_application("admin-token", "guest-room", app_id, "APPROVE")
         self.assertEqual(self.backend.get_public_guest_application_status(cap)["state"], "APPROVED_AWAITING_PROVISIONING")
         self.backend.provision_guest_application("admin-token", "guest-room", app_id)
-        self.assertEqual(self.backend.get_public_guest_application_status(cap)["state"], "ACTIVE")
+        active = self.backend.get_public_guest_application_status(cap)
+        self.assertEqual(active["state"], "ACTIVE")
         self.backend.revoke_guest_provisioning("admin-token", "guest-room", app_id)
-        self.assertEqual(self.backend.get_public_guest_application_status(cap)["state"], "REVOKED")
+        revoked = self.backend.get_public_guest_application_status(cap)
+        self.assertEqual(revoked["state"], "REVOKED")
+        self.assertGreater(revoked["updatedAt"], active["updatedAt"])
         self.assertNotIn("credential", self.backend.get_public_guest_application_status(cap))
 
     def test_rejected_application_has_terminal_public_state(self):
@@ -154,6 +158,25 @@ class GuestStatusCapabilityTest(unittest.TestCase):
             (legacy["applicationId"],)).fetchone()[0])
 
 
+    def test_schema_v10_migration_adds_revocation_timestamp_and_preserves_rows(self):
+        import sqlite3
+        legacy_path = self.tmp.name + "/legacy-v10.sqlite"
+        with sqlite3.connect(legacy_path) as connection:
+            connection.execute("CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            connection.execute("INSERT INTO schema_meta(key,value) VALUES('version','10')")
+            connection.execute("""CREATE TABLE guest_applications (
+                application_id TEXT PRIMARY KEY, status TEXT, provisioning_status TEXT,
+                status_capability_hash TEXT, status_capability_expires_at REAL)""")
+            connection.execute("INSERT INTO guest_applications VALUES('legacy-v10','PENDING','NOT_STARTED',NULL,NULL)")
+        migrated = SQLiteMessengerStore(legacy_path)
+        try:
+            row = migrated.connection.execute("SELECT * FROM guest_applications WHERE application_id='legacy-v10'").fetchone()
+            self.assertIsNone(row["status_capability_revoked_at"])
+            self.assertEqual(migrated.connection.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], "11")
+            self.assertEqual(verify_messenger_schema(legacy_path), (True, "RESTORE_SCHEMA_COMPATIBLE"))
+        finally:
+            migrated.close()
+
     def test_schema_v9_migration_preserves_legacy_rows_without_public_capability(self):
         import sqlite3
         legacy_path = self.tmp.name + "/legacy-v9.sqlite"
@@ -174,6 +197,25 @@ class GuestStatusCapabilityTest(unittest.TestCase):
             migrated.close()
 
 
+
+    def test_same_capability_retry_recovers_receipt_after_invite_revocation(self):
+        cap = capability(18)
+        first_status, first = self.submit(name="Revoked Invite Guest", cap=cap)
+        self.assertEqual(first_status, 202)
+        invite_id = self.invite["inviteId"]
+        self.store.revoke_room_invite(invite_id, "guest-room", time.time())
+        retry_status, retry = self.submit(name="Revoked Invite Guest", cap=cap)
+        self.assertEqual(retry_status, 202)
+        self.assertEqual(retry["application"]["applicationId"], first["application"]["applicationId"])
+        self.assertTrue(retry["application"]["idempotentReplay"])
+        self.assertEqual(self.store.connection.execute("SELECT uses FROM room_invites").fetchone()[0], 1)
+
+    def test_new_submission_after_invite_revocation_remains_blocked(self):
+        self.store.revoke_room_invite(self.invite["inviteId"], "guest-room", time.time())
+        status, result = self.submit(name="New After Revocation", cap=capability(19))
+        self.assertEqual(status, 400)
+        self.assertEqual(result["error"], "guest_invite_unavailable")
+        self.assertEqual(self.store.connection.execute("SELECT COUNT(*) FROM guest_applications").fetchone()[0], 0)
 
     def test_capability_cannot_be_reused_for_a_different_application(self):
         cap = capability(17)
