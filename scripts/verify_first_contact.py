@@ -81,7 +81,10 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
                 "clientRequestId": request_id,
             })
         sent = _require(sent_status, sent_body, 200, "message_submit")
-        if sent.get("state") != "QUEUED" or sent.get("senderAiId") != "AI-01":
+        if (sent.get("state") != "QUEUED" or sent.get("senderAiId") != "AI-01"
+                or sent.get("messageId") != message_id
+                or sent.get("conversationId") != conversation_id
+                or sent.get("recipientAiIds") != ["AI-02"]):
             raise RuntimeError("message_submit_contract_mismatch")
         received_status, received_body = waiting.result(timeout=30)
 

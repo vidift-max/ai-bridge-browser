@@ -44,7 +44,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                 self.assertNotIn("senderAiId", payload)
                 message_id["value"] = payload["messageId"]
                 delivered.set()
-                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01", "messageId": payload["messageId"], "conversationId": "room", "recipientAiIds": ["AI-02"]}
             if path.endswith("/ack"):
                 self.assertEqual(token, "b")
                 events.append("ack")
@@ -73,7 +73,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=25" in path:
                 return 200, {"principalAiId": "AI-03", "messages": []}
             if path == "/v1/messages":
-                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01", "messageId": payload["messageId"], "conversationId": "room", "recipientAiIds": ["AI-02"]}
             self.fail("unexpected_request:" + path)
 
         with self.assertRaisesRegex(RuntimeError, "message_received_by_wrong_principal"):
@@ -93,7 +93,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                     "senderAiId": "AI-01", "body": "tampered", "sequence": 1}]}
             if path == "/v1/messages":
                 ready.set()
-                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01", "messageId": payload["messageId"], "conversationId": "room", "recipientAiIds": ["AI-02"]}
             self.fail("unexpected_request:" + path)
 
         with self.assertRaisesRegex(RuntimeError, "message_not_received_exactly_once"):
@@ -116,7 +116,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             if path == "/v1/messages":
                 mid["value"] = payload["messageId"]
                 ready.set()
-                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01", "messageId": payload["messageId"], "conversationId": "room", "recipientAiIds": ["AI-02"]}
             if path.endswith("/ack"):
                 return 200, {"messageId": mid["value"], "state": "ACKNOWLEDGED", "principalAiId": "AI-02"}
             if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=0" in path:
@@ -144,7 +144,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             if path == "/v1/messages":
                 message_id["value"] = payload["messageId"]
                 ready.set()
-                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01", "messageId": payload["messageId"], "conversationId": "room", "recipientAiIds": ["AI-02"]}
             self.fail("unexpected_request:" + path)
 
         with self.assertRaisesRegex(RuntimeError, "received_message_sequence_invalid"):
@@ -173,7 +173,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             if path == "/v1/messages":
                 mid["value"] = payload["messageId"]
                 ready.set()
-                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01", "messageId": payload["messageId"], "conversationId": "room", "recipientAiIds": ["AI-02"]}
             if path.endswith("/ack"):
                 return 200, {"messageId": "another-message", "state": "ACKNOWLEDGED",
                              "principalAiId": "AI-02"}
@@ -203,7 +203,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             if path == "/v1/messages":
                 mid["value"] = payload["messageId"]
                 ready.set()
-                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01", "messageId": payload["messageId"], "conversationId": "room", "recipientAiIds": ["AI-02"]}
             if path.endswith("/ack"):
                 return 200, {"messageId": "wrong", "state": "ACKNOWLEDGED", "principalAiId": "AI-02"}
             if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=0" in path:
@@ -232,7 +232,7 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             if path == "/v1/messages":
                 mid["value"] = payload["messageId"]
                 ready.set()
-                return 200, {"state": "QUEUED", "senderAiId": "AI-01"}
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01", "messageId": payload["messageId"], "conversationId": "room", "recipientAiIds": ["AI-02"]}
             if path.endswith("/ack"):
                 return 200, {"messageId": mid["value"], "state": "ACKNOWLEDGED",
                              "principalAiId": "AI-02"}
@@ -242,6 +242,37 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             self.fail("unexpected_request:" + path)
 
         with self.assertRaisesRegex(RuntimeError, "pending_check_wrong_principal"):
+            runner.run_first_contact("https://stage.example", "room", "a", "b", fake_request)
+
+
+    def test_rejects_submit_response_with_wrong_message_id(self):
+        def fake_request(base, path, token, method="GET", payload=None):
+            if path == "/v1/me/identity":
+                return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
+            if path.startswith("/v1/conversations/room/messages/wait?"):
+                return 200, {"principalAiId": "AI-02", "messages": []}
+            if path == "/v1/messages":
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01",
+                             "messageId": "different-message",
+                             "conversationId": "room", "recipientAiIds": ["AI-02"]}
+            self.fail("unexpected_request:" + path)
+
+        with self.assertRaisesRegex(RuntimeError, "message_submit_contract_mismatch"):
+            runner.run_first_contact("https://stage.example", "room", "a", "b", fake_request)
+
+    def test_rejects_submit_response_with_wrong_recipient(self):
+        def fake_request(base, path, token, method="GET", payload=None):
+            if path == "/v1/me/identity":
+                return 200, {"identity": {"aiId": "AI-01" if token == "a" else "AI-02"}}
+            if path.startswith("/v1/conversations/room/messages/wait?"):
+                return 200, {"principalAiId": "AI-02", "messages": []}
+            if path == "/v1/messages":
+                return 200, {"state": "QUEUED", "senderAiId": "AI-01",
+                             "messageId": payload["messageId"],
+                             "conversationId": "room", "recipientAiIds": ["AI-03"]}
+            self.fail("unexpected_request:" + path)
+
+        with self.assertRaisesRegex(RuntimeError, "message_submit_contract_mismatch"):
             runner.run_first_contact("https://stage.example", "room", "a", "b", fake_request)
 
 if __name__ == "__main__":
