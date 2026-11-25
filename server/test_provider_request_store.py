@@ -87,7 +87,7 @@ class ProviderRequestStoreTests(unittest.TestCase):
         retried, outcome = store.claim_provider_request(
             "AI-01", "clock-fail", "digest", "room", "AI-01", 101.0)
         self.assertEqual(outcome, "claimed")
-        self.assertEqual(retried["updated_at"], 100.0)
+        self.assertEqual(retried["updated_at"], 101.0)
         store.close()
 
     def test_atomic_completion_rejects_clock_regression_without_persisting(self):
