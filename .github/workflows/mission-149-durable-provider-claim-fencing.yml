@@ -1,4 +1,5 @@
 name: Mission 149 Durable Provider Claim Fencing CI
+# Final validation includes schema migration, lease reclaim, and stale-generation regression tests.
 
 on:
   push:
