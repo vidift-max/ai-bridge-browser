@@ -6,7 +6,10 @@ Deployments must provide TLS and lifecycle management at their boundary.
 """
 import json
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import urlsplit
+from server.provider_audit_http_dispatch import (
+    dispatch_provider_audit_request,
+    read_provider_audit_request_body,
+)
 
 
 def make_provider_audit_http_handler(service):
@@ -39,36 +42,11 @@ def make_provider_audit_http_handler(service):
             self.wfile.write(body)
 
         def _request_body(self):
-            if self.headers.get("Transfer-Encoding") is not None:
-                return None, (400, {"error": "transfer_encoding_not_supported"})
-            raw_length = self.headers.get("Content-Length")
-            if raw_length is None:
-                if self.command == "GET":
-                    return b"", None
-                return None, (411, {"error": "content_length_required"})
-            if (not raw_length.isascii() or not raw_length.isdecimal()
-                    or len(raw_length) > 10):
-                return None, (400, {"error": "invalid_content_length"})
-            # Bound before reading from the socket; no unbounded body allocation.
-            length = int(raw_length)
-            if length > service.max_body_bytes:
-                return None, (413, {"error": "request_body_too_large"})
-            if length == 0:
-                return b"", None
-            body = self.rfile.read(length)
-            if len(body) != length:
-                return None, (400, {"error": "incomplete_request_body"})
-            return body, None
+            return read_provider_audit_request_body(
+                self.headers, self.command, self.rfile, service.max_body_bytes,
+            )
 
         def _dispatch(self):
-            path = urlsplit(self.path).path
-            if path not in (
-                "/v1/audit-anchor/latest",
-                "/v1/audit-anchor/checkpoints",
-            ):
-                self.close_connection = True
-                self._respond(404, {"error": "not_found"})
-                return
             body, error = self._request_body()
             if error is not None:
                 self.close_connection = True
@@ -78,12 +56,9 @@ def make_provider_audit_http_handler(service):
                 "Authorization": self.headers.get("Authorization", ""),
                 "Content-Type": self.headers.get("Content-Type", ""),
             }
-            try:
-                status, payload = service.handle(
-                    self.command, path, headers=headers, body=body,
-                )
-            except Exception:
-                status, payload = 503, {"error": "service_unavailable"}
+            status, payload = dispatch_provider_audit_request(
+                service, self.command, self.path, headers, body,
+            )
             self._respond(status, payload)
 
         def do_GET(self):
