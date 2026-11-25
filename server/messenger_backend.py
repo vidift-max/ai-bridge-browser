@@ -230,7 +230,7 @@ class MessengerBackend:
         row, outcome = self._store.create_guest_application(application, token_hash, capability_hash, capability_expires_at)
         if outcome == "invite_unavailable" or row["conversation_id"] not in self._conversations:
             raise ValueError("invite_unavailable")
-        if outcome == "request_exists" and capability_bytes is not None:
+        if outcome == "request_exists":
             return {"duplicate": True, "accessGranted": False, "providerVerified": False}
         return {
             "applicationId": row["application_id"],
