@@ -574,6 +574,17 @@ class MessengerBackend:
         return self._submit_as(sender_ai_id, message_id, conversation_id,
                                recipient_ai_ids, body, client_request_id, message_kind)
 
+    @_synchronized
+    def get_authorized_message(self, bearer_token: str, message_id: str):
+        ai_id = self.authenticate(bearer_token)
+        message = self._messages.get(message_id)
+        if message is None:
+            return None
+        members = self._conversations.get(message.conversation_id, set())
+        if ai_id not in members:
+            raise PermissionError("authorization_denied")
+        return message
+
     def message_expires_at(self, message: Message) -> float:
         return expires_at(message.created_at_epoch_seconds,
                           message.kind,
