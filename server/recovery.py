@@ -10,6 +10,20 @@ def _verify_sqlite_recovery_connection(connection) -> tuple[bool, str]:
     return True, "STORAGE_RECOVERY_OK"
 
 
+def verify_messenger_connection(connection) -> tuple[bool, str]:
+    """Validate a live SQLite Messenger connection, including :memory: databases."""
+    try:
+        ok, code = _verify_sqlite_recovery_connection(connection)
+        if not ok:
+            return ok, code
+        ok, code = _verify_messenger_schema_connection(connection)
+        if not ok:
+            return ok, code
+        return _verify_messenger_data_connection(connection)
+    except (sqlite3.Error, ValueError, TypeError, AttributeError):
+        return False, "STORAGE_INTEGRITY"
+
+
 def verify_sqlite_recovery(path: str) -> tuple[bool, str]:
     """Return a safe operational result without exposing database contents."""
     db_path = Path(path)
