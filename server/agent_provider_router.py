@@ -6,12 +6,22 @@ import os
 class AgentProviderRouter:
     ALLOWED_PROVIDERS = {"openai", "anthropic", "google_gemini"}
 
+    @staticmethod
+    def _reject_duplicate_pairs(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("invalid_runtime_config:MESSENGER_AI_PROVIDER_MAP")
+            result[key] = value
+        return result
+
     def __init__(self, adapters, assignments=None):
         self._adapters = dict(adapters)
         raw = os.environ.get("MESSENGER_AI_PROVIDER_MAP", "") if assignments is None else assignments
         if isinstance(raw, str):
             try:
-                raw = json.loads(raw) if raw.strip() else {}
+                raw = (json.loads(raw, object_pairs_hook=self._reject_duplicate_pairs)
+                       if raw.strip() else {})
             except (TypeError, ValueError) as exc:
                 raise ValueError("invalid_runtime_config:MESSENGER_AI_PROVIDER_MAP") from exc
         if not isinstance(raw, dict):
