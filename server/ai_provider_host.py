@@ -120,8 +120,14 @@ class AuthenticatedProviderHost:
                 if not isinstance(result[field], str) or not result[field].strip():
                     raise ProviderHostError("invalid_provider_metadata", 502)
         except ProviderHostError:
+            if not skip_replay_guard:
+                with self._lock:
+                    self._seen.pop(replay_key, None)
             raise
         except Exception as exc:
+            if not skip_replay_guard:
+                with self._lock:
+                    self._seen.pop(replay_key, None)
             raise ProviderHostError("provider_execution_failed", 502) from exc
 
         issued_at = int(self._clock())
