@@ -1,10 +1,11 @@
 import sqlite3
 import json
 import time
+import hmac
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -235,43 +236,55 @@ class SQLiteMessengerStore:
 
 
 
-    def create_guest_application(self, application, token_hash):
-        """Atomically consume one invite use and persist an untrusted pending request."""
+        if version < 10:
+            self._connection.executescript("""
+                ALTER TABLE guest_applications ADD COLUMN status_capability_hash TEXT;
+                ALTER TABLE guest_applications ADD COLUMN status_capability_expires_at REAL;
+                CREATE INDEX IF NOT EXISTS idx_guest_application_status_capability
+                    ON guest_applications(status_capability_hash)
+                    WHERE status_capability_hash IS NOT NULL;
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','10')")
+            self._connection.commit()
+            version = 10
+
+    def create_guest_application(self, application, token_hash, status_capability_hash=None, status_capability_expires_at=None):
+        """Atomically persist an application and optional digest-only status capability."""
         self._connection.execute("BEGIN IMMEDIATE")
         try:
-            invite = self._connection.execute(
-                "SELECT * FROM room_invites WHERE token_hash=?", (token_hash,)).fetchone()
+            invite = self._connection.execute("SELECT * FROM room_invites WHERE token_hash=?", (token_hash,)).fetchone()
             now = application["created_at"]
-            if (invite is None or invite["revoked_at"] is not None
-                    or invite["expires_at"] <= now or invite["uses"] >= invite["max_uses"]):
+            if invite is None or invite["revoked_at"] is not None or invite["expires_at"] <= now:
                 self._connection.rollback()
                 return None, "invite_unavailable"
-            existing = self._connection.execute(
-                """SELECT * FROM guest_applications
-                   WHERE invite_id=? AND display_name=?""",
-                (invite["invite_id"], application["display_name"])).fetchone()
+            existing = self._connection.execute("SELECT * FROM guest_applications WHERE invite_id=? AND display_name=?", (invite["invite_id"], application["display_name"])).fetchone()
             if existing is not None:
+                stored, supplied = existing["status_capability_hash"], status_capability_hash
+                replay = bool(stored and supplied and existing["status_capability_expires_at"] is not None and existing["status_capability_expires_at"] > now and hmac.compare_digest(stored, supplied))
                 self._connection.rollback()
-                return dict(existing), "request_exists"
-            self._connection.execute(
-                """INSERT INTO guest_applications(application_id,invite_id,conversation_id,
-                   display_name,provider_claim,provider_verified,status,created_at)
-                   VALUES(?,?,?,?,?,0,'PENDING',?)""",
-                (application["application_id"], invite["invite_id"],
-                 invite["conversation_id"], application["display_name"],
-                 application["provider_claim"], now))
-            self._connection.execute(
-                "UPDATE room_invites SET uses=uses+1 WHERE invite_id=?",
-                (invite["invite_id"],))
-            row = self._connection.execute(
-                "SELECT * FROM guest_applications WHERE application_id=?",
-                (application["application_id"],)).fetchone()
+                return dict(existing), "request_replay" if replay else "request_exists"
+            if invite["uses"] >= invite["max_uses"]:
+                self._connection.rollback()
+                return None, "invite_unavailable"
+            self._connection.execute("""INSERT INTO guest_applications(application_id,invite_id,conversation_id,display_name,provider_claim,provider_verified,status,created_at,status_capability_hash,status_capability_expires_at) VALUES(?,?,?,?,?,0,'PENDING',?,?,?)""", (application["application_id"], invite["invite_id"], invite["conversation_id"], application["display_name"], application["provider_claim"], now, status_capability_hash, status_capability_expires_at))
+            self._connection.execute("UPDATE room_invites SET uses=uses+1 WHERE invite_id=?", (invite["invite_id"],))
+            row = self._connection.execute("SELECT * FROM guest_applications WHERE application_id=?", (application["application_id"],)).fetchone()
             self._connection.commit()
             return dict(row), "created"
         except Exception:
             self._connection.rollback()
             raise
 
+    def get_guest_application_status(self, status_capability_hash, now):
+        """Return only public lifecycle state for a valid, unexpired capability."""
+        row = self._connection.execute("""SELECT status,provisioning_status,created_at,decided_at,provisioned_at,status_capability_expires_at FROM guest_applications WHERE status_capability_hash=?""", (status_capability_hash,)).fetchone()
+        if row is None or row["status_capability_expires_at"] is None or row["status_capability_expires_at"] <= now:
+            return None
+        if row["provisioning_status"] == "REVOKED": state = "REVOKED"
+        elif row["provisioning_status"] == "ACTIVE": state = "ACTIVE"
+        else: state = row["status"]
+        updated = max(v for v in (row["created_at"], row["decided_at"], row["provisioned_at"]) if v is not None)
+        return {"state": state, "updatedAt": updated}
 
     def provision_guest_application(self, conversation_id, application_id, ai_id, display_name,
                                      token_hash, expires_at, provisioned_at):
