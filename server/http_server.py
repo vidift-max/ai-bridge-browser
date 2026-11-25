@@ -14,6 +14,7 @@ from server.openai_text_adapter import OpenAITextAdapter
 from server.provider_registry import ProviderRegistry
 from server.gpt6_room_agent import GPT6RoomAgent
 from server.ai_provider_host import AuthenticatedProviderHost, ProviderHostError
+from server.ai_conversation_host import AgentSessionError, AgentSessionRegistry, TwoAgentConversationHost
 
 
 def _unique_json_object(pairs):
@@ -63,6 +64,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
     provider_registry=None
     gpt6_room_agent=None
     provider_host=None
+    agent_session_registry=None
+    conversation_host=None
     guest_sessions=None
 
     def _auth(self):
@@ -925,6 +928,85 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        request_path = urlsplit(self.path).path
+        if request_path == "/v1/ai/conversation/session/register":
+            try:
+                if self.agent_session_registry is None:
+                    self._json(503, {"error": "agent_session_registry_unavailable"})
+                    return
+                identity = self._principal()
+                self.backend.assert_authenticated_principal(self._auth(), identity.principal)
+                self.rate_limiter.allow(identity.principal.ai_id)
+                payload = self._read_json(max_length=2000)
+                if set(payload) != {"conversationId"}:
+                    raise ValueError("invalid_session_registration")
+                session = self.agent_session_registry.register(self._auth(), payload["conversationId"])
+                self._audit(identity, "AI_CONVERSATION_SESSION_REGISTERED",
+                            payload["conversationId"], session_ai_id=session["aiId"])
+                self._json(201, {"session": session})
+            except AgentSessionError as exc:
+                self._json(exc.status, {"error": exc.code})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self._json(400, {"error": "invalid_session_registration"})
+            return
+        if request_path == "/v1/ai/conversation/turn":
+            try:
+                if self.conversation_host is None:
+                    self._json(503, {"error": "conversation_host_unavailable"})
+                    return
+                identity = self._principal()
+                self.backend.assert_authenticated_principal(self._auth(), identity.principal)
+                self.rate_limiter.allow(identity.principal.ai_id)
+                payload = self._read_json(max_length=12000)
+                result = self.conversation_host.respond(self._auth(), payload)
+                self._audit(identity, "AI_CONVERSATION_AGENT_TURN",
+                            result["message"]["messageId"],
+                            invoked_ai_id=result["message"]["senderAiId"])
+                self._json(201, result)
+            except AgentSessionError as exc:
+                self._json(exc.status, {"error": exc.code})
+            except ProviderHostError as exc:
+                self._json(exc.status, {"error": exc.code})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self._json(400, {"error": "invalid_conversation_turn"})
+            except RuntimeError:
+                self._json(503, {"error": "conversation_provider_unavailable"})
+            return
+        if request_path == "/v1/ai/provider/attestation/verify":
+            try:
+                if self.provider_host is None:
+                    self._json(503, {"error": "provider_host_not_configured"})
+                    return
+                identity = self._principal()
+                self.backend.assert_authenticated_principal(self._auth(), identity.principal)
+                payload = self._read_json(max_length=12000)
+                if set(payload) != {"conversationId", "attestation", "responseText"}:
+                    raise ValueError("invalid_attestation_verification")
+                members = self.backend.conversation_members().get(payload["conversationId"], set())
+                kinds = self.backend.conversation_kinds()
+                if (identity.principal.ai_id not in members or len(members) != 2
+                        or kinds.get(payload["conversationId"]) != "PRIVATE"):
+                    self._json(403, {"error": "private_two_member_room_required"})
+                    return
+                valid = self.provider_host.verify_attestation(
+                    payload["attestation"], payload["responseText"])
+                self._json(200, {"valid": bool(valid)})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self._json(400, {"error": "invalid_attestation_verification"})
+            return
         if urlsplit(self.path).path == "/v1/ai/provider/respond":
             try:
                 if self.provider_host is None:
@@ -1540,6 +1622,8 @@ def serve(host="127.0.0.1",port=8080):
     MessengerHandler.provider_registry=ProviderRegistry(MessengerHandler.openai_text)
     MessengerHandler.gpt6_room_agent=GPT6RoomAgent(backend, MessengerHandler.openai_text)
     MessengerHandler.provider_host = None
+    MessengerHandler.agent_session_registry = None
+    MessengerHandler.conversation_host = None
     host_key_hex = RuntimeConfig.optional("AI_PROVIDER_HOST_HMAC_KEY_HEX", "")
     if host_key_hex:
         try:
@@ -1571,6 +1655,10 @@ def serve(host="127.0.0.1",port=8080):
             attestation_key=host_key,
             server_identity="AI-BRIDGE-MESSENGER",
         )
+        MessengerHandler.agent_session_registry = AgentSessionRegistry(backend)
+        MessengerHandler.conversation_host = TwoAgentConversationHost(
+            backend, MessengerHandler.provider_host,
+            MessengerHandler.agent_session_registry)
     from server.guest_web_session import GuestWebSessionService
     MessengerHandler.guest_sessions=GuestWebSessionService(authenticator)
     server = ThreadingHTTPServer((host, port), MessengerHandler)
