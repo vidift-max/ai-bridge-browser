@@ -5,7 +5,7 @@ import hmac
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -282,6 +282,15 @@ class SQLiteMessengerStore:
             self._connection.commit()
             version = 12
 
+        if version < 13:
+            self._connection.execute(
+                "ALTER TABLE provider_request_records ADD COLUMN attempt_generation INTEGER NOT NULL DEFAULT 1")
+            self._connection.execute("CREATE INDEX IF NOT EXISTS idx_provider_request_processing "
+                                     "ON provider_request_records(status,updated_at)")
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','13')")
+            self._connection.commit()
+            version = 13
+
     def create_guest_application(self, application, token_hash, status_capability_hash=None, status_capability_expires_at=None):
         """Atomically persist an application and optional digest-only status capability."""
         self._connection.execute("BEGIN IMMEDIATE")
@@ -546,7 +555,10 @@ class SQLiteMessengerStore:
         return dict(row) if row else None
 
     def claim_provider_request(self, principal_ai_id, request_id, request_digest,
-                               conversation_id, agent_id, now):
+                               conversation_id, agent_id, now, lease_seconds=120.0):
+        """Claim a durable provider attempt; reclaim stale PROCESSING rows with a new fence."""
+        if not isinstance(lease_seconds, (int, float)) or lease_seconds <= 0:
+            raise ValueError("invalid_provider_lease")
         self._connection.execute("BEGIN IMMEDIATE")
         try:
             row = self._connection.execute(
@@ -556,37 +568,44 @@ class SQLiteMessengerStore:
                 if row["request_digest"] != request_digest:
                     self._connection.rollback()
                     return dict(row), "conflict"
-                if row["status"] == "FAILED":
-                    self._connection.execute(
-                        """UPDATE provider_request_records
-                           SET status='PROCESSING',error_code=NULL,updated_at=?
-                           WHERE principal_ai_id=? AND request_id=? AND status='FAILED'""",
-                        (now, principal_ai_id, request_id))
-                    row = self._connection.execute(
-                        "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
-                        (principal_ai_id, request_id)).fetchone()
-                    self._connection.commit()
-                    return dict(row), "claimed"
-                self._connection.rollback()
-                return dict(row), "existing"
-            self._connection.execute(
-                """INSERT INTO provider_request_records(
-                   principal_ai_id,request_id,request_digest,status,conversation_id,agent_id,
-                   created_at,updated_at)
-                   VALUES(?,?,?,?,?,?,?,?)""",
-                (principal_ai_id,request_id,request_digest,"PROCESSING",
-                 conversation_id,agent_id,now,now))
-            row = self._connection.execute(
+                if row["status"] == "COMPLETED":
+                    self._connection.rollback()
+                    return dict(row), "existing"
+                reclaimable = (row["status"] == "FAILED" or
+                               (row["status"] == "PROCESSING" and
+                                float(now) - float(row["updated_at"]) >= float(lease_seconds)))
+                if not reclaimable:
+                    self._connection.rollback()
+                    return dict(row), "existing"
+                next_generation = int(row["attempt_generation"]) + 1
+                cursor = self._connection.execute(
+                    """UPDATE provider_request_records
+                       SET status='PROCESSING',attempt_generation=?,error_code=NULL,updated_at=?
+                       WHERE principal_ai_id=? AND request_id=? AND attempt_generation=?""",
+                    (next_generation, now, principal_ai_id, request_id, row["attempt_generation"]))
+                if cursor.rowcount != 1:
+                    self._connection.rollback()
+                    return dict(row), "existing"
+            else:
+                next_generation = 1
+                self._connection.execute(
+                    """INSERT INTO provider_request_records(
+                       principal_ai_id,request_id,request_digest,status,conversation_id,agent_id,
+                       created_at,updated_at,attempt_generation)
+                       VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (principal_ai_id,request_id,request_digest,"PROCESSING",
+                     conversation_id,agent_id,now,now,next_generation))
+            claimed = self._connection.execute(
                 "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
                 (principal_ai_id, request_id)).fetchone()
             self._connection.commit()
-            return dict(row), "claimed"
+            return dict(claimed), "claimed"
         except Exception:
             self._connection.rollback()
             raise
 
     def save_provider_message_and_complete(self, principal_ai_id, request_id, request_digest,
-                                           message, attestation, provider_id, model, now):
+                                           message, attestation, provider_id, model, now, attempt_generation=1):
         """Atomically persist the provider message and mark its request COMPLETED."""
         self._connection.execute("BEGIN IMMEDIATE")
         try:
@@ -599,9 +618,9 @@ class SQLiteMessengerStore:
             if row["status"] == "COMPLETED":
                 self._connection.rollback()
                 return dict(row), False
-            if row["status"] != "PROCESSING":
+            if row["status"] != "PROCESSING" or int(row["attempt_generation"]) != int(attempt_generation):
                 self._connection.rollback()
-                raise ValueError("provider_request_not_processing")
+                raise ValueError("provider_request_attempt_fenced")
             self._connection.execute(
                 """INSERT INTO messages(
                    message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,
@@ -618,10 +637,10 @@ class SQLiteMessengerStore:
                 """UPDATE provider_request_records
                    SET status='COMPLETED',response_text=?,provider_id=?,model=?,
                        attestation_json=?,message_id=?,updated_at=?,error_code=NULL
-                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING'""",
+                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING' AND attempt_generation=?""",
                 (message.body, provider_id, model,
                  json.dumps(attestation, separators=(",", ":")),
-                 message.message_id, now, principal_ai_id, request_id))
+                 message.message_id, now, principal_ai_id, request_id, attempt_generation))
             self._connection.commit()
             completed = self._connection.execute(
                 "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
@@ -662,23 +681,23 @@ class SQLiteMessengerStore:
             raise
 
     def fail_provider_request(self, principal_ai_id, request_id, request_digest,
-                               error_code, now):
+                               error_code, now, attempt_generation=1):
         self._connection.execute("BEGIN IMMEDIATE")
         try:
             row = self._connection.execute(
-                "SELECT request_digest,status FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                "SELECT request_digest,status,attempt_generation FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
                 (principal_ai_id, request_id)).fetchone()
             if row is None or row["request_digest"] != request_digest:
                 self._connection.rollback()
                 return False
-            if row["status"] == "COMPLETED":
+            if row["status"] != "PROCESSING" or int(row["attempt_generation"]) != int(attempt_generation):
                 self._connection.rollback()
                 return False
             self._connection.execute(
                 """UPDATE provider_request_records
                    SET status='FAILED',error_code=?,updated_at=?
-                   WHERE principal_ai_id=? AND request_id=?""",
-                (error_code,now,principal_ai_id,request_id))
+                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING' AND attempt_generation=?""",
+                (error_code,now,principal_ai_id,request_id,attempt_generation))
             self._connection.commit()
             return True
         except Exception:
