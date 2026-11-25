@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 import tempfile
 import threading
 import unittest
@@ -145,10 +146,21 @@ class ProviderAuditHTTPTransportTests(unittest.TestCase):
         self.assertEqual(headers.get("Referrer-Policy"), "no-referrer")
 
     def test_missing_content_length_is_rejected_for_post(self):
-        # HTTP/1.1 client with a body always supplies Content-Length; exercise
-        # the parser directly through a minimal fake handler request instead.
-        handler = make_provider_audit_http_handler(self.service)
-        self.assertTrue(issubclass(handler, __import__("http.server").server.BaseHTTPRequestHandler))
+        connection = socket.create_connection(self.server.server_address, timeout=3)
+        try:
+            request = (
+                "POST /v1/audit-anchor/checkpoints HTTP/1.1\\r\\n"
+                "Host: 127.0.0.1\\r\\n"
+                "Authorization: Bearer transport-test-token\\r\\n"
+                "Content-Type: application/json\\r\\n"
+                "Connection: close\\r\\n\\r\\n"
+            )
+            connection.sendall(request.encode("ascii"))
+            response = connection.recv(4096).decode("iso-8859-1")
+            self.assertIn(" 411 ", response.split("\\r\\n", 1)[0])
+            self.assertIn("content_length_required", response)
+        finally:
+            connection.close()
 
     def test_rate_limit_is_enforced_through_transport(self):
         limited = ProviderAuditRemoteService(
