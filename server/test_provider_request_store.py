@@ -2,6 +2,8 @@ import json
 import os
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 from server.sqlite_store import SQLiteMessengerStore
 
@@ -356,6 +358,174 @@ class ProviderRequestStoreTests(unittest.TestCase):
         self.assertEqual(outcome, "claimed")
         self.assertEqual(row["status"], "PROCESSING")
         store.close()
+
+
+    def test_concurrent_initial_claim_stress_has_exactly_one_owner(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "claim-stress.sqlite")
+            stores = [SQLiteMessengerStore(path) for _ in range(8)]
+            try:
+                for iteration in range(12):
+                    barrier = Barrier(len(stores))
+                    def claim(index):
+                        barrier.wait()
+                        return stores[index].claim_provider_request(
+                            "AI-01", f"claim-race-{iteration}", "digest",
+                            "room-1", "AI-01", 100.0)[1]
+                    with ThreadPoolExecutor(max_workers=len(stores)) as pool:
+                        outcomes = list(pool.map(claim, range(len(stores))))
+                    self.assertEqual(outcomes.count("claimed"), 1)
+                    self.assertEqual(outcomes.count("existing"), len(stores) - 1)
+                    row = stores[0].get_provider_request("AI-01", f"claim-race-{iteration}")
+                    self.assertEqual(row["attempt_generation"], 1)
+                    self.assertEqual(row["status"], "PROCESSING")
+            finally:
+                for store in stores:
+                    store.close()
+
+    def test_concurrent_expired_lease_reclaim_stress_has_one_new_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "reclaim-stress.sqlite")
+            stores = [SQLiteMessengerStore(path) for _ in range(8)]
+            try:
+                for iteration in range(12):
+                    request_id = f"reclaim-race-{iteration}"
+                    stores[0].claim_provider_request(
+                        "AI-01", request_id, "digest", "room-1", "AI-01",
+                        100.0, lease_seconds=30.0)
+                    barrier = Barrier(len(stores))
+                    def reclaim(index):
+                        barrier.wait()
+                        return stores[index].claim_provider_request(
+                            "AI-01", request_id, "digest", "room-1", "AI-01",
+                            130.0, lease_seconds=30.0)[1]
+                    with ThreadPoolExecutor(max_workers=len(stores)) as pool:
+                        outcomes = list(pool.map(reclaim, range(len(stores))))
+                    self.assertEqual(outcomes.count("claimed"), 1)
+                    self.assertEqual(outcomes.count("existing"), len(stores) - 1)
+                    row = stores[0].get_provider_request("AI-01", request_id)
+                    self.assertEqual(row["attempt_generation"], 2)
+                    self.assertEqual(row["status"], "PROCESSING")
+            finally:
+                for store in stores:
+                    store.close()
+
+    def test_renewal_racing_expired_reclaim_preserves_one_valid_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "renew-reclaim-race.sqlite")
+            renew_store = SQLiteMessengerStore(path)
+            reclaim_store = SQLiteMessengerStore(path)
+            try:
+                renew_store.claim_provider_request(
+                    "AI-01", "renew-reclaim", "digest", "room-1", "AI-01",
+                    100.0, lease_seconds=30.0)
+                barrier = Barrier(2)
+                def renew():
+                    barrier.wait()
+                    return renew_store.renew_provider_request_lease(
+                        "AI-01", "renew-reclaim", "digest", 1, 129.0, 30.0)
+                def reclaim():
+                    barrier.wait()
+                    return reclaim_store.claim_provider_request(
+                        "AI-01", "renew-reclaim", "digest", "room-1", "AI-01",
+                        130.0, lease_seconds=30.0)[1]
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    renewed = pool.submit(renew)
+                    reclaimed = pool.submit(reclaim)
+                    renewal_result, reclaim_result = renewed.result(), reclaimed.result()
+                row = renew_store.get_provider_request("AI-01", "renew-reclaim")
+                if renewal_result:
+                    self.assertEqual(reclaim_result, "existing")
+                    self.assertEqual(row["attempt_generation"], 1)
+                    self.assertEqual(row["updated_at"], 129.0)
+                else:
+                    self.assertEqual(reclaim_result, "claimed")
+                    self.assertEqual(row["attempt_generation"], 2)
+                    self.assertEqual(row["updated_at"], 130.0)
+                self.assertEqual(row["status"], "PROCESSING")
+            finally:
+                renew_store.close()
+                reclaim_store.close()
+
+    def test_completion_racing_expired_reclaim_never_completes_stale_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "complete-reclaim-race.sqlite")
+            complete_store = SQLiteMessengerStore(path)
+            reclaim_store = SQLiteMessengerStore(path)
+            try:
+                complete_store.claim_provider_request(
+                    "AI-01", "complete-reclaim", "digest", "room-1", "AI-01",
+                    100.0, lease_seconds=30.0)
+                barrier = Barrier(2)
+                def complete():
+                    barrier.wait()
+                    try:
+                        result = complete_store.complete_provider_request(
+                            "AI-01", "complete-reclaim", "digest", "response",
+                            "fake", "model", {"statement": {}, "signature": "sig",
+                            "algorithm": "HMAC-SHA256"}, "message-race", 129.0,
+                            lease_seconds=30.0)
+                        return ("completed", result["status"])
+                    except ValueError as error:
+                        return ("rejected", str(error))
+                def reclaim():
+                    barrier.wait()
+                    return reclaim_store.claim_provider_request(
+                        "AI-01", "complete-reclaim", "digest", "room-1", "AI-01",
+                        130.0, lease_seconds=30.0)[1]
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    completion = pool.submit(complete)
+                    recovery = pool.submit(reclaim)
+                    completion_result, recovery_result = completion.result(), recovery.result()
+                row = complete_store.get_provider_request("AI-01", "complete-reclaim")
+                if completion_result[0] == "completed":
+                    self.assertEqual(recovery_result, "existing")
+                    self.assertEqual(row["status"], "COMPLETED")
+                    self.assertEqual(row["attempt_generation"], 1)
+                else:
+                    self.assertEqual(completion_result[1], "provider_request_attempt_fenced")
+                    self.assertEqual(recovery_result, "claimed")
+                    self.assertEqual(row["status"], "PROCESSING")
+                    self.assertEqual(row["attempt_generation"], 2)
+            finally:
+                complete_store.close()
+                reclaim_store.close()
+
+    def test_failure_racing_expired_reclaim_cannot_fail_new_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "failure-reclaim-race.sqlite")
+            fail_store = SQLiteMessengerStore(path)
+            reclaim_store = SQLiteMessengerStore(path)
+            try:
+                fail_store.claim_provider_request(
+                    "AI-01", "failure-reclaim", "digest", "room-1", "AI-01",
+                    100.0, lease_seconds=30.0)
+                barrier = Barrier(2)
+                def fail():
+                    barrier.wait()
+                    return fail_store.fail_provider_request(
+                        "AI-01", "failure-reclaim", "digest", "late_failure", 129.0, 1)
+                def reclaim():
+                    barrier.wait()
+                    return reclaim_store.claim_provider_request(
+                        "AI-01", "failure-reclaim", "digest", "room-1", "AI-01",
+                        130.0, lease_seconds=30.0)[1]
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    failed = pool.submit(fail)
+                    recovery = pool.submit(reclaim)
+                    failure_result, recovery_result = failed.result(), recovery.result()
+                row = fail_store.get_provider_request("AI-01", "failure-reclaim")
+                self.assertEqual(recovery_result, "claimed")
+                self.assertEqual(row["status"], "PROCESSING")
+                self.assertEqual(row["attempt_generation"], 2)
+                if failure_result:
+                    self.assertEqual(row["updated_at"], 130.0)
+                else:
+                    self.assertEqual(row["updated_at"], 130.0)
+            finally:
+                fail_store.close()
+                reclaim_store.close()
+
 
 
 if __name__ == "__main__":
