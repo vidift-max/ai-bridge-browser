@@ -56,7 +56,7 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
     if (not isinstance(token_ai_01, str) or not token_ai_01.strip()
             or not isinstance(token_ai_02, str) or not token_ai_02.strip()
             or token_ai_01 == token_ai_02
-            or any(char in token_ai_01 + token_ai_02 for char in "\\r\\n")):
+            or any(char in token_ai_01 + token_ai_02 for char in "\r\n")):
         raise ValueError("distinct_ai_credentials_required")
 
     identity_a = _require(*request(base_url, "/v1/me/identity", token_ai_01),
