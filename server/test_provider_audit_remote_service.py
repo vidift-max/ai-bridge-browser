@@ -128,6 +128,7 @@ class ProviderAuditRemoteServiceTests(unittest.TestCase):
     def test_rate_limit_is_scoped_to_authenticated_principal(self):
         service = ProviderAuditRemoteService(
             self.anchor, lambda _token: "service-agent",
+            authorize_principal=lambda _principal: True,
             requests_per_window=1, window_seconds=60)
         self.assertEqual(service.handle("GET", "/v1/audit-anchor/latest", self.headers)[0], 200)
         self.assertEqual(service.handle("GET", "/v1/audit-anchor/latest", self.headers)[0], 429)
