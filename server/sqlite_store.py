@@ -2,10 +2,23 @@ import sqlite3
 import json
 import time
 import hmac
+import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 SCHEMA_VERSION = 13
+
+
+def _validate_provider_lease_seconds(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("invalid_provider_lease")
+    try:
+        valid = math.isfinite(float(value)) and float(value) > 0
+    except (OverflowError, ValueError):
+        valid = False
+    if not valid:
+        raise ValueError("invalid_provider_lease")
+
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -557,8 +570,7 @@ class SQLiteMessengerStore:
     def claim_provider_request(self, principal_ai_id, request_id, request_digest,
                                conversation_id, agent_id, now, lease_seconds=360.0):
         """Claim a durable provider attempt; reclaim stale PROCESSING rows with a new fence."""
-        if not isinstance(lease_seconds, (int, float)) or lease_seconds <= 0:
-            raise ValueError("invalid_provider_lease")
+        _validate_provider_lease_seconds(lease_seconds)
         self._connection.execute("BEGIN IMMEDIATE")
         try:
             row = self._connection.execute(
@@ -624,9 +636,7 @@ class SQLiteMessengerStore:
                                            message, attestation, provider_id, model, now, attempt_generation=1,
                                            lease_seconds=360.0):
         """Atomically persist the provider message and mark its request COMPLETED."""
-        if (isinstance(lease_seconds, bool) or not isinstance(lease_seconds, (int, float))
-                or lease_seconds <= 0):
-            raise ValueError("invalid_provider_lease")
+        _validate_provider_lease_seconds(lease_seconds)
         self._connection.execute("BEGIN IMMEDIATE")
         try:
             row = self._connection.execute(
