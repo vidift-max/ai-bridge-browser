@@ -1,3 +1,4 @@
+import threading
 import unittest
 
 from server.ai_provider_host import AuthenticatedProviderHost, ProviderHostError
@@ -118,6 +119,57 @@ class AuthenticatedProviderHostTest(unittest.TestCase):
         with self.assertRaisesRegex(ProviderHostError, "invalid_provider_response"):
             host.execute("good-token", self.request)
         self.assertEqual(host.execute("good-token", self.request)["text"], "ok")
+
+    def test_expired_attempt_cannot_clear_newer_replay_reservation(self):
+        now = [100.0]
+        first_started = threading.Event()
+        release_first = threading.Event()
+        calls = [0]
+        calls_lock = threading.Lock()
+
+        def provider(_prompt):
+            with calls_lock:
+                calls[0] += 1
+                call_number = calls[0]
+            if call_number == 1:
+                first_started.set()
+                release_first.wait(timeout=3)
+                raise RuntimeError("late failure from expired attempt")
+            return {"text": "newer success", "providerId": "fake", "model": "v1"}
+
+        host = AuthenticatedProviderHost(
+            authenticate=lambda _token: "AI-ALPHA",
+            authorize_agent=lambda *_args: True,
+            resolve_provider=lambda _agent: provider,
+            attestation_key=b"f" * 32,
+            clock=lambda: now[0],
+            replay_ttl_seconds=5,
+        )
+        first_errors = []
+
+        def run_first():
+            try:
+                host.execute("good-token", self.request)
+            except Exception as exc:
+                first_errors.append(exc)
+
+        first_thread = threading.Thread(target=run_first)
+        first_thread.start()
+        self.assertTrue(first_started.wait(timeout=2))
+
+        now[0] = 106.0
+        second = host.execute("good-token", self.request)
+        self.assertEqual(second["text"], "newer success")
+
+        release_first.set()
+        first_thread.join(timeout=2)
+        self.assertFalse(first_thread.is_alive())
+        self.assertEqual(len(first_errors), 1)
+        self.assertRegex(str(first_errors[0]), "provider_execution_failed")
+
+        with self.assertRaisesRegex(ProviderHostError, "duplicate_request"):
+            host.execute("good-token", self.request)
+        self.assertEqual(calls[0], 2)
 
     def test_replay_guard_expires_and_allows_new_attempt(self):
         now = [100.0]

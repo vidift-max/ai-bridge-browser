@@ -92,19 +92,21 @@ class AuthenticatedProviderHost:
         if not allowed:
             raise ProviderHostError("agent_not_authorized_for_private_room", 403)
 
+        reservation_token = None
         if not skip_replay_guard:
             replay_key = (str(principal), validated["requestId"])
             now = float(self._clock())
             with self._lock:
-                expired = [key for key, seen_at in self._seen.items()
-                           if now - seen_at >= self._replay_ttl_seconds]
+                expired = [key for key, reservation in self._seen.items()
+                           if now - reservation[0] >= self._replay_ttl_seconds]
                 for key in expired:
                     del self._seen[key]
                 if replay_key in self._seen:
                     raise ProviderHostError("duplicate_request", 409)
                 if len(self._seen) >= self._max_requests:
                     raise ProviderHostError("host_capacity_reached", 429)
-                self._seen[replay_key] = now
+                reservation_token = object()
+                self._seen[replay_key] = (now, reservation_token)
 
         try:
             provider = self._resolve_provider(validated["agentId"])
@@ -122,12 +124,16 @@ class AuthenticatedProviderHost:
         except ProviderHostError:
             if not skip_replay_guard:
                 with self._lock:
-                    self._seen.pop(replay_key, None)
+                    current = self._seen.get(replay_key)
+                    if current is not None and current[1] is reservation_token:
+                        self._seen.pop(replay_key, None)
             raise
         except Exception as exc:
             if not skip_replay_guard:
                 with self._lock:
-                    self._seen.pop(replay_key, None)
+                    current = self._seen.get(replay_key)
+                    if current is not None and current[1] is reservation_token:
+                        self._seen.pop(replay_key, None)
             raise ProviderHostError("provider_execution_failed", 502) from exc
 
         issued_at = int(self._clock())
