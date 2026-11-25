@@ -991,7 +991,11 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 identity = self._principal()
                 self.backend.assert_authenticated_principal(self._auth(), identity.principal)
                 payload = self._read_json(max_length=12000)
-                if set(payload) != {"conversationId", "agentId", "attestation", "responseText"}:
+                if (set(payload) != {"conversationId", "agentId", "attestation", "responseText"}
+                        or not isinstance(payload["conversationId"], str)
+                        or not isinstance(payload["agentId"], str)
+                        or not payload["agentId"]
+                        or not isinstance(payload["responseText"], str)):
                     raise ValueError("invalid_attestation_verification")
                 members = self.backend.conversation_members().get(payload["conversationId"], set())
                 kinds = self.backend.conversation_kinds()
