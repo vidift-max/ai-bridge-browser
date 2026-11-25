@@ -54,6 +54,33 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "SELECT body FROM messages WHERE message_id='msg-atomic'").fetchone()["body"], "already there")
         self.assertEqual(store.get_provider_request("AI-01", "req-atomic")["status"], "PROCESSING")
 
+    def test_atomic_provider_message_completion_rejects_expired_lease(self):
+        store = SQLiteMessengerStore(":memory:")
+        store.claim_provider_request(
+            "AI-01", "req-expired-complete", "digest-exp", "room-1", "AI-01",
+            100.0, lease_seconds=30.0)
+        message = type("Message", (), {
+            "message_id": "msg-expired-complete",
+            "conversation_id": "room-1",
+            "sender_ai_id": "AI-01",
+            "recipient_ai_ids": ("AI-02",),
+            "body": "must not persist",
+            "client_request_id": "provider-host:req-expired-complete",
+            "sequence": 1,
+            "kind": "NORMAL",
+            "created_at_epoch_seconds": 130.0,
+        })()
+        with self.assertRaisesRegex(ValueError, "provider_request_lease_expired"):
+            store.save_provider_message_and_complete(
+                "AI-01", "req-expired-complete", "digest-exp", message,
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "fake", "model", 130.0, 1, lease_seconds=30.0)
+        self.assertIsNone(store.connection.execute(
+            "SELECT message_id FROM messages WHERE message_id='msg-expired-complete'").fetchone())
+        row = store.get_provider_request("AI-01", "req-expired-complete")
+        self.assertEqual(row["status"], "PROCESSING")
+        store.close()
+
     def test_same_request_claim_is_stable_across_two_store_connections(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "concurrent.sqlite")
@@ -147,6 +174,11 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "kind": "NORMAL",
             "created_at_epoch_seconds": 133.0,
         })()
+        with self.assertRaisesRegex(ValueError, "provider_request_attempt_fenced"):
+            store.save_provider_message_and_complete(
+                "AI-01", "req-fence", "digest-f", message,
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "fake", "model", 134.0, 1, lease_seconds=30.0)
         with self.assertRaisesRegex(ValueError, "provider_request_attempt_fenced"):
             store.complete_provider_request(
                 "AI-01", "req-fence", "digest-f", "late response", "fake", "model",
