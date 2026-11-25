@@ -1,0 +1,26 @@
+name: Mission 181 Controlled Live-Test Gate
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-180-live-test-operational-readiness
+    paths:
+      - "server/controlled_live_test_gate.py"
+      - "server/test_controlled_live_test_gate.py"
+      - "docs/MISSION_181_CONTROLLED_LIVE_TEST_GATE.md"
+      - ".github/workflows/mission-181-controlled-live-test-gate.yml"
+  push:
+    branches:
+      - feat/mission-181-controlled-live-test-gate
+
+jobs:
+  controlled-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_controlled_live_test_gate server.test_live_test_preflight server.test_agent_provider_router
