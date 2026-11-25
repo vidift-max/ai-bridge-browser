@@ -1,0 +1,22 @@
+name: Mission 141 Authenticated Provider Host
+on:
+  pull_request:
+    branches:
+      - feat/mission-140-rooms-conversation-runtime
+    paths:
+      - "server/ai_provider_host.py"
+      - "server/test_ai_provider_host.py"
+      - "docs/MISSION_141_AUTHENTICATED_PROVIDER_HOST.md"
+      - ".github/workflows/mission-141-authenticated-provider-host.yml"
+  push:
+    branches:
+      - feat/mission-141-authenticated-provider-host
+jobs:
+  provider-host-contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest server.test_ai_provider_host
