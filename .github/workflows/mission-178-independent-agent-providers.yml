@@ -1,0 +1,31 @@
+name: Mission 178 Independent Agent Providers
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-177-multi-agent-host-session-bridge
+    paths:
+      - "server/agent_provider_router.py"
+      - "server/provider_adapters.py"
+      - "server/provider_registry.py"
+      - "server/http_server.py"
+      - "server/test_agent_provider_router.py"
+      - "server/test_provider_registry.py"
+      - "server/test_provider_host_messenger_http.py"
+      - ".github/workflows/mission-178-independent-agent-providers.yml"
+      - "docs/MISSION_178_INDEPENDENT_AGENT_PROVIDERS.md"
+  push:
+    branches:
+      - feat/mission-178-independent-agent-providers
+
+jobs:
+  independent-agent-providers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_agent_provider_router server.test_provider_registry server.test_ai_provider_host server.test_provider_host_messenger_http server.test_http_server server.test_messenger_backend
