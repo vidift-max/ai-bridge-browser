@@ -69,8 +69,7 @@ class Mission125LongPollRecoveryRetentionTest(unittest.TestCase):
         self._send("m125-recipient", "m125-recipient-r")
         self._restart()
         self.assertEqual(self.backend.pending("synthetic-token-ai02", "default")[0].recipient_ai_ids, ("AI-02",))
-        with self.assertRaises(PermissionError):
-            self.backend.pending("synthetic-token-ai01", "default")
+        self.assertEqual(self.backend.pending("synthetic-token-ai01", "default"), [])
 
     def test_group_normal_message_uses_one_hour_retention(self):
         message = self._send("m125-ret-group", "m125-ret-group-r")
