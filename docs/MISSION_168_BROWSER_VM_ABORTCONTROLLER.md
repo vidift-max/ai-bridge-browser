@@ -8,7 +8,7 @@ The inherited browser CI jobs use Node.js 22, where `AbortController` is availab
 
 ## Fix
 
-Both VM contexts in the test file now explicitly inject the runtime's `AbortController` constructor:
+All VM contexts that load the conversation controller in `web/ai-conversation-loop.test.mjs` and `web/ai-conversation-runtime.test.mjs` now explicitly inject the runtime's `AbortController` constructor:
 
 ```js
 const scope = { window: {}, AbortController };
@@ -25,7 +25,7 @@ With the test environment corrected, three previously masked controller defects 
 - `stop()` reports STOPPED immediately in its snapshot, even while the awaited provider operation is still unwinding.
 - The controller revalidates the room and identity after the asynchronous provider response and before delivery, preventing a response from being delivered after the active context changes.
 
-The existing tests assert the terminal IDLE state, stop snapshot, and zero delivery when the room context changes during the provider await. Production behavior is strengthened rather than weakening those assertions.
+The existing tests assert the terminal IDLE state, stop snapshot, and zero delivery when the room context changes during the provider await. Runtime composition tests also receive the same browser API in their isolated VM global. Production behavior is strengthened rather than weakening those assertions.
 
 ## Verification
 
