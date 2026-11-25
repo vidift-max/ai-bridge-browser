@@ -132,11 +132,26 @@ class ProviderAuditRemoteServiceTests(unittest.TestCase):
         self.assertEqual(service.handle("GET", "/v1/audit-anchor/latest", self.headers)[0], 200)
         self.assertEqual(service.handle("GET", "/v1/audit-anchor/latest", self.headers)[0], 429)
 
+    def test_missing_authorization_policy_denies_by_default(self):
+        service = ProviderAuditRemoteService(
+            self.anchor, lambda _token: "service-agent")
+        status, body = service.handle("GET", "/v1/audit-anchor/latest", self.headers)
+        self.assertEqual(status, 403)
+        self.assertEqual(body["error"], "forbidden")
+
+    def test_invalid_authorization_callback_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "authorize_principal_invalid"):
+            ProviderAuditRemoteService(
+                self.anchor, lambda _token: "service-agent",
+                authorize_principal="allow")
+
     def test_anchor_failure_fails_closed(self):
         class BrokenAnchor:
             def read_latest(self):
                 raise OSError("offline")
-        service = ProviderAuditRemoteService(BrokenAnchor(), lambda _token: "service-agent")
+        service = ProviderAuditRemoteService(
+            BrokenAnchor(), lambda _token: "service-agent",
+            authorize_principal=lambda _principal: True)
         status, body = service.handle("GET", "/v1/audit-anchor/latest", self.headers)
         self.assertEqual(status, 503)
         self.assertEqual(body["error"], "anchor_unavailable")
