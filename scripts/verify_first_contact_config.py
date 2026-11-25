@@ -24,7 +24,8 @@ def validate(base_url: str, conversation_id: str, token_a: str, token_b: str,
             or "%" in parsed.netloc or "@" in parsed.netloc):
         raise ValueError("invalid_staging_url")
     hostname = parsed.hostname
-    if not hostname or hostname.startswith(".") or hostname.endswith("."):
+    if (not hostname or hostname.startswith(".") or hostname.endswith(".")
+            or parsed.netloc.endswith(":")):
         raise ValueError("invalid_staging_url")
     if port is not None and not (1 <= port <= 65535):
         raise ValueError("invalid_staging_url")
