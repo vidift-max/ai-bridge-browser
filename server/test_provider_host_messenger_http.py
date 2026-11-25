@@ -10,6 +10,7 @@ from server.http_server import MessengerHandler
 from server.messenger_backend import MessengerBackend
 from server.rate_limit import SlidingWindowRateLimiter
 from server.sqlite_store import SQLiteMessengerStore
+from server.provider_request_lease import ProviderRequestLeaseKeeper
 
 
 class FakeProvider:
@@ -103,6 +104,29 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         }
         value.update(overrides)
         return value
+
+    def test_provider_lease_keeper_marks_lost_claim(self):
+        renewed = threading.Event()
+
+        def reject_renewal():
+            renewed.set()
+            return False
+
+        with ProviderRequestLeaseKeeper(reject_renewal, interval_seconds=0.01) as keeper:
+            self.assertTrue(renewed.wait(1.0))
+        self.assertTrue(keeper.lost)
+
+    def test_provider_lease_keeper_stops_without_losing_live_claim(self):
+        calls = []
+
+        def renew():
+            calls.append(True)
+            return True
+
+        with ProviderRequestLeaseKeeper(renew, interval_seconds=10.0) as keeper:
+            self.assertFalse(keeper.lost)
+        self.assertFalse(keeper.lost)
+        self.assertEqual(calls, [])
 
     def test_provider_reply_is_authenticated_persisted_and_delivered_to_peer(self):
         status, data = self.request("user-token", self.payload())
