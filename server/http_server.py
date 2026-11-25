@@ -403,7 +403,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 RuntimeConfig.request_timeout_seconds()
                 RuntimeConfig.retry_limit()
                 if self.operational is not None:
-                    storage_ok, _ = self.operational.check_storage(RuntimeConfig.storage_path())
+                    storage_ok, _ = self.operational.check_storage(
+                        RuntimeConfig.storage_path(), connection=self.backend._store.connection)
                     if not storage_ok:
                         self._json(503,{"status":"not_ready","error":"storage_unavailable_or_invalid"})
                         return
