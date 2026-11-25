@@ -1552,7 +1552,9 @@ def serve(host="127.0.0.1",port=8080):
             return (principal_id == agent_id and len(members) == 2
                     and agent_id in members and kinds.get(conversation_id) == "PRIVATE")
         def resolve_agent_provider(agent_id):
-            if agent_id not in set(tokens.values()):
+            if (agent_id not in set(tokens.values())
+                    or not MessengerHandler.openai_text.enabled()
+                    or not MessengerHandler.openai_text.api_calls_enabled()):
                 return None
             def invoke(prompt):
                 response = MessengerHandler.openai_text.respond(prompt)
