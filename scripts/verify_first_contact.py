@@ -101,15 +101,6 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
             or item.get("body") != body_text):
         raise RuntimeError("received_message_mismatch")
 
-    ack_status, ack_body = request(
-        base_url, f"/v1/messages/{quote(message_id, safe='')}/ack",
-        token_ai_02, "POST", {})
-    acknowledged = _require(ack_status, ack_body, 200, "message_ack")
-    if (acknowledged.get("state") != "ACKNOWLEDGED"
-            or acknowledged.get("principalAiId") != "AI-02"
-            or acknowledged.get("messageId") != message_id):
-        raise RuntimeError("ack_contract_mismatch")
-
     # Query immediately before the received message's sequence. This keeps
     # the target inside the bounded page even when the conversation has >100
     # pending messages; using its own sequence would hide it.
@@ -121,6 +112,15 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
                     urlencode({"after": str(sequence - 1), "limit": "100", "timeout": "0"}))
     pending_status, pending_body = request(base_url, pending_path, token_ai_02)
     pending = _require(pending_status, pending_body, 200, "post_ack_pending_check")
+    ack_status, ack_body = request(
+        base_url, f"/v1/messages/{quote(message_id, safe='')}/ack",
+        token_ai_02, "POST", {})
+    acknowledged = _require(ack_status, ack_body, 200, "message_ack")
+    if (acknowledged.get("state") != "ACKNOWLEDGED"
+            or acknowledged.get("principalAiId") != "AI-02"
+            or acknowledged.get("messageId") != message_id):
+        raise RuntimeError("ack_contract_mismatch")
+
     if pending.get("principalAiId") != "AI-02":
         raise RuntimeError("pending_check_wrong_principal")
     pending_messages = pending.get("messages")
