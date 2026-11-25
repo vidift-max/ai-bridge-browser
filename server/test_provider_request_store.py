@@ -54,6 +54,19 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "SELECT body FROM messages WHERE message_id='msg-atomic'").fetchone()["body"], "already there")
         self.assertEqual(store.get_provider_request("AI-01", "req-atomic")["status"], "PROCESSING")
 
+    def test_provider_lease_duration_rejects_non_finite_and_non_positive_values(self):
+        store = SQLiteMessengerStore(":memory:")
+        for value in (0, -1, float("nan"), float("inf"), float("-inf"), True):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "invalid_provider_lease"):
+                    store.claim_provider_request(
+                        "AI-01", "invalid-claim-" + str(len(str(value))),
+                        "digest", "room", "AI-01", 100.0, lease_seconds=value)
+                with self.assertRaisesRegex(ValueError, "invalid_provider_lease"):
+                    store.renew_provider_request_lease(
+                        "AI-01", "req-none", "digest", 1, 100.0, lease_seconds=value)
+        store.close()
+
     def test_atomic_provider_message_completion_rejects_expired_lease(self):
         store = SQLiteMessengerStore(":memory:")
         store.claim_provider_request(
