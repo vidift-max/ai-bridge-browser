@@ -57,7 +57,7 @@ def _read_checkpoint(checkpoint_path, signing_key):
         if not isinstance(document["signature"], str) or not hmac.compare_digest(
                 document["signature"], expected):
             raise ValueError("checkpoint_signature_invalid")
-        return payload
+        return {**payload, "signature": document["signature"]}
     except (OSError, json.JSONDecodeError, TypeError, KeyError) as exc:
         raise ValueError("checkpoint_unavailable_or_invalid") from exc
 

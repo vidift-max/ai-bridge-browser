@@ -1,0 +1,30 @@
+name: Mission 162 Provider Audit Remote Anchor CI
+
+on:
+  push:
+    branches:
+      - feat/mission-162-provider-audit-remote-anchor
+  pull_request:
+    branches:
+      - feat/mission-161-provider-audit-external-checkpoint
+    paths:
+      - "server/provider_audit_checkpoint.py"
+      - "server/provider_audit_remote_anchor.py"
+      - "server/test_provider_audit_remote_anchor.py"
+      - "server/test_provider_audit_external_checkpoint.py"
+      - "server/test_provider_audit_chain_integrity.py"
+      - "server/contracts/provider_audit_remote_anchor.schema.json"
+      - ".github/workflows/mission-162-provider-audit-remote-anchor.yml"
+      - "docs/MISSION_162_PROVIDER_AUDIT_REMOTE_ANCHOR.md"
+
+jobs:
+  provider-audit-remote-anchor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_audit_remote_anchor server.test_provider_audit_external_checkpoint server.test_provider_audit_chain_integrity server.test_provider_lease_audit_trail server.test_provider_request_store server.test_provider_lease_multiprocess_recovery
