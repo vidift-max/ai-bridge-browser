@@ -12,6 +12,7 @@ from server.auth import Authenticator
 from server.http_server import MessengerHandler
 from server.messenger_backend import MessengerBackend
 from server.rate_limit import SlidingWindowRateLimiter
+from server.recovery import verify_messenger_schema
 from server.sqlite_store import SQLiteMessengerStore, SCHEMA_VERSION
 
 
@@ -67,6 +68,8 @@ class GuestStatusCapabilityTest(unittest.TestCase):
         columns = {row["name"] for row in self.store.connection.execute("PRAGMA table_info(guest_applications)")}
         self.assertIn("status_capability_hash", columns)
         self.assertIn("status_capability_expires_at", columns)
+        self.assertEqual(verify_messenger_schema(self.tmp.name + "/guest-status.sqlite"),
+                         (True, "RESTORE_SCHEMA_COMPATIBLE"))
 
     def test_submission_persists_only_sha256_digest(self):
         cap = capability(7)
