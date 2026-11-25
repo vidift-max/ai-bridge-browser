@@ -52,6 +52,18 @@ def _require(status: int, body: dict, expected_status: int, label: str) -> dict:
     return body
 
 
+def _submit_with_bounded_recovery(request, base_url: str, token: str,
+                                  payload: dict) -> tuple[int, dict]:
+    """Replay one ambiguous submit once, preserving the exact idempotency payload."""
+    status, body = request(base_url, "/v1/messages", token, "POST", payload)
+    if status != 0 and not 500 <= status <= 599:
+        return status, body
+    retry_status, retry_body = request(base_url, "/v1/messages", token, "POST", payload)
+    if retry_status == 0 or 500 <= retry_status <= 599:
+        raise RuntimeError("message_submit_outcome_ambiguous")
+    return retry_status, retry_body
+
+
 def _operation_identifiers(operation_id: str) -> tuple[str, str]:
     if (not isinstance(operation_id, str) or len(operation_id) < 16 or len(operation_id) > 128
             or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for char in operation_id)):
@@ -94,14 +106,15 @@ def run_first_contact(base_url: str, conversation_id: str, token_ai_01: str,
 
     with ThreadPoolExecutor(max_workers=1) as pool:
         waiting = pool.submit(request, base_url, wait_path, token_ai_02)
-        sent_status, sent_body = request(
-            base_url, "/v1/messages", token_ai_01, "POST", {
-                "messageId": message_id,
-                "conversationId": conversation_id,
-                "recipientAiIds": ["AI-02"],
-                "body": body_text,
-                "clientRequestId": request_id,
-            })
+        submit_payload = {
+            "messageId": message_id,
+            "conversationId": conversation_id,
+            "recipientAiIds": ["AI-02"],
+            "body": body_text,
+            "clientRequestId": request_id,
+        }
+        sent_status, sent_body = _submit_with_bounded_recovery(
+            request, base_url, token_ai_01, submit_payload)
         sent = _require(sent_status, sent_body, 200, "message_submit")
         if (sent.get("state") != "QUEUED" or sent.get("senderAiId") != "AI-01"
                 or sent.get("messageId") != message_id
