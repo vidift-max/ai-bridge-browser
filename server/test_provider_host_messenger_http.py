@@ -157,6 +157,18 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(self.backend.history("peer-token", "private-room"), [])
 
+
+    def test_replayed_provider_request_is_rejected_without_second_provider_call(self):
+        first_status, first = self.request("user-token", self.payload())
+        second_status, second = self.request("user-token", self.payload())
+        self.assertEqual(first_status, 201)
+        self.assertEqual(second_status, 409)
+        self.assertEqual(second["error"], "duplicate_request")
+        self.assertEqual(len(self.provider.calls), 1)
+        peer_history = self.backend.history("peer-token", "private-room")
+        self.assertEqual(len(peer_history), 1)
+        self.assertEqual(peer_history[0].message_id, first["message"]["messageId"])
+
     def test_provider_error_does_not_create_room_message(self):
         self.provider.respond = lambda _prompt: (_ for _ in ()).throw(
             RuntimeError("simulated_provider_failure"))
