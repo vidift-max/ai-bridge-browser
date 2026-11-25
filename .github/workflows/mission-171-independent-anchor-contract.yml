@@ -1,0 +1,30 @@
+name: Mission 171 Independent Anchor Adapter Contract
+
+on:
+  push:
+    branches:
+      - feat/mission-171-independent-anchor-contract
+  pull_request:
+    branches:
+      - feat/mission-170-provider-audit-auth-failure-contract
+    paths:
+      - "server/provider_audit_anchor_protocol.py"
+      - "server/provider_audit_messenger_activation.py"
+      - "server/test_provider_audit_anchor_protocol.py"
+      - "server/test_provider_audit_remote_anchor.py"
+      - "server/test_provider_audit_durable_anchor.py"
+      - "server/test_provider_audit_remote_service.py"
+      - ".github/workflows/mission-171-independent-anchor-contract.yml"
+      - "docs/MISSION_171_INDEPENDENT_ANCHOR_CONTRACT.md"
+
+jobs:
+  independent-anchor-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_audit_anchor_protocol server.test_provider_audit_remote_anchor server.test_provider_audit_durable_anchor server.test_provider_audit_remote_service server.test_provider_audit_messenger_activation server.test_provider_audit_messenger_http_integration server.test_provider_audit_http_server_factory server.test_provider_audit_http_transport
