@@ -40,6 +40,24 @@ test("panel exposes bounded turn choices and stop control starts disabled",()=>{
  assert.deepEqual(controls.children[0].children.map(x=>x.value),["2","4","6","8","10","12","16","20"]);
  assert.equal(controls.children[2].disabled,true);
 });
+test("Rooms loads the controller, adapter, runtime and panel assets in dependency order",async()=>{
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ const ordered=["/ai-conversation-loop.js","/ai-agent-adapter.js","/ai-conversation-runtime.js","/ai-conversation-panel.js"];
+ let previous=-1;
+ for(const asset of ordered){const index=html.indexOf('<script src="'+asset+'"></script>');assert.ok(index>previous,asset+" must load after its dependency");previous=index;}
+});
+test("Rooms mounts the conversation panel only after opening a selected room",async()=>{
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.match(html,/function ensureConversationPanel\(\)/);
+ assert.match(html,/ensureConversationPanel\(\)\.setContext\(\)/);
+ assert.match(html,/onMessage:\(message\)=>addMessage\(message,message\.senderAiId===identity\?\.aiId\)/);
+});
+test("Rooms does not create a fake provider host or automatically start a run",async()=>{
+ const html=await readFile(new URL("./rooms.html",import.meta.url),"utf8");
+ assert.doesNotMatch(html,/AIBridgeAgentHost\s*=\s*\{/);
+ assert.doesNotMatch(html,/\.start\(\{firstMessage:/);
+});
+
 test("panel dispose removes only its own panel",()=>{
  const f=fixture();f.panel.dispose();assert.equal(f.panel.getElement().removed,true);
 });
