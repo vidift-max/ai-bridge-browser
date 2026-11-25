@@ -19,7 +19,7 @@ public final class MessengerInviteActivity extends Activity {
 
     private void handle(Intent intent) {
         android.net.Uri uri = intent == null ? null : intent.getData();
-        InviteParts parts = parse(uri);
+        InviteLinkParser.Invite parts = InviteLinkParser.parse(uri == null ? null : uri.toString());
         if (parts == null) {
             Toast.makeText(this, "Link de convite inválido.", Toast.LENGTH_LONG).show();
             finish();
@@ -28,7 +28,7 @@ public final class MessengerInviteActivity extends Activity {
         new Thread(() -> joinDirectly(parts), "ai-messenger-invite").start();
     }
 
-    private void joinDirectly(InviteParts parts) {
+    private void joinDirectly(InviteLinkParser.Invite parts) {
         try {
             android.content.SharedPreferences cfg = getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE);
             String url = cfg.getString("base_url", "");
@@ -41,7 +41,8 @@ public final class MessengerInviteActivity extends Activity {
             client.redeemGroupInvite(parts.conversationId, parts.token);
             JSONObject room = client.getConversation(parts.conversationId);
             if (room == null) throw new IllegalArgumentException("grupo_nao_encontrado");
-            String kind = room.optJSONObject("meta") == null ? "" : room.optJSONObject("meta").optString("kind", "");
+            JSONObject meta = room.optJSONObject("meta");
+            String kind = meta == null ? "" : meta.optString("kind", "");
             if (!"GROUP".equals(kind)) throw new IllegalArgumentException("convite_nao_e_de_grupo");
             JSONObject members = room.optJSONObject("members");
             int memberCount = members == null ? 0 : members.length();
@@ -50,7 +51,7 @@ public final class MessengerInviteActivity extends Activity {
             runOnUiThread(() -> {
                 Intent roomIntent = new Intent(this, CollectiveRoomActivityV2.class);
                 roomIntent.putExtra("invite_conversation_id", parts.conversationId);
-                roomIntent.putExtra("invite_members", members == null ? "[]" : members.toString());
+                roomIntent.putExtra("invite_members", members == null ? "{}" : members.toString());
                 roomIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(roomIntent);
                 finish();
@@ -89,32 +90,8 @@ public final class MessengerInviteActivity extends Activity {
         c.put("kind", MessengerRetentionPolicy.CONVERSATION_GROUP);
         c.put("status", "REMOTE_ACTIVE");
         c.put("remote", true);
-        c.put("memberAiIds", members == null ? "[]" : members.toString());
+        c.put("memberAiIds", members == null ? "{}" : members.toString());
         conversations.put(c);
         p.edit().putString(KEY_CONVERSATIONS, conversations.toString()).apply();
-    }
-
-    private InviteParts parse(android.net.Uri uri) {
-        if (uri == null) return null;
-        String scheme = uri.getScheme();
-        String host = uri.getHost();
-        java.util.List<String> path = uri.getPathSegments();
-        if ("aibridge".equalsIgnoreCase(scheme) && "invite".equalsIgnoreCase(host) && path.size() == 2)
-            return validParts(path.get(0), path.get(1));
-        if ("https".equalsIgnoreCase(scheme) && host != null && host.endsWith(".web.app")
-                && path.size() == 3 && "i".equalsIgnoreCase(path.get(0)))
-            return validParts(path.get(1), path.get(2));
-        return null;
-    }
-
-    private InviteParts validParts(String conversationId, String token) {
-        if (conversationId == null || conversationId.trim().isEmpty()
-                || token == null || !token.matches("[A-Za-z0-9_-]{20,64}")) return null;
-        return new InviteParts(conversationId, token);
-    }
-
-    private static final class InviteParts {
-        final String conversationId, token;
-        InviteParts(String conversationId, String token) { this.conversationId = conversationId; this.token = token; }
     }
 }
