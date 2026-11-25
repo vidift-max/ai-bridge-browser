@@ -33,6 +33,8 @@ def make_provider_audit_http_handler(service):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header("Content-Length", str(len(body)))
+            if self.close_connection:
+                self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(body)
 
@@ -44,7 +46,8 @@ def make_provider_audit_http_handler(service):
                 if self.command == "GET":
                     return b"", None
                 return None, (411, {"error": "content_length_required"})
-            if not raw_length.isascii() or not raw_length.isdecimal():
+            if (not raw_length.isascii() or not raw_length.isdecimal()
+                    or len(raw_length) > 10):
                 return None, (400, {"error": "invalid_content_length"})
             # Bound before reading from the socket; no unbounded body allocation.
             length = int(raw_length)
@@ -63,10 +66,12 @@ def make_provider_audit_http_handler(service):
                 "/v1/audit-anchor/latest",
                 "/v1/audit-anchor/checkpoints",
             ):
+                self.close_connection = True
                 self._respond(404, {"error": "not_found"})
                 return
             body, error = self._request_body()
             if error is not None:
+                self.close_connection = True
                 self._respond(*error)
                 return
             headers = {
@@ -87,14 +92,18 @@ def make_provider_audit_http_handler(service):
         def do_POST(self):
             self._dispatch()
 
-        def do_PUT(self):
+        def _method_not_allowed(self):
+            self.close_connection = True
             self._respond(405, {"error": "method_not_allowed"})
+
+        def do_PUT(self):
+            self._method_not_allowed()
 
         def do_PATCH(self):
-            self._respond(405, {"error": "method_not_allowed"})
+            self._method_not_allowed()
 
         def do_DELETE(self):
-            self._respond(405, {"error": "method_not_allowed"})
+            self._method_not_allowed()
 
         def do_OPTIONS(self):
             self.send_response(405)
