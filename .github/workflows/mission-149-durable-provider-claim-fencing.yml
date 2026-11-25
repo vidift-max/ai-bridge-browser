@@ -8,8 +8,10 @@ on:
     branches:
       - feat/mission-148-replay-reservation-fencing
     paths:
-      - "server/ai_provider_host.py"
-      - "server/test_ai_provider_host.py"
+      - "server/sqlite_store.py"
+      - "server/messenger_backend.py"
+      - "server/http_server.py"
+      - "server/test_provider_request_store.py"
       - ".github/workflows/mission-149-durable-provider-claim-fencing.yml"
 
 jobs:
