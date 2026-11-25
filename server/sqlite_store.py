@@ -621,8 +621,12 @@ class SQLiteMessengerStore:
         return cursor.rowcount == 1
 
     def save_provider_message_and_complete(self, principal_ai_id, request_id, request_digest,
-                                           message, attestation, provider_id, model, now, attempt_generation=1):
+                                           message, attestation, provider_id, model, now, attempt_generation=1,
+                                           lease_seconds=360.0):
         """Atomically persist the provider message and mark its request COMPLETED."""
+        if (isinstance(lease_seconds, bool) or not isinstance(lease_seconds, (int, float))
+                or lease_seconds <= 0):
+            raise ValueError("invalid_provider_lease")
         self._connection.execute("BEGIN IMMEDIATE")
         try:
             row = self._connection.execute(
@@ -637,6 +641,9 @@ class SQLiteMessengerStore:
             if row["status"] != "PROCESSING" or int(row["attempt_generation"]) != int(attempt_generation):
                 self._connection.rollback()
                 raise ValueError("provider_request_attempt_fenced")
+            if float(row["updated_at"]) <= float(now) - float(lease_seconds):
+                self._connection.rollback()
+                raise ValueError("provider_request_lease_expired")
             self._connection.execute(
                 """INSERT INTO messages(
                    message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,
@@ -653,10 +660,15 @@ class SQLiteMessengerStore:
                 """UPDATE provider_request_records
                    SET status='COMPLETED',response_text=?,provider_id=?,model=?,
                        attestation_json=?,message_id=?,updated_at=?,error_code=NULL
-                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING' AND attempt_generation=?""",
+                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING' AND attempt_generation=?
+                     AND updated_at>?""",
                 (message.body, provider_id, model,
                  json.dumps(attestation, separators=(",", ":")),
-                 message.message_id, now, principal_ai_id, request_id, attempt_generation))
+                 message.message_id, now, principal_ai_id, request_id, attempt_generation,
+                 float(now) - float(lease_seconds)))
+            if self._connection.execute("SELECT changes()").fetchone()[0] != 1:
+                self._connection.rollback()
+                raise ValueError("provider_request_lease_expired")
             self._connection.commit()
             completed = self._connection.execute(
                 "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
