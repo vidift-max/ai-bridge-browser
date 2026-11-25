@@ -1,0 +1,29 @@
+name: Mission 161 Provider Audit External Checkpoint CI
+
+on:
+  push:
+    branches:
+      - feat/mission-161-provider-audit-external-checkpoint
+  pull_request:
+    branches:
+      - feat/mission-160-provider-audit-chain-integrity
+    paths:
+      - "server/sqlite_store.py"
+      - "server/provider_audit_checkpoint.py"
+      - "server/test_provider_audit_external_checkpoint.py"
+      - "server/test_provider_audit_chain_integrity.py"
+      - "server/test_provider_lease_audit_trail.py"
+      - ".github/workflows/mission-161-provider-audit-external-checkpoint.yml"
+      - "docs/MISSION_161_PROVIDER_AUDIT_EXTERNAL_CHECKPOINT.md"
+
+jobs:
+  provider-audit-external-checkpoint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_audit_external_checkpoint server.test_provider_audit_chain_integrity server.test_provider_lease_audit_trail server.test_provider_request_store server.test_provider_lease_multiprocess_recovery
