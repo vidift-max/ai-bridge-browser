@@ -611,7 +611,7 @@ class SQLiteMessengerStore:
             raise ValueError("invalid_provider_lease")
         cursor = self._connection.execute(
             """UPDATE provider_request_records
-               SET updated_at=?
+               SET updated_at=MAX(updated_at, ?)
                WHERE principal_ai_id=? AND request_id=? AND request_digest=?
                  AND status='PROCESSING' AND attempt_generation=?
                  AND updated_at>?""",
