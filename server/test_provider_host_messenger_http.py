@@ -116,6 +116,28 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertTrue(self.host.verify_attestation(data["attestation"], message["body"]))
         self.assertEqual(self.provider.calls, ["Diga olá para a outra IA."])
 
+    def test_attestation_is_bound_to_request_identity_and_response(self):
+        status, data = self.request("user-token", self.payload())
+        self.assertEqual(status, 201)
+        statement = data["attestation"]["statement"]
+        expected = {
+            "conversationId": "private-room",
+            "agentId": "AI-USER",
+            "requestId": "provider-req-001",
+            "principal": "AI-USER",
+            "serverIdentity": "AI-BRIDGE-MESSENGER-TEST",
+            "providerId": "fake-test-provider",
+            "model": "fake-messenger-model",
+        }
+        self.assertTrue(self.host.verify_attestation(
+            data["attestation"], data["message"]["body"], expected=expected))
+        tampered = dict(data["attestation"])
+        tampered["statement"] = dict(statement, requestId="other-request")
+        self.assertFalse(self.host.verify_attestation(
+            tampered, data["message"]["body"], expected=expected))
+        self.assertFalse(self.host.verify_attestation(
+            data["attestation"], data["message"]["body"] + " alterado", expected=expected))
+
     def test_missing_authentication_is_rejected_before_provider(self):
         status, data = self.request(None, self.payload())
         self.assertEqual(status, 401)
