@@ -58,6 +58,26 @@ class StagingVerifierTest(unittest.TestCase):
     def test_non_object_json_is_rejected(self):
         self.assertEqual(verifier._json_object(b"[]"), {"error": "json_object_required"})
 
+    def test_health_response_redacts_arbitrary_fields(self):
+        with patch.object(verifier, "urlopen") as mocked:
+            mocked.return_value.__enter__.return_value.status = 200
+            mocked.return_value.__enter__.return_value.read.return_value = (
+                b'{"status":"ok","token":"secret-value","debug":"private"}'
+            )
+            status, body = verifier.check("https://stage.example", "/healthz")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"status": "ok"})
+        self.assertNotIn("secret-value", str(body))
+
+    def test_http_error_body_is_never_returned(self):
+        error = HTTPError("https://stage.example/readyz", 502, "Bad Gateway", {},
+                          BytesIO(b'{"token":"secret-value"}'))
+        with patch.object(verifier, "urlopen", side_effect=error):
+            status, body = verifier.check("https://stage.example", "/readyz")
+        self.assertEqual(status, 502)
+        self.assertEqual(body, {"error": "http_error"})
+        self.assertNotIn("secret-value", str(body))
+
     def test_http_error_with_invalid_utf8_returns_sanitized_body(self):
         error = HTTPError("https://stage.example/healthz", 502, "Bad Gateway", {}, BytesIO(b"\xff"))
         with patch.object(verifier, "urlopen", side_effect=error):
