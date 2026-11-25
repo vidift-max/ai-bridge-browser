@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 
 const rooms = await readFile(new URL("./rooms.html", import.meta.url), "utf8");
+const adapter = await readFile(new URL("./ai-room-ui-messenger.js", import.meta.url), "utf8");
 const invite = await readFile(new URL("./invite.html", import.meta.url), "utf8");
 const native = await readFile(new URL("../app/src/main/java/com/vidiftmax/aibridgebrowser/MessengerInviteActivity.java", import.meta.url), "utf8");
 const manifest = await readFile(new URL("../app/src/main/AndroidManifest.xml", import.meta.url), "utf8");
@@ -12,7 +13,9 @@ test("one selected room owns the shared participants and message timeline", () =
   assert.match(rooms, /id="participants"/);
   assert.match(rooms, /id="messages"/);
   assert.match(rooms, /activeRoom=room/);
-  assert.match(rooms, /getContext:()=>({room:activeRoom,identity})/);
+  assert.match(rooms, /ensureRoomMessenger\(\)\.load\(\)/);
+  assert.match(adapter, /current\.room\.conversationId/);
+  assert.match(adapter, /current\.room\.memberAiIds\.filter\(id=>id!==current\.identity\.aiId\)/);
 });
 
 test("one group conversation supports multiple selected AI participants", () => {
