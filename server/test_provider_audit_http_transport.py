@@ -35,7 +35,6 @@ class ProviderAuditHTTPTransportTests(unittest.TestCase):
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=3)
-        self.anchor.close()
         self.temp.cleanup()
 
     def _request(self, method, path, payload=None, token="transport-test-token",
@@ -149,15 +148,15 @@ class ProviderAuditHTTPTransportTests(unittest.TestCase):
         connection = socket.create_connection(self.server.server_address, timeout=3)
         try:
             request = (
-                "POST /v1/audit-anchor/checkpoints HTTP/1.1\\r\\n"
-                "Host: 127.0.0.1\\r\\n"
-                "Authorization: Bearer transport-test-token\\r\\n"
-                "Content-Type: application/json\\r\\n"
-                "Connection: close\\r\\n\\r\\n"
+                "POST /v1/audit-anchor/checkpoints HTTP/1.1\r\n"
+                "Host: 127.0.0.1\r\n"
+                "Authorization: Bearer transport-test-token\r\n"
+                "Content-Type: application/json\r\n"
+                "Connection: close\r\n\r\n"
             )
             connection.sendall(request.encode("ascii"))
             response = connection.recv(4096).decode("iso-8859-1")
-            self.assertIn(" 411 ", response.split("\\r\\n", 1)[0])
+            self.assertIn(" 411 ", response.split("\r\n", 1)[0])
             self.assertIn("content_length_required", response)
         finally:
             connection.close()
