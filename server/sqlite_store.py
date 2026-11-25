@@ -556,6 +556,17 @@ class SQLiteMessengerStore:
                 if row["request_digest"] != request_digest:
                     self._connection.rollback()
                     return dict(row), "conflict"
+                if row["status"] == "FAILED":
+                    self._connection.execute(
+                        """UPDATE provider_request_records
+                           SET status='PROCESSING',error_code=NULL,updated_at=?
+                           WHERE principal_ai_id=? AND request_id=? AND status='FAILED'""",
+                        (now, principal_ai_id, request_id))
+                    row = self._connection.execute(
+                        "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                        (principal_ai_id, request_id)).fetchone()
+                    self._connection.commit()
+                    return dict(row), "claimed"
                 self._connection.rollback()
                 return dict(row), "existing"
             self._connection.execute(
