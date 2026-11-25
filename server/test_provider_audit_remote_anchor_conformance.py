@@ -6,6 +6,7 @@ import unittest
 
 from server.provider_audit_remote_anchor import (
     _GENESIS_DIGEST,
+    _record_digest,
     _record_from_checkpoint,
 )
 from server.provider_audit_durable_anchor import SQLiteDurableAuditAnchor
@@ -26,10 +27,10 @@ def make_record(audit_id, previous=None):
 class RemoteAnchorAdapterConformanceTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
+        self.database_path = os.path.join(self.directory.name, "anchor.sqlite")
         self.adapters = {
             "fake": FakeRemoteAnchor(),
-            "sqlite": SQLiteDurableAuditAnchor(
-                os.path.join(self.directory.name, "anchor.sqlite")),
+            "sqlite": SQLiteDurableAuditAnchor(self.database_path),
         }
 
     def tearDown(self):
@@ -56,8 +57,6 @@ class RemoteAnchorAdapterConformanceTests(unittest.TestCase):
     def test_sequence_gap_is_rejected_without_mutation(self):
         gap = make_record(100)
         gap["sequence"] = 2
-        # Rebuild the digest so this is a validly shaped record with a sequence gap.
-        from server.provider_audit_remote_anchor import _record_digest
         gap["record_digest"] = _record_digest(gap)
         for name, adapter in self.adapters.items():
             with self.subTest(adapter=name):
@@ -90,6 +89,56 @@ class RemoteAnchorAdapterConformanceTests(unittest.TestCase):
                 self.assertEqual(len(failures), 1)
                 self.assertEqual(adapter.read_latest(), record)
 
+    def test_previous_digest_fork_is_rejected(self):
+        first = make_record(100)
+        fork = make_record(101, {
+            "sequence": 1,
+            "record_digest": "f" * 64,
+        })
+        for name, adapter in self.adapters.items():
+            with self.subTest(adapter=name):
+                adapter.append_checkpoint(0, first)
+                with self.assertRaisesRegex(ValueError, "chain_conflict"):
+                    adapter.append_checkpoint(1, fork)
+                self.assertEqual(adapter.read_latest(), first)
+
+    def test_non_monotonic_checkpoint_audit_id_is_rejected(self):
+        first = make_record(100)
+        older = make_record(99, {
+            "sequence": 1,
+            "record_digest": first["record_digest"],
+        })
+        for name, adapter in self.adapters.items():
+            with self.subTest(adapter=name):
+                adapter.append_checkpoint(0, first)
+                with self.assertRaisesRegex(ValueError, "audit_id_not_monotonic"):
+                    adapter.append_checkpoint(1, older)
+                self.assertEqual(adapter.read_latest(), first)
+
+    def test_tampered_record_digest_is_rejected_before_write(self):
+        record = make_record(100)
+        record["record_digest"] = "0" * 64
+        for name, adapter in self.adapters.items():
+            with self.subTest(adapter=name):
+                with self.assertRaisesRegex(ValueError, "record_digest_invalid"):
+                    adapter.append_checkpoint(0, record)
+                self.assertIsNone(adapter.read_latest())
+
+    def test_boolean_expected_sequence_is_rejected(self):
+        record = make_record(100)
+        for name, adapter in self.adapters.items():
+            with self.subTest(adapter=name):
+                with self.assertRaisesRegex(ValueError, "expected_sequence_invalid"):
+                    adapter.append_checkpoint(True, record)
+                self.assertIsNone(adapter.read_latest())
+
+    def test_sqlite_committed_record_survives_adapter_restart(self):
+        record = make_record(100)
+        self.adapters["sqlite"].append_checkpoint(0, record)
+        restarted = SQLiteDurableAuditAnchor(self.database_path)
+        self.assertEqual(restarted.read_latest(), record)
+        self.assertEqual(restarted.verify_history()["records_checked"], 1)
+
 
 class RemoteAnchorRetryConformanceTests(unittest.TestCase):
     def setUp(self):
@@ -120,7 +169,7 @@ class RemoteAnchorRetryConformanceTests(unittest.TestCase):
 
     def test_exact_retry_is_idempotent(self):
         service = self._service(self.anchor)
-        first_status, first_body = self._post(service)
+        first_status, _ = self._post(service)
         retry_status, retry_body = self._post(service)
         self.assertEqual(first_status, 201)
         self.assertEqual(retry_status, 200)
