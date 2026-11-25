@@ -1,0 +1,26 @@
+name: Mission 139 Authenticated AI Agent Adapters
+on:
+  pull_request:
+    branches:
+      - feat/mission-138-bidirectional-ai-conversation
+    paths:
+      - "web/ai-agent-adapter.js"
+      - "web/ai-agent-adapter.test.mjs"
+      - "web/ai-conversation-runtime.js"
+      - "web/ai-conversation-runtime.test.mjs"
+      - "web/ai-conversation-loop.js"
+      - "web/ai-conversation-loop.test.mjs"
+      - ".github/workflows/mission-139-authenticated-ai-adapters.yml"
+      - "docs/MISSION_139_AUTHENTICATED_AI_ADAPTERS.md"
+  push:
+    branches:
+      - feat/mission-139-authenticated-ai-adapters
+jobs:
+  adapter-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test web/ai-agent-adapter.test.mjs web/ai-conversation-loop.test.mjs web/ai-conversation-runtime.test.mjs
