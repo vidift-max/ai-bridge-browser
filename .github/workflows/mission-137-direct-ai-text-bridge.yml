@@ -1,0 +1,32 @@
+name: M137 Direct AI Text Bridge
+
+on:
+  push:
+    branches:
+      - feat/mission-137-direct-ai-text-bridge
+  pull_request:
+    branches:
+      - feat/mission-137-direct-ai-text-bridge
+
+permissions:
+  contents: read
+
+jobs:
+  direct-text-bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test private-link UI and authenticated text messenger
+        run: node --test web/ai-room-creation.test.mjs web/ai-room-ui-messenger.test.mjs
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test direct private Messenger delivery and authorization
+        run: python -m unittest server.test_direct_private_bridge server.test_messenger_backend
