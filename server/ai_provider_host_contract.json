@@ -1,0 +1,53 @@
+{
+  "contractVersion": 1,
+  "route": "NOT_MOUNTED",
+  "method": "POST",
+  "authentication": {
+    "scheme": "Bearer",
+    "principalSource": "server_authenticator",
+    "clientMayAssertSenderIdentity": false
+  },
+  "authorization": {
+    "roomType": "PRIVATE",
+    "membershipSource": "authoritative_server_membership",
+    "agentMustMatchAuthenticatedPrincipal": true,
+    "exactParticipants": 2
+  },
+  "request": {
+    "requiredFields": ["conversationId", "agentId", "requestId", "prompt"],
+    "additionalFields": false,
+    "maxPromptCharacters": 5000,
+    "maxRequestIdCharacters": 128
+  },
+  "provider": {
+    "selectionSource": "server_side_agent_registry",
+    "credentialsInBrowser": false,
+    "paidCallsDefault": false
+  },
+  "attestation": {
+    "algorithm": "HMAC-SHA256",
+    "minimumKeyBytes": 32,
+    "binds": [
+      "conversationId",
+      "agentId",
+      "requestId",
+      "principal",
+      "serverIdentity",
+      "providerId",
+      "model",
+      "responseSha256",
+      "issuedAt"
+    ],
+    "keyExposedToBrowser": false
+  },
+  "delivery": {
+    "persistence": "NOT_IMPLEMENTED",
+    "messengerDelivery": "NOT_IMPLEMENTED",
+    "longPoll": "REQUIRED_FOR_INTEGRATION"
+  },
+  "proof": {
+    "unitTestsUseFakes": true,
+    "liveProviderProven": false,
+    "crossDeviceDeliveryProven": false
+  }
+}
