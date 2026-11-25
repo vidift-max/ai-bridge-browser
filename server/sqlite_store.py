@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 
 def _validate_provider_lease_seconds(value):
@@ -314,6 +314,26 @@ class SQLiteMessengerStore:
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','13')")
             self._connection.commit()
             version = 13
+        if version < 14:
+            self._connection.executescript("""
+                CREATE TABLE IF NOT EXISTS provider_request_audit_events (
+                    audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    principal_ai_id TEXT NOT NULL,
+                    request_id TEXT NOT NULL,
+                    attempt_generation INTEGER NOT NULL,
+                    event_type TEXT NOT NULL CHECK(event_type IN
+                        ('CLAIMED','RECOVERED','RETRIED','LEASE_RENEWED','COMPLETED','FAILED')),
+                    event_at REAL NOT NULL,
+                    from_status TEXT,
+                    to_status TEXT NOT NULL,
+                    error_code TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_provider_request_audit_lookup
+                    ON provider_request_audit_events(principal_ai_id,request_id,audit_id);
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','14')")
+            self._connection.commit()
+            version = 14
 
     def create_guest_application(self, application, token_hash, status_capability_hash=None, status_capability_expires_at=None):
         """Atomically persist an application and optional digest-only status capability."""
@@ -578,6 +598,27 @@ class SQLiteMessengerStore:
             (principal_ai_id, request_id)).fetchone()
         return dict(row) if row else None
 
+    def _record_provider_request_audit(self, principal_ai_id, request_id,
+                                       attempt_generation, event_type, event_at,
+                                       from_status, to_status, error_code=None):
+        self._connection.execute(
+            """INSERT INTO provider_request_audit_events(
+               principal_ai_id,request_id,attempt_generation,event_type,event_at,
+               from_status,to_status,error_code) VALUES(?,?,?,?,?,?,?,?)""",
+            (principal_ai_id,request_id,attempt_generation,event_type,event_at,
+             from_status,to_status,error_code))
+
+    def list_provider_request_audit_events(self, principal_ai_id, request_id, limit=100):
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
+            raise ValueError("invalid_provider_audit_limit")
+        rows = self._connection.execute(
+            """SELECT audit_id,principal_ai_id,request_id,attempt_generation,event_type,
+                      event_at,from_status,to_status,error_code
+               FROM provider_request_audit_events
+               WHERE principal_ai_id=? AND request_id=? ORDER BY audit_id LIMIT ?""",
+            (principal_ai_id,request_id,limit)).fetchall()
+        return [dict(row) for row in rows]
+
     def claim_provider_request(self, principal_ai_id, request_id, request_digest,
                                conversation_id, agent_id, now, lease_seconds=360.0):
         """Claim a durable provider attempt; reclaim stale PROCESSING rows with a new fence."""
@@ -588,6 +629,8 @@ class SQLiteMessengerStore:
             row = self._connection.execute(
                 "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
                 (principal_ai_id, request_id)).fetchone()
+            previous_status = row["status"] if row is not None else None
+            previous_generation = int(row["attempt_generation"]) if row is not None else 0
             if row is not None:
                 if row["request_digest"] != request_digest:
                     self._connection.rollback()
@@ -622,6 +665,11 @@ class SQLiteMessengerStore:
             claimed = self._connection.execute(
                 "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
                 (principal_ai_id, request_id)).fetchone()
+            event_type = ("CLAIMED" if previous_status is None else
+                          "RECOVERED" if previous_status == "PROCESSING" else "RETRIED")
+            self._record_provider_request_audit(
+                principal_ai_id,request_id,next_generation,event_type,now,
+                previous_status,"PROCESSING")
             self._connection.commit()
             return dict(claimed), "claimed"
         except Exception:
@@ -641,6 +689,10 @@ class SQLiteMessengerStore:
                  AND updated_at>? AND updated_at<?""",
             (now, principal_ai_id, request_id, request_digest, attempt_generation,
              float(now) - float(lease_seconds), now))
+        if cursor.rowcount == 1:
+            self._record_provider_request_audit(
+                principal_ai_id,request_id,attempt_generation,"LEASE_RENEWED",now,
+                "PROCESSING","PROCESSING")
         self._connection.commit()
         return cursor.rowcount == 1
 
@@ -695,6 +747,9 @@ class SQLiteMessengerStore:
             if self._connection.execute("SELECT changes()").fetchone()[0] != 1:
                 self._connection.rollback()
                 raise ValueError("provider_request_lease_expired")
+            self._record_provider_request_audit(
+                principal_ai_id,request_id,attempt_generation,"COMPLETED",now,
+                "PROCESSING","COMPLETED")
             self._connection.commit()
             completed = self._connection.execute(
                 "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
@@ -744,6 +799,9 @@ class SQLiteMessengerStore:
             row = self._connection.execute(
                 "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
                 (principal_ai_id, request_id)).fetchone()
+            self._record_provider_request_audit(
+                principal_ai_id,request_id,attempt_generation,"COMPLETED",now,
+                "PROCESSING","COMPLETED")
             self._connection.commit()
             return dict(row)
         except Exception:
@@ -769,6 +827,9 @@ class SQLiteMessengerStore:
                    SET status='FAILED',error_code=?,updated_at=MAX(updated_at,?)
                    WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING' AND attempt_generation=?""",
                 (error_code,now,principal_ai_id,request_id,attempt_generation))
+            self._record_provider_request_audit(
+                principal_ai_id,request_id,attempt_generation,"FAILED",now,
+                "PROCESSING","FAILED",error_code)
             self._connection.commit()
             return True
         except Exception:
