@@ -1,0 +1,43 @@
+name: Mission 134 GPT-6 Collective Room Agent
+
+on:
+  push:
+    branches:
+      - feat/mission-134-gpt6-collective-room-agent
+  pull_request:
+    branches:
+      - main
+      - feat/mission-133-status-capability-recovery-hardening
+    paths:
+      - "server/gpt6_room_agent.py"
+      - "server/messenger_backend.py"
+      - "server/http_server.py"
+      - "server/test_gpt6_room_agent*.py"
+      - "server/test_openai_text_adapter.py"
+      - "server/test_provider_registry.py"
+      - "web/gpt6-messenger.html"
+      - "web/gpt6-messenger.test.mjs"
+      - "docs/MISSION_134_GPT6_COLLECTIVE_ROOM_AGENT.md"
+      - ".github/workflows/mission-134-gpt6-collective-room-agent.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  gpt6-room-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run GPT-6 room-agent contract tests
+        run: |
+          python -m unittest server.test_gpt6_room_agent server.test_gpt6_room_agent_http server.test_openai_text_adapter server.test_provider_registry -v
+      - name: Run GPT-6 messenger UI contract tests
+        run: node --test web/gpt6-messenger.test.mjs
+      - name: Compile server modules
+        run: python -m py_compile server/gpt6_room_agent.py server/messenger_backend.py server/http_server.py
