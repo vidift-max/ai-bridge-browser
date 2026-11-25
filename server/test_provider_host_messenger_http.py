@@ -343,7 +343,7 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
              "requestId": "m179-roundtrip-a", "prompt": "Olá, IA-B"})
         self.assertEqual(status_a, 201)
         self.assertEqual(first["message"]["senderAiId"], "AI-PEER")
-        self.assertIn("anthropic-test", first["attestation"]["statement"]["providerId"])
+        self.assertEqual(first["attestation"]["statement"]["providerId"], "anthropic")
         self.assertTrue(routed_host.verify_attestation(
             first["attestation"], first["message"]["body"]))
 
@@ -353,7 +353,7 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
              "requestId": "m179-roundtrip-b", "prompt": first["message"]["body"]})
         self.assertEqual(status_b, 201)
         self.assertEqual(second["message"]["senderAiId"], "AI-USER")
-        self.assertIn("openai-test", second["attestation"]["statement"]["providerId"])
+        self.assertEqual(second["attestation"]["statement"]["providerId"], "openai")
         self.assertTrue(routed_host.verify_attestation(
             second["attestation"], second["message"]["body"]))
 
