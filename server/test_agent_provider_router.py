@@ -1,7 +1,7 @@
 import json
 import os
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, MagicMock
 
 from server.agent_provider_router import AgentProviderRouter
 from server.provider_adapters import AnthropicTextAdapter, GeminiTextAdapter
@@ -71,7 +71,7 @@ class ProviderAdapterGateTest(unittest.TestCase):
         import json
         payload = {"id": "msg-test", "model": "claude-test",
                    "content": [{"type": "text", "text": "Claude respondeu"}]}
-        response = Mock()
+        response = MagicMock()
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
         response.read.return_value = json.dumps(payload).encode()
