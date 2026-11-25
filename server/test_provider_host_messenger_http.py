@@ -161,7 +161,7 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.provider.respond = lambda _prompt: (_ for _ in ()).throw(
             RuntimeError("simulated_provider_failure"))
         status, data = self.request("user-token", self.payload(requestId="provider-req-004"))
-        self.assertEqual(status, 503)
+        self.assertEqual(status, 502)
         self.assertEqual(self.backend.history("peer-token", "private-room"), [])
 
 
