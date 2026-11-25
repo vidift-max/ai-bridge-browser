@@ -206,7 +206,7 @@ def create_provider_audit_anchor_http_server(service, host="127.0.0.1", port=0):
     """Create an opt-in loopback-first server; callers explicitly choose exposure."""
     if not isinstance(service, ProviderAuditRemoteService):
         raise ValueError("provider_audit_service_required")
-    if host not in ("127.0.0.1", "::1", "localhost"):
+    if host != "127.0.0.1":
         raise ValueError("non_loopback_bind_requires_explicit_deployment_adapter")
     handler = type("BoundProviderAuditAnchorHTTPHandler",
                    (ProviderAuditAnchorHTTPHandler,), {"service": service})
