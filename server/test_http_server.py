@@ -88,6 +88,24 @@ class HttpContractTest(unittest.TestCase):
         with self.assertRaises(PermissionError):
             auth.authenticate("token-a")
 
+    def test_authenticated_conversation_runtime_assets_are_allowlisted(self):
+        constants = MessengerHandler.do_GET.__code__.co_consts
+        for asset in (
+            "/ai-conversation-loop.js",
+            "/ai-agent-adapter.js",
+            "/ai-conversation-runtime.js",
+            "/ai-conversation-panel.js",
+        ):
+            self.assertIn(asset, constants)
+        self.assertTrue(hasattr(MessengerHandler, "_ai_conversation_script"))
+
+    def test_conversation_asset_handler_rejects_unlisted_files(self):
+        import inspect
+        source = inspect.getsource(MessengerHandler._ai_conversation_script)
+        self.assertIn("allowed = {", source)
+        self.assertIn('if filename not in allowed:', source)
+        self.assertIn("ai_conversation_script_not_found", source)
+
 
 if __name__ == "__main__":
     unittest.main()
