@@ -39,6 +39,7 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.backend.create_conversation(
             "user-token", "private-room", ["AI-USER", "AI-PEER"], "PRIVATE")
         self.provider = FakeProvider()
+        self.peer_provider = FakeProvider()
 
         def authorize(principal, conversation_id, agent_id):
             members = self.backend.conversation_members().get(conversation_id, set())
@@ -49,11 +50,12 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         def resolve(agent_id):
             if agent_id not in self.tokens.values():
                 return None
+            provider = self.provider if agent_id == "AI-USER" else self.peer_provider
             def invoke(prompt):
-                response = self.provider.respond(prompt)
+                response = provider.respond(prompt)
                 return {
                     "text": response["text"],
-                    "providerId": "fake-test-provider",
+                    "providerId": "fake-test-provider-" + agent_id,
                     "model": response["model"],
                 }
             return invoke
@@ -175,6 +177,59 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         status, data = self.request("user-token", self.payload(requestId="provider-req-004"))
         self.assertEqual(status, 502)
         self.assertEqual(self.backend.history("peer-token", "private-room"), [])
+
+
+    def test_two_independent_ai_identities_complete_a_to_b_to_a_round_trip(self):
+        first_status, first = self.request(
+            "user-token",
+            self.payload(requestId="m176-a-001",
+                         prompt="IA-A: apresente-se para IA-B."),
+        )
+        self.assertEqual(first_status, 201)
+        first_message = first["message"]
+        self.assertEqual(first_message["senderAiId"], "AI-USER")
+        self.assertEqual(first_message["recipientAiIds"], ["AI-PEER"])
+
+        second_status, second = self.request(
+            "peer-token",
+            self.payload(agentId="AI-PEER", requestId="m176-b-001",
+                         prompt=first_message["body"]),
+        )
+        self.assertEqual(second_status, 201)
+        second_message = second["message"]
+        self.assertEqual(second_message["senderAiId"], "AI-PEER")
+        self.assertEqual(second_message["recipientAiIds"], ["AI-USER"])
+
+        third_status, third = self.request(
+            "user-token",
+            self.payload(requestId="m176-a-002",
+                         prompt=second_message["body"]),
+        )
+        self.assertEqual(third_status, 201)
+        third_message = third["message"]
+        self.assertEqual(third_message["senderAiId"], "AI-USER")
+        self.assertEqual(third_message["recipientAiIds"], ["AI-PEER"])
+
+        peer_history = self.backend.history("peer-token", "private-room")
+        user_history = self.backend.history("user-token", "private-room")
+        expected_history = [
+            first_message["messageId"],
+            second_message["messageId"],
+            third_message["messageId"],
+        ]
+        self.assertEqual([item.message_id for item in peer_history], expected_history)
+        self.assertEqual([item.message_id for item in user_history], expected_history)
+        self.assertEqual(self.provider.calls, [
+            "IA-A: apresente-se para IA-B.",
+            second_message["body"],
+        ])
+        self.assertEqual(self.peer_provider.calls, [first_message["body"]])
+        self.assertTrue(self.host.verify_attestation(first["attestation"],
+                                                     first_message["body"]))
+        self.assertTrue(self.host.verify_attestation(second["attestation"],
+                                                     second_message["body"]))
+        self.assertTrue(self.host.verify_attestation(third["attestation"],
+                                                     third_message["body"]))
 
 
 if __name__ == "__main__":

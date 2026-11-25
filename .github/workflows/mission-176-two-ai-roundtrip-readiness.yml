@@ -1,0 +1,38 @@
+name: Mission 176 Two-AI Round Trip Readiness
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-142-provider-host-messenger-integration
+    paths:
+      - "server/test_provider_host_messenger_http.py"
+      - "server/ai_provider_host.py"
+      - "server/http_server.py"
+      - "server/test_http_server.py"
+      - "web/ai-conversation-loop.js"
+      - "web/ai-conversation-loop.test.mjs"
+      - "web/ai-agent-adapter.js"
+      - "web/ai-conversation-runtime.js"
+      - "web/ai-conversation-panel.js"
+      - "web/ai-conversation-panel.test.mjs"
+      - ".github/workflows/mission-176-two-ai-roundtrip-readiness.yml"
+      - "docs/MISSION_176_TWO_AI_ROUNDTRIP_READINESS.md"
+  push:
+    branches:
+      - feat/mission-176-two-ai-roundtrip-readiness
+
+jobs:
+  two-ai-roundtrip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_host_messenger_http server.test_ai_provider_host server.test_http_server server.test_messenger_backend
+      - run: node --test web/ai-conversation-loop.test.mjs web/ai-conversation-panel.test.mjs
