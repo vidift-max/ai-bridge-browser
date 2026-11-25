@@ -30,7 +30,7 @@ test("host client requests a specific room member and returns the attestation en
  });
 });
 test("host client verifies attestations through the server without exposing its key",async()=>{
- const f=fixture();const result={body:"Resposta",attestation:JSON.stringify({signature:"signed"})};
+ const f=fixture();const result={agentId:"AI-B",body:"Resposta",attestation:JSON.stringify({signature:"signed"})};
  assert.equal(await f.client.verifyAttestation(result),true);
  assert.equal(f.calls[0].path,"/v1/ai/provider/attestation/verify");
  assert.equal(JSON.parse(f.calls[0].options.body).responseText,"Resposta");
