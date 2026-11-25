@@ -585,6 +585,52 @@ class SQLiteMessengerStore:
             self._connection.rollback()
             raise
 
+    def save_provider_message_and_complete(self, principal_ai_id, request_id, request_digest,
+                                           message, attestation, provider_id, model, now):
+        """Atomically persist the provider message and mark its request COMPLETED."""
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._connection.execute(
+                "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                (principal_ai_id, request_id)).fetchone()
+            if row is None or row["request_digest"] != request_digest:
+                self._connection.rollback()
+                raise ValueError("provider_request_not_claimed")
+            if row["status"] == "COMPLETED":
+                self._connection.rollback()
+                return dict(row), False
+            if row["status"] != "PROCESSING":
+                self._connection.rollback()
+                raise ValueError("provider_request_not_processing")
+            self._connection.execute(
+                """INSERT INTO messages(
+                   message_id,conversation_id,sender_ai_id,recipient_ai_ids,body,
+                   client_request_id,sequence,kind,created_at_epoch_seconds)
+                   VALUES(?,?,?,?,?,?,?,?,?)""",
+                (message.message_id, message.conversation_id, message.sender_ai_id,
+                 ",".join(message.recipient_ai_ids), message.body,
+                 message.client_request_id, message.sequence, message.kind,
+                 message.created_at_epoch_seconds))
+            self._connection.execute(
+                "INSERT INTO idempotency(sender_ai_id,client_request_id,message_id) VALUES(?,?,?)",
+                (message.sender_ai_id, message.client_request_id, message.message_id))
+            self._connection.execute(
+                """UPDATE provider_request_records
+                   SET status='COMPLETED',response_text=?,provider_id=?,model=?,
+                       attestation_json=?,message_id=?,updated_at=?,error_code=NULL
+                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING'""",
+                (message.body, provider_id, model,
+                 json.dumps(attestation, separators=(",", ":")),
+                 message.message_id, now, principal_ai_id, request_id))
+            self._connection.commit()
+            completed = self._connection.execute(
+                "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
+                (principal_ai_id, request_id)).fetchone()
+            return dict(completed), True
+        except Exception:
+            self._connection.rollback()
+            raise
+
     def complete_provider_request(self, principal_ai_id, request_id, request_digest,
                                   response_text, provider_id, model, attestation,
                                   message_id, now):
