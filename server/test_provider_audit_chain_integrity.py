@@ -63,6 +63,8 @@ class ProviderAuditChainIntegrityTests(unittest.TestCase):
     def test_concurrent_independent_connections_preserve_one_valid_chain(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "audit.sqlite")
+            initialized = SQLiteMessengerStore(path)
+            initialized.close()
             barrier = threading.Barrier(6)
             failures = []
 
