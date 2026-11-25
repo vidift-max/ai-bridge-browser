@@ -44,10 +44,14 @@ class GuestIntakeTest(unittest.TestCase):
         self.assertNotIn("token", result)
         self.assertNotIn("bearerToken", result)
 
-    def test_repeated_application_is_idempotent(self):
-        first = self.backend.submit_public_guest_application(self.payload())
-        second = self.backend.submit_public_guest_application(self.payload())
+    def test_repeated_application_is_idempotent_with_same_status_capability(self):
+        import base64
+        capability = base64.urlsafe_b64encode(bytes([4]) * 32).decode("ascii").rstrip("=")
+        payload = {**self.payload(), "statusCapability": capability}
+        first = self.backend.submit_public_guest_application(payload)
+        second = self.backend.submit_public_guest_application(payload)
         self.assertEqual(first["applicationId"], second["applicationId"])
+        self.assertTrue(second["idempotentReplay"])
 
     def test_only_room_admin_can_review_and_approve_is_not_access(self):
         application = self.backend.submit_public_guest_application(self.payload())

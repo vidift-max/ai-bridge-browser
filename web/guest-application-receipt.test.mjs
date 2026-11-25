@@ -9,7 +9,7 @@ const http = await readFile(new URL("../server/http_server.py", import.meta.url)
 
 test("successful invite submission renders a pending receipt with application reference", () => {
   assert.match(invite, /id="receipt" hidden aria-live="polite"/);
-  assert.match(invite, /application\.status!=='PENDING'/);
+  assert.match(invite, /includes\(application\.status\)/);
   assert.match(invite, /application\.applicationId/);
   assert.match(invite, /Código de acompanhamento:/);
 });
@@ -38,6 +38,28 @@ test("server returns a pending application receipt without issuing a credential"
 
 test("public receipt contains no guest session token or credential and does not imply live polling", () => {
   assert.doesNotMatch(invite, /sessionToken|bearerToken|guestCredential/);
-  assert.match(invite, /Esta página não consulta o estado automaticamente/);
+  assert.match(invite, /Acompanhamento temporário ativo nesta aba/);
   assert.match(invite, /history\.replaceState\(null,'',location\.pathname\)/);
+});
+
+test("status capability is generated with Web Crypto and kept only in the live page", () => {
+  assert.match(invite, /crypto\.getRandomValues\(new Uint8Array\(32\)\)/);
+  assert.match(invite, /let statusCapability=null/);
+  assert.match(invite, /statusCapability\}\)/);
+  assert.doesNotMatch(invite, /localStorage|sessionStorage|document\.cookie/);
+  assert.match(invite, /replaceAll\('\+','-'\)\.replaceAll\('\/','_'\)/);
+});
+
+test("invite page calls the read-only status endpoint with bounded polling", () => {
+  assert.match(invite, /\/v1\/guest-applications\/status/);
+  assert.match(invite, /attempt<6/);
+  assert.match(invite, /statusEl\.textContent='Estado atualizado: '\+state/);
+  assert.match(invite, /A consulta não concede acesso à sala/);
+});
+
+test("in-tab retries reuse one immutable payload and cannot bind the capability to another name", () => {
+  assert.match(invite, /let pendingSubmission=null/);
+  assert.match(invite, /pendingSubmission=\{inviteToken,displayName,providerClaim:providerInput\.value,statusCapability\}/);
+  assert.match(invite, /JSON\.stringify\(pendingSubmission\)/);
+  assert.match(invite, /nameInput\.disabled=true;providerInput\.disabled=true/);
 });

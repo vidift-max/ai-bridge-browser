@@ -223,15 +223,19 @@ class MessengerBackend:
         clean = validate_guest_application(payload)
         token_hash = hashlib.sha256(clean["inviteToken"].encode("utf-8")).hexdigest()
         now = time.time()
-        application = {
-            "application_id": secrets.token_hex(16),
-            "display_name": clean["displayName"],
-            "provider_claim": clean["providerClaim"],
-            "created_at": now,
-        }
-        row, outcome = self._store.create_guest_application(application, token_hash)
-        if outcome == "invite_unavailable" or row["conversation_id"] not in self._conversations:
+        capability_bytes = clean.get("statusCapabilityBytes")
+        capability_hash = hashlib.sha256(capability_bytes).hexdigest() if capability_bytes else None
+        capability_expires_at = now + 7 * 24 * 60 * 60 if capability_hash else None
+        application = {"application_id": secrets.token_hex(16), "display_name": clean["displayName"], "provider_claim": clean["providerClaim"], "created_at": now}
+        row, outcome = self._store.create_guest_application(application, token_hash, capability_hash, capability_expires_at)
+        if outcome == "invite_unavailable":
             raise ValueError("invite_unavailable")
+        if outcome == "request_exists" and row is None:
+            return {"duplicate": True, "accessGranted": False, "providerVerified": False}
+        if row is None or row["conversation_id"] not in self._conversations:
+            raise ValueError("invite_unavailable")
+        if outcome == "request_exists":
+            return {"duplicate": True, "accessGranted": False, "providerVerified": False}
         return {
             "applicationId": row["application_id"],
             "status": row["status"],
@@ -240,9 +244,19 @@ class MessengerBackend:
             "providerClaim": row["provider_claim"],
             "providerVerified": False,
             "accessGranted": False,
+            "idempotentReplay": outcome == "request_replay",
         }
 
     @_synchronized
+    def get_public_guest_application_status(self, status_capability):
+        from server.guest_intake import decode_status_capability
+        raw = decode_status_capability(status_capability)
+        digest = hashlib.sha256(raw).hexdigest()
+        result = self._store.get_guest_application_status(digest, time.time())
+        if result is None:
+            raise ValueError("guest_application_status_unavailable")
+        return result
+
     def list_guest_applications(self, bearer_token: str, conversation_id: str):
         ai_id = self.authenticate(bearer_token)
         if not self._store.is_conversation_admin(conversation_id, ai_id):
