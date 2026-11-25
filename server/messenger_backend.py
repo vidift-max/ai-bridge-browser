@@ -57,11 +57,14 @@ class MessengerBackend:
     LONG_POLL_MAX_BATCH_SIZE = 100
     LONG_POLL_MAX_SEQUENCE = 9007199254740991
 
-    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None, identity_display_names=None):
+    def __init__(self, tokens: Dict[str, str], conversations: Dict[str, Set[str]], store=None, authenticator=None, identity_display_names=None, internal_ai_ids=None):
         self._lock = RLock()
         self._message_condition = Condition(self._lock)
         self._tokens = dict(tokens)
-        self._known_ai_ids = set(tokens.values())
+        self._internal_ai_ids = set(internal_ai_ids or ())
+        if any(not isinstance(ai_id, str) or not ai_id.startswith("AI-") or ai_id in tokens.values() for ai_id in self._internal_ai_ids):
+            raise ValueError("invalid_internal_ai_identity")
+        self._known_ai_ids = set(tokens.values()) | self._internal_ai_ids
         self._store = store or SQLiteMessengerStore(":memory:")
         self._authenticator = authenticator or Authenticator(tokens, connection=self._store._connection)
         if authenticator is not None:
@@ -498,11 +501,9 @@ class MessengerBackend:
             raise PermissionError("recipient_authorization_denied")
         return recipient_ids
 
-    @_synchronized
-    def submit(self, bearer_token: str, message_id: str, conversation_id: str,
-               recipient_ai_ids: List[str], body: str, client_request_id: str,
-               message_kind: str = MESSAGE_NORMAL) -> Message:
-        sender = self.authenticate(bearer_token)
+    def _submit_as(self, sender: str, message_id: str, conversation_id: str,
+                   recipient_ai_ids: List[str], body: str, client_request_id: str,
+                   message_kind: str = MESSAGE_NORMAL) -> Message:
         if (not isinstance(message_id, str) or not message_id.strip() or
                 not isinstance(conversation_id, str) or not conversation_id.strip() or
                 not isinstance(body, str) or not body.strip() or
@@ -531,6 +532,24 @@ class MessengerBackend:
         self._idempotency[key] = message_id
         self._next_sequence[conversation_id] = sequence
         return message
+
+    @_synchronized
+    def submit(self, bearer_token: str, message_id: str, conversation_id: str,
+               recipient_ai_ids: List[str], body: str, client_request_id: str,
+               message_kind: str = MESSAGE_NORMAL) -> Message:
+        sender = self.authenticate(bearer_token)
+        return self._submit_as(sender, message_id, conversation_id,
+                               recipient_ai_ids, body, client_request_id, message_kind)
+
+    @_synchronized
+    def submit_internal(self, sender_ai_id: str, message_id: str, conversation_id: str,
+                        recipient_ai_ids: List[str], body: str, client_request_id: str,
+                        message_kind: str = MESSAGE_NORMAL) -> Message:
+        """Submit as a server-registered internal identity; never exposed as an HTTP credential."""
+        if sender_ai_id not in self._internal_ai_ids:
+            raise PermissionError("internal_identity_not_authorized")
+        return self._submit_as(sender_ai_id, message_id, conversation_id,
+                               recipient_ai_ids, body, client_request_id, message_kind)
 
     def message_expires_at(self, message: Message) -> float:
         return expires_at(message.created_at_epoch_seconds,
