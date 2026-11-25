@@ -71,9 +71,9 @@ class ProviderAdapterGateTest(unittest.TestCase):
         import json
         payload = {"id": "msg-test", "model": "claude-test",
                    "content": [{"type": "text", "text": "Claude respondeu"}]}
-        response = MagicMock()
-        response.__enter__ = MagicMock(return_value=response)
-        response.__exit__ = MagicMock(return_value=False)
+        response = MagicMagicMock()
+        response.__enter__ = MagicMagicMock(return_value=response)
+        response.__exit__ = MagicMagicMock(return_value=False)
         response.read.return_value = json.dumps(payload).encode()
         with patch.dict(os.environ, {"ANTHROPIC_API_CALLS_ENABLED": "true"}), patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
             result = AnthropicTextAdapter(api_key="private-anthropic-key").respond("oi")
@@ -88,9 +88,9 @@ class ProviderAdapterGateTest(unittest.TestCase):
         import json
         payload = {"responseId": "gemini-test", "model": "gemini-test",
                    "candidates": [{"content": {"parts": [{"text": "Gemini respondeu"}]}}]}
-        response = MagicMock()
-        response.__enter__ = Mock(return_value=response)
-        response.__exit__ = Mock(return_value=False)
+        response = MagicMagicMock()
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
         response.read.return_value = json.dumps(payload).encode()
         with patch.dict(os.environ, {"GEMINI_API_CALLS_ENABLED": "true"}), patch("server.provider_adapters.urllib.request.urlopen", return_value=response) as call:
             result = GeminiTextAdapter(api_key="private-gemini-key").respond("oi")
