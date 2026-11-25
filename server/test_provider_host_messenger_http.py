@@ -210,6 +210,17 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertEqual(second["message"]["messageId"], first["message"]["messageId"])
         self.assertEqual(len(self.provider.calls), 1)
 
+    def test_durable_attestation_tampering_fails_closed_on_replay(self):
+        first_status, first = self.request("user-token", self.payload())
+        self.assertEqual(first_status, 201)
+        self.store.connection.execute(
+            "UPDATE provider_request_records SET response_text=? WHERE principal_ai_id=? AND request_id=?",
+            ("tampered", "AI-USER", "provider-req-001"))
+        self.store.connection.commit()
+        second_status, second = self.request("user-token", self.payload())
+        self.assertEqual(second_status, 500)
+        self.assertEqual(second["error"], "provider_attestation_integrity_failure")
+
     def test_payload_change_for_existing_request_is_conflict(self):
         first_status, _ = self.request("user-token", self.payload())
         second_status, second = self.request("user-token", self.payload(prompt="texto diferente"))
