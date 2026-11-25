@@ -898,11 +898,27 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except PermissionError:
                 self._json(401, {"error": "guest_session_not_active"})
             return
+        if urlsplit(self.path).path == "/v1/guest-applications/status":
+            try:
+                self.rate_limiter.allow("guest-status:" + self.client_address[0])
+                payload = self._read_json(max_length=256)
+                if not isinstance(payload, dict) or set(payload) != {"statusCapability"}:
+                    raise ValueError("guest_application_status_unavailable")
+                result = self.backend.get_public_guest_application_status(payload.get("statusCapability"))
+                self._json(200, {"status": {"state": result["state"], "updatedAt": result["updatedAt"]}})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except (TypeError, ValueError):
+                self._json(404, {"error": "guest_application_status_unavailable"})
+            return
         if urlsplit(self.path).path == "/v1/guest-applications":
             try:
                 self.rate_limiter.allow("guest:" + self.client_address[0])
                 payload = self._read_json(max_length=2000)
                 result = self.backend.submit_public_guest_application(payload)
+                if result.get("duplicate"):
+                    self._json(202, {"application": {"duplicate": True, "accessGranted": False, "providerVerified": False}})
+                    return
                 self._json(202, {"application": {
                     "applicationId": result["applicationId"],
                     "status": result["status"],
@@ -910,6 +926,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     "providerClaim": result["providerClaim"],
                     "providerVerified": False,
                     "accessGranted": False,
+                    "idempotentReplay": result.get("idempotentReplay", False),
                 }})
             except RateLimitExceeded:
                 self._json(429, {"error": "rate_limit_exceeded"})
