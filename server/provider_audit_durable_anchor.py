@@ -100,8 +100,13 @@ class SQLiteDurableAuditAnchor:
         finally:
             connection.close()
 
-    def verify_history(self):
-        """Verify every durable row's sequence, canonical digest, and previous-link chain."""
+    def verify_history(self, expected_head=None):
+        """Verify the full chain; expected_head is an independently trusted witness.
+
+        Without expected_head, a valid shorter prefix cannot prove that a suffix
+        was not deleted. Supplying the externally retained head detects rollback
+        and suffix truncation without attempting an automatic repair.
+        """
         previous = _GENESIS_DIGEST
         previous_audit_id = -1
         expected_sequence = 1
@@ -112,8 +117,12 @@ class SQLiteDurableAuditAnchor:
                 "FROM provider_audit_anchor_records ORDER BY sequence"
             ).fetchall()
         for row in rows:
-            record = json.loads(row["record_json"])
-            _validate_record(record)
+            try:
+                record = json.loads(row["record_json"])
+                _validate_record(record)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                return {"valid": False, "reason": "history_record_corrupt",
+                        "records_checked": checked, "first_invalid_sequence": expected_sequence}
             if (row["sequence"] != expected_sequence
                     or record["sequence"] != expected_sequence
                     or row["record_digest"] != record["record_digest"]
@@ -126,5 +135,48 @@ class SQLiteDurableAuditAnchor:
             previous_audit_id = record["checkpoint_audit_id"]
             expected_sequence += 1
             checked += 1
-        return {"valid": True, "records_checked": checked,
-                "last_sequence": checked, "last_digest": previous}
+        result = {"valid": True, "reason": None, "records_checked": checked,
+                  "last_sequence": checked, "last_digest": previous}
+        if expected_head is not None:
+            if (not isinstance(expected_head, dict)
+                    or set(expected_head) != {"sequence", "record_digest", "checkpoint_audit_id"}
+                    or type(expected_head["sequence"]) is not int
+                    or expected_head["sequence"] < 0
+                    or type(expected_head["checkpoint_audit_id"]) is not int
+                    or expected_head["checkpoint_audit_id"] < -1
+                    or not isinstance(expected_head["record_digest"], str)
+                    or len(expected_head["record_digest"]) != 64
+                    or any(ch not in "0123456789abcdef" for ch in expected_head["record_digest"])):
+                raise ValueError("trusted_anchor_head_invalid")
+            actual_head = {
+                "sequence": checked,
+                "record_digest": previous,
+                "checkpoint_audit_id": previous_audit_id,
+            }
+            if actual_head != expected_head:
+                return {**result, "valid": False, "reason": "trusted_head_mismatch",
+                        "expected_head": expected_head, "actual_head": actual_head}
+        return result
+
+
+def compare_provider_audit_anchor_copies(left_anchor, right_anchor, expected_head=None):
+    """Compare two independently obtained, fully verified chain heads.
+
+    This detects divergence only when each adapter can verify its own complete
+    history. It does not establish that either copy is authentic unless
+    expected_head came from an independently trusted source.
+    """
+    try:
+        left = left_anchor.verify_history(expected_head=expected_head)
+        right = right_anchor.verify_history(expected_head=expected_head)
+    except Exception:
+        return {"valid": False, "reason": "anchor_copy_unavailable"}
+    if not left.get("valid") or not right.get("valid"):
+        return {"valid": False, "reason": "anchor_copy_integrity_failed",
+                "left": left, "right": right}
+    if (left.get("last_sequence"), left.get("last_digest")) != (
+            right.get("last_sequence"), right.get("last_digest")):
+        return {"valid": False, "reason": "anchor_copy_divergence",
+                "left": left, "right": right}
+    return {"valid": True, "reason": None,
+            "sequence": left["last_sequence"], "record_digest": left["last_digest"]}
