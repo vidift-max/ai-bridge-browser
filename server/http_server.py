@@ -934,7 +934,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 principal = identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
                 self.rate_limiter.allow(principal.ai_id)
-                payload = self._read_json(max_length=6000)
+                payload = self._read_json(max_length=24000)
                 result = self.provider_host.execute(self._auth(), payload)
                 response_text = result["text"]
                 if len(response_text) > self.backend.MAX_BODY_LENGTH:
