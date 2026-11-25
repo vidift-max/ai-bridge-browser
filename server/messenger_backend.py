@@ -475,7 +475,6 @@ class MessengerBackend:
         return result
 
     @_synchronized
-    @_synchronized
     def claim_provider_request(self, bearer_token: str, request_id: str, request_digest: str,
                                conversation_id: str, agent_id: str, lease_seconds: float = 360.0):
         principal = self._authenticator.authenticate(bearer_token)
