@@ -173,6 +173,8 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
             if path.endswith("/ack"):
                 return 200, {"messageId": "another-message", "state": "ACKNOWLEDGED",
                              "principalAiId": "AI-02"}
+            if path.startswith("/v1/conversations/room/messages/wait?") and "timeout=0" in path:
+                return 200, {"principalAiId": "AI-02", "messages": []}
             self.fail("unexpected_request:" + path)
 
         with self.assertRaisesRegex(RuntimeError, "ack_contract_mismatch"):
