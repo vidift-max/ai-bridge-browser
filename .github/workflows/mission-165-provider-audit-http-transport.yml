@@ -1,0 +1,33 @@
+name: Mission 165 Provider Audit HTTP Transport CI
+
+on:
+  push:
+    branches:
+      - feat/mission-165-provider-audit-http-transport
+  pull_request:
+    branches:
+      - feat/mission-164-provider-audit-remote-api
+    paths:
+      - "server/provider_audit_remote_service.py"
+      - "server/test_provider_audit_remote_service.py"
+      - "server/provider_audit_durable_anchor.py"
+      - "server/provider_audit_remote_anchor.py"
+      - "server/provider_audit_checkpoint.py"
+      - "server/sqlite_store.py"
+      - "server/test_provider_audit_durable_anchor.py"
+      - "server/test_provider_audit_remote_anchor.py"
+      - ".github/workflows/mission-165-provider-audit-http-transport.yml"
+      - "server/contracts/provider_audit_remote_service.schema.json"
+      - "docs/MISSION_165_PROVIDER_AUDIT_HTTP_TRANSPORT.md"
+
+jobs:
+  provider-audit-http-transport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_audit_remote_service server.test_provider_audit_durable_anchor server.test_provider_audit_remote_anchor server.test_provider_audit_external_checkpoint server.test_provider_audit_chain_integrity server.test_provider_lease_audit_trail server.test_provider_request_store server.test_provider_lease_multiprocess_recovery

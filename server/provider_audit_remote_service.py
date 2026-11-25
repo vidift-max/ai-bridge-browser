@@ -138,3 +138,76 @@ class ProviderAuditRemoteService:
             return 400, {"error": "invalid_anchor_record"}
         except Exception:
             return 503, {"error": "anchor_unavailable"}
+
+
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+class ProviderAuditAnchorHTTPHandler(BaseHTTPRequestHandler):
+    """Minimal HTTP/1.1 adapter; service owns auth, policy, validation and storage."""
+
+    service = None
+    server_version = "AI-BRIDGE-AUDIT/1"
+    sys_version = ""
+
+    def log_message(self, _format, *_args):
+        # Never log Authorization headers, request bodies, or checkpoint material.
+        return
+
+    def _dispatch(self, method):
+        if self.service is None:
+            self._write_json(503, {"error": "service_unavailable"})
+            return
+        try:
+            raw_length = self.headers.get("Content-Length", "0")
+            if not raw_length.isascii() or not raw_length.isdecimal():
+                self._write_json(400, {"error": "invalid_content_length"})
+                return
+            length = int(raw_length)
+            if length > self.service.max_body_bytes:
+                body = b"x" * (self.service.max_body_bytes + 1)
+            else:
+                body = self.rfile.read(length) if length else b""
+            status, payload = self.service.handle(
+                method, self.path, dict(self.headers.items()), body)
+            self._write_json(status, payload)
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except Exception:
+            self._write_json(503, {"error": "service_unavailable"})
+
+    def _write_json(self, status, payload):
+        encoded = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def do_GET(self):
+        self._dispatch("GET")
+
+    def do_POST(self):
+        self._dispatch("POST")
+
+    def do_PUT(self):
+        self._dispatch("PUT")
+
+    def do_PATCH(self):
+        self._dispatch("PATCH")
+
+    def do_DELETE(self):
+        self._dispatch("DELETE")
+
+
+def create_provider_audit_anchor_http_server(service, host="127.0.0.1", port=0):
+    """Create an opt-in loopback-first server; callers explicitly choose exposure."""
+    if not isinstance(service, ProviderAuditRemoteService):
+        raise ValueError("provider_audit_service_required")
+    if host != "127.0.0.1":
+        raise ValueError("non_loopback_bind_requires_explicit_deployment_adapter")
+    handler = type("BoundProviderAuditAnchorHTTPHandler",
+                   (ProviderAuditAnchorHTTPHandler,), {"service": service})
+    return ThreadingHTTPServer((host, port), handler)

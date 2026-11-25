@@ -158,5 +158,117 @@ class ProviderAuditRemoteServiceTests(unittest.TestCase):
         self.assertEqual(body["error"], "anchor_unavailable")
 
 
+class ProviderAuditAnchorHTTPTransportTests(unittest.TestCase):
+    def setUp(self):
+        import threading
+        self.directory = tempfile.TemporaryDirectory()
+        self.anchor = SQLiteDurableAuditAnchor(os.path.join(self.directory.name, "http-anchor.sqlite"))
+        self.service = ProviderAuditRemoteService(
+            self.anchor,
+            authenticate_token=lambda token: "http-agent" if token == "http-test-token" else None,
+            authorize_principal=lambda principal: principal == "http-agent",
+        )
+        from server.provider_audit_remote_service import create_provider_audit_anchor_http_server
+        self.server = create_provider_audit_anchor_http_server(self.service)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base_url = "http://127.0.0.1:%d" % self.server.server_address[1]
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+        self.directory.cleanup()
+
+    def _request(self, method, path, payload=None, token="http-test-token"):
+        import urllib.error
+        import urllib.request
+        data = None if payload is None else json.dumps(payload).encode("utf-8")
+        headers = {}
+        if token is not None:
+            headers["Authorization"] = "Bearer " + token
+        if data is not None:
+            headers["Content-Type"] = "application/json"
+        request = urllib.request.Request(self.base_url + path, data=data,
+                                         headers=headers, method=method)
+        try:
+            response = urllib.request.urlopen(request, timeout=3)
+        except urllib.error.HTTPError as exc:
+            response = exc
+        try:
+            return response.code, json.loads(response.read().decode("utf-8"))
+        finally:
+            response.close()
+
+    def _record(self):
+        checkpoint = {
+            "audit_id": 100,
+            "event_hash": "%064x" % 100,
+            "created_at": 1.0,
+            "signature": "%064x" % 1100,
+        }
+        return _record_from_checkpoint(checkpoint, None)
+
+    def test_non_loopback_bind_is_rejected(self):
+        from server.provider_audit_remote_service import create_provider_audit_anchor_http_server
+        with self.assertRaisesRegex(ValueError, "non_loopback_bind_requires_explicit_deployment_adapter"):
+            create_provider_audit_anchor_http_server(self.service, host="0.0.0.0")
+
+    def test_http_server_binds_to_loopback_by_default(self):
+        self.assertIn(self.server.server_address[0], ("127.0.0.1", "::1"))
+
+    def test_real_http_get_requires_bearer_authentication(self):
+        status, body = self._request("GET", "/v1/audit-anchor/latest", token=None)
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"], "authentication_required")
+
+    def test_real_http_post_and_get_round_trip(self):
+        record = self._record()
+        status, body = self._request(
+            "POST", "/v1/audit-anchor/checkpoints",
+            {"expected_sequence": 0, "record": record})
+        self.assertEqual(status, 201)
+        self.assertFalse(body["replayed"])
+        read_status, read_body = self._request("GET", "/v1/audit-anchor/latest")
+        self.assertEqual(read_status, 200)
+        self.assertEqual(read_body["record"], record)
+
+    def test_real_http_exact_retry_is_idempotent(self):
+        record = self._record()
+        payload = {"expected_sequence": 0, "record": record}
+        self.assertEqual(self._request("POST", "/v1/audit-anchor/checkpoints", payload)[0], 201)
+        status, body = self._request("POST", "/v1/audit-anchor/checkpoints", payload)
+        self.assertEqual(status, 200)
+        self.assertTrue(body["replayed"])
+        self.assertEqual(self.anchor.verify_history()["records_checked"], 1)
+
+    def test_real_http_stale_sequence_returns_conflict(self):
+        record = self._record()
+        self._request("POST", "/v1/audit-anchor/checkpoints",
+                      {"expected_sequence": 0, "record": record})
+        second = _record_from_checkpoint({
+            "audit_id": 200, "event_hash": "%064x" % 200,
+            "created_at": 2.0, "signature": "%064x" % 1200,
+        }, {"sequence": 1, "record_digest": record["record_digest"]})
+        status, body = self._request(
+            "POST", "/v1/audit-anchor/checkpoints",
+            {"expected_sequence": 0, "record": second})
+        self.assertEqual(status, 409)
+        self.assertEqual(body["error"], "remote_anchor_sequence_conflict")
+
+    def test_real_http_response_has_security_headers(self):
+        import urllib.request
+        request = urllib.request.Request(
+            self.base_url + "/v1/audit-anchor/latest",
+            headers={"Authorization": "Bearer http-test-token"})
+        response = urllib.request.urlopen(request)
+        try:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers.get("Cache-Control"), "no-store")
+            self.assertEqual(response.headers.get("X-Content-Type-Options"), "nosniff")
+        finally:
+            response.close()
+
+
 if __name__ == "__main__":
     unittest.main()
