@@ -33,6 +33,7 @@ details{margin-bottom:12px}summary{cursor:pointer;color:#c7d2fe}
 <div id="networkStatus" class="notice" role="status" aria-live="polite">Verificando conexão Wi-Fi…</div>
 <div id="localAiStatus" class="notice" role="status" aria-live="polite">Diagnóstico local ainda não executado.</div>
 <div class="row"><button id="checkLocalAi" type="button">Verificar compatibilidade da IA local</button></div>
+<div class="row"><input id="conversationId" autocomplete="off" value="default" placeholder="ID da sala coletiva"><span class="muted">A sala deve incluir GPT-6.</span></div>
 <details>
 <summary>Conectar</summary>
 <div class="row"><input id="token" type="password" autocomplete="off" placeholder="Bearer token do AI Messenger"><button id="connect">Conectar</button></div>
@@ -66,11 +67,12 @@ checkLocalAiEl.addEventListener('click',async()=>{
 function renderNetworkState(state){networkStatusEl.textContent='Rede: '+state.status+' · '+state.message}
 if(window.AIBridgeWifiOnly){window.AIBridgeWifiOnly.watch(renderNetworkState)}else{renderNetworkState({status:'WIFI_POLICY_UNAVAILABLE',message:'Política Wi-Fi não carregada; downloads devem permanecer bloqueados.'})}
 const tokenEl=document.getElementById('token'), connectEl=document.getElementById('connect');
+const conversationEl=document.getElementById('conversationId');
 const statusEl=document.getElementById('status'), chatEl=document.getElementById('chat');
 const messageEl=document.getElementById('message'), sendEl=document.getElementById('send');
 const micEl=document.getElementById('mic'), stopVoiceEl=document.getElementById('stopVoice');
 const speakRepliesEl=document.getElementById('speakReplies'), voiceSupportEl=document.getElementById('voiceSupport');
-let token='', previousResponseId='', recognition=null, listening=false, localSpeechReady=false;
+let token='', recognition=null, listening=false, localSpeechReady=false, pendingSend=null;
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
 function add(text, cls){const d=document.createElement('div');d.className='msg '+cls;d.textContent=text;chatEl.appendChild(d);chatEl.scrollTop=chatEl.scrollHeight}
 function setConnected(ok,text){statusEl.textContent=text;messageEl.disabled=!ok;sendEl.disabled=!ok;micEl.disabled=!ok||!localSpeechReady}
@@ -98,14 +100,20 @@ if(!('speechSynthesis'in window)){speakRepliesEl.disabled=true;voiceSupportEl.te
 async function api(path, options={}){if(!window.AIBridgeWifiOnly)throw new Error('wifi_policy_unavailable');window.AIBridgeWifiOnly.assertAllowed();const headers=Object.assign({'Accept':'application/json','Authorization':'Bearer '+token},options.headers||{});const r=await fetch(path,Object.assign({},options,{headers}));let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||('HTTP '+r.status));return data}
 async function connect(){
  token=tokenEl.value.trim();if(!token){setConnected(false,'Informe o token.');return}
- try{const d=await api('/v1/gpt6/status');const online=!!d.assistant?.online;setConnected(online,online?'🟢 GPT-6 online · '+(d.model||'modelo configurado'):'🟡 servidor autenticado, provedor de IA não configurado');add('Conexão autenticada com o AI Messenger.','sys')}
+ try{const d=await api('/v1/gpt6/status');const ready=!!d.configured&&!!d.apiCallsEnabled;setConnected(ready,ready?'🟡 API GPT-6 habilitada · a resposta será confirmada após a primeira chamada':'🟡 servidor autenticado · API não configurada ou chamadas desabilitadas');add('Conexão autenticada com o AI Messenger. A sessão desta página não é a sessão privada do ChatGPT.','sys')}
  catch(e){setConnected(false,'🔴 Falha: '+e.message);add('Não foi possível conectar: '+e.message,'sys')}
 }
 async function send(){
- const text=messageEl.value.trim();if(!text||!token)return;
- messageEl.value='';sendEl.disabled=true;add(text,'user');
- try{const d=await api('/v1/gpt6/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,previousResponseId:previousResponseId||undefined})});previousResponseId=d.responseId||'';const answer=d.text||'(resposta vazia)';add(answer,'ai');speak(answer);setConnected(true,'🟢 Provedor de IA respondeu')}
- catch(e){add('Erro: '+e.message,'sys');statusEl.textContent='🔴 '+e.message}
+ const text=messageEl.value.trim(),conversationId=conversationEl.value.trim();if(!text||!token)return;
+ if(!conversationId){statusEl.textContent='Informe o ID da sala coletiva.';return}
+ const retry=!!pendingSend&&pendingSend.text===text&&pendingSend.conversationId===conversationId;
+ if(!retry){pendingSend={text,conversationId,requestId:(crypto.randomUUID?crypto.randomUUID():'req-'+Date.now()+'-'+Math.random().toString(16).slice(2))};add(text,'user')}
+ const requestId=pendingSend.requestId;
+ messageEl.value='';sendEl.disabled=true;
+ try{
+  const d=await api('/v1/gpt6/room/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId,message:text,clientRequestId:requestId})});
+  const answer=d.assistantMessage?.body||'(resposta vazia)';add(answer,'ai');speak(answer);pendingSend=null;setConnected(true,'🟢 Resposta do GPT-6 registrada na sala coletiva');
+ }catch(e){add('Erro: '+e.message,'sys');statusEl.textContent='🔴 '+e.message;messageEl.value=text}
  finally{sendEl.disabled=!token||messageEl.disabled}
 }
 connectEl.onclick=connect;sendEl.onclick=send;
