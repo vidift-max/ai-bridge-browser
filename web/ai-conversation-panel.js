@@ -71,9 +71,9 @@
     const provider=host();
     if(!provider||typeof provider.registerSession!=="function")throw new Error("AGENT_SESSION_REGISTRATION_UNAVAILABLE");
     const session=await provider.registerSession();
+    refresh();
     status.textContent="Sessão registrada para "+session.aiId+". Validade aproximada: "+Math.round(session.ttlSeconds/60)+" minuto(s).";
-   }catch(error){status.textContent="Não foi possível registrar esta IA: "+error.message;}
-   refresh();
+   }catch(error){refresh();status.textContent="Não foi possível registrar esta IA: "+error.message;}
   });
   start.addEventListener("click",()=>{begin().catch(error=>{status.textContent="Não foi possível iniciar: "+error.message;refresh()})});
   stop.addEventListener("click",()=>{runtime?.stop();status.textContent="Solicitando parada segura…"});
