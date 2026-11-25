@@ -510,11 +510,12 @@ class MessengerBackend:
     @_synchronized
     def complete_provider_request(self, bearer_token: str, request_id: str, request_digest: str,
                                   response_text: str, provider_id: str, model: str,
-                                  attestation: dict, message_id: str, attempt_generation: int = 1):
+                                  attestation: dict, message_id: str, attempt_generation: int = 1,
+                                  lease_seconds: float = 360.0):
         principal = self._authenticator.authenticate(bearer_token)
         return self._store.complete_provider_request(
             principal.ai_id, request_id, request_digest, response_text, provider_id,
-            model, attestation, message_id, time.time(), attempt_generation)
+            model, attestation, message_id, time.time(), attempt_generation, lease_seconds)
 
     @_synchronized
     def fail_provider_request(self, bearer_token: str, request_id: str, request_digest: str,

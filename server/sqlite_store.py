@@ -604,7 +604,7 @@ class SQLiteMessengerStore:
                 next_generation = int(row["attempt_generation"]) + 1
                 cursor = self._connection.execute(
                     """UPDATE provider_request_records
-                       SET status='PROCESSING',attempt_generation=?,error_code=NULL,updated_at=?
+                       SET status='PROCESSING',attempt_generation=?,error_code=NULL,updated_at=MAX(updated_at,?)
                        WHERE principal_ai_id=? AND request_id=? AND attempt_generation=?""",
                     (next_generation, now, principal_ai_id, request_id, row["attempt_generation"]))
                 if cursor.rowcount != 1:
@@ -635,12 +635,12 @@ class SQLiteMessengerStore:
         _validate_provider_lease_seconds(lease_seconds)
         cursor = self._connection.execute(
             """UPDATE provider_request_records
-               SET updated_at=MAX(updated_at, ?)
+               SET updated_at=?
                WHERE principal_ai_id=? AND request_id=? AND request_digest=?
                  AND status='PROCESSING' AND attempt_generation=?
-                 AND updated_at>?""",
+                 AND updated_at>? AND updated_at<?""",
             (now, principal_ai_id, request_id, request_digest, attempt_generation,
-             float(now) - float(lease_seconds)))
+             float(now) - float(lease_seconds), now))
         self._connection.commit()
         return cursor.rowcount == 1
 
@@ -664,6 +664,9 @@ class SQLiteMessengerStore:
             if row["status"] != "PROCESSING" or int(row["attempt_generation"]) != int(attempt_generation):
                 self._connection.rollback()
                 raise ValueError("provider_request_attempt_fenced")
+            if float(now) < float(row["updated_at"]):
+                self._connection.rollback()
+                raise ValueError("provider_clock_regression")
             if float(row["updated_at"]) <= float(now) - float(lease_seconds):
                 self._connection.rollback()
                 raise ValueError("provider_request_lease_expired")
@@ -684,11 +687,11 @@ class SQLiteMessengerStore:
                    SET status='COMPLETED',response_text=?,provider_id=?,model=?,
                        attestation_json=?,message_id=?,updated_at=?,error_code=NULL
                    WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING' AND attempt_generation=?
-                     AND updated_at>?""",
+                     AND updated_at>? AND updated_at<=?""",
                 (message.body, provider_id, model,
                  json.dumps(attestation, separators=(",", ":")),
                  message.message_id, now, principal_ai_id, request_id, attempt_generation,
-                 float(now) - float(lease_seconds)))
+                 float(now) - float(lease_seconds), now))
             if self._connection.execute("SELECT changes()").fetchone()[0] != 1:
                 self._connection.rollback()
                 raise ValueError("provider_request_lease_expired")
@@ -703,7 +706,9 @@ class SQLiteMessengerStore:
 
     def complete_provider_request(self, principal_ai_id, request_id, request_digest,
                                   response_text, provider_id, model, attestation,
-                                  message_id, now, attempt_generation=1):
+                                  message_id, now, attempt_generation=1, lease_seconds=360.0):
+        _validate_provider_timestamp(now)
+        _validate_provider_lease_seconds(lease_seconds)
         self._connection.execute("BEGIN IMMEDIATE")
         try:
             row = self._connection.execute(
@@ -718,13 +723,24 @@ class SQLiteMessengerStore:
             if row["status"] != "PROCESSING" or int(row["attempt_generation"]) != int(attempt_generation):
                 self._connection.rollback()
                 raise ValueError("provider_request_attempt_fenced")
-            self._connection.execute(
+            if float(now) < float(row["updated_at"]):
+                self._connection.rollback()
+                raise ValueError("provider_clock_regression")
+            if float(row["updated_at"]) <= float(now) - float(lease_seconds):
+                self._connection.rollback()
+                raise ValueError("provider_request_lease_expired")
+            cursor = self._connection.execute(
                 """UPDATE provider_request_records
                    SET status='COMPLETED',response_text=?,provider_id=?,model=?,
                        attestation_json=?,message_id=?,updated_at=?,error_code=NULL
-                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING' AND attempt_generation=?""",
+                   WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING'
+                     AND attempt_generation=? AND updated_at>? AND updated_at<=?""",
                 (response_text,provider_id,model,json.dumps(attestation,separators=(",",":")),
-                 message_id,now,principal_ai_id,request_id,attempt_generation))
+                 message_id,now,principal_ai_id,request_id,attempt_generation,
+                 float(now) - float(lease_seconds), now))
+            if cursor.rowcount != 1:
+                self._connection.rollback()
+                raise ValueError("provider_request_lease_expired")
             row = self._connection.execute(
                 "SELECT * FROM provider_request_records WHERE principal_ai_id=? AND request_id=?",
                 (principal_ai_id, request_id)).fetchone()
@@ -736,6 +752,7 @@ class SQLiteMessengerStore:
 
     def fail_provider_request(self, principal_ai_id, request_id, request_digest,
                                error_code, now, attempt_generation=1):
+        _validate_provider_timestamp(now)
         self._connection.execute("BEGIN IMMEDIATE")
         try:
             row = self._connection.execute(
@@ -749,7 +766,7 @@ class SQLiteMessengerStore:
                 return False
             self._connection.execute(
                 """UPDATE provider_request_records
-                   SET status='FAILED',error_code=?,updated_at=?
+                   SET status='FAILED',error_code=?,updated_at=MAX(updated_at,?)
                    WHERE principal_ai_id=? AND request_id=? AND status='PROCESSING' AND attempt_generation=?""",
                 (error_code,now,principal_ai_id,request_id,attempt_generation))
             self._connection.commit()

@@ -54,6 +54,86 @@ class ProviderRequestStoreTests(unittest.TestCase):
             "SELECT body FROM messages WHERE message_id='msg-atomic'").fetchone()["body"], "already there")
         self.assertEqual(store.get_provider_request("AI-01", "req-atomic")["status"], "PROCESSING")
 
+    def test_lease_renewal_rejects_clock_regression_and_requires_forward_progress(self):
+        store = SQLiteMessengerStore(":memory:")
+        store.claim_provider_request(
+            "AI-01", "clock-renew", "digest", "room", "AI-01", 100.0, lease_seconds=30.0)
+        self.assertFalse(store.renew_provider_request_lease(
+            "AI-01", "clock-renew", "digest", 1, 90.0, lease_seconds=30.0))
+        self.assertEqual(
+            store.get_provider_request("AI-01", "clock-renew")["updated_at"], 100.0)
+        self.assertFalse(store.renew_provider_request_lease(
+            "AI-01", "clock-renew", "digest", 1, 100.0, lease_seconds=30.0))
+        self.assertTrue(store.renew_provider_request_lease(
+            "AI-01", "clock-renew", "digest", 1, 101.0, lease_seconds=30.0))
+        self.assertEqual(
+            store.get_provider_request("AI-01", "clock-renew")["updated_at"], 101.0)
+        store.close()
+
+    def test_failure_transition_validates_timestamp_and_never_moves_clock_backwards(self):
+        store = SQLiteMessengerStore(":memory:")
+        store.claim_provider_request(
+            "AI-01", "clock-fail", "digest", "room", "AI-01", 100.0)
+        with self.assertRaisesRegex(ValueError, "invalid_provider_timestamp"):
+            store.fail_provider_request(
+                "AI-01", "clock-fail", "digest", "bad_time", float("nan"))
+        self.assertEqual(
+            store.get_provider_request("AI-01", "clock-fail")["status"], "PROCESSING")
+        self.assertTrue(store.fail_provider_request(
+            "AI-01", "clock-fail", "digest", "clock_rollback", 90.0))
+        row = store.get_provider_request("AI-01", "clock-fail")
+        self.assertEqual(row["status"], "FAILED")
+        self.assertEqual(row["updated_at"], 100.0)
+        retried, outcome = store.claim_provider_request(
+            "AI-01", "clock-fail", "digest", "room", "AI-01", 101.0)
+        self.assertEqual(outcome, "claimed")
+        self.assertEqual(retried["updated_at"], 101.0)
+        store.close()
+
+    def test_atomic_completion_rejects_clock_regression_without_persisting(self):
+        store = SQLiteMessengerStore(":memory:")
+        store.claim_provider_request(
+            "AI-01", "clock-complete", "digest", "room", "AI-01", 100.0)
+        message = type("Message", (), {
+            "message_id": "msg-clock-regression",
+            "conversation_id": "room",
+            "sender_ai_id": "AI-01",
+            "recipient_ai_ids": ("AI-02",),
+            "body": "must not persist",
+            "client_request_id": "provider-host:clock-complete",
+            "sequence": 1,
+            "kind": "NORMAL",
+            "created_at_epoch_seconds": 99.0,
+        })()
+        with self.assertRaisesRegex(ValueError, "provider_clock_regression"):
+            store.save_provider_message_and_complete(
+                "AI-01", "clock-complete", "digest", message,
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "fake", "model", 99.0, 1)
+        self.assertEqual(
+            store.get_provider_request("AI-01", "clock-complete")["status"], "PROCESSING")
+        self.assertIsNone(store.connection.execute(
+            "SELECT message_id FROM messages WHERE message_id='msg-clock-regression'").fetchone())
+        store.close()
+
+    def test_legacy_completion_path_validates_and_fences_lease_clock(self):
+        store = SQLiteMessengerStore(":memory:")
+        store.claim_provider_request(
+            "AI-01", "legacy-clock", "digest", "room", "AI-01", 100.0, lease_seconds=30.0)
+        with self.assertRaisesRegex(ValueError, "provider_clock_regression"):
+            store.complete_provider_request(
+                "AI-01", "legacy-clock", "digest", "response", "fake", "model",
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "message-1", 99.0, lease_seconds=30.0)
+        with self.assertRaisesRegex(ValueError, "provider_request_lease_expired"):
+            store.complete_provider_request(
+                "AI-01", "legacy-clock", "digest", "response", "fake", "model",
+                {"statement": {}, "signature": "sig", "algorithm": "HMAC-SHA256"},
+                "message-1", 131.0, lease_seconds=30.0)
+        self.assertEqual(
+            store.get_provider_request("AI-01", "legacy-clock")["status"], "PROCESSING")
+        store.close()
+
     def test_provider_lease_timestamp_rejects_non_finite_and_non_numeric_values(self):
         store = SQLiteMessengerStore(":memory:")
         for value in (float("nan"), float("inf"), float("-inf"), True, "100"):
