@@ -108,10 +108,13 @@ def verify_provider_audit_remote_anchor(store, checkpoint_path, signing_key, rem
         return {"valid": False, "reason": "remote_anchor_empty"}
     try:
         _validate_record(latest)
+    except ValueError:
+        return {"valid": False, "reason": "remote_anchor_record_invalid"}
+    try:
         local = _read_checkpoint(checkpoint_path, signing_key)
         local_result = verify_provider_audit_checkpoint(store, checkpoint_path, signing_key)
     except (ValueError, OSError):
-        return {"valid": False, "reason": "local_or_remote_anchor_invalid"}
+        return {"valid": False, "reason": "local_checkpoint_invalid"}
     if not local_result["valid"]:
         return {"valid": False, "reason": "local_checkpoint_invalid"}
     if local["audit_id"] < latest["checkpoint_audit_id"]:
