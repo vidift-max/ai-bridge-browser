@@ -7,7 +7,7 @@ on:
       - feat/mission-151-lease-keeper-shutdown-fencing
   pull_request:
     branches:
-      - feat/mission-149-durable-provider-claim-fencing
+      - feat/mission-150-provider-lease-heartbeat
     paths:
       - "server/sqlite_store.py"
       - "server/messenger_backend.py"
@@ -15,7 +15,6 @@ on:
       - "server/test_provider_request_store.py"
       - "server/test_provider_host_messenger_http.py"
       - "server/provider_request_lease.py"
-      - ".github/workflows/mission-151-lease-keeper-shutdown-fencing.yml"
       - ".github/workflows/mission-151-lease-keeper-shutdown-fencing.yml"
 
 jobs:
