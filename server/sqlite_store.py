@@ -640,7 +640,7 @@ class SQLiteMessengerStore:
                  AND status='PROCESSING' AND attempt_generation=?
                  AND updated_at>? AND updated_at<?""",
             (now, principal_ai_id, request_id, request_digest, attempt_generation,
-             float(now) - float(lease_seconds), now)
+             float(now) - float(lease_seconds), now))
         self._connection.commit()
         return cursor.rowcount == 1
 
