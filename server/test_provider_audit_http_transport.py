@@ -155,7 +155,13 @@ class ProviderAuditHTTPTransportTests(unittest.TestCase):
                 "Connection: close\r\n\r\n"
             )
             connection.sendall(request.encode("ascii"))
-            response = connection.recv(4096).decode("iso-8859-1")
+            chunks = []
+            while True:
+                chunk = connection.recv(4096)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            response = b"".join(chunks).decode("iso-8859-1")
             self.assertIn(" 411 ", response.split("\r\n", 1)[0])
             self.assertIn("content_length_required", response)
         finally:
