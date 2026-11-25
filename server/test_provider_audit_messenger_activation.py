@@ -1,5 +1,6 @@
 import unittest
 
+from server.http_server import MessengerHandler
 from server.provider_audit_messenger_activation import (
     build_provider_audit_messenger_service,
 )
@@ -16,6 +17,9 @@ class FakeAnchor:
 class ProviderAuditMessengerActivationTests(unittest.TestCase):
     def test_default_is_disabled(self):
         self.assertIsNone(build_provider_audit_messenger_service())
+
+    def test_messenger_handler_route_mount_remains_disabled_by_default(self):
+        self.assertIsNone(MessengerHandler.provider_audit_service)
 
     def test_disabled_ignores_unconfigured_dependencies(self):
         self.assertIsNone(build_provider_audit_messenger_service(
