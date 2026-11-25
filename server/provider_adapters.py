@@ -7,6 +7,7 @@ import json
 import os
 import urllib.error
 import urllib.request
+from urllib.parse import quote
 
 
 class _JsonTextAdapter:
@@ -84,9 +85,9 @@ class GeminiTextAdapter(_JsonTextAdapter):
             raise ValueError("invalid_prompt")
         return self._post(
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            + self.model + ":generateContent?key=" + self.api_key,
+            + quote(self.model, safe="") + ":generateContent",
             {"contents": [{"parts": [{"text": prompt.strip()}]}]},
-            {})
+            {"x-goog-api-key": self.api_key})
 
     def _extract_text(self, data):
         candidates = data.get("candidates", [])
