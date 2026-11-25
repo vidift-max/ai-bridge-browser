@@ -210,6 +210,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
             "ai-agent-adapter.js",
             "ai-conversation-runtime.js",
             "ai-conversation-panel.js",
+            "ai-conversation-host-client.js",
         }
         if filename not in allowed:
             self._json(404, {"error": "ai_conversation_script_not_found"})
