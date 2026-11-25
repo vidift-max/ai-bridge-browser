@@ -493,11 +493,12 @@ class MessengerBackend:
     @_synchronized
     def save_provider_message_and_complete(self, bearer_token: str, request_id: str,
                                            request_digest: str, message: Message,
-                                           attestation: dict, provider_id: str, model: str, attempt_generation: int = 1):
+                                           attestation: dict, provider_id: str, model: str, attempt_generation: int = 1,
+                                           lease_seconds: float = 360.0):
         principal = self.authenticate(bearer_token)
         result, created = self._store.save_provider_message_and_complete(
             principal, request_id, request_digest, message, attestation,
-            provider_id, model, time.time(), attempt_generation)
+            provider_id, model, time.time(), attempt_generation, lease_seconds)
         if created:
             self._messages[message.message_id] = message
             self._idempotency[(message.sender_ai_id, message.client_request_id)] = message.message_id

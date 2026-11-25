@@ -379,6 +379,25 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertEqual(second["error"], "provider_request_payload_conflict")
         self.assertEqual(len(self.provider.calls), 1)
 
+    def test_expired_completion_lease_returns_conflict_and_does_not_publish(self):
+        original_save = self.backend.save_provider_message_and_complete
+
+        def reject_expired_lease(*_args, **_kwargs):
+            raise ValueError("provider_request_lease_expired")
+
+        self.backend.save_provider_message_and_complete = reject_expired_lease
+        try:
+            status, data = self.request(
+                "user-token", self.payload(requestId="provider-req-expired-completion"))
+        finally:
+            self.backend.save_provider_message_and_complete = original_save
+        self.assertEqual(status, 409)
+        self.assertEqual(data["error"], "provider_request_lease_expired")
+        self.assertEqual(self.backend.history("peer-token", "private-room"), [])
+        record = self.store.get_provider_request("AI-USER", "provider-req-expired-completion")
+        self.assertEqual(record["status"], "FAILED")
+        self.assertEqual(record["error_code"], "provider_request_lease_expired")
+
     def test_provider_error_does_not_create_room_message(self):
         self.provider.respond = lambda _prompt: (_ for _ in ()).throw(
             RuntimeError("simulated_provider_failure"))

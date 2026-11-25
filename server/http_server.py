@@ -1046,7 +1046,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     raise ProviderHostError("provider_request_lease_lost", 409)
                 self.backend.save_provider_message_and_complete(
                     self._auth(), request_id, request_digest, message,
-                    attestation, statement["providerId"], statement["model"], attempt_generation)
+                    attestation, statement["providerId"], statement["model"],
+                    attempt_generation, lease_seconds=360.0)
                 request_claimed = False
                 self._audit(identity, "AI_PROVIDER_RESPONSE_PERSISTED",
                             message.message_id, provider=result["attestation"]["statement"]["providerId"],
@@ -1076,7 +1077,18 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     self.backend.fail_provider_request(self._auth(), request_id, request_digest, str(exc), attempt_generation)
                 self._json(401 if str(exc) == "authentication_required" else 403,
                            self._permission_error(exc))
-            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            except ValueError as exc:
+                if request_claimed and request_id and request_digest:
+                    failure_code = ("provider_request_lease_expired"
+                                    if str(exc) == "provider_request_lease_expired"
+                                    else "invalid_provider_request")
+                    self.backend.fail_provider_request(
+                        self._auth(), request_id, request_digest, failure_code, attempt_generation)
+                if str(exc) == "provider_request_lease_expired":
+                    self._json(409, {"error": "provider_request_lease_expired"})
+                else:
+                    self._json(400, {"error": "invalid_provider_request"})
+            except (KeyError, TypeError, json.JSONDecodeError):
                 if request_claimed and request_id and request_digest:
                     self.backend.fail_provider_request(self._auth(), request_id, request_digest, "invalid_provider_request", attempt_generation)
                 self._json(400, {"error": "invalid_provider_request"})
