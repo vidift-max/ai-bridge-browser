@@ -41,6 +41,7 @@ public final class MainActivity extends Activity {
     private static final String STATE_ACTIVE = "active_tab";
     private static final String STATE_PAUSED = "automation_paused";
     private static final String PREFS = "ai_bridge_tabs_v1";
+    private static final String PREF_COLLECTIVE_ROOMS_URL = "collective_rooms_url";
     private static final String LIFECYCLE_STATE = "lifecycle_state";
     private static final String LIFECYCLE_RUNNING = "RUNNING";
     private static final String LIFECYCLE_PAUSED = "PAUSED";
@@ -169,6 +170,16 @@ public final class MainActivity extends Activity {
         controls.addView(center);
         center.setOnClickListener(v -> toggleControlCenter());
 
+        Button collectiveRoom = new Button(this);
+        collectiveRoom.setText("Sala coletiva");
+        collectiveRoom.setContentDescription("Abrir a conversa coletiva na aba atual");
+        controls.addView(collectiveRoom);
+        collectiveRoom.setOnClickListener(v -> openCollectiveRoom());
+        collectiveRoom.setOnLongClickListener(v -> {
+            promptCollectiveRoomUrl(prefs.getString(PREF_COLLECTIVE_ROOMS_URL, ""));
+            return true;
+        });
+
         Button add = new Button(this);
         add.setText("+");
         add.setContentDescription("Nova aba");
@@ -278,6 +289,50 @@ public final class MainActivity extends Activity {
         note.setPadding(0, dp(6), 0, 0);
         controlCenterView.addView(note);
         renderControlCenter();
+    }
+
+    private void openCollectiveRoom() {
+        String configured = prefs.getString(PREF_COLLECTIVE_ROOMS_URL, "");
+        String validated = CollectiveRoomBrowserRoute.validate(configured);
+        if (validated == null) {
+            promptCollectiveRoomUrl(configured);
+            return;
+        }
+        WebView current = currentWebView();
+        if (current == null) {
+            Toast.makeText(this, "Abra uma aba antes de acessar a sala.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (showingControlCenter) {
+            showingControlCenter = false;
+            controlCenterView.setVisibility(View.GONE);
+            frameHost.setVisibility(View.VISIBLE);
+        }
+        current.loadUrl(validated);
+        addressBar.setText(validated);
+        audioStatus.setText("Sala coletiva solicitada na aba atual. A comunicação depende do serviço remoto configurado.");
+    }
+
+    private void promptCollectiveRoomUrl(String initialValue) {
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setHint("https://seu-dominio/rooms.html");
+        input.setText(initialValue == null ? "" : initialValue);
+        new AlertDialog.Builder(this)
+                .setTitle("Endereço da sala coletiva")
+                .setMessage("Informe a URL HTTPS da página Rooms já hospedada. Ela será aberta na aba atual, sem criar outra aba.")
+                .setView(input)
+                .setPositiveButton("Salvar e abrir", (dialog, which) -> {
+                    String validated = CollectiveRoomBrowserRoute.validate(input.getText().toString());
+                    if (validated == null) {
+                        Toast.makeText(this, "Use uma URL HTTPS terminada em /rooms ou /rooms.html, sem parâmetros.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    prefs.edit().putString(PREF_COLLECTIVE_ROOMS_URL, validated).apply();
+                    openCollectiveRoom();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     private void toggleControlCenter() {
