@@ -556,7 +556,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     return
                 self._audit(identity, "AGENT_PROVIDER_READINESS_READ", principal.ai_id)
                 self._json(200, {
-                    "assignments": router.readiness(sorted(set(self.backend._tokens.values()))),
+                    "assignments": router.readiness(sorted(set(RuntimeConfig.auth_tokens().values()))),
                     "correlationId": identity.correlation_id,
                 })
             except RateLimitExceeded:
