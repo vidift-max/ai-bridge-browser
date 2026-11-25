@@ -89,17 +89,19 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
             "provider_claim", "provider_verified", "status", "created_at",
             "decided_at", "decided_by_ai_id",
         }
-    if version_row[0] in ("9", "10"):
+    if version_row[0] in ("9", "10", "11"):
         required_columns["guest_applications"].update({
             "provisioning_status", "provisioned_ai_id", "provisioned_at",
         })
         required_columns["credential_records"] = {
             "token_hash", "ai_id", "status", "expires_at", "generation", "created_at",
         }
-    if version_row[0] == "10":
+    if version_row[0] in ("10", "11"):
         required_columns["guest_applications"].update({
             "status_capability_hash", "status_capability_expires_at",
         })
+    if version_row[0] == "11":
+        required_columns["guest_applications"].add("status_capability_revoked_at")
     for table, expected in required_columns.items():
         rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
         if not expected.issubset({row[1] for row in rows}):
