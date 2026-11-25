@@ -16,6 +16,21 @@ class Mission101FirstContactRunnerTest(unittest.TestCase):
                 runner.run_first_contact("https://stage.example", "room", a, b, request)
         request.assert_not_called()
 
+
+    def test_rejects_invalid_conversation_before_network(self):
+        request = Mock()
+        for room in ("", "  ", "x" * 201, "room\\nforged", "room\\tforged"):
+            with self.subTest(room=room), self.assertRaisesRegex(ValueError, "invalid_conversation_id"):
+                runner.run_first_contact("https://stage.example", room, "a", "b", request)
+        request.assert_not_called()
+
+    def test_rejects_whitespace_or_header_control_credentials_before_network(self):
+        request = Mock()
+        for a, b in ((" ", "b"), ("a", "  "), ("bad\\r\\ntoken", "b")):
+            with self.subTest(a=a, b=b), self.assertRaisesRegex(ValueError, "distinct_ai_credentials_required"):
+                runner.run_first_contact("https://stage.example", "room", a, b, request)
+        request.assert_not_called()
+
     def test_rejects_wrong_ai_identity_before_sending(self):
         request = Mock(return_value=(200, {"identity": {"aiId": "AI-03"}}))
         with self.assertRaisesRegex(RuntimeError, "identity_ai_01_mismatch"):
