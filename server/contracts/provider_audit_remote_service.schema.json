@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Provider Audit Remote Anchor API",
+  "version": 1,
+  "authentication": {
+    "type": "http",
+    "scheme": "bearer",
+    "credential_source": "injected token validator; credentials are not stored or provisioned here"
+  },
+  "endpoints": {
+    "getLatest": {
+      "method": "GET",
+      "path": "/v1/audit-anchor/latest",
+      "response": {
+        "type": "object",
+        "required": ["record"],
+        "properties": {
+          "record": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/anchorRecord"}]}
+        }
+      }
+    },
+    "appendCheckpoint": {
+      "method": "POST",
+      "path": "/v1/audit-anchor/checkpoints",
+      "contentType": "application/json",
+      "maxBodyBytes": 8192,
+      "request": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_sequence", "record"],
+        "properties": {
+          "expected_sequence": {"type": "integer", "minimum": 0},
+          "record": {"$ref": "#/$defs/anchorRecord"}
+        }
+      },
+      "responses": {
+        "201": "checkpoint appended",
+        "200": "exact retry of current latest checkpoint",
+        "400": "invalid request or record",
+        "401": "missing or invalid bearer credential",
+        "403": "authenticated principal not authorized",
+        "409": "sequence or chain conflict",
+        "413": "body exceeds configured limit",
+        "415": "JSON content type required",
+        "429": "per-principal rate limit exceeded",
+        "503": "anchor storage unavailable"
+      }
+    }
+  },
+  "$defs": {
+    "anchorRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sequence", "previous_digest", "checkpoint_audit_id", "checkpoint_event_hash", "checkpoint_created_at", "checkpoint_signature", "record_digest"],
+      "properties": {
+        "version": {"const": 1},
+        "sequence": {"type": "integer", "minimum": 1},
+        "previous_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "checkpoint_audit_id": {"type": "integer", "minimum": 0},
+        "checkpoint_event_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "checkpoint_created_at": {"type": "number"},
+        "checkpoint_signature": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "record_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
