@@ -1,0 +1,28 @@
+name: Mission 159 Provider Lease Audit Trail CI
+
+on:
+  push:
+    branches:
+      - feat/mission-159-provider-lease-audit-trail
+  pull_request:
+    branches:
+      - feat/mission-158-repeated-crash-recovery
+    paths:
+      - "server/sqlite_store.py"
+      - "server/test_provider_lease_audit_trail.py"
+      - "server/test_provider_request_store.py"
+      - "server/test_provider_host_messenger_http.py"
+      - ".github/workflows/mission-159-provider-lease-audit-trail.yml"
+      - "docs/MISSION_159_PROVIDER_LEASE_AUDIT_TRAIL.md"
+
+jobs:
+  provider-lease-audit-trail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_provider_lease_audit_trail server.test_provider_request_store server.test_provider_host_messenger_http server.test_provider_lease_multiprocess_recovery
