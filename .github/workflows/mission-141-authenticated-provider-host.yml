@@ -19,4 +19,4 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m unittest server.test_ai_provider_host
+      - run: python -m unittest server.test_ai_provider_host server.test_provider_registry server.test_openai_text_adapter
