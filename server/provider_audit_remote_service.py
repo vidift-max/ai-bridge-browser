@@ -94,7 +94,10 @@ class ProviderAuditRemoteService:
         if method == "GET" and path == "/v1/audit-anchor/latest":
             if body:
                 return 400, {"error": "unexpected_request_body"}
-            return 200, {"record": self.anchor.read_latest()}
+            try:
+                return 200, {"record": self.anchor.read_latest()}
+            except Exception:
+                return 503, {"error": "anchor_unavailable"}
         if method != "POST" or path != "/v1/audit-anchor/checkpoints":
             return 405, {"error": "method_not_allowed"}
         if headers.get("Content-Type", "").split(";", 1)[0].lower() != "application/json":
