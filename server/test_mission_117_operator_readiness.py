@@ -76,10 +76,5 @@ class Mission117OperatorReadinessTest(unittest.TestCase):
         env["MESSENGER_FIRST_CONTACT_EXECUTE"] = "true"
         self.assertIn("execution_authorization_must_remain_unset", audit_environment(env))
 
-    def test_unreadable_blueprint_is_reported_without_network(self):
-        result = audit("/missing/path/render.staging.yaml", ENV.copy()) if False else None
-        self.assertIsNone(result)
-
-
 if __name__ == "__main__":
     unittest.main()
