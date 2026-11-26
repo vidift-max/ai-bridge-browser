@@ -16,7 +16,7 @@ MANIFEST_KEYS = {
     "packageName", "versionCode", "versionName", "apkAssetName", "sha256", "notes"
 }
 PACKAGE_LINE = re.compile(
-    r"^package:\\s+name='([^']+)'\\s+versionCode='([0-9]+)'\\s+versionName='([^']*)'",
+    r"^package:\s+name='([^']+)'\s+versionCode='([0-9]+)'\s+versionName='([^']*)'",
     re.MULTILINE,
 )
 SHA256 = re.compile(r"[a-f0-9]{64}")
@@ -58,7 +58,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         raise ValueError("unexpected_application_id")
     if manifest["apkAssetName"] != EXPECTED_APK_ASSET:
         raise ValueError("unexpected_apk_asset_name")
-    if not isinstance(manifest["versionCode"], int) or manifest["versionCode"] < 1:
+    if type(manifest["versionCode"]) is not int or manifest["versionCode"] < 1:
         raise ValueError("invalid_android_version_code")
     if not isinstance(manifest["versionName"], str) or not manifest["versionName"].strip():
         raise ValueError("invalid_android_version_name")
@@ -71,12 +71,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
 def write_manifest(output_path: str | Path, manifest: dict[str, Any]) -> None:
     validate_manifest(manifest)
     output = Path(output_path)
-    output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\\n",
+    output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
                       encoding="utf-8")
     raw = output.read_text(encoding="utf-8")
     parsed = json.loads(raw)
     validate_manifest(parsed)
-    if parsed != manifest or not raw.endswith("\\n"):
+    if parsed != manifest or not raw.endswith("\n"):
         raise ValueError("update_manifest_roundtrip_validation_failed")
 
 
