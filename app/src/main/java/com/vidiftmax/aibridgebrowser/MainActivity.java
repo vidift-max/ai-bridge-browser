@@ -220,7 +220,6 @@ public final class MainActivity extends Activity {
         aiConversationButton.setContentDescription("Abrir preparação e iniciar primeiro contato entre AI-01 e AI-02");
         aiConversationButton.setEnabled(true);
         aiConversationButton.setVisibility(View.VISIBLE);
-        controls.addView(aiConversationButton);
         aiConversationButton.setOnClickListener(v -> startAiConversationDialog());
 
         Button collectiveRoom = new Button(this);
@@ -264,7 +263,7 @@ public final class MainActivity extends Activity {
         pauseButton.setOnClickListener(v -> setAutomationPaused(!automationPaused));
 
         audioStatus = new TextView(this);
-        audioStatus.setText("Central de áudio: ainda sem captura ou retransmissão.");
+        audioStatus.setText("Primeiro contato AI-01 ↔ AI-02: botão disponível; aguardando preparação das duas contas.");
         audioStatus.setTextSize(12);
         audioStatus.setPadding(dp(10), dp(10), dp(10), dp(10));
         audioStatus.setGravity(Gravity.CENTER);
@@ -272,6 +271,7 @@ public final class MainActivity extends Activity {
 
         root.addView(controls);
         root.addView(tabScroller);
+        root.addView(aiConversationButton, new LinearLayout.LayoutParams(\n                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(frameHost, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         buildControlCenterView();
