@@ -17,6 +17,7 @@ on:
       - "feat/mission-201-updater-progress"
       - "feat/mission-202-updater-state-guard"
       - "feat/mission-203-updater-lifecycle"
+      - "feat/mission-204-atomic-apk-download"
   pull_request:
     branches:
       - "feat/mission-90-staging-invite-activation"
@@ -35,6 +36,7 @@ on:
       - "feat/mission-199-in-app-updates"
       - "feat/mission-201-updater-progress"
       - "feat/mission-202-updater-state-guard"
+      - "feat/mission-203-updater-lifecycle"
   workflow_dispatch:
 
 permissions:
