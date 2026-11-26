@@ -154,19 +154,14 @@ public final class UpdateCenterActivity extends Activity {
                 String hash = manifest.getString("sha256").toLowerCase(Locale.ROOT);
                 String notes = manifest.optString("notes", release.optString("body", "Atualização oficial."));
                 JSONObject apkAsset = findAsset(assets, apkName);
-                if (!PACKAGE_NAME.equals(packageName) || !APK_ASSET.equals(apkName)) {
-                    throw new IllegalStateException("O manifesto não corresponde a este aplicativo.");
-                }
-                if (!hash.matches("[a-f0-9]{64}")) {
-                    throw new IllegalStateException("Hash SHA-256 ausente ou inválido.");
-                }
                 if (apkAsset == null) throw new IllegalStateException("APK oficial não encontrado na publicação.");
                 String apkUrl = apkAsset.getString("browser_download_url");
-                if (!apkUrl.startsWith("https://github.com/vidift-max/ai-bridge-browser/releases/download/")) {
-                    throw new IllegalStateException("Origem do APK não permitida.");
-                }
                 long localCode = getPackageManager().getPackageInfo(getPackageName(), 0)
                         .getLongVersionCode();
+                if (!UpdateManifestPolicy.isEligible(remoteCode, localCode, packageName,
+                        PACKAGE_NAME, apkName, APK_ASSET, hash, apkUrl)) {
+                    throw new SecurityException("Manifesto inválido, versão não superior ou origem não permitida.");
+                }
                 if (remoteCode <= localCode) {
                     main.post(() -> {
                         setBusy(false, "Você já está usando a versão mais recente (" + installedVersion() + ").");
