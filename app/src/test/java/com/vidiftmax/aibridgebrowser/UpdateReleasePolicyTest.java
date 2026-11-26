@@ -31,6 +31,15 @@ public class UpdateReleasePolicyTest {
         assertFalse(UpdateReleasePolicy.isStableRelease(null));
     }
 
+    @Test public void rejectsCoercedReleaseFlagsAndTagTypes() throws Exception {
+        assertFalse(UpdateReleasePolicy.isStableRelease(
+                release().put("draft", "false")));
+        assertFalse(UpdateReleasePolicy.isStableRelease(
+                release().put("prerelease", 0)));
+        assertFalse(UpdateReleasePolicy.isStableRelease(
+                release().put("tag_name", 123)));
+    }
+
     @Test public void returnsUniqueUploadedManifestAndApkBoundToReleaseTag() throws Exception {
         JSONArray assets = new JSONArray()
                 .put(asset("ai-bridge-update.json", MANIFEST))
@@ -70,6 +79,18 @@ public class UpdateReleasePolicyTest {
         assertNull(UpdateReleasePolicy.findUniqueAssetUrl(
                 new JSONArray().put(asset("app-release.apk", APK)),
                 "app-release.apk", "../v1.2.3"));
+    }
+
+    @Test public void rejectsCoercedAssetMetadataTypes() throws Exception {
+        JSONObject badState = asset("app-release.apk", APK).put("state", true);
+        JSONObject badName = asset("app-release.apk", APK).put("name", 42);
+        JSONObject badUrl = asset("app-release.apk", APK).put("browser_download_url", 42);
+        assertNull(UpdateReleasePolicy.findUniqueAssetUrl(
+                new JSONArray().put(badState), "app-release.apk", TAG));
+        assertNull(UpdateReleasePolicy.findUniqueAssetUrl(
+                new JSONArray().put(badName), "app-release.apk", TAG));
+        assertNull(UpdateReleasePolicy.findUniqueAssetUrl(
+                new JSONArray().put(badUrl), "app-release.apk", TAG));
     }
 
     @Test public void rejectsMalformedAssetEntries() throws Exception {
