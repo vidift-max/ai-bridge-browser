@@ -864,8 +864,9 @@ public final class MainActivity extends Activity {
         if (panelCount == 0) {
             for (int i = 0; i < Math.min(tabs.size(), CURRENT_MISSION_AI_LIMIT); i++) {
                 Tab tab = tabs.get(i);
-                controlCenter.register("AI-" + String.format(Locale.ROOT, "%02d", i + 1),
-                        tab.tabId, tab.profileId);
+                if (SessionIsolationPolicy.canAssignAccount(tab.sessionIsolationSupported)) {
+                    controlCenter.register(nextAiId(), tab.tabId, tab.profileId);
+                }
             }
         }
         for (int i = 0; i < panelCount; i++) {
@@ -877,7 +878,9 @@ public final class MainActivity extends Activity {
             if (!AiAccountCapacityPolicy.isCurrentMissionAccountId(aiId)) continue;
             boolean matchingTab = false;
             for (Tab restoredTab : tabs) {
-                if (restoredTab.tabId.equals(tabId) && restoredTab.profileId.equals(profileId)) {
+                if (SessionIsolationPolicy.canAssignAccount(restoredTab.sessionIsolationSupported)
+                        && restoredTab.tabId.equals(tabId)
+                        && restoredTab.profileId.equals(profileId)) {
                     matchingTab = true;
                     break;
                 }
