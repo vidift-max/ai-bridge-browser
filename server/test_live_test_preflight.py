@@ -60,5 +60,22 @@ class LiveTestPreflightTest(unittest.TestCase):
         self.assertFalse(next(x for x in result["checks"] if x["id"] == "host_hmac_key")["ok"])
 
 
+
+    def test_same_provider_for_both_ai_ids_is_blocked(self):
+        result = build_preflight(self.env(
+            MESSENGER_AI_PROVIDER_MAP=json.dumps({
+                "AI-USER": "openai", "AI-PEER": "openai"})))
+        self.assertEqual(result["state"], "BLOCKED")
+        check = next(x for x in result["checks"] if x["id"] == "independent_providers")
+        self.assertFalse(check["ok"])
+
+    def test_extra_provider_assignment_is_blocked_for_first_two_ai_test(self):
+        result = build_preflight(self.env(
+            MESSENGER_AI_PROVIDER_MAP=json.dumps({
+                "AI-USER": "openai", "AI-PEER": "anthropic", "AI-EXTRA": "google_gemini"})))
+        self.assertEqual(result["state"], "BLOCKED")
+        check = next(x for x in result["checks"] if x["id"] == "two_ai_assignments")
+        self.assertFalse(check["ok"])
+
 if __name__ == "__main__":
     unittest.main()
