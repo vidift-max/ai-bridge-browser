@@ -143,6 +143,15 @@ public final class HomeActivity extends Activity {
         page.addView(browser, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        Button updates = new Button(this);
+        updates.setText("Atualizações do aplicativo");
+        updates.setAllCaps(false);
+        updates.setMinHeight(dp(52));
+        updates.setOnClickListener(v -> startActivity(
+                new Intent(this, UpdateCenterActivity.class)));
+        page.addView(updates, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         TextView foot = label("Versão experimental · serviços de mensagens, presença e chamadas ainda não conectados.", 12, MUTED, false);
         foot.setPadding(0, dp(16), 0, 0);
         page.addView(foot);
