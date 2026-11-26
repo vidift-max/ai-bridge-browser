@@ -17,6 +17,10 @@ REQUIRED_ENV = (
     "MESSENGER_ALLOW_EPHEMERAL_STAGING",
     "MESSENGER_STORAGE_MODE",
     "MESSENGER_DB_PATH",
+    "MESSENGER_AI_PROVIDER_MAP",
+    "AI_PROVIDER_HOST_HMAC_KEY_HEX",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
 )
 
 
@@ -31,8 +35,11 @@ def audit_blueprint(source: str) -> list[str]:
         ("memory_database", r"value:\s*':memory:'"),
         ("staging_environment", r"value:\s*staging(?:\s|$)"),
         ("ephemeral_opt_in", r"value:\s*'true'"),
-        ("ai01_identity", r"value:\s*AI-01(?:\s|$)"),
-        ("ai02_identity", r"value:\s*AI-02(?:\s|$)"),
+        ("ai_user_identity", r"value:\s*AI-USER(?:\s|$)"),
+        ("ai_peer_identity", r"value:\s*AI-PEER(?:\s|$)"),
+        ("provider_assignment", r"""value:\s*'\{\"AI-USER\":\"openai\",\"AI-PEER\":\"anthropic\"\}'"""),
+        ("provider_calls_default_off_openai", r"""key:\s*OPENAI_API_CALLS_ENABLED\s*\n\s*value:\s*'false'"""),
+        ("provider_calls_default_off_anthropic", r"""key:\s*ANTHROPIC_API_CALLS_ENABLED\s*\n\s*value:\s*'false'"""),
         ("health_check", r"healthCheckPath:\s*/healthz(?:\s|$)"),
     )
     for name, pattern in checks:
@@ -43,7 +50,8 @@ def audit_blueprint(source: str) -> list[str]:
     if re.search(r"(?im)^\s*mountPath:", source):
         failures.append("persistent_mount_absent")
     lines = source.splitlines()
-    for key in ("MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B"):
+    for key in ("MESSENGER_TOKEN_AI_A", "MESSENGER_TOKEN_AI_B",
+                "AI_PROVIDER_HOST_HMAC_KEY_HEX", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
         start = next((index for index, line in enumerate(lines)
                       if re.match(rf"\s*- key:\s*{key}\s*$", line)), None)
         if start is None:
@@ -63,8 +71,8 @@ def audit_environment(env: dict[str, str]) -> list[str]:
         if not env.get(key, "").strip():
             failures.append("missing_" + key.lower())
     expected = {
-        "MESSENGER_AI_ID_A": "AI-01",
-        "MESSENGER_AI_ID_B": "AI-02",
+        "MESSENGER_AI_ID_A": "AI-USER",
+        "MESSENGER_AI_ID_B": "AI-PEER",
         "MESSENGER_ENVIRONMENT": "staging",
         "MESSENGER_ALLOW_EPHEMERAL_STAGING": "true",
         "MESSENGER_STORAGE_MODE": "ephemeral",
@@ -73,6 +81,21 @@ def audit_environment(env: dict[str, str]) -> list[str]:
     for key, value in expected.items():
         if env.get(key) != value:
             failures.append("invalid_" + key.lower())
+    try:
+        provider_map = json.loads(env.get("MESSENGER_AI_PROVIDER_MAP", ""))
+    except (TypeError, ValueError):
+        provider_map = None
+    if provider_map != {"AI-USER": "openai", "AI-PEER": "anthropic"}:
+        failures.append("invalid_messenger_ai_provider_map")
+    host_key = env.get("AI_PROVIDER_HOST_HMAC_KEY_HEX", "")
+    if len(host_key) != 64 or any(char not in "0123456789abcdefABCDEF" for char in host_key):
+        failures.append("invalid_ai_provider_host_hmac_key")
+    for key in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
+        if not env.get(key, "").strip():
+            failures.append("missing_" + key.lower())
+    for key in ("OPENAI_API_CALLS_ENABLED", "ANTHROPIC_API_CALLS_ENABLED"):
+        if env.get(key, "false") != "false":
+            failures.append("provider_calls_must_remain_disabled_until_authorized")
     token_a, token_b = env.get("MESSENGER_TOKEN_AI_A", ""), env.get("MESSENGER_TOKEN_AI_B", "")
     if token_a and token_b and token_a == token_b:
         failures.append("credentials_must_be_distinct")
