@@ -93,6 +93,22 @@ public class UpdateReleasePolicyTest {
                 new JSONArray().put(badUrl), "app-release.apk", TAG));
     }
 
+    @Test public void exposesValidatedAssetSizeAlongsideOfficialUrl() throws Exception {
+        JSONArray assets = new JSONArray().put(asset("app-release.apk", APK).put("size", 5678));
+        UpdateReleasePolicy.AssetMetadata metadata =
+                UpdateReleasePolicy.findUniqueAsset(assets, "app-release.apk", TAG);
+        assertNotNull(metadata);
+        assertEquals(APK, metadata.url);
+        assertEquals(5678L, metadata.sizeBytes);
+    }
+
+    @Test public void rejectsInvalidSizeWhenReadingAssetMetadata() throws Exception {
+        JSONArray zero = new JSONArray().put(asset("app-release.apk", APK).put("size", 0));
+        JSONArray text = new JSONArray().put(asset("app-release.apk", APK).put("size", "5678"));
+        assertNull(UpdateReleasePolicy.findUniqueAsset(zero, "app-release.apk", TAG));
+        assertNull(UpdateReleasePolicy.findUniqueAsset(text, "app-release.apk", TAG));
+    }
+
     @Test public void rejectsMalformedAssetEntries() throws Exception {
         JSONArray assets = new JSONArray().put(JSONObject.NULL)
                 .put(new JSONObject().put("name", "app-release.apk"));
