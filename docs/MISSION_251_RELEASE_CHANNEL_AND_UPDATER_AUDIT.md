@@ -34,7 +34,7 @@ Continuar a recuperação segura do AI-PHONE após M250, verificando se já exis
 **PASS NO CÓDIGO; TESTE DE DISPOSITIVO PENDENTE.** O código usa FileProvider com URI `content://`, MIME APK e concessão de leitura; valida autoridade, caminho e flags permitidas. O Android ainda exige confirmação do usuário e permissão de instalação de fontes desconhecidas conforme configuração do aparelho. Nenhuma instalação foi solicitada.
 
 ### 09/10 — CI associado ao HEAD
-**EM ANDAMENTO NA CONSULTA.** GitHub retornou workflow Android Build #1306, run ID `45812679827`, status `in_progress`, associado ao HEAD consultado. Não registrar PASS até obter conclusão e jobs. Este run pode terminar após esta auditoria; o estado final deverá ser consultado separadamente.
+**PASS PARA O COMMIT M250; NÃO É CI DO COMMIT M251.** O run Android Build #1306, ID `45812679827`, terminou `success`: job `debug-build` passou em testes unitários, testes do gerador de manifesto e build Debug; job `release-final` foi `skipped`. O SHA efetivamente testado foi `34e1e603d15175e0c4879708a1959fd7210cecf2` (commit M250), não o novo commit documental M251 `ee0054fe3b4f3f61a5cbbc894b13d2a59c4393b8`. Portanto, não afirmar que M251 recebeu CI. Nenhum APK Release foi produzido.
 
 ### 10/10 — Decisão operacional
 **NO-GO PARA INSTALAÇÃO/ATUALIZAÇÃO; BLOCKED PARA PARIDADE COMPLETA.** Sem Release oficial, sem APK Release, sem certificado instalado vinculado de forma independente e sem origem Android que explique todas as Activities do Manifest fornecido, não há base para instalar ou atualizar in-place. A PR segue Draft e não mesclada.
