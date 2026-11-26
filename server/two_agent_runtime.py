@@ -28,6 +28,9 @@ def build_two_agent_runtime(backend, tokens, adapters, *, host_key_hex="", assig
     router = AgentProviderRouter(adapters, assignments)
     if not isinstance(host_key_hex, str) or not host_key_hex.strip():
         return TwoAgentRuntime(router=router)
+    if (len(host_key_hex) != 64
+            or any(char not in "0123456789abcdefABCDEF" for char in host_key_hex)):
+        raise RuntimeError("invalid_runtime_config:AI_PROVIDER_HOST_HMAC_KEY_HEX")
     try:
         host_key = bytes.fromhex(host_key_hex)
     except ValueError as exc:
