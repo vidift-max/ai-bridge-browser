@@ -66,6 +66,7 @@ public final class FirebaseMessengerClient {
         JSONObject invite = new JSONObject()
                 .put("conversationId", conversationId)
                 .put("createdByAiId", aiId)
+                .put("conversationKind", "GROUP")
                 .put("expiresAtEpochMs", expiresAtEpochMs);
         databaseRequest("PUT", "/messenger/invites/" + path(token), invite);
         return new JSONObject()
@@ -81,6 +82,8 @@ public final class FirebaseMessengerClient {
         JSONObject invite = databaseRequest("GET", "/messenger/invites/" + path(token), null);
         if (invite == null || !conversationId.equals(invite.optString("conversationId", "")))
             throw new IllegalArgumentException("invite_not_found");
+        if (!"GROUP".equals(invite.optString("conversationKind", "")))
+            throw new IllegalArgumentException("invite_not_group");
         if (invite.optLong("expiresAtEpochMs", 0L) <= System.currentTimeMillis())
             throw new IllegalArgumentException("invite_expired");
         databaseRequest("PUT", "/messenger/invitesByAi/" + path(aiId) + "/" + path(conversationId) + "/" + path(token), trueJson());
