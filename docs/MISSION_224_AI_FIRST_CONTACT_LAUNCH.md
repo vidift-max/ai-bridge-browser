@@ -19,7 +19,7 @@ Deixar o acesso ao primeiro contato sempre visível e acionável no AI Bridge Br
 
 ## Comportamento no aplicativo
 
-- O botão **AI ↔ AI · Começar** permanece visível e habilitado.
+- O botão **AI ↔ AI · Começar** permanece sempre visível e habilitado quando não há conversa em execução; durante os 10 turnos, fica temporariamente desabilitado para impedir duplicidade.
 - Ao tocar, o app verifica AI-01 e AI-02, abas diferentes, perfis WebView diferentes, isolamento confirmado e páginas ChatGPT prontas.
 - O DOM de cada aba precisa apresentar campo de mensagem e botão Enviar habilitado, sem geração em andamento.
 - Se alguma condição falhar, o app mostra o motivo e orienta a preparação; nenhum envio é feito.
