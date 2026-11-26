@@ -856,6 +856,15 @@ public final class MainActivity extends Activity {
             String tabId = prefs.getString(key + "tab_id", null);
             String profileId = prefs.getString(key + "profile_id", null);
             if (aiId == null || tabId == null || profileId == null) continue;
+            if (!AiAccountCapacityPolicy.isCurrentMissionAccountId(aiId)) continue;
+            boolean matchingTab = false;
+            for (Tab restoredTab : tabs) {
+                if (restoredTab.tabId.equals(tabId) && restoredTab.profileId.equals(profileId)) {
+                    matchingTab = true;
+                    break;
+                }
+            }
+            if (!matchingTab) continue;
             String tail = decodePreference(prefs.getString(key + "response_tail", ""));
             String pending = decodePreference(prefs.getString(key + "pending_message", ""));
             controlCenter.restorePanel(aiId, tabId, profileId,
