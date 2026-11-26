@@ -557,6 +557,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._audit(identity, "AGENT_PROVIDER_READINESS_READ", principal.ai_id)
                 self._json(200, {
                     "assignments": router.readiness(router.assigned_ai_ids()),
+                    "conversationHostAvailable": self.conversation_host is not None,
+                    "sessionRegistryAvailable": self.agent_session_registry is not None,
                     "correlationId": identity.correlation_id,
                 })
             except RateLimitExceeded:
