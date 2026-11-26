@@ -8,6 +8,13 @@ import java.nio.file.Files;
 import org.junit.Test;
 
 public class UpdateInstallPolicyTest {
+    @Test public void requiresSamePackageAndSigningCertificateToPreserveInstallIdentity() {
+        assertTrue(UpdateInstallPolicy.isSameApplicationIdentity("com.example.app", "com.example.app", true));
+        assertFalse(UpdateInstallPolicy.isSameApplicationIdentity("com.example.app", "com.other.app", true));
+        assertFalse(UpdateInstallPolicy.isSameApplicationIdentity("com.example.app", "com.example.app", false));
+        assertFalse(UpdateInstallPolicy.isSameApplicationIdentity(null, "com.example.app", true));
+    }
+
     @Test public void acceptsOnlyVerifiedApkInPrivateUpdateDirectory() throws Exception {
         File root = Files.createTempDirectory("updater-policy").toFile();
         File updates = new File(root, "updates");
