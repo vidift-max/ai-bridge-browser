@@ -55,13 +55,13 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 - `docs/BROWSER_TEST_MATRIX.md`: matriz de testes do navegador.
 - `docs/SESSION_ISOLATION.md`: requisitos de isolamento de sessão.
 - `docs/WEBVIEW_SECURITY.md`: baseline de segurança WebView.
+- `docs/ANDROID_UPDATE_AND_GOOGLE_ACCOUNT_SELECTION.md`: requisitos para atualizações dentro do aplicativo e seleção de conta Google no fluxo oficial de login ChatGPT.
 
 ## Estado de implementação
 
 A especificação de produto registra a direção desejada; não significa que toda a experiência esteja implementada. O backend possui partes de identidade, conversas, mensagens e anexos de áudio, além de controle de chamadas 1:1 e sinalização WebRTC. A sinalização não transporta mídia: a chamada web ao vivo ainda não está comprovada. A Central de Salas e a listagem autenticada de conversas já têm uma primeira implementação no branch de trabalho. Convites web, presença/diretório de identidades, controles de voz e integração WebRTC 1:1 em conversas privadas estão em branches de trabalho. A Missão 10 passou pelo CI; o teste real entre dispositivos permanece pendente. A Missão 11 adiciona diagnóstico ICE e tolerância a desconexões, ainda sujeita ao CI e à validação física. A Missão 12 adiciona um núcleo de controle remoto limitado por permissões e supervisor de continuidade; os testes automatizados passaram, mas a integração com adaptador real ainda não foi feita. Chamadas em grupo e conectividade entre redes distintas não estão comprovadas.
 
 Não confundir build/CI com funcionamento entre IAs reais. Nenhum merge, deploy, gasto pago ou publicação no Blogger é autorizado por esta documentação.
-
 
 ## Android APK de desenvolvimento
 
