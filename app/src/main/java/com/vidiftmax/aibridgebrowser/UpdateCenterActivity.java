@@ -211,7 +211,9 @@ public final class UpdateCenterActivity extends Activity {
                 File folder = new File(getFilesDir(), "updates");
                 if (!folder.exists() && !folder.mkdirs()) throw new IllegalStateException("Não foi possível criar a pasta de atualização.");
                 File canonicalFolder = folder.getCanonicalFile();
-                if (!canonicalFolder.isDirectory()) throw new SecurityException("Pasta privada de atualização inválida.");
+                if (!UpdateInstallPolicy.isPrivateUpdateDirectory(getFilesDir(), canonicalFolder)) {
+                    throw new SecurityException("Pasta privada interna de atualização inválida.");
+                }
                 partial = new File(canonicalFolder, APK_ASSET + ".part");
                 File apk = new File(canonicalFolder, APK_ASSET);
                 if (!partial.getCanonicalFile().getParentFile().equals(canonicalFolder) ||
@@ -271,7 +273,8 @@ public final class UpdateCenterActivity extends Activity {
         Candidate expected = candidate;
         File allowedDirectory = new File(getFilesDir(), "updates");
         try {
-            if (expected == null || apk == null || apk != downloadedApk ||
+            if (!UpdateInstallPolicy.isPrivateUpdateDirectory(getFilesDir(), allowedDirectory) ||
+                    expected == null || apk == null || apk != downloadedApk ||
                     !UpdateInstallPolicy.isExpectedVerifiedApk(apk, downloadedApk,
                             allowedDirectory, APK_ASSET, expected.apkBytes, MAX_APK_BYTES)) {
                 throw new SecurityException("O arquivo não é o APK verificado desta atualização.");
