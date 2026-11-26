@@ -13,10 +13,10 @@ from pathlib import Path
 from server.openai_text_adapter import OpenAITextAdapter
 from server.provider_registry import ProviderRegistry
 from server.gpt6_room_agent import GPT6RoomAgent
-from server.ai_provider_host import AuthenticatedProviderHost, ProviderHostError
-from server.ai_conversation_host import AgentSessionError, AgentSessionRegistry, TwoAgentConversationHost
+from server.ai_provider_host import ProviderHostError
+from server.ai_conversation_host import AgentSessionError
 from server.provider_adapters import AnthropicTextAdapter, GeminiTextAdapter
-from server.agent_provider_router import AgentProviderRouter
+from server.two_agent_runtime import build_two_agent_runtime
 
 
 def _unique_json_object(pairs):
@@ -557,6 +557,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._audit(identity, "AGENT_PROVIDER_READINESS_READ", principal.ai_id)
                 self._json(200, {
                     "assignments": router.readiness(router.assigned_ai_ids()),
+                    "conversationHostAvailable": self.conversation_host is not None,
+                    "sessionRegistryAvailable": self.agent_session_registry is not None,
                     "correlationId": identity.correlation_id,
                 })
             except RateLimitExceeded:
@@ -1664,37 +1666,15 @@ def serve(host="127.0.0.1",port=8080):
         "google_gemini": gemini_text,
     }
     MessengerHandler.provider_registry=ProviderRegistry(adapters=provider_adapters)
-    MessengerHandler.agent_provider_router=AgentProviderRouter(provider_adapters)
     MessengerHandler.gpt6_room_agent=GPT6RoomAgent(backend, MessengerHandler.openai_text)
-    MessengerHandler.provider_host = None
-    MessengerHandler.agent_session_registry = None
-    MessengerHandler.conversation_host = None
-    host_key_hex = RuntimeConfig.optional("AI_PROVIDER_HOST_HMAC_KEY_HEX", "")
-    if host_key_hex:
-        try:
-            host_key = bytes.fromhex(host_key_hex)
-        except ValueError as exc:
-            raise RuntimeError("invalid_runtime_config:AI_PROVIDER_HOST_HMAC_KEY_HEX") from exc
-        def authorize_provider_agent(principal_id, conversation_id, agent_id):
-            members = backend.conversation_members().get(conversation_id, set())
-            kinds = backend.conversation_kinds()
-            return (principal_id == agent_id and len(members) == 2
-                    and agent_id in members and kinds.get(conversation_id) == "PRIVATE")
-        def resolve_agent_provider(agent_id):
-            if agent_id not in set(tokens.values()):
-                return None
-            return MessengerHandler.agent_provider_router.resolve(agent_id)
-        MessengerHandler.provider_host = AuthenticatedProviderHost(
-            authenticate=backend.authenticate,
-            authorize_agent=authorize_provider_agent,
-            resolve_provider=resolve_agent_provider,
-            attestation_key=host_key,
-            server_identity="AI-BRIDGE-MESSENGER",
-        )
-        MessengerHandler.agent_session_registry = AgentSessionRegistry(backend)
-        MessengerHandler.conversation_host = TwoAgentConversationHost(
-            backend, MessengerHandler.provider_host,
-            MessengerHandler.agent_session_registry)
+    two_agent_runtime = build_two_agent_runtime(
+        backend, tokens, provider_adapters,
+        host_key_hex=RuntimeConfig.optional("AI_PROVIDER_HOST_HMAC_KEY_HEX", ""),
+    )
+    MessengerHandler.agent_provider_router = two_agent_runtime.router
+    MessengerHandler.provider_host = two_agent_runtime.provider_host
+    MessengerHandler.agent_session_registry = two_agent_runtime.session_registry
+    MessengerHandler.conversation_host = two_agent_runtime.conversation_host
     from server.guest_web_session import GuestWebSessionService
     MessengerHandler.guest_sessions=GuestWebSessionService(authenticator)
     server = ThreadingHTTPServer((host, port), MessengerHandler)

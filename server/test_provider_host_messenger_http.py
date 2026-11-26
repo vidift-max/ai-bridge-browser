@@ -12,6 +12,7 @@ from server.http_server import MessengerHandler
 from server.messenger_backend import MessengerBackend
 from server.rate_limit import SlidingWindowRateLimiter
 from server.sqlite_store import SQLiteMessengerStore
+from server.two_agent_runtime import build_two_agent_runtime
 
 
 class FakeProvider:
@@ -292,7 +293,7 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertFalse(mismatch["valid"])
 
 
-    def test_independent_provider_router_completes_http_round_trip_and_persists_authorship(self):
+    def test_production_runtime_factory_completes_http_round_trip_and_persists_authorship(self):
         class Adapter:
             def __init__(self, provider_id):
                 self.provider_id = provider_id
@@ -304,31 +305,18 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
                 return {"text": self.provider_id + " reply: " + prompt,
                         "providerId": self.provider_id, "model": self.provider_id + "-test"}
 
-        openai = Adapter("openai-test")
-        claude = Adapter("anthropic-test")
-        router = AgentProviderRouter(
+        openai = Adapter("openai")
+        claude = Adapter("anthropic")
+        runtime = build_two_agent_runtime(
+            self.backend, self.tokens,
             {"openai": openai, "anthropic": claude},
-            {"AI-USER": "openai", "AI-PEER": "anthropic"},
+            host_key_hex="6d" * 32,
+            assignments={"AI-USER": "openai", "AI-PEER": "anthropic"},
         )
-
-        def authorize(principal, conversation_id, agent_id):
-            members = self.backend.conversation_members().get(conversation_id, set())
-            return (principal == agent_id and len(members) == 2 and agent_id in members
-                    and self.backend.conversation_kinds().get(conversation_id) == "PRIVATE")
-
-        def resolve(agent_id):
-            return router.resolve(agent_id)
-
-        routed_host = AuthenticatedProviderHost(
-            authenticate=self.backend.authenticate, authorize_agent=authorize,
-            resolve_provider=resolve, attestation_key=b"m" * 32,
-            server_identity="AI-BRIDGE-MESSENGER-ROUTER-TEST")
-        sessions = AgentSessionRegistry(self.backend, ttl_seconds=60)
-        MessengerHandler.provider_host = routed_host
-        MessengerHandler.agent_session_registry = sessions
-        MessengerHandler.conversation_host = TwoAgentConversationHost(
-            self.backend, routed_host, sessions)
-        MessengerHandler.agent_provider_router = router
+        MessengerHandler.provider_host = runtime.provider_host
+        MessengerHandler.agent_session_registry = runtime.session_registry
+        MessengerHandler.conversation_host = runtime.conversation_host
+        MessengerHandler.agent_provider_router = runtime.router
 
         for token, expected_ai in (("user-token", "AI-USER"), ("peer-token", "AI-PEER")):
             status, data = self.request_path(
@@ -344,18 +332,30 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertEqual(status_a, 201)
         self.assertEqual(first["message"]["senderAiId"], "AI-PEER")
         self.assertEqual(first["attestation"]["statement"]["providerId"], "anthropic")
-        self.assertTrue(routed_host.verify_attestation(
+        self.assertTrue(runtime.provider_host.verify_attestation(
             first["attestation"], first["message"]["body"]))
+        first_delivery_status, first_delivery = self.request_get(
+            "user-token",
+            "/v1/conversations/private-room/messages/wait?after=0&limit=10&timeout=1")
+        self.assertEqual(first_delivery_status, 200)
+        self.assertIn(first["message"]["messageId"],
+                      [item["messageId"] for item in first_delivery["messages"]])
 
         status_b, second = self.request_path(
-            "peer-token", "/v1/ai/conversation/turn",
+            "user-token", "/v1/ai/conversation/turn",
             {"conversationId": "private-room", "agentId": "AI-USER",
              "requestId": "m179-roundtrip-b", "prompt": first["message"]["body"]})
         self.assertEqual(status_b, 201)
         self.assertEqual(second["message"]["senderAiId"], "AI-USER")
         self.assertEqual(second["attestation"]["statement"]["providerId"], "openai")
-        self.assertTrue(routed_host.verify_attestation(
+        self.assertTrue(runtime.provider_host.verify_attestation(
             second["attestation"], second["message"]["body"]))
+        second_delivery_status, second_delivery = self.request_get(
+            "peer-token",
+            "/v1/conversations/private-room/messages/wait?after=1&limit=10&timeout=1")
+        self.assertEqual(second_delivery_status, 200)
+        self.assertIn(second["message"]["messageId"],
+                      [item["messageId"] for item in second_delivery["messages"]])
 
         expected = [first["message"]["messageId"], second["message"]["messageId"]]
         self.assertEqual([m.message_id for m in self.backend.history(
@@ -367,6 +367,8 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
 
         ready_status, ready = self.request_get("user-token", "/v1/ai/provider/readiness")
         self.assertEqual(ready_status, 200)
+        self.assertTrue(ready["conversationHostAvailable"])
+        self.assertTrue(ready["sessionRegistryAvailable"])
         readiness = {item["aiId"]: item for item in ready["assignments"]}
         self.assertEqual(readiness["AI-USER"]["providerId"], "openai")
         self.assertEqual(readiness["AI-PEER"]["providerId"], "anthropic")
