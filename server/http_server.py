@@ -16,7 +16,6 @@ from server.gpt6_room_agent import GPT6RoomAgent
 from server.ai_provider_host import ProviderHostError
 from server.ai_conversation_host import AgentSessionError
 from server.provider_adapters import AnthropicTextAdapter, GeminiTextAdapter
-from server.agent_provider_router import AgentProviderRouter
 from server.two_agent_runtime import build_two_agent_runtime
 
 
