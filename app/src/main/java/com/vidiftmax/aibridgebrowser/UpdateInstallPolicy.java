@@ -26,4 +26,14 @@ public final class UpdateInstallPolicy {
                 && canonicalDirectory.equals(canonicalCandidate.getParentFile())
                 && expectedName.equals(canonicalCandidate.getName());
     }
+
+    /** Rebinds the staged APK's on-disk byte length to the official Release asset before installer handoff. */
+    public static boolean isExpectedVerifiedApk(File candidate, File verifiedCandidate,
+            File allowedDirectory, String expectedName, long expectedBytes, long maximumBytes)
+            throws IOException {
+        if (expectedBytes <= 0 || maximumBytes <= 0 || expectedBytes > maximumBytes) return false;
+        return isEligibleCandidate(candidate, verifiedCandidate, allowedDirectory, expectedName)
+                && candidate.length() == expectedBytes
+                && candidate.length() <= maximumBytes;
+    }
 }
