@@ -24,17 +24,18 @@ public class AiBridgeEvidenceTest {
         AiBridgeEvidence evidence = new AiBridgeEvidence();
         assertFalse(evidence.addTurn(1, "AI-01", " "));
         assertTrue(evidence.addTurn(1, "AI-01", "ok"));
-        assertTrue(evidence.addTurn(2, "AI-01", "wrong"));
-        assertFalse(evidence.isAlternatingPair());
+        assertFalse(evidence.addTurn(2, "AI-01", "wrong"));
+        assertEquals(1, evidence.turnCount());
+        assertTrue(evidence.isAlternatingPair());
     }
 
     @Test
     public void capsEvidenceEvents() {
         AiBridgeEvidence evidence = new AiBridgeEvidence();
-        for (int i = 1; i <= 40; i++) {
+        for (int i = 1; i <= 20; i++) {
             assertTrue(evidence.addTurn(i, i % 2 == 1 ? "AI-01" : "AI-02", "x"));
         }
-        assertFalse(evidence.addTurn(41, "AI-01", "x"));
-        assertEquals(40, evidence.turnCount());
+        assertFalse(evidence.addTurn(21, "AI-01", "x"));
+        assertEquals(20, evidence.turnCount());
     }
 }

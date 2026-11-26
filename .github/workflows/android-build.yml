@@ -34,6 +34,7 @@ on:
       - "feat/mission-222-fileprovider-scope-contract"
       - "feat/mission-223-fileprovider-handoff-wiring"
       - "feat/mission-224-ai-first-contact-launch"
+      - "feat/mission-225-first-contact-evidence-integrity"
   pull_request:
     branches:
       - "feat/mission-216-redirect-hop-validation"
@@ -70,6 +71,7 @@ on:
       - "feat/mission-222-fileprovider-scope-contract"
       - "feat/mission-223-fileprovider-handoff-wiring"
       - "feat/mission-224-ai-first-contact-launch"
+      - "feat/mission-225-first-contact-evidence-integrity"
   workflow_dispatch:
 
 permissions:

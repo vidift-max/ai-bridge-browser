@@ -114,6 +114,10 @@ final class TwoAiChatOrchestrator {
                 }
                 listener.onTurn(sender, response);
                 if (turns >= maxTurns) {
+                    if (evidence.turnCount() != maxTurns || !evidence.isAlternatingPair()) {
+                        fail("FINAL_EVIDENCE_VALIDATION_FAILED");
+                        return;
+                    }
                     running = false;
                     listener.onFinished(turns);
                     return;

@@ -46,4 +46,41 @@ public final class AiConversationLaunchPolicyTest {
         assertEquals("AI_IDENTITIES_NOT_ASSIGNED",
                 AiConversationLaunchPolicy.blockingReason(false, false, false, false, false, false, false));
     }
+
+    @Test public void evidenceAcceptsOnlySequentialAlternatingTurnsAndHashesBodies() {
+        AiBridgeEvidence evidence = new AiBridgeEvidence();
+        assertTrue(evidence.addTurn(1, "AI-01", "hello"));
+        assertTrue(evidence.addTurn(2, "AI-02", "world"));
+        assertEquals(2, evidence.turnCount());
+        assertTrue(evidence.isAlternatingPair());
+        assertEquals(64, evidence.events().get(0).responseSha256.length());
+        assertEquals("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+                evidence.events().get(0).responseSha256);
+        assertEquals(5, evidence.events().get(0).responseChars);
+    }
+
+    @Test public void evidenceRejectsWrongSenderGapDuplicateAndEmptyResponse() {
+        AiBridgeEvidence evidence = new AiBridgeEvidence();
+        assertFalse(evidence.addTurn(1, "AI-02", "wrong sender"));
+        assertFalse(evidence.addTurn(2, "AI-02", "gap"));
+        assertFalse(evidence.addTurn(1, "AI-01", "  "));
+        assertTrue(evidence.addTurn(1, "AI-01", "first"));
+        assertFalse(evidence.addTurn(1, "AI-01", "duplicate"));
+        assertFalse(evidence.addTurn(3, "AI-01", "gap"));
+        assertEquals(1, evidence.turnCount());
+    }
+
+    @Test public void evidenceEventsAreReadOnlyAndCanBeReset() {
+        AiBridgeEvidence evidence = new AiBridgeEvidence();
+        assertTrue(evidence.addTurn(1, "AI-01", "first"));
+        try {
+            evidence.events().clear();
+            fail("events must be immutable");
+        } catch (UnsupportedOperationException expected) {
+            assertEquals(1, evidence.turnCount());
+        }
+        evidence.clear();
+        assertEquals(0, evidence.turnCount());
+        assertTrue(evidence.addTurn(1, "AI-01", "new run"));
+    }
 }
