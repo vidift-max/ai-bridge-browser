@@ -24,8 +24,10 @@ on:
       - "feat/mission-212-manifest-contract-verification"
       - "feat/mission-213-cross-platform-manifest-contract"
       - "feat/mission-214-updater-redirect-origin-guard"
+      - "feat/mission-215-release-asset-binding"
   pull_request:
     branches:
+      - "feat/mission-214-updater-redirect-origin-guard"
       - "feat/mission-213-cross-platform-manifest-contract"
       - "feat/mission-212-manifest-contract-verification"
       - "feat/mission-90-staging-invite-activation"
