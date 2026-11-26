@@ -423,6 +423,19 @@ public final class MainActivity extends Activity {
 
         String tabId = restoredTabId == null ? UUID.randomUUID().toString() : restoredTabId;
         String profileId = restoredProfileId == null ? "profile-" + UUID.randomUUID() : restoredProfileId;
+        List<String> existingTabIds = new ArrayList<>();
+        List<String> existingProfileIds = new ArrayList<>();
+        for (Tab existingTab : tabs) {
+            existingTabIds.add(existingTab.tabId);
+            existingProfileIds.add(existingTab.profileId);
+        }
+        if (!SessionIdentityPolicy.isUnique(tabId, existingTabIds)) {
+            tabId = UUID.randomUUID().toString();
+        }
+        if (!SessionIdentityPolicy.isUnique(profileId, existingProfileIds)) {
+            // Never attach two WebViews to one cookie/storage profile during recovery.
+            profileId = "profile-" + UUID.randomUUID();
+        }
         WebView webView = new WebView(this);
         boolean sessionIsolationSupported = false;
         if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
