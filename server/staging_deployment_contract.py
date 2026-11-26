@@ -30,12 +30,16 @@ class StagingDeploymentEvidence:
     secrets_included: bool = False
 
 
+def _nonempty(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
 def _aware_timestamp(value: str) -> datetime | None:
-    if not isinstance(value, str) or not value.strip():
+    if not _nonempty(value):
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
+    except (TypeError, ValueError):
         return None
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         return None
@@ -43,6 +47,8 @@ def _aware_timestamp(value: str) -> datetime | None:
 
 
 def _valid_https_staging_url(value: str) -> bool:
+    if not isinstance(value, str):
+        return False
     try:
         parsed = urlsplit(value)
         return (
@@ -72,11 +78,11 @@ def evaluate_staging_deployment(
 
     add("staging_only", evidence.environment == "staging" and evidence.production_target is False,
         "target must be explicitly staging, never production")
-    add("deployment_identity", bool(evidence.deployment_id.strip()) and bool(evidence.service_id.strip()),
+    add("deployment_identity", _nonempty(evidence.deployment_id) and _nonempty(evidence.service_id),
         "deployment and service identifiers are required")
     add("https_staging_url", _valid_https_staging_url(evidence.staging_url),
         "staging URL must be HTTPS without embedded credentials, query, or fragment")
-    add("exact_commit", bool(expected_commit) and evidence.deployed_commit == expected_commit,
+    add("exact_commit", _nonempty(expected_commit) and evidence.deployed_commit == expected_commit,
         "deployed commit must match the approved SHA exactly")
     digest = evidence.artifact_sha256
     add("artifact_digest", isinstance(digest, str) and len(digest) == 64
@@ -88,7 +94,7 @@ def evaluate_staging_deployment(
         and health_at is not None and deployed_at is not None
         and health_at >= deployed_at,
         "health check must pass with a 2xx status after deployment")
-    add("rollback_plan", bool(evidence.rollback_commit.strip())
+    add("rollback_plan", _nonempty(evidence.rollback_commit)
         and evidence.rollback_commit != evidence.deployed_commit
         and evidence.rollback_target_verified is True,
         "a distinct, verified rollback target is required")
