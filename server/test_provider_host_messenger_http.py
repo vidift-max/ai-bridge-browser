@@ -334,16 +334,28 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
         self.assertEqual(first["attestation"]["statement"]["providerId"], "anthropic")
         self.assertTrue(runtime.provider_host.verify_attestation(
             first["attestation"], first["message"]["body"]))
+        first_delivery_status, first_delivery = self.request_get(
+            "user-token",
+            "/v1/conversations/private-room/messages/wait?after=0&limit=10&timeout=1")
+        self.assertEqual(first_delivery_status, 200)
+        self.assertIn(first["message"]["messageId"],
+                      [item["messageId"] for item in first_delivery["messages"]])
 
         status_b, second = self.request_path(
-            "peer-token", "/v1/ai/conversation/turn",
+            "user-token", "/v1/ai/conversation/turn",
             {"conversationId": "private-room", "agentId": "AI-USER",
              "requestId": "m179-roundtrip-b", "prompt": first["message"]["body"]})
         self.assertEqual(status_b, 201)
         self.assertEqual(second["message"]["senderAiId"], "AI-USER")
         self.assertEqual(second["attestation"]["statement"]["providerId"], "openai")
-        self.assertTrue(routed_host.verify_attestation(
+        self.assertTrue(runtime.provider_host.verify_attestation(
             second["attestation"], second["message"]["body"]))
+        second_delivery_status, second_delivery = self.request_get(
+            "peer-token",
+            "/v1/conversations/private-room/messages/wait?after=1&limit=10&timeout=1")
+        self.assertEqual(second_delivery_status, 200)
+        self.assertIn(second["message"]["messageId"],
+                      [item["messageId"] for item in second_delivery["messages"]])
 
         expected = [first["message"]["messageId"], second["message"]["messageId"]]
         self.assertEqual([m.message_id for m in self.backend.history(
