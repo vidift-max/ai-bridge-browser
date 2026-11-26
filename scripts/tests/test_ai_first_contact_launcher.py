@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MAIN = (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/MainActivity.java").read_text()
 POLICY = (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/AiConversationLaunchPolicy.java").read_text()
 ORCHESTRATOR = (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/TwoAiChatOrchestrator.java").read_text()
+DOM_BRIDGE = (ROOT / "app/src/main/assets/ai_bridge_chatgpt_dom_bridge.js").read_text()
 
 
 class FirstContactLauncherContractTest(unittest.TestCase):
@@ -26,6 +27,13 @@ class FirstContactLauncherContractTest(unittest.TestCase):
         self.assertIn('state.optBoolean("composer", false)', MAIN)
         self.assertIn('state.optBoolean("sendButton", false)', MAIN)
         self.assertIn('!state.optBoolean("generating", true)', MAIN)
+
+    def test_preflight_accepts_present_but_initially_disabled_send_control(self):
+        self.assertIn("function sendButtonElement(doc)", DOM_BRIDGE)
+        self.assertIn("sendButton:!!sendButtonElement(doc)", DOM_BRIDGE)
+        self.assertIn("sendButtonEnabled:!!button", DOM_BRIDGE)
+        self.assertIn("const button=sendButton(doc);", DOM_BRIDGE)
+        self.assertIn("if(!button)return {ok:false,code:\"SEND_BUTTON_NOT_FOUND\"};", DOM_BRIDGE)
 
     def test_user_must_confirm_the_two_account_assignments(self):
         self.assertIn("Confirmei que AI-01 está na conta ChatGPT correta.", MAIN)
