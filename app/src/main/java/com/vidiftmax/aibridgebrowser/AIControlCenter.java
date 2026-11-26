@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Dynamic control-center registry for up to six independently bound AI tabs. */
+/** Registry capacity is 20; the current mission activates only AI-01 and AI-02. */
 final class AIControlCenter {
-    static final int MAX_AI_TABS = 6;
+    static final int MAX_AI_TABS = 20;
     enum ResponseState { IDLE, SENDING, UNKNOWN, RESPONDING, RESPONSE_COMPLETE, ERROR }
     enum ContextState { UNKNOWN, NORMAL, CRITICAL, FULL, NEW_CHAT_REQUIRED, NEW_CHAT_LOADING }
 

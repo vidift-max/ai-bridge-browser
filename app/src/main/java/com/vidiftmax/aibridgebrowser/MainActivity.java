@@ -36,6 +36,7 @@ import java.util.UUID;
 
 public final class MainActivity extends Activity {
     private static final int MAX_TABS = 6;
+    private static final int CURRENT_MISSION_AI_LIMIT = AiAccountCapacityPolicy.CURRENT_MISSION_LIMIT;
     private static final String HOME_URL = "https://chatgpt.com/";
     private static final String STATE_URLS = "tab_urls";
     private static final String STATE_ACTIVE = "active_tab";
@@ -271,7 +272,7 @@ public final class MainActivity extends Activity {
 
 
     private String nextAiId() {
-        for (int i = 1; i <= AIControlCenter.MAX_AI_TABS; i++) {
+        for (int i = 1; i <= CURRENT_MISSION_AI_LIMIT; i++) {
             String candidate = "AI-" + String.format(Locale.ROOT, "%02d", i);
             boolean used = false;
             for (AIControlCenter.Panel panel : controlCenter.panels()) {
@@ -288,12 +289,12 @@ public final class MainActivity extends Activity {
         controlCenterView.setPadding(dp(12), dp(8), dp(12), dp(8));
 
         TextView heading = new TextView(this);
-        heading.setText("CENTRAL DE CONTROLE · até 6 IAs");
+        heading.setText("CENTRAL DE CONTROLE · AI-01 e AI-02 (limite atual: 2; capacidade futura: 20)");
         heading.setTextSize(18);
         heading.setPadding(0, dp(6), 0, dp(10));
         controlCenterView.addView(heading);
 
-        for (int i = 1; i <= AIControlCenter.MAX_AI_TABS; i++) {
+        for (int i = 1; i <= CURRENT_MISSION_AI_LIMIT; i++) {
             TextView panel = new TextView(this);
             panel.setTag("ai_panel_" + i);
             panel.setText("IA " + i + " · aguardando associação a uma aba");
@@ -512,7 +513,9 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         tabs.add(tab);
         browserState.addTab(tab.tabId);
-        controlCenter.register(nextAiId(), tab.tabId, tab.profileId);
+        if (AiAccountCapacityPolicy.canActivate(controlCenter.panels().size())) {
+            controlCenter.register(nextAiId(), tab.tabId, tab.profileId);
+        }
         webView.loadUrl(normalizeUrl(url));
         renderTabs();
         renderControlCenter();
@@ -839,9 +842,9 @@ public final class MainActivity extends Activity {
             t.missionState = prefs.getString("mission_state_" + i, "WAITING_PAGE");
         }
         controlCenter.clear();
-        int panelCount = Math.min(prefs.getInt("ai_panel_count", 0), AIControlCenter.MAX_AI_TABS);
+        int panelCount = Math.min(prefs.getInt("ai_panel_count", 0), CURRENT_MISSION_AI_LIMIT);
         if (panelCount == 0) {
-            for (int i = 0; i < tabs.size(); i++) {
+            for (int i = 0; i < Math.min(tabs.size(), CURRENT_MISSION_AI_LIMIT); i++) {
                 Tab tab = tabs.get(i);
                 controlCenter.register("AI-" + String.format(Locale.ROOT, "%02d", i + 1),
                         tab.tabId, tab.profileId);
