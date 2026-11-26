@@ -8,6 +8,11 @@ final class SessionIsolationPolicy {
         return multiProfileAssigned;
     }
 
+    /** A successful setProfile call is not enough: verify WebView reports the requested profile. */
+    static boolean isAssignedProfile(String expectedProfileId, String actualProfileId) {
+        return nonBlank(expectedProfileId) && expectedProfileId.equals(actualProfileId);
+    }
+
     static boolean isQueueTargetCurrent(String targetTabId, String targetProfileId,
                                         String currentTabId, String currentProfileId) {
         return nonBlank(targetTabId) && nonBlank(targetProfileId)
