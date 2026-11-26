@@ -25,6 +25,19 @@ public final class UpdateUrlPolicy {
                 && uri.getRawQuery() == null && uri.getRawFragment() == null;
     }
 
+    public static boolean isOfficialReleaseAssetUrl(String value, String tagName, String assetName) {
+        if (tagName == null || !tagName.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+                || assetName == null || !(assetName.equals("app-release.apk")
+                || assetName.equals("ai-bridge-update.json"))) return false;
+        URI uri = parse(value);
+        String expectedPath = RELEASE_PATH + tagName + "/" + assetName;
+        return uri != null && isHttpsDefaultPort(uri)
+                && "github.com".equalsIgnoreCase(uri.getHost())
+                && uri.getRawUserInfo() == null
+                && expectedPath.equals(uri.getRawPath())
+                && uri.getRawQuery() == null && uri.getRawFragment() == null;
+    }
+
     public static boolean isAllowedRedirectUrl(String value) {
         URI uri = parse(value);
         if (uri == null || !isHttpsDefaultPort(uri) || uri.getRawUserInfo() != null

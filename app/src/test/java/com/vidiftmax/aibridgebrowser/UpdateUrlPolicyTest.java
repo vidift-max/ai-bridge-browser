@@ -40,6 +40,19 @@ public class UpdateUrlPolicyTest {
         assertFalse(UpdateUrlPolicy.isOfficialReleaseAssetUrl(null));
     }
 
+    @Test public void bindsOfficialAssetUrlToExactReleaseTagAndAssetName() {
+        assertTrue(UpdateUrlPolicy.isOfficialReleaseAssetUrl(OFFICIAL, "v1.0", "app-release.apk"));
+        assertFalse(UpdateUrlPolicy.isOfficialReleaseAssetUrl(OFFICIAL, "v2.0", "app-release.apk"));
+        assertFalse(UpdateUrlPolicy.isOfficialReleaseAssetUrl(OFFICIAL, "v1.0", "ai-bridge-update.json"));
+        assertFalse(UpdateUrlPolicy.isOfficialReleaseAssetUrl(
+                "https://github.com/vidift-max/ai-bridge-browser/releases/download/v1.0/app-release.apk/extra",
+                "v1.0", "app-release.apk"));
+        assertFalse(UpdateUrlPolicy.isOfficialReleaseAssetUrl(
+                "https://github.com/vidift-max/ai-bridge-browser/releases/download/v1.0%2Fother/app-release.apk",
+                "v1.0/other", "app-release.apk"));
+        assertFalse(UpdateUrlPolicy.isOfficialReleaseAssetUrl(OFFICIAL, "../v1.0", "app-release.apk"));
+    }
+
     @Test public void allowsOnlyHttpsRedirectsToExactGitHubAssetHosts() {
         assertTrue(UpdateUrlPolicy.isAllowedRedirectUrl("https://github.com/"));
         assertTrue(UpdateUrlPolicy.isAllowedRedirectUrl("https://api.github.com/repos/vidift-max/ai-bridge-browser"));
