@@ -31,6 +31,7 @@ Fortalecer a prova de atribuição MULTI_PROFILE e explicitar o que ainda falta 
 - `MainActivity`: após `WebViewCompat.setProfile`, consulta `WebViewCompat.getProfile(webView).getName()`; somente considera isolamento válido se o nome real corresponder ao profileId solicitado.
 - `SessionIsolationPolicy`: nova regra pura `isAssignedProfile(expected, actual)`.
 - `SessionIsolationPolicyTest`: dois testes novos cobrem correspondência e bloqueio de mismatch/nulo/vazio.
+- Workflow Android atualizado para executar em push na branch M197 e em PRs destinados à base M196.
 - Checklist físico atualizado para exigir read-back de perfil.
 - Checklist agora declara claramente que o aplicativo não implementa limpeza individual de perfil; não usar APIs globais como substituto.
 
@@ -39,7 +40,7 @@ A documentação oficial AndroidX WebKit descreve perfis separados e as APIs `We
 https://developer.android.com/jetpack/androidx/releases/webkit
 
 ## Bloqueios
-- CI do HEAD M197 ainda precisa concluir.
+- CI do HEAD M197 ainda precisa concluir; após a atualização dos filtros, nenhuma execução M197 apareceu na consulta de Actions, então o gate permanece BLOCKED até uma execução observável.
 - Teste físico com WebView instalado e duas contas ChatGPT distintas ainda não realizado.
 - Logout/limpeza independente não pode receber PASS: fluxo dedicado ainda não foi implementado.
 - Primeira comunicação AI-01 ↔ AI-02 continua não autorizada e não realizada.
