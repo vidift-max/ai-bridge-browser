@@ -365,12 +365,8 @@ public final class UpdateCenterActivity extends Activity {
     }
 
     private String readUrl(String address, int maxBytes) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
-        connection.setConnectTimeout(15000);
-        connection.setReadTimeout(20000);
-        connection.setInstanceFollowRedirects(true);
-        connection.setRequestProperty("Accept", "application/vnd.github+json");
-        connection.setRequestProperty("User-Agent", "AI-Bridge-Browser-Updater");
+        HttpURLConnection connection = openValidatedConnection(address, 15000, 20000,
+                "application/vnd.github+json");
         try {
             int code = connection.getResponseCode();
             if (code == 404 && RELEASE_API.equals(address)) {
@@ -397,11 +393,7 @@ public final class UpdateCenterActivity extends Activity {
     }
 
     private void download(String address, File destination) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
-        connection.setConnectTimeout(20000);
-        connection.setReadTimeout(30000);
-        connection.setInstanceFollowRedirects(true);
-        connection.setRequestProperty("User-Agent", "AI-Bridge-Browser-Updater");
+        HttpURLConnection connection = openValidatedConnection(address, 20000, 30000, null);
         try {
             int code = connection.getResponseCode();
             if (code != 200) throw new IllegalStateException("Download respondeu HTTP " + code + ".");
@@ -451,6 +443,44 @@ public final class UpdateCenterActivity extends Activity {
             throw error;
         } finally {
             connection.disconnect();
+        }
+    }
+
+    /**
+     * Follows redirects manually so every intermediate hop is checked before
+     * another network request is made. Only the fixed release API or an exact
+     * official release asset may be used as the initial URL.
+     */
+    private HttpURLConnection openValidatedConnection(String address, int connectTimeout,
+            int readTimeout, String accept) throws Exception {
+        if (!(RELEASE_API.equals(address) || UpdateUrlPolicy.isOfficialReleaseAssetUrl(address))) {
+            throw new SecurityException("URL inicial fora do canal oficial de atualizações.");
+        }
+        URL current = new URL(address);
+        int redirectsFollowed = 0;
+        while (true) {
+            HttpURLConnection connection = (HttpURLConnection) current.openConnection();
+            connection.setConnectTimeout(connectTimeout);
+            connection.setReadTimeout(readTimeout);
+            connection.setInstanceFollowRedirects(false);
+            connection.setRequestProperty("User-Agent", "AI-Bridge-Browser-Updater");
+            if (accept != null) connection.setRequestProperty("Accept", accept);
+            int code;
+            try {
+                code = connection.getResponseCode();
+            } catch (Exception error) {
+                connection.disconnect();
+                throw error;
+            }
+            if (!UpdateRedirectPolicy.isRedirectStatus(code)) return connection;
+            String next = UpdateRedirectPolicy.resolveRedirectUrl(current.toString(),
+                    connection.getHeaderField("Location"), redirectsFollowed, 5);
+            connection.disconnect();
+            if (next == null) {
+                throw new SecurityException("Redirecionamento ausente, excessivo ou para origem não autorizada.");
+            }
+            current = new URL(next);
+            redirectsFollowed++;
         }
     }
 
