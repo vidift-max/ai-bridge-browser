@@ -18,6 +18,7 @@ on:
       - "feat/mission-202-updater-state-guard"
       - "feat/mission-203-updater-lifecycle"
       - "feat/mission-204-atomic-apk-download"
+      - "feat/mission-204-atomic-apk-download"
   pull_request:
     branches:
       - "feat/mission-90-staging-invite-activation"
