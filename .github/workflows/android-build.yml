@@ -27,6 +27,7 @@ on:
       - "feat/mission-215-release-asset-binding"
       - "feat/mission-216-redirect-hop-validation"
       - "feat/mission-217-apk-asset-size-binding"
+      - "feat/mission-218-preinstall-apk-size-revalidation"
   pull_request:
     branches:
       - "feat/mission-216-redirect-hop-validation"
@@ -55,6 +56,7 @@ on:
       - "feat/mission-205-install-data-safety"
       - "feat/mission-210-ai01-ai02-update-ready"
       - "feat/mission-211-release-manifest-gate"
+      - "feat/mission-217-apk-asset-size-binding"
   workflow_dispatch:
 
 permissions:
