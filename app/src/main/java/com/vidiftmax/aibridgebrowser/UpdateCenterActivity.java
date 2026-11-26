@@ -203,7 +203,7 @@ public final class UpdateCenterActivity extends Activity {
                     apk.delete();
                     throw new SecurityException("O hash do APK não confere. Instalação bloqueada.");
                 }
-                verifyPackageAndCertificate(apk);
+                verifyPackageAndCertificate(apk, selected);
                 main.post(() -> {
                     downloadedApk = apk;
                     setBusy(false, "Download e verificações concluídos. O APK corresponde ao aplicativo instalado.");
@@ -239,12 +239,16 @@ public final class UpdateCenterActivity extends Activity {
         }
     }
 
-    private void verifyPackageAndCertificate(File apk) throws Exception {
+    private void verifyPackageAndCertificate(File apk, Candidate expected) throws Exception {
         PackageManager pm = getPackageManager();
         PackageInfo installed = pm.getPackageInfo(getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
         PackageInfo downloaded = pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNING_CERTIFICATES);
         if (downloaded == null || !PACKAGE_NAME.equals(downloaded.packageName)) {
             throw new SecurityException("O APK não pertence ao AI Bridge Browser.");
+        }
+        if (downloaded.getLongVersionCode() != expected.versionCode ||
+                !expected.versionName.equals(downloaded.versionName)) {
+            throw new SecurityException("A versão interna do APK não corresponde ao manifesto. Instalação bloqueada.");
         }
         if (installed.signingInfo == null || downloaded.signingInfo == null) {
             throw new SecurityException("Não foi possível verificar a assinatura do APK.");
