@@ -7,17 +7,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
-from dataclasses import asdict
 from typing import Any
+from urllib.parse import urlsplit
 
 from server.staging_deployment_contract import (
-    BLOCKED,
     StagingDeploymentEvidence,
     evaluate_staging_deployment,
 )
 
 SCHEMA_VERSION = "1"
+REDACTED = "[REDACTED]"
 ALLOWED_FIELDS = frozenset({
     "deployment_id", "environment", "service_id", "staging_url",
     "deployed_commit", "artifact_sha256", "deployed_at",
@@ -25,15 +26,40 @@ ALLOWED_FIELDS = frozenset({
     "rollback_commit", "rollback_target_verified", "operator_approved",
     "production_target", "secrets_included",
 })
+_SENSITIVE_VALUE = re.compile(
+    r"(?:bearer\\s+|sk-[A-Za-z0-9_-]{8,}|gh[pousr]_[A-Za-z0-9_]{8,}|"
+    r"github_pat_[A-Za-z0-9_]{8,}|AIza[A-Za-z0-9_-]{20,}|"
+    r"xox[baprs]-[A-Za-z0-9-]{8,}|(?:api[_-]?key|access[_-]?token|"
+    r"password|passwd|secret|token)\\s*[:=])",
+    re.IGNORECASE,
+)
 
 
-def _safe_metadata(value: Any) -> Any:
-    """Return only JSON-safe, bounded metadata; never stringify arbitrary objects."""
-    if value is None or isinstance(value, (str, bool, int)):
-        if isinstance(value, str):
-            return value[:512]
+def _safe_metadata(key: str, value: Any) -> Any:
+    """Return bounded JSON-safe metadata and redact credential-like strings."""
+    if value is None or isinstance(value, (bool, int)):
         return value
-    return None
+    if not isinstance(value, str):
+        return None
+    bounded = value[:512]
+    if _SENSITIVE_VALUE.search(bounded):
+        return REDACTED
+    if key == "staging_url":
+        try:
+            parsed = urlsplit(bounded)
+            if (parsed.username or parsed.password or parsed.query
+                    or parsed.fragment or parsed.path not in ("", "/")):
+                return REDACTED
+        except ValueError:
+            return REDACTED
+    return bounded
+
+
+def _canonical_fingerprint(evidence: Mapping[str, Any]) -> str:
+    canonical = json.dumps(
+        dict(evidence), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def collect_staging_evidence(
@@ -49,25 +75,18 @@ def collect_staging_evidence(
         if key in raw_evidence
     }
     normalized = {
-        key: _safe_metadata(value)
+        key: _safe_metadata(key, value)
         for key, value in selected.items()
     }
 
-    # Construct the typed record using only allowlisted keys. Malformed field
-    # types remain fail-closed in the contract validator and are not echoed.
     evidence = StagingDeploymentEvidence(**normalized)
     evaluation = evaluate_staging_deployment(
         evidence, expected_commit=expected_commit
     )
-
     safe_record = {
         key: value for key, value in normalized.items()
-        if key in ALLOWED_FIELDS and value is not None
+        if value is not None
     }
-    canonical = json.dumps(
-        safe_record, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode("utf-8")
-    fingerprint = hashlib.sha256(canonical).hexdigest()
 
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -75,7 +94,7 @@ def collect_staging_evidence(
         "ready": evaluation["ready"],
         "checks": evaluation["checks"],
         "evidence": safe_record,
-        "evidenceFingerprintSha256": fingerprint,
+        "evidenceFingerprintSha256": _canonical_fingerprint(safe_record),
         "unknownFieldCount": len(set(raw_evidence) - ALLOWED_FIELDS),
         "secretsIncludedInReport": False,
         "rawInputIncluded": False,
@@ -88,10 +107,8 @@ def collect_staging_evidence(
 
 
 def validate_collected_report(report: Mapping[str, Any]) -> bool:
-    """Check report shape and ensure the fingerprint matches its safe evidence."""
-    if not isinstance(report, Mapping):
-        return False
-    if report.get("schemaVersion") != SCHEMA_VERSION:
+    """Check schema, allowlist, redaction, fingerprint, and safety invariants."""
+    if not isinstance(report, Mapping) or report.get("schemaVersion") != SCHEMA_VERSION:
         return False
     evidence = report.get("evidence")
     fingerprint = report.get("evidenceFingerprintSha256")
@@ -99,13 +116,15 @@ def validate_collected_report(report: Mapping[str, Any]) -> bool:
         return False
     if set(evidence) - ALLOWED_FIELDS:
         return False
-    canonical = json.dumps(
-        dict(evidence), sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode("utf-8")
-    expected = hashlib.sha256(canonical).hexdigest()
-    return (
-        fingerprint == expected
-        and report.get("secretsIncludedInReport") is False
-        and report.get("rawInputIncluded") is False
-        and report.get("liveTestAuthorized") is False
+    # A report must already contain sanitized values; never trust a recomputed hash alone.
+    for key, value in evidence.items():
+        if _safe_metadata(key, value) != value:
+            return False
+    if fingerprint != _canonical_fingerprint(evidence):
+        return False
+    required_false_flags = (
+        "secretsIncludedInReport", "rawInputIncluded", "deploymentPerformed",
+        "healthProbePerformed", "rollbackPerformed", "providerCallsPerformed",
+        "liveTestAuthorized",
     )
+    return all(report.get(flag) is False for flag in required_false_flags)
