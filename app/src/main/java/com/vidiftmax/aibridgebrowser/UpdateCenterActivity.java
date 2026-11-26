@@ -198,19 +198,30 @@ public final class UpdateCenterActivity extends Activity {
         resetInstallAction();
         setBusy(true, "Baixando a atualização oficial…");
         executor.execute(() -> {
+            File partial = null;
             try {
                 File downloads = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
                 if (downloads == null) throw new IllegalStateException("Armazenamento do aplicativo indisponível.");
                 File folder = new File(downloads, "updates");
                 if (!folder.exists() && !folder.mkdirs()) throw new IllegalStateException("Não foi possível criar a pasta de atualização.");
-                File apk = new File(folder, APK_ASSET);
-                download(selected.apkUrl, apk);
-                String actualHash = sha256(apk);
+                File canonicalFolder = folder.getCanonicalFile();
+                if (!canonicalFolder.isDirectory()) throw new SecurityException("Pasta privada de atualização inválida.");
+                partial = new File(canonicalFolder, APK_ASSET + ".part");
+                File apk = new File(canonicalFolder, APK_ASSET);
+                if (!partial.getCanonicalFile().getParentFile().equals(canonicalFolder) ||
+                        !apk.getCanonicalFile().getParentFile().equals(canonicalFolder)) {
+                    throw new SecurityException("Caminho de atualização fora da pasta privada permitida.");
+                }
+                if (partial.exists() && !partial.delete()) throw new IllegalStateException("Não foi possível remover download parcial anterior.");
+                download(selected.apkUrl, partial);
+                String actualHash = sha256(partial);
                 if (!selected.sha256.equals(actualHash)) {
-                    apk.delete();
                     throw new SecurityException("O hash do APK não confere. Instalação bloqueada.");
                 }
-                verifyPackageAndCertificate(apk, selected);
+                verifyPackageAndCertificate(partial, selected);
+                if (apk.exists() && !apk.delete()) throw new IllegalStateException("Não foi possível substituir o APK verificado anterior.");
+                if (!partial.renameTo(apk)) throw new IllegalStateException("Não foi possível finalizar atomicamente o APK verificado.");
+                partial = null;
                 postUi(() -> {
                     downloadedApk = apk;
                     setBusy(false, "Download e verificações concluídos. O APK corresponde ao aplicativo instalado.");
@@ -219,6 +230,7 @@ public final class UpdateCenterActivity extends Activity {
                     installButton.setOnClickListener(v -> requestInstall(apk));
                 });
             } catch (Exception error) {
+                if (partial != null && partial.exists()) partial.delete();
                 postUi(() -> {
                     clearDownloadedCandidate();
                     resetInstallAction();
@@ -386,7 +398,7 @@ public final class UpdateCenterActivity extends Activity {
                     }
                 }
                 output.getFD().sync();
-                if (declared >= 0 && total != declared) throw new IllegalStateException("Download incompleto.");
+                if (!UpdaterDownloadPolicy.isValidLength(declared, total, MAX_APK_BYTES)) throw new IllegalStateException("Download incompleto ou com tamanho inválido.");
                 postUi(() -> {
                     progress.setIndeterminate(false);
                     progress.setProgress(1000);
