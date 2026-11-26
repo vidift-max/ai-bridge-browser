@@ -526,7 +526,9 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         tabs.add(tab);
         browserState.addTab(tab.tabId);
-        if (AiAccountCapacityPolicy.canActivate(controlCenter.panels().size())) {
+        // Never assign an AI identity to a WebView unless MULTI_PROFILE was actually assigned.
+        if (SessionIsolationPolicy.canAssignAccount(sessionIsolationSupported)
+                && AiAccountCapacityPolicy.canActivate(controlCenter.panels().size())) {
             controlCenter.register(nextAiId(), tab.tabId, tab.profileId);
         }
         webView.loadUrl(normalizeUrl(url));
@@ -593,7 +595,9 @@ public final class MainActivity extends Activity {
             PendingMessage item = pendingMessages.peekFirst();
             Tab tab = findTab(item.tabId, item.profileId);
             if (tab == null) {
-                break;
+                // Drop stale work for a closed/replaced tab; never retarget it to another profile.
+                pendingMessages.removeFirst();
+                continue;
             }
             if (!tab.pageReady || !tab.chatReady) break;
             // Safe boundary: DOM text injection and auto-submit are not implemented yet.
@@ -761,7 +765,8 @@ public final class MainActivity extends Activity {
 
     private Tab findTab(String tabId, String profileId) {
         for (Tab tab : tabs) {
-            if (tab.tabId.equals(tabId) && tab.profileId.equals(profileId)) return tab;
+            if (SessionIsolationPolicy.isQueueTargetCurrent(
+                    tabId, profileId, tab.tabId, tab.profileId)) return tab;
         }
         return null;
     }
@@ -859,8 +864,9 @@ public final class MainActivity extends Activity {
         if (panelCount == 0) {
             for (int i = 0; i < Math.min(tabs.size(), CURRENT_MISSION_AI_LIMIT); i++) {
                 Tab tab = tabs.get(i);
-                controlCenter.register("AI-" + String.format(Locale.ROOT, "%02d", i + 1),
-                        tab.tabId, tab.profileId);
+                if (SessionIsolationPolicy.canAssignAccount(tab.sessionIsolationSupported)) {
+                    controlCenter.register(nextAiId(), tab.tabId, tab.profileId);
+                }
             }
         }
         for (int i = 0; i < panelCount; i++) {
@@ -872,7 +878,9 @@ public final class MainActivity extends Activity {
             if (!AiAccountCapacityPolicy.isCurrentMissionAccountId(aiId)) continue;
             boolean matchingTab = false;
             for (Tab restoredTab : tabs) {
-                if (restoredTab.tabId.equals(tabId) && restoredTab.profileId.equals(profileId)) {
+                if (SessionIsolationPolicy.canAssignAccount(restoredTab.sessionIsolationSupported)
+                        && restoredTab.tabId.equals(tabId)
+                        && restoredTab.profileId.equals(profileId)) {
                     matchingTab = true;
                     break;
                 }
