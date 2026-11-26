@@ -3,6 +3,7 @@ import unittest
 from server.auth import Authenticator
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
+from server.ai_provider_host import ProviderHostError
 from server.two_agent_runtime import build_two_agent_runtime
 
 
@@ -59,7 +60,7 @@ class TwoAgentRuntimeCompositionTest(unittest.TestCase):
         self.assertIsNone(runtime.conversation_host)
 
     def test_invalid_or_wrong_length_host_key_is_rejected(self):
-        for key in ("not-hex", "11" * 31, "11" * 33):
+        for key in ("not-hex", "11" * 31, "11" * 33, "11" * 31 + " 11"):
             with self.subTest(key_length=len(key)):
                 with self.assertRaisesRegex(RuntimeError, "AI_PROVIDER_HOST_HMAC_KEY_HEX"):
                     self.build(key=key)
@@ -103,7 +104,7 @@ class TwoAgentRuntimeCompositionTest(unittest.TestCase):
         runtime = self.build()
         runtime.session_registry.register("user-token", "private-two-ai")
         runtime.session_registry.register("peer-token", "private-two-ai")
-        with self.assertRaises(Exception):
+        with self.assertRaises(ProviderHostError):
             runtime.conversation_host.respond("user-token", {
                 "conversationId": "private-two-ai", "agentId": "AI-PEER",
                 "requestId": "m190-policy-off", "prompt": "Não deve sair.",
