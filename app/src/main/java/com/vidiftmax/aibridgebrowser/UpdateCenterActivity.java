@@ -142,17 +142,15 @@ public final class UpdateCenterActivity extends Activity {
         executor.execute(() -> {
             try {
                 JSONObject release = new JSONObject(readUrl(RELEASE_API, 1024 * 1024));
-                if (release.optBoolean("draft", true) || release.optBoolean("prerelease", true)) {
-                    throw new IllegalStateException("A versão encontrada não é uma publicação estável.");
+                if (!UpdateReleasePolicy.isStableRelease(release)) {
+                    throw new IllegalStateException("A versão encontrada não é uma publicação estável ou possui tag inválida.");
                 }
+                String releaseTag = release.getString("tag_name");
                 JSONArray assets = release.optJSONArray("assets");
-                JSONObject manifestAsset = findAsset(assets, MANIFEST_ASSET);
-                if (manifestAsset == null) {
-                    throw new IllegalStateException("A publicação ainda não contém o manifesto oficial de atualização.");
-                }
-                String manifestUrl = manifestAsset.getString("browser_download_url");
-                if (!UpdateUrlPolicy.isOfficialReleaseAssetUrl(manifestUrl)) {
-                    throw new SecurityException("URL do manifesto fora da publicação oficial permitida.");
+                String manifestUrl = UpdateReleasePolicy.findUniqueAssetUrl(
+                        assets, MANIFEST_ASSET, releaseTag);
+                if (manifestUrl == null) {
+                    throw new SecurityException("Manifesto ausente, duplicado ou fora da Release oficial esperada.");
                 }
                 JSONObject manifest = new JSONObject(readUrl(manifestUrl, 128 * 1024));
                 if (!UpdateManifestPolicy.isManifestShapeEligible(manifest)) {
@@ -165,9 +163,11 @@ public final class UpdateCenterActivity extends Activity {
                 String apkName = manifest.getString("apkAssetName");
                 String hash = manifest.getString("sha256").toLowerCase(Locale.ROOT);
                 String notes = manifest.optString("notes", release.optString("body", "Atualização oficial."));
-                JSONObject apkAsset = findAsset(assets, apkName);
-                if (apkAsset == null) throw new IllegalStateException("APK oficial não encontrado na publicação.");
-                String apkUrl = apkAsset.getString("browser_download_url");
+                String apkUrl = UpdateReleasePolicy.findUniqueAssetUrl(
+                        assets, apkName, releaseTag);
+                if (apkUrl == null) {
+                    throw new SecurityException("APK ausente, duplicado ou fora da Release oficial esperada.");
+                }
                 long localCode = getPackageManager().getPackageInfo(getPackageName(), 0)
                         .getLongVersionCode();
                 if (remoteCode <= localCode) {
@@ -362,15 +362,6 @@ public final class UpdateCenterActivity extends Activity {
                 PACKAGE_NAME, downloaded.packageName, allSignersMatched)) {
             throw new SecurityException("Pacote ou certificado diferente. Atualização bloqueada para proteger seus dados.");
         }
-    }
-
-    private JSONObject findAsset(JSONArray assets, String name) {
-        if (assets == null) return null;
-        for (int i = 0; i < assets.length(); i++) {
-            JSONObject asset = assets.optJSONObject(i);
-            if (asset != null && name.equals(asset.optString("name"))) return asset;
-        }
-        return null;
     }
 
     private String readUrl(String address, int maxBytes) throws Exception {
