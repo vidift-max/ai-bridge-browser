@@ -138,6 +138,14 @@ public final class HomeActivity extends Activity {
         TextView tools = label("FERRAMENTAS", 17, TEXT, true);
         tools.setPadding(0, dp(22), 0, dp(8));
         page.addView(tools);
+        Button updates = new Button(this);
+        updates.setText("Atualizações do aplicativo");
+        updates.setAllCaps(false);
+        updates.setMinHeight(dp(52));
+        updates.setOnClickListener(v -> startActivity(new Intent(this, UpdateCenterActivity.class)));
+        page.addView(updates, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         Button browser = new Button(this);
         browser.setText("Abrir navegador e Central de Controle");
         browser.setAllCaps(false);
