@@ -17,8 +17,8 @@ Este roteiro só pode ser executado após autorização explícita para instalar
 - [ ] Alternar entre abas e confirmar que cada uma mantém sua própria conta.
 - [ ] Fechar e reabrir o app; confirmar persistência independente das sessões.
 - [ ] Sair da conta AI-01 e confirmar que AI-02 continua autenticada.
-- [ ] Autenticar AI-01 novamente, limpar dados apenas do perfil AI-01 e confirmar que AI-02 não foi afetada.
-- [ ] Repetir em sentido inverso, se houver fluxo de limpeza por perfil disponível.
+- [ ] Não executar limpeza individual de perfil até existir um fluxo explícito, testado e auditável no aplicativo. A interface atual ainda não oferece limpeza por perfil.
+- [ ] Não substituir limpeza individual por `CookieManager.getInstance()` ou limpeza global; as APIs globais operam no perfil padrão e podem não representar o perfil selecionado.
 - [ ] Testar uma aba com MULTI_PROFILE indisponível; confirmar que ela não recebe painel AI.
 - [ ] Confirmar que fila pendente vinculada a tabId/profileId antigo não é enviada a outra aba.
 - [ ] Confirmar que nenhuma mensagem é injetada no DOM nem enviada automaticamente.
@@ -30,6 +30,9 @@ Este roteiro só pode ser executado após autorização explícita para instalar
 - [ ] Resultado de alternância, reinício, logout e limpeza individual.
 - [ ] Logs sem segredos demonstrando atribuição ou falha.
 - [ ] PASS/FAIL por item, data e responsável pelo teste.
+
+## Limitação conhecida — limpeza de dados
+O aplicativo atualmente não implementa uma ação de limpeza individual por perfil nem usa `ProfileStore.deleteProfile`. A validação de logout/limpeza independente permanece BLOCKED até implementação dedicada e teste físico. Não executar limpeza global como substituto.
 
 ## Critério final
 Só declarar isolamento físico PASS quando AI-01 e AI-02 mantiverem sessões diferentes após alternância e reinício e quando logout/limpeza de um perfil não afetar o outro. Build, testes JVM e IDs distintos não substituem essa prova.

@@ -442,7 +442,10 @@ public final class MainActivity extends Activity {
             try {
                 // Must be the first WebView operation, before settings, clients, or navigation.
                 WebViewCompat.setProfile(webView, profileId);
-                sessionIsolationSupported = true;
+                // Read the assignment back; do not trust a non-throwing setter alone.
+                String actualProfileId = WebViewCompat.getProfile(webView).getName();
+                sessionIsolationSupported =
+                        SessionIsolationPolicy.isAssignedProfile(profileId, actualProfileId);
             } catch (RuntimeException profileError) {
                 sessionIsolationSupported = false;
             }
