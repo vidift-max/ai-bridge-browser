@@ -18,5 +18,6 @@ public class UpdaterDownloadPolicyTest {
     @Test public void rejectsNegativeOrOversizedActualLength() {
         assertFalse(UpdaterDownloadPolicy.isValidLength(-1, -1, 2048));
         assertFalse(UpdaterDownloadPolicy.isValidLength(-1, 2049, 2048));
+        assertFalse(UpdaterDownloadPolicy.isValidLength(-2, 1024, 2048));
     }
 }
