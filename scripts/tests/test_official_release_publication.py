@@ -28,7 +28,7 @@ class OfficialReleasePublicationContractTest(unittest.TestCase):
         self.assertIn(expected_tag, WORKFLOW)
         self.assertIn("/releases/latest", UPDATER)
         self.assertIn('"tag_name"', UPDATER)
-        self.assertIn("releases/download/", RELEASE_POLICY)
+        self.assertIn("/vidift-max/ai-bridge-browser/releases/download/", (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/UpdateUrlPolicy.java").read_text(encoding="utf-8"))
         self.assertIn("ai-bridge-update.json", WORKFLOW)
         self.assertIn("app-release.apk", WORKFLOW)
 
