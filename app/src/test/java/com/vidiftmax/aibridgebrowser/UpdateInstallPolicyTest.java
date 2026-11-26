@@ -48,7 +48,6 @@ public class UpdateInstallPolicyTest {
         assertFalse(UpdateInstallPolicy.isEligibleCandidate(new File(updates, "missing.apk"),
                 new File(updates, "missing.apk"), updates, "missing.apk"));
     }
-}
 
     @Test public void requiresExactOfficialAssetLengthBeforeInstallerHandoff() throws Exception {
         File root = Files.createTempDirectory("updater-size").toFile();
