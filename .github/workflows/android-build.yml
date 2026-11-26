@@ -67,6 +67,7 @@ on:
       - "feat/mission-219-readonly-installer-handoff"
       - "feat/mission-220-installer-intent-policy"
       - "feat/mission-221-installer-uri-canonical-path"
+      - "feat/mission-222-fileprovider-scope-contract"
   workflow_dispatch:
 
 permissions:
