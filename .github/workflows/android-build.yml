@@ -21,6 +21,7 @@ on:
       - "feat/mission-205-install-data-safety"
       - "feat/mission-210-ai01-ai02-update-ready"
       - "feat/mission-211-release-manifest-gate"
+      - "feat/mission-212-manifest-contract-verification"
   pull_request:
     branches:
       - "feat/mission-90-staging-invite-activation"
