@@ -14,4 +14,8 @@ final class AiAccountCapacityPolicy {
     static boolean supportsAccountCount(int requestedCount) {
         return requestedCount >= 1 && requestedCount <= MAX_SUPPORTED_ACCOUNTS;
     }
+
+    static boolean isCurrentMissionAccountId(String aiId) {
+        return "AI-01".equals(aiId) || "AI-02".equals(aiId);
+    }
 }

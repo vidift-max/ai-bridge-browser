@@ -16,6 +16,13 @@ public class AIControlCenterTest {
         assertTrue(center.beginMessage("tab-a", "profile-a", "mission"));
     }
 
+    @Test public void refusesToBindTwoAiAccountsToTheSameWebViewProfile() {
+        AIControlCenter center = new AIControlCenter();
+        assertTrue(center.register("AI-01", "tab-a", "shared-profile"));
+        assertFalse(center.register("AI-02", "tab-b", "shared-profile"));
+        assertEquals(1, center.panels().size());
+    }
+
     @Test public void ai01AndAi02UseDistinctTabAndProfileIdentities() {
         AIControlCenter center = new AIControlCenter();
         assertTrue(center.register("AI-01", "tab-ai-01", "profile-ai-01"));
