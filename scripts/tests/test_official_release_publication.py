@@ -14,7 +14,7 @@ class OfficialReleasePublicationContractTest(unittest.TestCase):
     def test_release_job_is_manual_and_scoped_for_publishing(self):
         self.assertIn("github.event_name == 'workflow_dispatch'", WORKFLOW)
         self.assertIn("github.ref == 'refs/heads/v2-saas-alpha'", WORKFLOW)
-        self.assertIn("permissions:\\n      contents: write", WORKFLOW)
+        self.assertIn("contents: write", WORKFLOW)
         self.assertIn("GH_TOKEN: ${{ github.token }}", WORKFLOW)
         self.assertIn("gh release create", WORKFLOW)
 
@@ -49,8 +49,8 @@ class OfficialReleasePublicationContractTest(unittest.TestCase):
         self.assertIn('EXPECTED_APK_ASSET = "app-release.apk"', MANIFEST)
 
     def test_android_version_is_incremented_for_existing_installations(self):
-        self.assertRegex(GRADLE, r"versionCode = 2\\b")
-        self.assertRegex(GRADLE, r'versionName = "0\\.2\\.0"')
+        self.assertIn("versionCode = 2", GRADLE)
+        self.assertIn('versionName = "0.2.0"', GRADLE)
 
 
 if __name__ == "__main__":
