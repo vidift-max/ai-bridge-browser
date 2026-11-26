@@ -342,7 +342,8 @@ public final class UpdateCenterActivity extends Activity {
                     if (total > MAX_APK_BYTES) throw new IllegalStateException("Download excedeu o tamanho máximo permitido.");
                     output.write(buffer, 0, count);
                     if (declared > 0) {
-                        int percent = (int) Math.min(100, (total * 100L) / declared);
+                        int percent = DownloadProgressPolicy.percent(total, declared, MAX_APK_BYTES);
+                        if (percent < 0) throw new IllegalStateException("Não foi possível calcular o progresso do download.");
                         if (percent != lastReported) {
                             lastReported = percent;
                             final int completed = percent;
