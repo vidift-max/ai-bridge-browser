@@ -12,7 +12,8 @@ RELEASE_POLICY = (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/Update
 
 class OfficialReleasePublicationContractTest(unittest.TestCase):
     def test_release_job_is_manual_and_scoped_for_publishing(self):
-        self.assertIn("if: ${{ github.event_name == 'workflow_dispatch' }}", WORKFLOW)
+        self.assertIn("github.event_name == 'workflow_dispatch'", WORKFLOW)
+        self.assertIn("github.ref == 'refs/heads/v2-saas-alpha'", WORKFLOW)
         self.assertIn("permissions:\n      contents: write", WORKFLOW)
         self.assertIn("GH_TOKEN: ${{ github.token }}", WORKFLOW)
         self.assertIn("gh release create", WORKFLOW)
@@ -52,6 +53,9 @@ if __name__ == "__main__":
         self.assertIn("releases/download/", RELEASE_POLICY)
         self.assertIn("ai-bridge-update.json", WORKFLOW)
         self.assertIn("app-release.apk", WORKFLOW)
+
+    def test_release_publication_is_restricted_to_the_default_branch(self):
+        self.assertIn("github.ref == 'refs/heads/v2-saas-alpha'", WORKFLOW)
 
     def test_signed_release_gate_requires_all_existing_signing_secrets(self):
         for secret in (
