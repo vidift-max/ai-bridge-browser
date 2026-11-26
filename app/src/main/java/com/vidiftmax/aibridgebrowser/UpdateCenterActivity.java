@@ -34,7 +34,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
-import java.security.cert.Certificate;
+import android.content.pm.Signature;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -248,14 +248,14 @@ public final class UpdateCenterActivity extends Activity {
         if (installed.signingInfo == null || downloaded.signingInfo == null) {
             throw new SecurityException("Não foi possível verificar a assinatura do APK.");
         }
-        Certificate[] current = installed.signingInfo.getApkContentsSigners();
-        Certificate[] incoming = downloaded.signingInfo.getApkContentsSigners();
+        Signature[] current = installed.signingInfo.getApkContentsSigners();
+        Signature[] incoming = downloaded.signingInfo.getApkContentsSigners();
         if (current == null || incoming == null || current.length == 0 ||
                 current.length != incoming.length) {
             throw new SecurityException("A assinatura do APK não corresponde à instalação atual.");
         }
         for (int i = 0; i < current.length; i++) {
-            if (!Arrays.equals(current[i].getEncoded(), incoming[i].getEncoded())) {
+            if (!Arrays.equals(current[i].toByteArray(), incoming[i].toByteArray())) {
                 throw new SecurityException("Certificado diferente. Atualização bloqueada para proteger seus dados.");
             }
         }
