@@ -29,6 +29,7 @@ on:
       - "feat/mission-217-apk-asset-size-binding"
       - "feat/mission-218-preinstall-apk-size-revalidation"
       - "feat/mission-219-readonly-installer-handoff"
+      - "feat/mission-220-installer-intent-policy"
   pull_request:
     branches:
       - "feat/mission-216-redirect-hop-validation"
@@ -59,6 +60,7 @@ on:
       - "feat/mission-211-release-manifest-gate"
       - "feat/mission-217-apk-asset-size-binding"
       - "feat/mission-218-preinstall-apk-size-revalidation"
+      - "feat/mission-219-readonly-installer-handoff"
   workflow_dispatch:
 
 permissions:
