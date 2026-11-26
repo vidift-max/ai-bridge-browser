@@ -27,6 +27,16 @@ public final class UpdateInstallPolicy {
                 && expectedName.equals(canonicalCandidate.getName());
     }
 
+    /** Accepts only the dedicated updates/ child of the app's internal files directory. */
+    public static boolean isPrivateUpdateDirectory(File filesDirectory, File updateDirectory)
+            throws IOException {
+        if (filesDirectory == null || updateDirectory == null) return false;
+        File canonicalFiles = filesDirectory.getCanonicalFile();
+        File canonicalUpdates = updateDirectory.getCanonicalFile();
+        return canonicalUpdates.equals(new File(canonicalFiles, "updates").getCanonicalFile())
+                && canonicalFiles.isDirectory() && canonicalUpdates.isDirectory();
+    }
+
     /** Rebinds the staged APK's on-disk byte length to the official Release asset before installer handoff. */
     public static boolean isExpectedVerifiedApk(File candidate, File verifiedCandidate,
             File allowedDirectory, String expectedName, long expectedBytes, long maximumBytes)

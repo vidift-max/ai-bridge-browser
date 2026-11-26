@@ -49,6 +49,23 @@ public class UpdateInstallPolicyTest {
                 new File(updates, "missing.apk"), updates, "missing.apk"));
     }
 
+    @Test public void acceptsOnlyDedicatedUpdatesChildOfInternalFilesDirectory() throws Exception {
+        File root = Files.createTempDirectory("app-private-files").toFile();
+        File updates = new File(root, "updates");
+        assertTrue(updates.mkdir());
+        assertTrue(UpdateInstallPolicy.isPrivateUpdateDirectory(root, updates));
+        File sibling = new File(root, "other");
+        assertTrue(sibling.mkdir());
+        assertFalse(UpdateInstallPolicy.isPrivateUpdateDirectory(root, sibling));
+    }
+
+    @Test public void rejectsNullOrNonexistentPrivateStagingDirectories() throws Exception {
+        File root = Files.createTempDirectory("app-private-files").toFile();
+        assertFalse(UpdateInstallPolicy.isPrivateUpdateDirectory(null, new File(root, "updates")));
+        assertFalse(UpdateInstallPolicy.isPrivateUpdateDirectory(root, null));
+        assertFalse(UpdateInstallPolicy.isPrivateUpdateDirectory(root, new File(root, "updates")));
+    }
+
     @Test public void requiresExactOfficialAssetLengthBeforeInstallerHandoff() throws Exception {
         File root = Files.createTempDirectory("updater-size").toFile();
         File updates = new File(root, "updates");
