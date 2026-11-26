@@ -288,6 +288,7 @@ public final class UpdateCenterActivity extends Activity {
                 verifyPackageAndCertificate(apk, expected);
                 postUi(() -> {
                     setBusy(false, "APK verificado novamente. Aguardando confirmação do Android.");
+                    installButton.setEnabled(true);
                     openAndroidInstaller(apk);
                 });
             } catch (Exception error) {
