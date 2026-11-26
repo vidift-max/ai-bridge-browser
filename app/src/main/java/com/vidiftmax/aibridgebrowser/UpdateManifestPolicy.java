@@ -1,6 +1,5 @@
 package com.vidiftmax.aibridgebrowser;
 
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.Iterator;
