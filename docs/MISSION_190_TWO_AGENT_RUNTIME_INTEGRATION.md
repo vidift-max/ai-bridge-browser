@@ -19,7 +19,12 @@ external execution.
 - Adds production-composition tests for independent provider routing, both
   directions of a persisted round trip, per-agent attestations, disabled
   provider-call policy, missing assignments, and invalid/missing host keys.
-- CI also reruns the existing HTTP, session bridge, browser client, panel, and
+- The authenticated provider-readiness endpoint now also reports whether the
+  conversation host and session registry are actually available; provider
+  assignment readiness alone cannot imply that messaging is enabled.
+- HTTP integration tests verify both generated messages are delivered to their
+  intended recipients through the existing Long Poll endpoint.
+- CI reruns the existing HTTP, session bridge, browser client, panel, and
   conversation runtime regression suites.
 
 ## Runtime configuration
@@ -54,8 +59,9 @@ browser storage, reports, fixtures, or PR comments.
 
 ## Evidence boundaries
 
-- CI uses fake adapters only. No real provider API calls, credentials, staging
-  deployment, room creation, session registration, or live messages are used.
+- CI uses fake adapters and in-memory fixtures only. No real provider API calls,
+  production credentials, staging deployment, production room creation, live
+  session registration, or live messages are used.
 - `MATCHED` readiness is not proof of external provider connectivity, billing,
   quota, account validity, or successful model inference.
 - The session registry remains in process memory with bounded TTL; a process
