@@ -64,7 +64,7 @@ Este documento registra os requisitos de produto para o aplicativo Android AI Br
 
 1. Corrigir e estabilizar o CI Android.
 2. Concluir prova física de isolamento AI-01/AI-02 e o fluxo de logout por perfil.
-3. Implementar a tela Atualizações, manifesto, download, verificação e handoff ao instalador do Android.
+3. Validar em dispositivo a tela Atualizações, manifesto, download, verificação e handoff ao instalador do Android.
 4. Configurar assinatura de release e canal de distribuição aprovado.
 5. Implementar a seleção de conta usando o fluxo oficial Google/ChatGPT e validar em WebView real.
 6. Testar atualização sobre instalação anterior e login de duas contas em dispositivo autorizado.
@@ -73,7 +73,9 @@ Este documento registra os requisitos de produto para o aplicativo Android AI Br
 - `applicationId`: `com.vidiftmax.aibridgebrowser`.
 - `versionCode`: 1; `versionName`: `0.1.0`.
 - O workflow possui build debug e release-preparation; release-final exige workflow_dispatch e secrets de assinatura.
-- Não há evidência de uma tela Atualizações, manifesto, download/instalação in-app ou canal de release assinado já implementado.
+- A tela Atualizações foi adicionada à tela inicial e consulta o endpoint público de releases do GitHub. A implementação exige manifesto `ai-bridge-update.json`, APK `app-release.apk`, versionCode superior, pacote esperado, SHA-256 e certificado igual ao APK instalado antes de abrir o instalador Android.
+- O fluxo de download e validação foi implementado, mas ainda não foi testado em dispositivo. O repositório não possui release estável publicada nem manifesto/artefato de atualização; portanto, atualmente a tela informa que não há versão oficial disponível.
+- O CI da M198 passou em push e pull_request para o HEAD `74d952a1d41d397e867d5e5c70352e978e5a54eb`; release-final permaneceu SKIPPED por depender de assinatura protegida.
 - A tela Android atualmente abre ChatGPT em WebView; não há seletor de conta Google nativo implementado identificado nesta auditoria.
 - Não foi realizado login real nem teste físico nesta missão.
 
