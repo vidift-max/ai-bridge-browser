@@ -1,0 +1,21 @@
+name: Mission 188 Staging Deployment Evidence Collector
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-187-two-agent-live-test-deployment-contract
+  push:
+    branches:
+      - feat/mission-188-staging-deployment-evidence-collector
+
+jobs:
+  evidence-collector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_staging_evidence_collector server.test_staging_deployment_contract server.test_live_test_readiness_audit server.test_first_turn_evidence_integrity server.test_operator_execution_record server.test_live_test_execution_evidence server.test_controlled_live_test_gate server.test_live_test_preflight server.test_agent_provider_router
