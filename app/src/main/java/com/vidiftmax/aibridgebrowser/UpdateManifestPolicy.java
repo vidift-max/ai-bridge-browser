@@ -55,8 +55,7 @@ public final class UpdateManifestPolicy {
         if (isBlank(packageName) || !packageName.equals(expectedPackageName)) return false;
         if (isBlank(apkAssetName) || !apkAssetName.equals(expectedApkAssetName)) return false;
         if (isBlank(sha256) || !SHA256.matcher(sha256.toLowerCase(Locale.ROOT)).matches()) return false;
-        if (isBlank(apkUrl) ||
-                !apkUrl.startsWith("https://github.com/vidift-max/ai-bridge-browser/releases/download/")) return false;
+        if (!UpdateUrlPolicy.isOfficialReleaseAssetUrl(apkUrl)) return false;
         return true;
     }
 
