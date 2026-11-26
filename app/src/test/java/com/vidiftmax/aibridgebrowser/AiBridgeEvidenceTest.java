@@ -16,7 +16,7 @@ public class AiBridgeEvidenceTest {
         }
         assertEquals(10, evidence.turnCount());
         assertTrue(evidence.isAlternatingPair());
-        assertEquals(10, evidence.events().get(9).responseChars);
+        assertEquals("response-10".length(), evidence.events().get(9).responseChars);
     }
 
     @Test
