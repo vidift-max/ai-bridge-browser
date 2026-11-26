@@ -55,6 +55,14 @@ public class UpdateManifestPolicyTest {
                 validManifest().put("sha256", HASH.toUpperCase(java.util.Locale.ROOT))));
     }
 
+    @Test public void rejectsNullManifestAndNullRequiredValues() throws Exception {
+        assertFalse(UpdateManifestPolicy.isManifestShapeEligible(null));
+        assertFalse(UpdateManifestPolicy.isManifestShapeEligible(
+                validManifest().put("notes", JSONObject.NULL)));
+        assertFalse(UpdateManifestPolicy.isManifestShapeEligible(
+                validManifest().put("sha256", JSONObject.NULL)));
+    }
+
     @Test public void acceptsHigherVersionWithExpectedPackageAssetHashAndOfficialUrl() {
         assertTrue(UpdateManifestPolicy.isEligible(2, 1,
                 "com.vidiftmax.aibridgebrowser", "com.vidiftmax.aibridgebrowser",
