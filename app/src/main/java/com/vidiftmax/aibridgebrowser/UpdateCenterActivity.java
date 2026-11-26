@@ -152,6 +152,7 @@ public final class UpdateCenterActivity extends Activity {
                 JSONObject manifest = new JSONObject(readUrl(manifestUrl, 128 * 1024));
                 long remoteCode = manifest.getLong("versionCode");
                 String remoteName = manifest.getString("versionName");
+                if (remoteName.trim().isEmpty()) throw new SecurityException("Nome da versão ausente.");
                 String packageName = manifest.getString("packageName");
                 String apkName = manifest.getString("apkAssetName");
                 String hash = manifest.getString("sha256").toLowerCase(Locale.ROOT);
@@ -191,7 +192,9 @@ public final class UpdateCenterActivity extends Activity {
         setBusy(true, "Baixando a atualização oficial…");
         executor.execute(() -> {
             try {
-                File folder = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "updates");
+                File downloads = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                if (downloads == null) throw new IllegalStateException("Armazenamento do aplicativo indisponível.");
+                File folder = new File(downloads, "updates");
                 if (!folder.exists() && !folder.mkdirs()) throw new IllegalStateException("Não foi possível criar a pasta de atualização.");
                 File apk = new File(folder, APK_ASSET);
                 download(selected.apkUrl, apk);
@@ -284,7 +287,11 @@ public final class UpdateCenterActivity extends Activity {
         connection.setRequestProperty("User-Agent", "AI-Bridge-Browser-Updater");
         try {
             int code = connection.getResponseCode();
+            if (code == 404 && RELEASE_API.equals(address)) {
+                throw new IllegalStateException("Ainda não existe uma versão oficial publicada. A área de atualizações já está preparada.");
+            }
             if (code != 200) throw new IllegalStateException("Canal de atualizações respondeu HTTP " + code + ".");
+            requireHttpsRedirect(connection);
             try (InputStream input = connection.getInputStream();
                  ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];
@@ -310,6 +317,7 @@ public final class UpdateCenterActivity extends Activity {
         try {
             int code = connection.getResponseCode();
             if (code != 200) throw new IllegalStateException("Download respondeu HTTP " + code + ".");
+            requireHttpsRedirect(connection);
             long declared = connection.getContentLengthLong();
             if (declared > MAX_APK_BYTES) throw new IllegalStateException("APK excede o tamanho máximo permitido.");
             try (InputStream input = new BufferedInputStream(connection.getInputStream());
@@ -330,6 +338,17 @@ public final class UpdateCenterActivity extends Activity {
             throw error;
         } finally {
             connection.disconnect();
+        }
+    }
+
+    private void requireHttpsRedirect(HttpURLConnection connection) {
+        String protocol = connection.getURL().getProtocol();
+        String host = connection.getURL().getHost();
+        if (!"https".equalsIgnoreCase(protocol) ||
+                !(host.equalsIgnoreCase("github.com") ||
+                  host.equalsIgnoreCase("objects.githubusercontent.com") ||
+                  host.equalsIgnoreCase("release-assets.githubusercontent.com"))) {
+            throw new SecurityException("Redirecionamento para origem não autorizada.");
         }
     }
 
