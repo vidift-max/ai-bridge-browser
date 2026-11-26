@@ -15,6 +15,16 @@ public class AIControlCenterTest {
         assertFalse(center.beginMessage("tab-a", "profile-b", "mission"));
         assertTrue(center.beginMessage("tab-a", "profile-a", "mission"));
     }
+
+    @Test public void ai01AndAi02UseDistinctTabAndProfileIdentities() {
+        AIControlCenter center = new AIControlCenter();
+        assertTrue(center.register("AI-01", "tab-ai-01", "profile-ai-01"));
+        assertTrue(center.register("AI-02", "tab-ai-02", "profile-ai-02"));
+        assertFalse(center.beginMessage("tab-ai-01", "profile-ai-02", "cross-profile"));
+        assertFalse(center.beginMessage("tab-ai-02", "profile-ai-01", "cross-profile"));
+        assertEquals("AI-01", center.panels().get(0).aiId);
+        assertEquals("AI-02", center.panels().get(1).aiId);
+    }
     @Test public void newMessageClearsTailAndCapturesOnlyLastTwoLines() {
         AIControlCenter center = new AIControlCenter(); center.register("AI-01", "tab-a", "profile-a");
         assertTrue(center.beginMessage("tab-a", "profile-a", "first"));
