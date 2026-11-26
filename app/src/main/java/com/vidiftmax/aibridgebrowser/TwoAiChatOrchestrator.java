@@ -22,6 +22,7 @@ final class TwoAiChatOrchestrator {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ChatGPTDomBridge bridge;
+    private final AiBridgeEvidence evidence = new AiBridgeEvidence();
     private boolean running;
     private int turns;
     private int maxTurns;
@@ -50,6 +51,7 @@ final class TwoAiChatOrchestrator {
         this.nextAiId = "AI-01";
         this.previousResponse = "";
         this.lastDeliveredResponse = "";
+        this.evidence.clear();
         this.listener = listener;
         this.running = true;
         bridge.install(ai01);
@@ -71,6 +73,8 @@ final class TwoAiChatOrchestrator {
     int getTurnCount() { return turns; }
 
     String lastDeliveredResponse() { return lastDeliveredResponse; }
+
+    String evidenceSummary() { return evidence.summary(); }
 
     private void sendCurrent() {
         if (!running) return;
@@ -102,6 +106,10 @@ final class TwoAiChatOrchestrator {
             if (!generating && AiBridgeRoundTripPolicy.isFreshResponse(baseline, response)) {
                 turns++;
                 lastDeliveredResponse = response;
+                if (!evidence.addTurn(turns, sender, response)) {
+                    fail("EVIDENCE_CAPTURE_FAILED_" + sender);
+                    return;
+                }
                 listener.onTurn(sender, response);
                 if (turns >= maxTurns) {
                     running = false;
@@ -128,7 +136,7 @@ final class TwoAiChatOrchestrator {
     private static String extract(String json, String key) {
         if (json == null || json.equals("null")) return null;
         try {
-            String decoded = json.startsWith("\"") ?
+            String decoded = json.startsWith(""") ?
                     new org.json.JSONTokener(json).nextValue().toString() : json;
             org.json.JSONObject object = new org.json.JSONObject(decoded);
             return object.optString(key, null);
