@@ -14,48 +14,23 @@ class OfficialReleasePublicationContractTest(unittest.TestCase):
     def test_release_job_is_manual_and_scoped_for_publishing(self):
         self.assertIn("github.event_name == 'workflow_dispatch'", WORKFLOW)
         self.assertIn("github.ref == 'refs/heads/v2-saas-alpha'", WORKFLOW)
-        self.assertIn("permissions:\n      contents: write", WORKFLOW)
+        self.assertIn("permissions:\\n      contents: write", WORKFLOW)
         self.assertIn("GH_TOKEN: ${{ github.token }}", WORKFLOW)
         self.assertIn("gh release create", WORKFLOW)
 
     def test_push_branch_filters_do_not_contain_duplicate_entries(self):
         push_section = WORKFLOW.split("  pull_request:", 1)[0]
-        branch_entries = re.findall(r'^      - "([^"]+)"
-        for secret in (
-            "AI_PHONE_RELEASE_KEYSTORE_B64",
-            "AI_PHONE_RELEASE_STORE_PASSWORD",
-            "AI_PHONE_RELEASE_KEY_ALIAS",
-            "AI_PHONE_RELEASE_KEY_PASSWORD",
-        ):
-            self.assertIn(secret, WORKFLOW)
-
-    def test_release_uploads_the_manifest_and_verification_evidence(self):
-        self.assertIn("app/build/outputs/apk/release/app-release.apk", WORKFLOW)
-        self.assertIn("ai-bridge-update.json", WORKFLOW)
-        self.assertIn("app-release.apk.sha256", WORKFLOW)
-        self.assertIn("app-release-signature.txt", WORKFLOW)
-        self.assertIn('EXPECTED_APK_ASSET = "app-release.apk"', MANIFEST)
-
-    def test_android_version_is_incremented_for_existing_installations(self):
-        self.assertRegex(GRADLE, r"versionCode = 2\b")
-        self.assertRegex(GRADLE, r'versionName = "0\.2\.0"')
-
-
-if __name__ == "__main__":
-    unittest.main()
-, push_section, re.MULTILINE)
+        branch_entries = re.findall(r'^      - "([^"]+)"$', push_section, re.MULTILINE)
         self.assertEqual(len(branch_entries), len(set(branch_entries)))
 
     def test_release_tag_and_latest_endpoint_match_updater_contract(self):
-        self.assertIn('TAG="v${VERSION_NAME}-${VERSION_CODE}"', WORKFLOW)
+        expected_tag = 'TAG="v${VERSION_NAME}-${VERSION_CODE}"'
+        self.assertIn(expected_tag, WORKFLOW)
         self.assertIn("/releases/latest", UPDATER)
         self.assertIn('"tag_name"', UPDATER)
         self.assertIn("releases/download/", RELEASE_POLICY)
         self.assertIn("ai-bridge-update.json", WORKFLOW)
         self.assertIn("app-release.apk", WORKFLOW)
-
-    def test_release_publication_is_restricted_to_the_default_branch(self):
-        self.assertIn("github.ref == 'refs/heads/v2-saas-alpha'", WORKFLOW)
 
     def test_signed_release_gate_requires_all_existing_signing_secrets(self):
         for secret in (
@@ -74,8 +49,8 @@ if __name__ == "__main__":
         self.assertIn('EXPECTED_APK_ASSET = "app-release.apk"', MANIFEST)
 
     def test_android_version_is_incremented_for_existing_installations(self):
-        self.assertRegex(GRADLE, r"versionCode = 2\b")
-        self.assertRegex(GRADLE, r'versionName = "0\.2\.0"')
+        self.assertRegex(GRADLE, r"versionCode = 2\\b")
+        self.assertRegex(GRADLE, r'versionName = "0\\.2\\.0"')
 
 
 if __name__ == "__main__":
