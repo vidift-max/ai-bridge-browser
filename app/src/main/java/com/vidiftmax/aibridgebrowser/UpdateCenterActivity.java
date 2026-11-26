@@ -135,6 +135,8 @@ public final class UpdateCenterActivity extends Activity {
     private void checkForUpdates() {
         setBusy(true, "Consultando o canal oficial de versões…");
         candidate = null;
+        clearDownloadedCandidate();
+        resetInstallAction();
         installButton.setEnabled(false);
         executor.execute(() -> {
             try {
@@ -180,6 +182,7 @@ public final class UpdateCenterActivity extends Activity {
                     setBusy(false, "Nova versão disponível: " + found.versionName +
                             " (código " + found.versionCode + ").\n\n" + found.notes);
                     installButton.setEnabled(true);
+                    resetInstallAction();
                 });
             } catch (Exception error) {
                 main.post(() -> setBusy(false, safeMessage(error)));
@@ -191,6 +194,7 @@ public final class UpdateCenterActivity extends Activity {
         Candidate selected = candidate;
         if (selected == null) return;
         installButton.setEnabled(false);
+        resetInstallAction();
         setBusy(true, "Baixando a atualização oficial…");
         executor.execute(() -> {
             try {
@@ -215,11 +219,26 @@ public final class UpdateCenterActivity extends Activity {
                 });
             } catch (Exception error) {
                 main.post(() -> {
+                    clearDownloadedCandidate();
+                    resetInstallAction();
                     setBusy(false, safeMessage(error));
                     installButton.setEnabled(candidate != null);
                 });
             }
         });
+    }
+
+    /** Drop any previously verified file when a new check/download starts. */
+    private void clearDownloadedCandidate() {
+        File previous = downloadedApk;
+        downloadedApk = null;
+        if (previous != null && previous.isFile()) previous.delete();
+    }
+
+    /** Always restore the download action before accepting a new candidate. */
+    private void resetInstallAction() {
+        installButton.setText("Baixar e instalar atualização");
+        installButton.setOnClickListener(v -> downloadAndInstall());
     }
 
     private void requestInstall(File apk) {
