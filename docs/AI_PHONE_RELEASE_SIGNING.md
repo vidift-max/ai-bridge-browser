@@ -1,83 +1,58 @@
 # AI-PHONE — Release Signing
 
-## Objetivo
+## Objetivo e estado
 
-O AI-PHONE não deve ser distribuído como `app-debug.apk` quando a intenção for entrega a participantes. O fluxo de entrega deve usar uma variante Release assinada por uma chave própria do projeto.
+O fluxo mantém APK Debug para desenvolvimento e gera APK Release somente no job manual de publicação. O APK Release só pode ser publicado após assinatura criptográfica válida e confirmação de que o certificado corresponde à instalação que receberá a atualização.
 
-## Estado atual
-
-O projeto agora possui:
-- variante Android Release;
-- configuração de assinatura condicional;
-- workflow que prepara o Release;
-- suporte a keystore protegido por GitHub Actions Secrets;
-- manutenção do APK Debug para desenvolvimento/testes.
-
-Sem os quatro segredos de assinatura, o workflow gera apenas um APK Release de preparação **não assinado**. Esse artefato não deve ser apresentado como APK final de distribuição.
+Sem os quatro Secrets, o job final falha. Sem a variável de fingerprint, também falha. Não há publicação automática em push ou pull request.
 
 ## Segredos necessários
 
-Configurar no repositório, como GitHub Actions Secrets:
+Configure diretamente em GitHub → Settings → Secrets and variables → Actions:
 
-- `AI_PHONE_RELEASE_KEYSTORE_B64` — keystore em Base64;
+- `AI_PHONE_RELEASE_KEYSTORE_B64` — conteúdo Base64 do keystore local;
 - `AI_PHONE_RELEASE_STORE_PASSWORD` — senha do keystore;
-- `AI_PHONE_RELEASE_KEY_ALIAS` — alias da chave;
-- `AI_PHONE_RELEASE_KEY_PASSWORD` — senha da chave.
+- `AI_PHONE_RELEASE_KEY_ALIAS` — alias `ai-phone-release`;
+- `AI_PHONE_RELEASE_KEY_PASSWORD` — senha da chave (pode ser a mesma senha do keystore).
 
-A chave privada não deve ser commitada no repositório.
+Configure também a variável de repositório (não é um Secret):
 
-## Regra de segurança
+- `AI_PHONE_EXPECTED_SIGNING_CERT_SHA256` — fingerprint SHA-256 do certificado do APK atualmente instalado, confirmado no dispositivo.
 
-A mesma chave de assinatura deve ser preservada para futuras atualizações do AI-PHONE. Perder ou substituir a chave pode impedir atualizações normais do mesmo aplicativo instalado.
+Não cole keystore, Base64, senhas ou tokens no chat. Não registre esses valores em arquivos versionados.
 
-## Verificação
+## Gerar a chave localmente no Windows
 
-O workflow deve distinguir explicitamente:
-- Release assinado e pronto para distribuição;
-- Release de preparação sem assinatura.
+1. Instale um JDK compatível e confirme que `keytool` está disponível no PowerShell.
+2. Na raiz do repositório, execute:
+   `powershell -ExecutionPolicy Bypass -File .\scripts\create_ai_phone_release_keystore.ps1`
+3. O `keytool` solicitará as senhas e os dados do certificado. Use uma senha forte e guarde-a em um gerenciador de senhas. Na senha da chave, pressione ENTER para reutilizar a senha do keystore, se desejar.
+4. O script cria localmente `ai-phone-release.keystore` e `ai-phone-release-keystore.b64`. Ele não imprime o Base64 e não sobrescreve arquivos existentes.
+5. Os dois arquivos estão explicitamente ignorados pelo Git. Mantenha cópias de segurança seguras e restritas; perder a chave pode impedir atualizações futuras.
+6. Cadastre o Base64 e as senhas diretamente nos quatro GitHub Actions Secrets. Cadastre o fingerprint confirmado em `AI_PHONE_EXPECTED_SIGNING_CERT_SHA256`.
 
-Assinatura Release melhora a identidade e a cadeia de distribuição, mas não garante que o Google Play Protect nunca apresente aviso quando o APK é instalado fora da Google Play.
+O script não cria nem envia Secrets e não publica versões.
 
+## Regra crítica: preservar a instalação existente
 
-## Como preparar a chave no Windows
+**Não desinstale o aplicativo instalado para contornar uma divergência de certificado.** A desinstalação pode apagar os dados locais.
 
-1. Tenha um JDK 17+ instalado.
-2. Execute `scripts/create_ai_phone_release_keystore.ps1`.
-3. O script cria localmente:
-   - `ai-phone-release.keystore`;
-   - `ai-phone-release-keystore.b64`.
-4. Cadastre os quatro valores como **GitHub Actions Secrets** do repositório.
-5. Não faça commit do keystore nem do arquivo Base64.
-6. Depois, execute manualmente o workflow **Android Build** para produzir o artefato `ai-phone-release-apk`.
+Uma atualização Android normal exige o mesmo pacote e uma assinatura compatível. Se o certificado do APK instalado não corresponder à chave Release, mantenha o aplicativo instalado e bloqueie a atualização. Primeiro será necessário planejar e testar uma migração/backup de dados segura, com autorização explícita. Não prometa atualização in-place enquanto a compatibilidade não estiver comprovada.
 
-A ferramenta disponível para esta sessão não possui permissão para criar/alterar Secrets do GitHub. Portanto, a etapa de cadastro dos quatro Secrets precisa ser feita pelo responsável do repositório.
+## Verificações de publicação
 
-## Gate de entrega
+O job manual:
 
-O artefato `ai-phone-release-apk` só é produzido pelo job `release-final` quando os quatro Secrets existem e a assinatura é validada pelo `apksigner verify --verbose`.
+- exige os quatro Secrets e a variável de fingerprint;
+- decodifica o keystore em diretório temporário do runner;
+- constrói o APK Release;
+- verifica a assinatura com `apksigner`;
+- compara o fingerprint do APK gerado com o fingerprint esperado;
+- gera SHA-256 e manifesto a partir do APK real;
+- publica somente depois de todos os gates passarem.
 
-O artefato `ai-phone-release-preparation` continua sendo apenas de preparação e não deve ser tratado como versão final.
+O job de Release tem permissão `contents: write`; o CI normal não tem essa permissão. Nenhum teste de CI substitui a confirmação física do certificado instalado ou a validação de atualização no Android.
 
+## Play Protect
 
-## Verificação adicional do Release
-
-Quando os Secrets estiverem configurados, o job final deve:
-- construir `app-release.apk`;
-- executar `apksigner verify --verbose`;
-- imprimir os certificados da assinatura;
-- gerar um arquivo SHA-256 do APK;
-- publicar o APK e o registro de checksum como artefatos separados.
-
-O checksum serve para comparar o arquivo baixado com o arquivo efetivamente produzido pelo CI. Ele não substitui a verificação criptográfica da assinatura.
-
-
-## Critério de segurança do repositório
-
-O CI também verifica que nenhum arquivo de keystore, JKS ou Base64 do keystore está versionado. Se material de assinatura for encontrado no índice Git, o job final falha.
-
-
-## Instalação no tablet de desenvolvimento
-
-O APK Release será assinado com uma chave diferente da chave de debug usada pelos APKs de desenvolvimento. Portanto, uma instalação Release pode exigir a remoção do APK Debug anterior antes da primeira instalação Release. Depois disso, futuras versões Release devem manter a mesma chave para atualização normal.
-
-A assinatura Release não desativa o Play Protect e não deve ser usada para contornar os mecanismos de segurança do Android.
+Uma assinatura Release não garante que o Google Play Protect nunca apresente avisos ao instalar APK fora da Google Play. Não tente desativar ou contornar as proteções do Android.
