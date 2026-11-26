@@ -207,9 +207,8 @@ public final class UpdateCenterActivity extends Activity {
         executor.execute(() -> {
             File partial = null;
             try {
-                File downloads = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-                if (downloads == null) throw new IllegalStateException("Armazenamento do aplicativo indisponível.");
-                File folder = new File(downloads, "updates");
+                // Keep staged installer payload in app-internal storage, not shared/external app storage.
+                File folder = new File(getFilesDir(), "updates");
                 if (!folder.exists() && !folder.mkdirs()) throw new IllegalStateException("Não foi possível criar a pasta de atualização.");
                 File canonicalFolder = folder.getCanonicalFile();
                 if (!canonicalFolder.isDirectory()) throw new SecurityException("Pasta privada de atualização inválida.");
@@ -270,8 +269,7 @@ public final class UpdateCenterActivity extends Activity {
 
     private void requestInstall(File apk) {
         Candidate expected = candidate;
-        File downloads = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-        File allowedDirectory = downloads == null ? null : new File(downloads, "updates");
+        File allowedDirectory = new File(getFilesDir(), "updates");
         try {
             if (expected == null || apk == null || apk != downloadedApk ||
                     !UpdateInstallPolicy.isExpectedVerifiedApk(apk, downloadedApk,
