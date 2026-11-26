@@ -90,4 +90,32 @@ public class UpdateInstallPolicyTest {
         assertFalse(UpdateInstallPolicy.isExpectedVerifiedApk(
                 other, other, updates, "app-release.apk", 4, 1024));
     }
+
+    @Test public void installerHandoffLocksExactVerifiedApkReadOnly() throws Exception {
+        File root = Files.createTempDirectory("updater-handoff").toFile();
+        File updates = new File(root, "updates");
+        assertTrue(updates.mkdir());
+        File apk = new File(updates, "app-release.apk");
+        try (FileOutputStream output = new FileOutputStream(apk)) {
+            output.write(new byte[]{1,2,3,4});
+        }
+        assertTrue(UpdateInstallPolicy.lockForInstallerHandoff(
+                apk, apk, updates, "app-release.apk", 4, 1024));
+        assertFalse(apk.canWrite());
+        assertTrue(UpdateInstallPolicy.isLockedInstallerHandoff(
+                apk, apk, updates, "app-release.apk", 4, 1024));
+    }
+
+    @Test public void installerHandoffDoesNotLockWrongOrOversizedFile() throws Exception {
+        File root = Files.createTempDirectory("updater-handoff").toFile();
+        File updates = new File(root, "updates");
+        assertTrue(updates.mkdir());
+        File apk = new File(updates, "app-release.apk");
+        try (FileOutputStream output = new FileOutputStream(apk)) {
+            output.write(new byte[]{1,2,3,4});
+        }
+        assertFalse(UpdateInstallPolicy.lockForInstallerHandoff(
+                apk, apk, updates, "app-release.apk", 5, 1024));
+        assertTrue(apk.canWrite());
+    }
 }

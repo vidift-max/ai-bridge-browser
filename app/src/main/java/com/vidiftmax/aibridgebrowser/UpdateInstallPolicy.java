@@ -36,4 +36,22 @@ public final class UpdateInstallPolicy {
                 && candidate.length() == expectedBytes
                 && candidate.length() <= maximumBytes;
     }
+    /** Locks the already verified APK against accidental writes before Android receives its URI. */
+    public static boolean lockForInstallerHandoff(File candidate, File verifiedCandidate,
+            File allowedDirectory, String expectedName, long expectedBytes, long maximumBytes)
+            throws IOException {
+        if (!isExpectedVerifiedApk(candidate, verifiedCandidate, allowedDirectory,
+                expectedName, expectedBytes, maximumBytes)) return false;
+        if (!candidate.setReadOnly()) return false;
+        return isExpectedVerifiedApk(candidate, verifiedCandidate, allowedDirectory,
+                expectedName, expectedBytes, maximumBytes) && !candidate.canWrite();
+    }
+
+    /** Requires the same bounded APK to remain read-only at the final installer boundary. */
+    public static boolean isLockedInstallerHandoff(File candidate, File verifiedCandidate,
+            File allowedDirectory, String expectedName, long expectedBytes, long maximumBytes)
+            throws IOException {
+        return isExpectedVerifiedApk(candidate, verifiedCandidate, allowedDirectory,
+                expectedName, expectedBytes, maximumBytes) && !candidate.canWrite();
+    }
 }

@@ -252,7 +252,10 @@ public final class UpdateCenterActivity extends Activity {
     private void clearDownloadedCandidate() {
         File previous = downloadedApk;
         downloadedApk = null;
-        if (previous != null && previous.isFile()) previous.delete();
+        if (previous != null && previous.isFile()) {
+            previous.setWritable(true, true);
+            previous.delete();
+        }
     }
 
     /** Always restore the download action before accepting a new candidate. */
@@ -297,6 +300,13 @@ public final class UpdateCenterActivity extends Activity {
                     throw new SecurityException("O APK foi alterado depois da verificação. Baixe novamente.");
                 }
                 verifyPackageAndCertificate(apk, expected);
+                if (!UpdateInstallPolicy.lockForInstallerHandoff(apk, downloadedApk,
+                        allowedDirectory, APK_ASSET, expected.apkBytes, MAX_APK_BYTES)) {
+                    throw new SecurityException("Não foi possível bloquear o APK verificado contra gravação antes da instalação.");
+                }
+                if (!expected.sha256.equals(sha256(apk))) {
+                    throw new SecurityException("O APK mudou durante o bloqueio de escrita. Baixe novamente.");
+                }
                 postUi(() -> {
                     setBusy(false, "APK verificado novamente. Aguardando confirmação do Android.");
                     installButton.setEnabled(true);
@@ -314,6 +324,22 @@ public final class UpdateCenterActivity extends Activity {
     }
 
     private void openAndroidInstaller(File apk) {
+        try {
+            File downloads = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            File allowedDirectory = downloads == null ? null : new File(downloads, "updates");
+            Candidate expected = candidate;
+            if (expected == null || apk == null || apk != downloadedApk ||
+                    !UpdateInstallPolicy.isLockedInstallerHandoff(apk, downloadedApk,
+                            allowedDirectory, APK_ASSET, expected.apkBytes, MAX_APK_BYTES)) {
+                throw new SecurityException("O APK não está bloqueado ou não corresponde mais ao arquivo verificado.");
+            }
+        } catch (Exception error) {
+            clearDownloadedCandidate();
+            resetInstallAction();
+            installButton.setEnabled(candidate != null);
+            status.setText("Instalação bloqueada: " + safeMessage(error));
+            return;
+        }
         if (android.os.Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
             Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:" + getPackageName()));
