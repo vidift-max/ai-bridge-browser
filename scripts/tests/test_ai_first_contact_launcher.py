@@ -62,5 +62,19 @@ class FirstContactLauncherContractTest(unittest.TestCase):
         self.assertNotIn("passwordInput", MAIN)
 
 
+    def test_turn_evidence_is_sequential_alternating_and_privacy_preserving(self):
+        self.assertIn("turn != events.size() + 1", EVIDENCE)
+        self.assertIn('turn % 2 == 1) ? "AI-01" : "AI-02"', EVIDENCE)
+        self.assertIn('MessageDigest.getInstance("SHA-256")', EVIDENCE)
+        self.assertIn("responseSha256", EVIDENCE)
+        self.assertNotIn("final String response;", EVIDENCE)
+        self.assertIn("Collections.unmodifiableList(events)", EVIDENCE)
+
+    def test_orchestrator_requires_complete_valid_evidence_before_success(self):
+        self.assertIn("evidence.turnCount() != maxTurns", ORCHESTRATOR)
+        self.assertIn("!evidence.isAlternatingPair()", ORCHESTRATOR)
+        self.assertIn("FINAL_EVIDENCE_VALIDATION_FAILED", ORCHESTRATOR)
+
+
 if __name__ == "__main__":
     unittest.main()
