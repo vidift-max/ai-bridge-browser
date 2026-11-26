@@ -19,6 +19,7 @@ import android.net.http.SslError;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
@@ -63,6 +64,7 @@ public final class MainActivity extends Activity {
     private TextView audioStatus;
     private TextView automationStatus;
     private Button pauseButton;
+    private Button aiConversationButton;
     private boolean automationPaused = false;
     private String lifecycleState = LIFECYCLE_RUNNING;
     private SharedPreferences prefs;
@@ -213,11 +215,13 @@ public final class MainActivity extends Activity {
         controls.addView(center);
         center.setOnClickListener(v -> toggleControlCenter());
 
-        Button aiConversation = new Button(this);
-        aiConversation.setText("AI ↔ AI");
-        aiConversation.setContentDescription("Iniciar conversa entre AI-01 e AI-02");
-        controls.addView(aiConversation);
-        aiConversation.setOnClickListener(v -> startAiConversationDialog());
+        aiConversationButton = new Button(this);
+        aiConversationButton.setText("AI ↔ AI · Começar");
+        aiConversationButton.setContentDescription("Abrir preparação e iniciar primeiro contato entre AI-01 e AI-02");
+        aiConversationButton.setEnabled(true);
+        aiConversationButton.setVisibility(View.VISIBLE);
+        controls.addView(aiConversationButton);
+        aiConversationButton.setOnClickListener(v -> startAiConversationDialog());
 
         Button collectiveRoom = new Button(this);
         collectiveRoom.setText("Sala coletiva");
@@ -560,57 +564,187 @@ public final class MainActivity extends Activity {
             if ("AI-01".equals(panel.aiId)) ai01Panel = panel;
             if ("AI-02".equals(panel.aiId)) ai02Panel = panel;
         }
-        if (ai01Panel == null || ai02Panel == null) {
-            Toast.makeText(this, "AI-01 e AI-02 ainda não estão associados a duas abas isoladas.", Toast.LENGTH_LONG).show();
+
+        Tab tab01 = ai01Panel == null ? null : findTab(ai01Panel.tabId, ai01Panel.profileId);
+        Tab tab02 = ai02Panel == null ? null : findTab(ai02Panel.tabId, ai02Panel.profileId);
+        String blocked = AiConversationLaunchPolicy.blockingReason(
+                ai01Panel != null, ai02Panel != null,
+                tab01 != null && tab02 != null && !tab01.tabId.equals(tab02.tabId),
+                tab01 != null && tab02 != null && !tab01.profileId.equals(tab02.profileId),
+                tab01 != null && tab02 != null &&
+                        tab01.sessionIsolationSupported && tab02.sessionIsolationSupported,
+                tab01 != null && tab02 != null && tab01.pageReady && tab02.pageReady,
+                tab01 != null && tab02 != null && tab01.chatReady && tab02.chatReady);
+
+        if (blocked != null) {
+            showAiConversationSetup(blocked);
             return;
         }
-        Tab tab01 = findTab(ai01Panel.tabId, ai01Panel.profileId);
-        Tab tab02 = findTab(ai02Panel.tabId, ai02Panel.profileId);
-        if (tab01 == null || tab02 == null || !tab01.sessionIsolationSupported || !tab02.sessionIsolationSupported) {
-            Toast.makeText(this, "BLOQUEADO: as duas IAs precisam de perfis WebView separados verificados.", Toast.LENGTH_LONG).show();
-            return;
+
+        preflightAiConversation(tab01, tab02);
+    }
+
+    private void showAiConversationSetup(String reason) {
+        String details;
+        switch (reason) {
+            case "AI_IDENTITIES_NOT_ASSIGNED":
+                details = "Ainda faltam as associações AI-01 e AI-02. Abra duas abas separadas do ChatGPT; o aplicativo atribuirá os dois perfis quando o isolamento estiver disponível.";
+                break;
+            case "TABS_NOT_DISTINCT":
+                details = "AI-01 e AI-02 precisam estar em abas diferentes.";
+                break;
+            case "PROFILES_NOT_DISTINCT":
+                details = "As duas abas estão apontando para o mesmo perfil. O contato foi bloqueado para não misturar as contas.";
+                break;
+            case "PROFILE_ISOLATION_UNVERIFIED":
+                details = "Este Android System WebView não confirmou dois perfis isolados. Atualize o componente WebView e tente novamente.";
+                break;
+            case "PAGES_NOT_READY":
+                details = "Aguarde as duas abas terminarem de carregar.";
+                break;
+            case "CHATGPT_NOT_OPEN":
+                details = "Abra chatgpt.com nas duas abas AI-01 e AI-02.";
+                break;
+            default:
+                details = "A preparação ainda não foi concluída.";
         }
-        if (!tab01.chatReady || !tab02.chatReady) {
-            Toast.makeText(this, "Abra o ChatGPT nas duas abas antes de iniciar.", Toast.LENGTH_LONG).show();
-            return;
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(18), dp(8), dp(18), dp(8));
+        TextView explanation = new TextView(this);
+        explanation.setText(details + "\n\nQuando as duas abas estiverem prontas, toque novamente em AI ↔ AI · Começar. O botão permanece disponível.");
+        content.addView(explanation);
+        new AlertDialog.Builder(this)
+                .setTitle("Preparar primeiro contato")
+                .setView(content)
+                .setPositiveButton("Abrir Central IA", (dialog, which) -> {
+                    if (!showingControlCenter) toggleControlCenter();
+                })
+                .setNegativeButton("Fechar", null)
+                .show();
+        audioStatus.setText("Primeiro contato aguardando preparação: " + reason);
+    }
+
+    private void preflightAiConversation(Tab tab01, Tab tab02) {
+        audioStatus.setText("AI-01 ↔ AI-02 · verificando as duas sessões antes de iniciar...");
+        chatGptDomBridge.inspect(tab01.webView, result01 -> {
+            org.json.JSONObject state01 = parseDomInspection(result01);
+            if (!isDomComposerReady(state01)) {
+                showAiConversationSetup("AI01_SESSION_NOT_READY");
+                return;
+            }
+            chatGptDomBridge.inspect(tab02.webView, result02 -> {
+                org.json.JSONObject state02 = parseDomInspection(result02);
+                if (!isDomComposerReady(state02)) {
+                    showAiConversationSetup("AI02_SESSION_NOT_READY");
+                    return;
+                }
+                showAiConversationConfirmation(tab01, tab02);
+            });
+        });
+    }
+
+    private org.json.JSONObject parseDomInspection(String raw) {
+        if (raw == null || raw.trim().isEmpty() || "null".equals(raw)) return null;
+        try {
+            Object decoded = new org.json.JSONTokener(raw).nextValue();
+            if (!(decoded instanceof String)) return null;
+            return new org.json.JSONObject((String) decoded);
+        } catch (Exception ignored) {
+            return null;
         }
+    }
+
+    private boolean isDomComposerReady(org.json.JSONObject state) {
+        return state != null && state.optBoolean("ok", false)
+                && state.optBoolean("composer", false)
+                && state.optBoolean("sendButton", false)
+                && !state.optBoolean("generating", true);
+    }
+
+    private void showAiConversationConfirmation(Tab tab01, Tab tab02) {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(18), dp(8), dp(18), dp(8));
+
+        TextView explanation = new TextView(this);
+        explanation.setText("As duas abas passaram pela verificação técnica. Agora confirme manualmente qual conta está selecionada em cada uma. O aplicativo não lê e-mail, senha nem dados de login.");
+        content.addView(explanation);
+
         EditText prompt = new EditText(this);
         prompt.setHint("Mensagem inicial para AI-01");
         prompt.setMinLines(3);
-        new AlertDialog.Builder(this)
-                .setTitle("AI-01 ↔ AI-02")
-                .setMessage("A conversa será iniciada manualmente e alternará as respostas entre as duas abas isoladas.")
-                .setView(prompt)
-                .setPositiveButton("Iniciar", (dialog, which) -> {
-                    String first = prompt.getText().toString().trim();
-                    if (first.isEmpty()) {
-                        Toast.makeText(this, "Digite a mensagem inicial.", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    automationPaused = false;
-                    lifecycleState = LIFECYCLE_RUNNING;
-                    twoAiChatOrchestrator.start(tab01.webView, tab02.webView, first, AI_BRIDGE_TURNS,
-                            new TwoAiChatOrchestrator.Listener() {
-                                @Override public void onState(String state) {
-                                    audioStatus.setText("AI-01 ↔ AI-02 · " + state);
-                                }
-                                @Override public void onTurn(String senderAiId, String response) {
-                                    audioStatus.setText(senderAiId + " respondeu. Próximo turno automático. " +
-                                            twoAiChatOrchestrator.evidenceSummary() + " · Turno " +
-                                            twoAiChatOrchestrator.getTurnCount() + "/10.");
-                                }
-                                @Override public void onFinished(int count) {
-                                    audioStatus.setText("AI-01 ↔ AI-02 concluído: " + count +
-                                            " turnos · " + twoAiChatOrchestrator.evidenceSummary() +
-                                            ". Verificação física pendente.");
-                                }
-                                @Override public void onError(String code) {
-                                    audioStatus.setText("AI-01 ↔ AI-02 bloqueado/interrompido: " + code);
-                                }
-                            });
-                })
+        content.addView(prompt);
+
+        CheckBox confirm01 = new CheckBox(this);
+        confirm01.setText("Confirmei que AI-01 está na conta ChatGPT correta.");
+        content.addView(confirm01);
+
+        CheckBox confirm02 = new CheckBox(this);
+        confirm02.setText("Confirmei que AI-02 está em outra conta ChatGPT.");
+        content.addView(confirm02);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("AI-01 ↔ AI-02 · primeiro contato")
+                .setMessage("A conversa será iniciada somente após sua confirmação e terá 10 turnos alternados.")
+                .setView(content)
+                .setPositiveButton("Começar 10 turnos", null)
                 .setNegativeButton("Cancelar", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            Button start = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            start.setEnabled(false);
+            android.widget.CompoundButton.OnCheckedChangeListener check = (button, checked) ->
+                    start.setEnabled(confirm01.isChecked() && confirm02.isChecked()
+                            && prompt.getText().toString().trim().length() > 0);
+            confirm01.setOnCheckedChangeListener(check);
+            confirm02.setOnCheckedChangeListener(check);
+            prompt.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence value, int startIndex, int count, int after) { }
+                @Override public void onTextChanged(CharSequence value, int startIndex, int before, int count) {
+                    start.setEnabled(confirm01.isChecked() && confirm02.isChecked()
+                            && value.toString().trim().length() > 0);
+                }
+                @Override public void afterTextChanged(android.text.Editable value) { }
+            });
+            start.setOnClickListener(view -> {
+                String first = prompt.getText().toString().trim();
+                automationPaused = false;
+                browserState.setPaused(false);
+                lifecycleState = LIFECYCLE_RUNNING;
+                boolean started = twoAiChatOrchestrator.start(tab01.webView, tab02.webView,
+                        first, AI_BRIDGE_TURNS, new TwoAiChatOrchestrator.Listener() {
+                    @Override public void onState(String state) {
+                        audioStatus.setText("AI-01 ↔ AI-02 · " + state);
+                    }
+                    @Override public void onTurn(String senderAiId, String response) {
+                        audioStatus.setText(senderAiId + " respondeu. Próximo turno automático. " +
+                                twoAiChatOrchestrator.evidenceSummary() + " · Turno " +
+                                twoAiChatOrchestrator.getTurnCount() + "/10.");
+                    }
+                    @Override public void onFinished(int count) {
+                        audioStatus.setText("AI-01 ↔ AI-02 concluído: " + count +
+                                " turnos · " + twoAiChatOrchestrator.evidenceSummary() +
+                                ". Resultado local; prova física ainda requer auditoria.");
+                        if (aiConversationButton != null) aiConversationButton.setEnabled(true);
+                    }
+                    @Override public void onError(String code) {
+                        audioStatus.setText("AI-01 ↔ AI-02 bloqueado/interrompido: " + code);
+                        if (aiConversationButton != null) aiConversationButton.setEnabled(true);
+                    }
+                });
+                if (!started) {
+                    audioStatus.setText("AI-01 ↔ AI-02 não iniciou. Verifique o estado e tente novamente.");
+                    if (aiConversationButton != null) aiConversationButton.setEnabled(true);
+                } else {
+                    if (aiConversationButton != null) aiConversationButton.setEnabled(false);
+                    audioStatus.setText("AI-01 ↔ AI-02 iniciado pelo usuário · 0/10 turnos.");
+                }
+                updateAutomationStatus();
+                dialog.dismiss();
+            });
+        });
+        dialog.show();
     }
 
     private boolean isChatHost(String url) {
