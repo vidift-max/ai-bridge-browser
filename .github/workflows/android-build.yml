@@ -2,9 +2,31 @@ name: Android Build
 
 on:
   push:
-    branches: [ "feat/mission-90-staging-invite-activation", "v2-saas-alpha", "feat/mission-08-identity-validation", "feat/mission-09-room-voice-controls", "feat/mission-10-webrtc-private-calls-v2", "feat/mission-136-android-browser-apk-readiness", "feat/mission-195-android-ci-gate", "feat/mission-196-session-isolation-gate", "feat/mission-196-session-isolation-gate", "feat/mission-197-android-acceptance-readiness" ]
+    branches:
+      - "feat/mission-90-staging-invite-activation"
+      - "v2-saas-alpha"
+      - "feat/mission-08-identity-validation"
+      - "feat/mission-09-room-voice-controls"
+      - "feat/mission-10-webrtc-private-calls-v2"
+      - "feat/mission-136-android-browser-apk-readiness"
+      - "feat/mission-195-android-ci-gate"
+      - "feat/mission-196-session-isolation-gate"
+      - "feat/mission-197-android-acceptance-readiness"
+      - "feat/mission-198-ci-and-android-onboarding"
   pull_request:
-    branches: [ "feat/mission-90-staging-invite-activation", "v2-saas-alpha", "feat/mission-08-identity-validation", "feat/mission-09-room-voice-controls", "feat/mission-135-gpt6-main-rooms-integration", "feat/mission-136-android-browser-apk-readiness", "feat/mission-193-two-account-boundary", "feat/mission-194-profile-restore-guard", "feat/mission-195-android-ci-gate" ]
+    branches:
+      - "feat/mission-90-staging-invite-activation"
+      - "v2-saas-alpha"
+      - "feat/mission-08-identity-validation"
+      - "feat/mission-09-room-voice-controls"
+      - "feat/mission-10-webrtc-private-calls-v2"
+      - "feat/mission-135-gpt6-main-rooms-integration"
+      - "feat/mission-136-android-browser-apk-readiness"
+      - "feat/mission-193-two-account-boundary"
+      - "feat/mission-194-profile-restore-guard"
+      - "feat/mission-195-android-ci-gate"
+      - "feat/mission-196-session-isolation-gate"
+      - "feat/mission-197-android-acceptance-readiness"
   workflow_dispatch:
 
 permissions:
@@ -61,7 +83,6 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-
   release-final:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
@@ -94,7 +115,7 @@ jobs:
       - name: Check repository for signing material
         run: |
           set -euo pipefail
-          if git ls-files | grep -E '(^|/)(.*\.(keystore|jks)|ai-phone-release-keystore\.b64)$'; then
+          if git ls-files | grep -E '(^|/)(.*\\.(keystore|jks)|ai-phone-release-keystore\\.b64)$'; then
             echo "Signing material must not be tracked in git."
             exit 1
           fi
