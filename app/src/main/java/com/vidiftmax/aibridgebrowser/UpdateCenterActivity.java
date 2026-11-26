@@ -98,6 +98,8 @@ public final class UpdateCenterActivity extends Activity {
 
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setIndeterminate(true);
+        progress.setMax(1000);
+        progress.setProgress(0);
         progress.setVisibility(View.GONE);
         page.addView(progress, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(5)));
@@ -324,18 +326,40 @@ public final class UpdateCenterActivity extends Activity {
             requireHttpsRedirect(connection);
             long declared = connection.getContentLengthLong();
             if (declared > MAX_APK_BYTES) throw new IllegalStateException("APK excede o tamanho máximo permitido.");
+            main.post(() -> {
+                progress.setIndeterminate(declared <= 0);
+                progress.setProgress(0);
+                status.setText(declared > 0 ? "Baixando atualização: 0%" : "Baixando atualização…");
+            });
             try (InputStream input = new BufferedInputStream(connection.getInputStream());
                  FileOutputStream output = new FileOutputStream(destination)) {
                 byte[] buffer = new byte[32768];
                 int count;
                 long total = 0;
+                int lastReported = -1;
                 while ((count = input.read(buffer)) != -1) {
                     total += count;
                     if (total > MAX_APK_BYTES) throw new IllegalStateException("Download excedeu o tamanho máximo permitido.");
                     output.write(buffer, 0, count);
+                    if (declared > 0) {
+                        int percent = (int) Math.min(100, (total * 100L) / declared);
+                        if (percent != lastReported) {
+                            lastReported = percent;
+                            final int completed = percent;
+                            main.post(() -> {
+                                progress.setProgress(completed * 10);
+                                status.setText("Baixando atualização: " + completed + "%");
+                            });
+                        }
+                    }
                 }
                 output.getFD().sync();
                 if (declared >= 0 && total != declared) throw new IllegalStateException("Download incompleto.");
+                main.post(() -> {
+                    progress.setIndeterminate(false);
+                    progress.setProgress(1000);
+                    status.setText("Download concluído. Verificando integridade e assinatura…");
+                });
             }
         } catch (Exception error) {
             destination.delete();
@@ -379,6 +403,10 @@ public final class UpdateCenterActivity extends Activity {
     private void setBusy(boolean busy, String message) {
         status.setText(message);
         progress.setVisibility(busy ? View.VISIBLE : View.GONE);
+        if (busy) {
+            progress.setIndeterminate(true);
+            progress.setProgress(0);
+        }
         checkButton.setEnabled(!busy);
         if (busy) installButton.setEnabled(false);
     }
