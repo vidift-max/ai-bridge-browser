@@ -245,7 +245,7 @@ public final class UpdateCenterActivity extends Activity {
     /** Deliver UI work only while this Activity is still alive. */
     private void postUi(Runnable action) {
         main.post(() -> {
-            if (!destroyed && !isFinishing() && !isDestroyed()) action.run();
+            if (UpdaterUiPolicy.shouldDeliver(destroyed, isFinishing(), isDestroyed())) action.run();
         });
     }
 
@@ -367,6 +367,8 @@ public final class UpdateCenterActivity extends Activity {
                 long total = 0;
                 int lastReported = -1;
                 while ((count = input.read(buffer)) != -1) {
+                    if (destroyed || Thread.currentThread().isInterrupted())
+                        throw new InterruptedException("Download cancelado porque a tela foi encerrada.");
                     total += count;
                     if (total > MAX_APK_BYTES) throw new IllegalStateException("Download excedeu o tamanho máximo permitido.");
                     output.write(buffer, 0, count);
