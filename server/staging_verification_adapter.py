@@ -101,7 +101,7 @@ def adapt_staging_verification(
             and not isinstance(record.get("health_status_code"), bool)
             and 200 <= record.get("health_status_code", 0) < 300
         ),
-        "healthCheckPassed": record.get("health_check_passed) is True,
+        "healthCheckPassed": record.get("health_check_passed") is True,
         "verifierIdentityPresent": (
             isinstance(record.get("verifier_identity"), str)
             and 1 <= len(record.get("verifier_identity", "")) <= 128
