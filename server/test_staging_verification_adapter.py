@@ -112,6 +112,27 @@ class StagingVerificationAdapterTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.adapt(["not", "a", "mapping"])
 
+    def test_unsafe_url_and_verifier_values_are_redacted_from_report(self):
+        for unsafe in (
+            "https://user:password@staging.example.test",
+            "https://staging.example.test/private/token-value",
+        ):
+            report = self.adapt(self.source(staging_url=unsafe))
+            self.assertNotIn("password", repr(report))
+            self.assertNotIn("token-value", repr(report))
+            self.assertEqual(report["record"]["staging_url"], "[REDACTED]")
+        report = self.adapt(self.source(verifier_identity="Bearer sk-secret-value"))
+        self.assertNotIn("sk-secret-value", repr(report))
+        self.assertEqual(report["record"]["verifier_identity"], "[REDACTED]")
+
+    def test_automated_probe_record_requires_explicit_claim(self):
+        report = self.adapt(self.source(
+            source_kind="automated_probe_record",
+            probe_execution_claimed=False,
+        ))
+        self.assertFalse(report["checks"]["automatedProbeClaimPresent"])
+        self.assertEqual(report["state"], "BLOCKED")
+
 
 if __name__ == "__main__":
     unittest.main()
