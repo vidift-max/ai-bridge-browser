@@ -67,10 +67,19 @@ def build_preflight(env=None, required_ai_ids=("AI-USER", "AI-PEER")):
     required = tuple(required_ai_ids)
     missing = [ai_id for ai_id in required if ai_id not in assignments]
     duplicates = len(required) != len(set(required))
-    checks.append({"id": "two_ai_assignments", "ok": not missing and not duplicates,
-                   "state": "OK" if not missing and not duplicates else "BLOCKED",
-                   "detail": "both required AI IDs assigned" if not missing and not duplicates
-                             else "missing or duplicate required AI IDs"})
+    exact_pair = set(assignments) == set(required)
+    pair_ok = not missing and not duplicates and exact_pair
+    checks.append({"id": "two_ai_assignments", "ok": pair_ok,
+                   "state": "OK" if pair_ok else "BLOCKED",
+                   "detail": "exactly the two required AI IDs assigned" if pair_ok
+                             else "missing, extra, or duplicate required AI IDs"})
+    selected_providers = [assignments.get(ai_id) for ai_id in required]
+    independent = (pair_ok and all(selected_providers)
+                   and len(set(selected_providers)) == len(required))
+    checks.append({"id": "independent_providers", "ok": independent,
+                   "state": "OK" if independent else "BLOCKED",
+                   "detail": "each AI uses a distinct provider" if independent
+                             else "two distinct provider assignments required"})
 
     for ai_id in required:
         provider = assignments.get(ai_id)
