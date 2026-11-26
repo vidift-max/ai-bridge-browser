@@ -36,7 +36,7 @@ import java.util.UUID;
 
 public final class MainActivity extends Activity {
     private static final int MAX_TABS = 6;
-    private static final int CURRENT_MISSION_AI_LIMIT = 2;
+    private static final int CURRENT_MISSION_AI_LIMIT = AiAccountCapacityPolicy.CURRENT_MISSION_LIMIT;
     private static final String HOME_URL = "https://chatgpt.com/";
     private static final String STATE_URLS = "tab_urls";
     private static final String STATE_ACTIVE = "active_tab";
@@ -294,7 +294,7 @@ public final class MainActivity extends Activity {
         heading.setPadding(0, dp(6), 0, dp(10));
         controlCenterView.addView(heading);
 
-        for (int i = 1; i <= AIControlCenter.MAX_AI_TABS; i++) {
+        for (int i = 1; i <= CURRENT_MISSION_AI_LIMIT; i++) {
             TextView panel = new TextView(this);
             panel.setTag("ai_panel_" + i);
             panel.setText("IA " + i + " · aguardando associação a uma aba");
