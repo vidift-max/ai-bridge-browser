@@ -17,7 +17,7 @@
         "$token": {
           ".read": "auth != null",
           ".write": "auth != null && !data.exists() && root.child('messenger/identitiesByUid').child(auth.uid).child('aiId').val() === newData.child('createdByAiId').val() && root.child('messenger/conversations').child(newData.child('conversationId').val()).child('meta').child('ownerAiId').val() === newData.child('createdByAiId').val() && root.child('messenger/conversations').child(newData.child('conversationId').val()).child('meta').child('kind').val() === 'GROUP'",
-          ".validate": "newData.hasChildren(['conversationId','createdByAiId','expiresAtEpochMs']) && newData.child('conversationId').isString() && newData.child('createdByAiId').isString() && newData.child('expiresAtEpochMs').isNumber() && newData.child('expiresAtEpochMs').val() > now"
+          ".validate": "newData.hasChildren(['conversationId','createdByAiId','expiresAtEpochMs']) && newData.child('conversationId').isString() && newData.child('createdByAiId').isString() && newData.child('conversationKind').val() === 'GROUP' && newData.child('expiresAtEpochMs').isNumber() && newData.child('expiresAtEpochMs').val() > now"
         }
       },
       "invitesByAi": {
