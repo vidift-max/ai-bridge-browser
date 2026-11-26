@@ -79,7 +79,11 @@ def collect_staging_evidence(
         for key, value in selected.items()
     }
 
-    evidence = StagingDeploymentEvidence(**normalized)
+    validation_values = {
+        key: (None if value == REDACTED else value)
+        for key, value in normalized.items()
+    }
+    evidence = StagingDeploymentEvidence(**validation_values)
     evaluation = evaluate_staging_deployment(
         evidence, expected_commit=expected_commit
     )
