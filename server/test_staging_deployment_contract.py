@@ -96,6 +96,19 @@ class StagingDeploymentContractTest(unittest.TestCase):
         for changes in ({"operator_approved": False}, {"secrets_included": True}):
             self.assertEqual(self.evaluate(self.evidence(**changes))["state"], BLOCKED)
 
+    def test_malformed_optional_metadata_fails_closed_without_exception(self):
+        result = evaluate_staging_deployment(
+            self.evidence(deployment_id=None, service_id=None, rollback_commit=None),
+            expected_commit="approved-sha",
+        )
+        self.assertEqual(result["state"], BLOCKED)
+
+    def test_expected_commit_must_be_nonempty(self):
+        result = evaluate_staging_deployment(
+            self.evidence(), expected_commit=""
+        )
+        self.assertEqual(result["state"], BLOCKED)
+
 
 if __name__ == "__main__":
     unittest.main()
