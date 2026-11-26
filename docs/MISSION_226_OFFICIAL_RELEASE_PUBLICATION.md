@@ -15,8 +15,11 @@ Preparar uma versão Android atualizável, assinada e publicável como GitHub Re
 9. Executar CI e confirmar artefatos, versão e gates; não considerar CI como prova de assinatura ou instalação física.
 10. Fazer o dispatch manual do workflow, confirmar a Release, atualizar o Android e executar o teste de 10 turnos AI-01 ↔ AI-02.
 
+## Contrato entre publicação e atualizador
+O workflow gera a tag no formato `v<versionName>-<versionCode>` (atualmente `v0.2.0-2`). O atualizador consulta `/releases/latest`, rejeita drafts/prereleases, exige exatamente um asset `ai-bridge-update.json` e um `app-release.apk`, e valida que as URLs dos dois assets apontem para a mesma tag da Release. O manifesto vincula pacote, versão, nome do APK e SHA-256. A assinatura recebida ainda precisa corresponder ao certificado da instalação já presente no Android; isso só pode ser confirmado no dispositivo.
+
 ## Publicação manual
-Depois que o PR M226 estiver integrado e o workflow aprovado:
+O workflow `workflow_dispatch` precisa estar presente na branch padrão do repositório para que o GitHub habilite a execução manual. Portanto, primeiro o PR precisa ser integrado à branch padrão, após revisão e autorização explícita. Depois que o PR M226 estiver integrado e o workflow aprovado:
 1. Abrir GitHub Actions → Android Build.
 2. Selecionar Run workflow.
 3. Escolher a branch `feat/mission-226-official-release-publication` (ou a branch oficial já integrada).
