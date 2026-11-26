@@ -26,9 +26,9 @@ class StagingActivationContractTest(unittest.TestCase):
         text = self.BLUEPRINT.read_text(encoding="utf-8")
         self.assertIn("value: '{\"AI-USER\":\"openai\",\"AI-PEER\":\"anthropic\"}'", text)
         for key in ("AI_PROVIDER_HOST_HMAC_KEY_HEX", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
-            self.assertIn(f"key: {key}\\n        sync: false", text)
-        self.assertIn("key: OPENAI_API_CALLS_ENABLED\\n        value: 'false'", text)
-        self.assertIn("key: ANTHROPIC_API_CALLS_ENABLED\\n        value: 'false'", text)
+            self.assertIn(f"key: {key}\n        sync: false", text)
+        self.assertIn("key: OPENAI_API_CALLS_ENABLED\n        value: 'false'", text)
+        self.assertIn("key: ANTHROPIC_API_CALLS_ENABLED\n        value: 'false'", text)
 
     def test_staging_contract_rejects_paid_or_persistent_storage(self):
         blueprint = self.BLUEPRINT.read_text(encoding="utf-8")
