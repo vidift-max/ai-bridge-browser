@@ -20,4 +20,19 @@ public class UpdaterDownloadPolicyTest {
         assertFalse(UpdaterDownloadPolicy.isValidLength(-1, 2049, 2048));
         assertFalse(UpdaterDownloadPolicy.isValidLength(-2, 1024, 2048));
     }
+    @Test public void bindsActualLengthToReleaseAssetMetadata() {
+        assertTrue(UpdaterDownloadPolicy.isExpectedAssetLength(2048, 2048, 2048, 4096));
+        assertTrue(UpdaterDownloadPolicy.isExpectedAssetLength(-1, 2048, 2048, 4096));
+    }
+    @Test public void rejectsContentLengthMismatchAgainstReleaseMetadata() {
+        assertFalse(UpdaterDownloadPolicy.isExpectedAssetLength(2047, 2048, 2048, 4096));
+        assertFalse(UpdaterDownloadPolicy.isExpectedAssetLength(2049, 2048, 2048, 4096));
+        assertFalse(UpdaterDownloadPolicy.isExpectedAssetLength(-1, 2047, 2048, 4096));
+        assertFalse(UpdaterDownloadPolicy.isExpectedAssetLength(-1, 2049, 2048, 4096));
+    }
+    @Test public void rejectsInvalidExpectedAssetSizes() {
+        assertFalse(UpdaterDownloadPolicy.isExpectedAssetLength(0, 0, 0, 4096));
+        assertFalse(UpdaterDownloadPolicy.isExpectedAssetLength(4097, 4097, 4097, 4096));
+        assertFalse(UpdaterDownloadPolicy.isExpectedAssetLength(-1, 1024, 2048, 1023));
+    }
 }

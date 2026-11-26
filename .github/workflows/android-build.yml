@@ -26,8 +26,10 @@ on:
       - "feat/mission-214-updater-redirect-origin-guard"
       - "feat/mission-215-release-asset-binding"
       - "feat/mission-216-redirect-hop-validation"
+      - "feat/mission-217-apk-asset-size-binding"
   pull_request:
     branches:
+      - "feat/mission-216-redirect-hop-validation"
       - "feat/mission-215-release-asset-binding"
       - "feat/mission-214-updater-redirect-origin-guard"
       - "feat/mission-213-cross-platform-manifest-contract"

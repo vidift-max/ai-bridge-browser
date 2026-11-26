@@ -69,12 +69,14 @@ public final class UpdateCenterActivity extends Activity {
         final String notes;
         final String apkUrl;
         final String sha256;
-        Candidate(long code, String name, String notes, String url, String hash) {
+        final long apkBytes;
+        Candidate(long code, String name, String notes, String url, String hash, long bytes) {
             this.versionCode = code;
             this.versionName = name;
             this.notes = notes;
             this.apkUrl = url;
             this.sha256 = hash;
+            this.apkBytes = bytes;
         }
     }
 
@@ -163,11 +165,12 @@ public final class UpdateCenterActivity extends Activity {
                 String apkName = manifest.getString("apkAssetName");
                 String hash = manifest.getString("sha256").toLowerCase(Locale.ROOT);
                 String notes = manifest.optString("notes", release.optString("body", "Atualização oficial."));
-                String apkUrl = UpdateReleasePolicy.findUniqueAssetUrl(
+                UpdateReleasePolicy.AssetMetadata apkAsset = UpdateReleasePolicy.findUniqueAsset(
                         assets, apkName, releaseTag);
-                if (apkUrl == null) {
-                    throw new SecurityException("APK ausente, duplicado ou fora da Release oficial esperada.");
+                if (apkAsset == null || apkAsset.sizeBytes > MAX_APK_BYTES) {
+                    throw new SecurityException("APK ausente, duplicado, excessivo ou fora da Release oficial esperada.");
                 }
+                String apkUrl = apkAsset.url;
                 long localCode = getPackageManager().getPackageInfo(getPackageName(), 0)
                         .getLongVersionCode();
                 if (remoteCode <= localCode) {
@@ -180,7 +183,8 @@ public final class UpdateCenterActivity extends Activity {
                         PACKAGE_NAME, apkName, APK_ASSET, hash, apkUrl)) {
                     throw new SecurityException("Manifesto inválido, versão não superior ou origem não permitida.");
                 }
-                Candidate found = new Candidate(remoteCode, remoteName, notes, apkUrl, hash);
+                Candidate found = new Candidate(remoteCode, remoteName, notes, apkUrl, hash,
+                        apkAsset.sizeBytes);
                 postUi(() -> {
                     candidate = found;
                     setBusy(false, "Nova versão disponível: " + found.versionName +
@@ -216,7 +220,7 @@ public final class UpdateCenterActivity extends Activity {
                     throw new SecurityException("Caminho de atualização fora da pasta privada permitida.");
                 }
                 if (partial.exists() && !partial.delete()) throw new IllegalStateException("Não foi possível remover download parcial anterior.");
-                download(selected.apkUrl, partial);
+                download(selected.apkUrl, partial, selected.apkBytes);
                 String actualHash = sha256(partial);
                 if (!selected.sha256.equals(actualHash)) {
                     throw new SecurityException("O hash do APK não confere. Instalação bloqueada.");
@@ -392,14 +396,19 @@ public final class UpdateCenterActivity extends Activity {
         }
     }
 
-    private void download(String address, File destination) throws Exception {
+    private void download(String address, File destination, long expectedAssetBytes) throws Exception {
+        if (expectedAssetBytes <= 0 || expectedAssetBytes > MAX_APK_BYTES) {
+            throw new SecurityException("Tamanho anunciado do APK fora do limite permitido.");
+        }
         HttpURLConnection connection = openValidatedConnection(address, 20000, 30000, null);
         try {
             int code = connection.getResponseCode();
             if (code != 200) throw new IllegalStateException("Download respondeu HTTP " + code + ".");
             requireHttpsRedirect(connection);
             long declared = connection.getContentLengthLong();
-            if (declared > MAX_APK_BYTES) throw new IllegalStateException("APK excede o tamanho máximo permitido.");
+            if (declared > MAX_APK_BYTES || (declared != -1 && declared != expectedAssetBytes)) {
+                throw new IllegalStateException("Tamanho HTTP não corresponde ao asset oficial da Release.");
+            }
             postUi(() -> {
                 progress.setIndeterminate(declared <= 0);
                 progress.setProgress(0);
@@ -431,7 +440,10 @@ public final class UpdateCenterActivity extends Activity {
                     }
                 }
                 output.getFD().sync();
-                if (!UpdaterDownloadPolicy.isValidLength(declared, total, MAX_APK_BYTES)) throw new IllegalStateException("Download incompleto ou com tamanho inválido.");
+                if (!UpdaterDownloadPolicy.isExpectedAssetLength(
+                        declared, total, expectedAssetBytes, MAX_APK_BYTES)) {
+                    throw new IllegalStateException("Download incompleto ou diferente do tamanho anunciado pela Release.");
+                }
                 postUi(() -> {
                     progress.setIndeterminate(false);
                     progress.setProgress(1000);
