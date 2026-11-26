@@ -95,6 +95,28 @@ class StagingEvidenceCollectorTest(unittest.TestCase):
         report["evidence"]["provider_api_key"] = "not-allowed"
         self.assertFalse(validate_collected_report(report))
 
+    def test_credential_like_value_in_allowlisted_field_is_redacted(self):
+        raw = self.source(deployment_id="Bearer sk-live-supersecretvalue")
+        report = self.collect(raw)
+        self.assertNotIn("sk-live-supersecretvalue", repr(report))
+        self.assertEqual(report["evidence"]["deployment_id"], "[REDACTED]")
+        self.assertEqual(report["state"], "BLOCKED")
+        self.assertTrue(validate_collected_report(report))
+
+    def test_staging_url_with_secret_path_is_not_echoed(self):
+        raw = self.source(staging_url="https://staging.example.test/private/token-value")
+        report = self.collect(raw)
+        self.assertNotIn("token-value", repr(report))
+        self.assertEqual(report["evidence"]["staging_url"], "[REDACTED]")
+        self.assertEqual(report["state"], "BLOCKED")
+
+    def test_safety_flags_are_all_enforced(self):
+        for flag in ("deploymentPerformed", "healthProbePerformed",
+                     "rollbackPerformed", "providerCallsPerformed"):
+            report = self.collect(self.source())
+            report[flag] = True
+            self.assertFalse(validate_collected_report(report))
+
 
 if __name__ == "__main__":
     unittest.main()
