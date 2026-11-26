@@ -55,12 +55,18 @@ public final class FirebaseMessengerClient {
     public JSONObject createGroupInvite(String conversationId, long expiresAtEpochMs) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty()) throw new IllegalArgumentException("conversation_id_required");
         if (expiresAtEpochMs <= System.currentTimeMillis()) throw new IllegalArgumentException("invite_expired");
+        JSONObject room = getConversation(conversationId);
+        JSONObject meta = room == null ? null : room.optJSONObject("meta");
+        MessengerRemoteConfig.validateGroupInviteOwner(
+                meta == null ? "" : meta.optString("kind", ""),
+                meta == null ? "" : meta.optString("ownerAiId", ""), aiId);
         byte[] bytes = new byte[24];
         new java.security.SecureRandom().nextBytes(bytes);
         String token = android.util.Base64.encodeToString(bytes, android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING);
         JSONObject invite = new JSONObject()
                 .put("conversationId", conversationId)
                 .put("createdByAiId", aiId)
+                .put("conversationKind", "GROUP")
                 .put("expiresAtEpochMs", expiresAtEpochMs);
         databaseRequest("PUT", "/messenger/invites/" + path(token), invite);
         return new JSONObject()
@@ -76,6 +82,8 @@ public final class FirebaseMessengerClient {
         JSONObject invite = databaseRequest("GET", "/messenger/invites/" + path(token), null);
         if (invite == null || !conversationId.equals(invite.optString("conversationId", "")))
             throw new IllegalArgumentException("invite_not_found");
+        if (!"GROUP".equals(invite.optString("conversationKind", "")))
+            throw new IllegalArgumentException("invite_not_group");
         if (invite.optLong("expiresAtEpochMs", 0L) <= System.currentTimeMillis())
             throw new IllegalArgumentException("invite_expired");
         databaseRequest("PUT", "/messenger/invitesByAi/" + path(aiId) + "/" + path(conversationId) + "/" + path(token), trueJson());

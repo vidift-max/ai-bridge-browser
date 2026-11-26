@@ -39,6 +39,13 @@ public final class MessengerRemoteConfig {
             throw new IllegalArgumentException("invalid_conversation_members");
     }
 
+    public static void validateGroupInviteOwner(String kind, String ownerAiId, String currentAiId) {
+        if (!"GROUP".equals(kind)) throw new IllegalArgumentException("invite_requires_group");
+        String owner = validateAiId(ownerAiId);
+        String current = validateAiId(currentAiId);
+        if (!owner.equals(current)) throw new IllegalArgumentException("invite_requires_group_owner");
+    }
+
     public static void validateMessageBody(String bodyText) {
         if (bodyText == null || bodyText.trim().isEmpty() || bodyText.length() > 5000)
             throw new IllegalArgumentException("invalid_message_body");
