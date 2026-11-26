@@ -155,6 +155,9 @@ public final class UpdateCenterActivity extends Activity {
                     throw new SecurityException("Origem do manifesto não permitida.");
                 }
                 JSONObject manifest = new JSONObject(readUrl(manifestUrl, 128 * 1024));
+                if (!UpdateManifestPolicy.isManifestShapeEligible(manifest)) {
+                    throw new SecurityException("Manifesto fora do contrato estrito. Atualização bloqueada.");
+                }
                 long remoteCode = manifest.getLong("versionCode");
                 String remoteName = manifest.getString("versionName");
                 if (remoteName.trim().isEmpty()) throw new SecurityException("Nome da versão ausente.");

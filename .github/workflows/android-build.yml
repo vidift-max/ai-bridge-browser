@@ -22,8 +22,10 @@ on:
       - "feat/mission-210-ai01-ai02-update-ready"
       - "feat/mission-211-release-manifest-gate"
       - "feat/mission-212-manifest-contract-verification"
+      - "feat/mission-213-cross-platform-manifest-contract"
   pull_request:
     branches:
+      - "feat/mission-212-manifest-contract-verification"
       - "feat/mission-90-staging-invite-activation"
       - "v2-saas-alpha"
       - "feat/mission-08-identity-validation"
