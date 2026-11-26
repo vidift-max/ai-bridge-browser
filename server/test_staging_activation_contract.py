@@ -12,14 +12,23 @@ class StagingActivationContractTest(unittest.TestCase):
         text = self.BLUEPRINT.read_text(encoding="utf-8")
         self.assertIn("name: ai-bridge-browser-staging", text)
         self.assertIn("MESSENGER_AI_ID_A", text)
-        self.assertIn("value: AI-01", text)
+        self.assertIn("value: AI-USER", text)
         self.assertIn("MESSENGER_AI_ID_B", text)
-        self.assertIn("value: AI-02", text)
+        self.assertIn("value: AI-PEER", text)
         self.assertIn("MESSENGER_STORAGE_MODE", text)
         self.assertIn("plan: free", text)
         self.assertIn("value: ephemeral", text)
         self.assertIn("MESSENGER_DB_PATH", text)
         self.assertIn("value: ':memory:'", text)
+
+
+    def test_staging_blueprint_routes_two_distinct_providers_and_keeps_calls_off(self):
+        text = self.BLUEPRINT.read_text(encoding="utf-8")
+        self.assertIn("value: '{\"AI-USER\":\"openai\",\"AI-PEER\":\"anthropic\"}'", text)
+        for key in ("AI_PROVIDER_HOST_HMAC_KEY_HEX", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
+            self.assertIn(f"key: {key}\\n        sync: false", text)
+        self.assertIn("key: OPENAI_API_CALLS_ENABLED\\n        value: 'false'", text)
+        self.assertIn("key: ANTHROPIC_API_CALLS_ENABLED\\n        value: 'false'", text)
 
     def test_staging_contract_rejects_paid_or_persistent_storage(self):
         blueprint = self.BLUEPRINT.read_text(encoding="utf-8")
