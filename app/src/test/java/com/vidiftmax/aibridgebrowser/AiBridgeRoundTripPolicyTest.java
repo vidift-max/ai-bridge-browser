@@ -10,6 +10,15 @@ public final class AiBridgeRoundTripPolicyTest {
         assertFalse(AiBridgeRoundTripPolicy.isAllowed(new String[]{"AI-01","AI-02","AI-03"}));
     }
 
+    @Test public void isolatedPairRequiresBothProfiles() {
+        assertTrue(AiBridgeRoundTripPolicy.isIsolatedPairReady(
+                new String[]{"AI-01","AI-02"}, true, true));
+        assertFalse(AiBridgeRoundTripPolicy.isIsolatedPairReady(
+                new String[]{"AI-01","AI-02"}, true, false));
+        assertFalse(AiBridgeRoundTripPolicy.isIsolatedPairReady(
+                new String[]{"AI-01","AI-03"}, true, true));
+    }
+
     @Test public void turnLimitIsBounded() {
         assertTrue(AiBridgeRoundTripPolicy.isTurnCountAllowed(2));
         assertTrue(AiBridgeRoundTripPolicy.isTurnCountAllowed(10));
