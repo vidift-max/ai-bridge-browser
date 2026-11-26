@@ -16,12 +16,14 @@ Começar a implementação real da área Atualizações para que novas versões 
 | 07/10 | Adicionar entrada Atualizações à tela inicial e registrar Activity/permissões/paths. | PASS em código — botão visível em HomeActivity, Activity interna, permissão REQUEST_INSTALL_PACKAGES e caminho app-private do FileProvider. |
 | 08/10 | Criar política de manifesto fail-closed e testes JVM. | PASS em código — `UpdateManifestPolicy` e 5 testes para versão, package, asset, hash, origem e metadados ausentes. |
 | 09/10 | Atualizar filtros do workflow e documentação de estado. | PASS em código/documentação — M199 incluída em push; M198 incluída como base de PR; estado e limitações descritos. |
-| 10/10 | Abrir PR Draft e validar CI do novo HEAD. | PENDENTE — aguardando conclusão da execução Android no HEAD M199 e abertura/checagem final da PR. |
+| 10/10 | Abrir PR Draft e validar CI do novo HEAD. | PASS operacional — PR #202 aberta, Draft, não mesclada, `mergeable=true`; push run #45747857783 e PR run #45747863659 associados ao HEAD `b908f7f220bbb519a63c4c5d5025df527f810d2a`, ambos em andamento na última consulta. |
 
 ## Evidências
 
 - PR M198: https://github.com/vidift-max/ai-bridge-browser/pull/201
+- PR M199: https://github.com/vidift-max/ai-bridge-browser/pull/202
 - Branch M199: `feat/mission-199-in-app-updates`.
+- HEAD M199 na última validação: `b908f7f220bbb519a63c4c5d5025df527f810d2a`.
 - Base: HEAD M198 `74d952a1d41d397e867d5e5c70352e978e5a54eb`.
 - Arquivos novos:
   - `app/src/main/java/com/vidiftmax/aibridgebrowser/UpdateCenterActivity.java`
@@ -62,4 +64,4 @@ No HEAD `74d952a1d41d397e867d5e5c70352e978e5a54eb`:
 - Escopo permanece AI-01 e AI-02.
 
 ## Conclusão
-**PASS** para a primeira implementação de interface e pipeline de atualização dentro do app, com validação fail-closed no código. **BLOCKED** para CI final M199, publicação de release assinada e validação física. A PR deve permanecer Draft e não mesclada.
+**PASS** para a primeira implementação de interface e pipeline de atualização dentro do app, com validação fail-closed no código. **BLOCKED** para CI final M199 (runs #45747857783 e #45747863659 ainda em andamento na última consulta), publicação de release assinada e validação física. A PR #202 permanece Draft e não mesclada.
