@@ -6,6 +6,8 @@ MAIN = (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/MainActivity.jav
 POLICY = (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/AiConversationLaunchPolicy.java").read_text()
 ORCHESTRATOR = (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/TwoAiChatOrchestrator.java").read_text()
 DOM_BRIDGE = (ROOT / "app/src/main/assets/ai_bridge_chatgpt_dom_bridge.js").read_text()
+EVIDENCE = (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/AiBridgeEvidence.java").read_text()
+ORCHESTRATOR = (ROOT / "app/src/main/java/com/vidiftmax/aibridgebrowser/TwoAiChatOrchestrator.java").read_text()
 
 
 class FirstContactLauncherContractTest(unittest.TestCase):
