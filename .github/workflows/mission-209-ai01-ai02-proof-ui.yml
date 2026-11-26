@@ -1,0 +1,32 @@
+name: M209 AI bridge proof UI verification
+
+on:
+  push:
+    branches: [fix/mission-209-rebased-on-m208-head]
+  pull_request:
+    branches: [feat/mission-208-ai01-ai02-physical-evidence]
+    paths:
+      - "app/src/main/java/**"
+      - "app/src/test/java/**"
+      - "docs/MISSION_209_AI01_AI02_PROOF_UI.md"
+      - ".github/workflows/mission-209-ai01-ai02-proof-ui.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  android-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - name: Run Android unit tests
+        run: gradle :app:testDebugUnitTest
+      - name: Build debug APK
+        run: gradle :app:assembleDebug
