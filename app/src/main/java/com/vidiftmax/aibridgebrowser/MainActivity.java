@@ -67,6 +67,8 @@ public final class MainActivity extends Activity {
     private SharedPreferences prefs;
     private final Deque<PendingMessage> pendingMessages = new ArrayDeque<>();
     private int activeTab = -1;
+    private ChatGPTDomBridge chatGptDomBridge;
+    private TwoAiChatOrchestrator twoAiChatOrchestrator;
 
     private static final class Tab {
         final WebView webView;
@@ -111,6 +113,8 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        chatGptDomBridge = new ChatGPTDomBridge(this);
+        twoAiChatOrchestrator = new TwoAiChatOrchestrator(chatGptDomBridge);
         buildChrome();
         String incomingInviteUrl = inviteUrlFromIntent(getIntent());
         if (savedInstanceState != null) automationPaused = savedInstanceState.getBoolean(STATE_PAUSED, false);
@@ -207,6 +211,12 @@ public final class MainActivity extends Activity {
         center.setContentDescription("Abrir Central de Controle das IAs");
         controls.addView(center);
         center.setOnClickListener(v -> toggleControlCenter());
+
+        Button aiConversation = new Button(this);
+        aiConversation.setText("AI ↔ AI");
+        aiConversation.setContentDescription("Iniciar conversa entre AI-01 e AI-02");
+        controls.addView(aiConversation);
+        aiConversation.setOnClickListener(v -> startAiConversationDialog());
 
         Button collectiveRoom = new Button(this);
         collectiveRoom.setText("Sala coletiva");
@@ -497,6 +507,7 @@ public final class MainActivity extends Activity {
                         ? hostLabel(url) : pageTitle.trim();
                 tab.pageReady = true;
                 tab.chatReady = isChatHost(url);
+                if (tab.chatReady) chatGptDomBridge.install(view);
                 renderTabs();
                 renderControlCenter();
                 if (tabs.indexOf(tab) == activeTab) addressBar.setText(url);
@@ -540,6 +551,62 @@ public final class MainActivity extends Activity {
         persistTabs();
         if (select) selectTab(tabs.size() - 1);
         else webView.setVisibility(View.GONE);
+    }
+
+    private void startAiConversationDialog() {
+        AIControlCenter.Panel ai01Panel = null, ai02Panel = null;
+        for (AIControlCenter.Panel panel : controlCenter.panels()) {
+            if ("AI-01".equals(panel.aiId)) ai01Panel = panel;
+            if ("AI-02".equals(panel.aiId)) ai02Panel = panel;
+        }
+        if (ai01Panel == null || ai02Panel == null) {
+            Toast.makeText(this, "AI-01 e AI-02 ainda não estão associados a duas abas isoladas.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Tab tab01 = findTab(ai01Panel.tabId, ai01Panel.profileId);
+        Tab tab02 = findTab(ai02Panel.tabId, ai02Panel.profileId);
+        if (tab01 == null || tab02 == null || !tab01.sessionIsolationSupported || !tab02.sessionIsolationSupported) {
+            Toast.makeText(this, "BLOQUEADO: as duas IAs precisam de perfis WebView separados verificados.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!tab01.chatReady || !tab02.chatReady) {
+            Toast.makeText(this, "Abra o ChatGPT nas duas abas antes de iniciar.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        EditText prompt = new EditText(this);
+        prompt.setHint("Mensagem inicial para AI-01");
+        prompt.setMinLines(3);
+        new AlertDialog.Builder(this)
+                .setTitle("AI-01 ↔ AI-02")
+                .setMessage("A conversa será iniciada manualmente e alternará as respostas entre as duas abas isoladas.")
+                .setView(prompt)
+                .setPositiveButton("Iniciar", (dialog, which) -> {
+                    String first = prompt.getText().toString().trim();
+                    if (first.isEmpty()) {
+                        Toast.makeText(this, "Digite a mensagem inicial.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    final int turns = 10;
+                    automationPaused = false;
+                    lifecycleState = LIFECYCLE_RUNNING;
+                    twoAiChatOrchestrator.start(tab01.webView, tab02.webView, first, turns,
+                            new TwoAiChatOrchestrator.Listener() {
+                                @Override public void onState(String state) {
+                                    audioStatus.setText("AI-01 ↔ AI-02 · " + state);
+                                }
+                                @Override public void onTurn(String senderAiId, String response) {
+                                    audioStatus.setText(senderAiId + " respondeu. Próximo turno automático.");
+                                }
+                                @Override public void onFinished(int count) {
+                                    audioStatus.setText("AI-01 ↔ AI-02 concluído: " + count + " turnos.");
+                                }
+                                @Override public void onError(String code) {
+                                    audioStatus.setText("AI-01 ↔ AI-02 bloqueado/interrompido: " + code);
+                                }
+                            });
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     private boolean isChatHost(String url) {
@@ -963,6 +1030,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (twoAiChatOrchestrator != null) twoAiChatOrchestrator.stop();
         persistTabs();
         for (Tab tab : tabs) {
             tab.webView.stopLoading();
