@@ -56,6 +56,7 @@ def _valid_https_url(value: Any) -> bool:
             and parsed.password is None
             and not parsed.query
             and not parsed.fragment
+            and parsed.path in ("", "/")
         )
     except ValueError:
         return False
@@ -123,13 +124,24 @@ def adapt_staging_verification(
         )
 
     matched = all(checks.values())
+    safe_record = dict(record)
+    if not _valid_https_url(safe_record.get("staging_url")):
+        safe_record["staging_url"] = "[REDACTED]"
+    verifier = safe_record.get("verifier_identity")
+    if isinstance(verifier, str) and re.search(
+        r"(?:bearer\\s+|token\\s*[:=]|password\\s*[:=]|sk-[A-Za-z0-9_-]{8,})",
+        verifier, re.IGNORECASE,
+    ):
+        safe_record["verifier_identity"] = "[REDACTED]"
+    safe_digest = canonical_record_sha256(safe_record)
     return {
         "schemaVersion": SCHEMA_VERSION,
         "state": "MATCHED_UNATTESTED" if matched else "BLOCKED",
         "matched": matched,
         "checks": checks,
-        "record": record,
-        "sourceRecordSha256": calculated_digest,
+        "record": safe_record,
+        "sourceRecordSha256": supplied_digest if isinstance(supplied_digest, str) else "",
+        "safeRecordSha256": safe_digest,
         "unknownFieldCount": len(set(raw_record) - FIELDS - {"source_record_sha256"}),
         "sourceIntegrityChecked": True,
         "sourceAuthenticityVerified": False,
@@ -147,7 +159,7 @@ def validate_staging_verification_report(report: Mapping[str, Any]) -> bool:
     record = report.get("record")
     if not isinstance(record, Mapping) or set(record) - FIELDS:
         return False
-    digest = report.get("sourceRecordSha256")
+    digest = report.get("safeRecordSha256")
     if not isinstance(digest, str) or digest != canonical_record_sha256(record):
         return False
     required_false = (
