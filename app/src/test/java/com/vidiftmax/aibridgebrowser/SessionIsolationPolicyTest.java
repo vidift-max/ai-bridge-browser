@@ -9,6 +9,16 @@ public class SessionIsolationPolicyTest {
         assertFalse(SessionIsolationPolicy.canAssignAccount(false));
     }
 
+    @Test public void assignedProfileMustMatchRequestedIdentity() {
+        assertTrue(SessionIsolationPolicy.isAssignedProfile("profile-01", "profile-01"));
+    }
+
+    @Test public void assignedProfileRejectsMismatchOrMissingValue() {
+        assertFalse(SessionIsolationPolicy.isAssignedProfile("profile-01", "profile-02"));
+        assertFalse(SessionIsolationPolicy.isAssignedProfile("profile-01", null));
+        assertFalse(SessionIsolationPolicy.isAssignedProfile(" ", " "));
+    }
+
     @Test public void queueTargetRequiresExactTabAndProfilePair() {
         assertTrue(SessionIsolationPolicy.isQueueTargetCurrent(
                 "tab-01", "profile-01", "tab-01", "profile-01"));
