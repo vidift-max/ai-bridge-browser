@@ -61,6 +61,7 @@ public final class UpdateCenterActivity extends Activity {
     private ProgressBar progress;
     private Candidate candidate;
     private File downloadedApk;
+    private volatile boolean destroyed;
 
     private static final class Candidate {
         final long versionCode;
@@ -167,7 +168,7 @@ public final class UpdateCenterActivity extends Activity {
                 long localCode = getPackageManager().getPackageInfo(getPackageName(), 0)
                         .getLongVersionCode();
                 if (remoteCode <= localCode) {
-                    main.post(() -> {
+                    postUi(() -> {
                         setBusy(false, "Você já está usando a versão mais recente (" + installedVersion() + ").");
                     });
                     return;
@@ -177,7 +178,7 @@ public final class UpdateCenterActivity extends Activity {
                     throw new SecurityException("Manifesto inválido, versão não superior ou origem não permitida.");
                 }
                 Candidate found = new Candidate(remoteCode, remoteName, notes, apkUrl, hash);
-                main.post(() -> {
+                postUi(() -> {
                     candidate = found;
                     setBusy(false, "Nova versão disponível: " + found.versionName +
                             " (código " + found.versionCode + ").\n\n" + found.notes);
@@ -185,7 +186,7 @@ public final class UpdateCenterActivity extends Activity {
                     resetInstallAction();
                 });
             } catch (Exception error) {
-                main.post(() -> setBusy(false, safeMessage(error)));
+                postUi(() -> setBusy(false, safeMessage(error)));
             }
         });
     }
@@ -210,7 +211,7 @@ public final class UpdateCenterActivity extends Activity {
                     throw new SecurityException("O hash do APK não confere. Instalação bloqueada.");
                 }
                 verifyPackageAndCertificate(apk, selected);
-                main.post(() -> {
+                postUi(() -> {
                     downloadedApk = apk;
                     setBusy(false, "Download e verificações concluídos. O APK corresponde ao aplicativo instalado.");
                     installButton.setEnabled(true);
@@ -218,7 +219,7 @@ public final class UpdateCenterActivity extends Activity {
                     installButton.setOnClickListener(v -> requestInstall(apk));
                 });
             } catch (Exception error) {
-                main.post(() -> {
+                postUi(() -> {
                     clearDownloadedCandidate();
                     resetInstallAction();
                     setBusy(false, safeMessage(error));
@@ -239,6 +240,13 @@ public final class UpdateCenterActivity extends Activity {
     private void resetInstallAction() {
         installButton.setText("Baixar e instalar atualização");
         installButton.setOnClickListener(v -> downloadAndInstall());
+    }
+
+    /** Deliver UI work only while this Activity is still alive. */
+    private void postUi(Runnable action) {
+        main.post(() -> {
+            if (!destroyed && !isFinishing() && !isDestroyed()) action.run();
+        });
     }
 
     private void requestInstall(File apk) {
@@ -322,6 +330,8 @@ public final class UpdateCenterActivity extends Activity {
                 byte[] buffer = new byte[8192];
                 int count, total = 0;
                 while ((count = input.read(buffer)) != -1) {
+                    if (destroyed || Thread.currentThread().isInterrupted())
+                        throw new InterruptedException("Atualização cancelada porque a tela foi encerrada.");
                     total += count;
                     if (total > maxBytes) throw new IllegalStateException("Resposta do canal excedeu o limite permitido.");
                     output.write(buffer, 0, count);
@@ -345,7 +355,7 @@ public final class UpdateCenterActivity extends Activity {
             requireHttpsRedirect(connection);
             long declared = connection.getContentLengthLong();
             if (declared > MAX_APK_BYTES) throw new IllegalStateException("APK excede o tamanho máximo permitido.");
-            main.post(() -> {
+            postUi(() -> {
                 progress.setIndeterminate(declared <= 0);
                 progress.setProgress(0);
                 status.setText(declared > 0 ? "Baixando atualização: 0%" : "Baixando atualização…");
@@ -366,7 +376,7 @@ public final class UpdateCenterActivity extends Activity {
                         if (percent != lastReported) {
                             lastReported = percent;
                             final int completed = percent;
-                            main.post(() -> {
+                            postUi(() -> {
                                 progress.setProgress(completed * 10);
                                 status.setText("Baixando atualização: " + completed + "%");
                             });
@@ -375,7 +385,7 @@ public final class UpdateCenterActivity extends Activity {
                 }
                 output.getFD().sync();
                 if (declared >= 0 && total != declared) throw new IllegalStateException("Download incompleto.");
-                main.post(() -> {
+                postUi(() -> {
                     progress.setIndeterminate(false);
                     progress.setProgress(1000);
                     status.setText("Download concluído. Verificando integridade e assinatura…");
@@ -456,6 +466,7 @@ public final class UpdateCenterActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        destroyed = true;
         executor.shutdownNow();
         super.onDestroy();
     }
