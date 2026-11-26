@@ -595,7 +595,7 @@ public final class MainActivity extends Activity {
                                     audioStatus.setText("AI-01 ↔ AI-02 · " + state);
                                 }
                                 @Override public void onTurn(String senderAiId, String response) {
-                                    audioStatus.setText(senderAiId + " respondeu. Próximo turno automático.");
+                                    audioStatus.setText(senderAiId + " respondeu. Próximo turno automático. Turno " + (twoAiChatOrchestrator.getTurnCount()) + "/10.");
                                 }
                                 @Override public void onFinished(int count) {
                                     audioStatus.setText("AI-01 ↔ AI-02 concluído: " + count + " turnos. Verificação física pendente.");
