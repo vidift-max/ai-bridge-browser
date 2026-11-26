@@ -30,6 +30,7 @@ on:
       - "feat/mission-218-preinstall-apk-size-revalidation"
       - "feat/mission-219-readonly-installer-handoff"
       - "feat/mission-220-installer-intent-policy"
+      - "feat/mission-221-installer-uri-canonical-path"
   pull_request:
     branches:
       - "feat/mission-216-redirect-hop-validation"
@@ -61,6 +62,7 @@ on:
       - "feat/mission-217-apk-asset-size-binding"
       - "feat/mission-218-preinstall-apk-size-revalidation"
       - "feat/mission-219-readonly-installer-handoff"
+      - "feat/mission-220-installer-intent-policy"
   workflow_dispatch:
 
 permissions:
@@ -151,7 +153,7 @@ jobs:
       - name: Check repository for signing material
         run: |
           set -euo pipefail
-          if git ls-files | grep -E '(^|/)(.*\.(keystore|jks)|ai-phone-release-keystore\.b64)$'; then
+          if git ls-files | grep -E '(^|/)(.*\\.(keystore|jks)|ai-phone-release-keystore\\.b64)$'; then
             echo "Signing material must not be tracked in git."
             exit 1
           fi
