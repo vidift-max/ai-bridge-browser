@@ -220,7 +220,7 @@ public final class UpdateCenterActivity extends Activity {
                 }
                 verifyPackageAndCertificate(partial, selected);
                 if (apk.exists() && !apk.delete()) throw new IllegalStateException("Não foi possível substituir o APK verificado anterior.");
-                if (!partial.renameTo(apk)) throw new IllegalStateException("Não foi possível finalizar atomicamente o APK verificado.");
+                if (!partial.renameTo(apk)) throw new IllegalStateException("Não foi possível finalizar o APK verificado.");
                 partial = null;
                 postUi(() -> {
                     downloadedApk = apk;
