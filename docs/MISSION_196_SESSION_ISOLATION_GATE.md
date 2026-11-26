@@ -20,7 +20,7 @@ Impedir que uma WebView sem atribuição efetiva de AndroidX WebKit `MULTI_PROFI
 | 05/10 | Confirmar que a preparação release é apenas preparação; assinatura final não foi executada nem habilitada no PR. | PASS |
 | 06/10 | Auditar `MainActivity.addTab`: `setProfile` ocorre antes de settings/clientes/navegação e a feature é verificada com `MULTI_PROFILE`. | PASS estático |
 | 07/10 | Identificar falha de política: mesmo com `sessionIsolationSupported=false`, a aba podia receber registro AI-01/AI-02. | FALHA ENCONTRADA |
-| 08/10 | Corrigir a atribuição: só registrar identidade de IA se a atribuição MULTI_PROFILE realmente tiver sucesso. Adicionar comparação exata de `tabId/profileId` e descartar itens de fila obsoletos sem retarget. | PASS em código |
+| 08/10 | Corrigir a atribuição em abas novas e restauradas: só registrar/restaurar identidade de IA se MULTI_PROFILE realmente tiver sucesso. Adicionar comparação exata de `tabId/profileId` e descartar itens de fila obsoletos sem retarget. | PASS em código |
 | 09/10 | Adicionar `SessionIsolationPolicy` e cinco testes JVM; ampliar os filtros Android CI para push M196 e PRs destinados à base M195. | PASS em código; CI M196 pendente |
 | 10/10 | Criar checklist de aceitação física e abrir PR Draft sem merge. | PASS documentação; BLOCKED teste físico |
 
@@ -34,7 +34,7 @@ Impedir que uma WebView sem atribuição efetiva de AndroidX WebKit `MULTI_PROFI
 - Esses resultados são da M195, não da nova alteração M196.
 
 ## Mudanças M196
-- `MainActivity`: não registra painel AI para WebView se MULTI_PROFILE não foi atribuído; procura destino de fila pelo par exato de IDs; remove da fila itens cujo par não existe mais, sem enviá-los a outra aba.
+- `MainActivity`: não registra nem restaura painel AI para WebView se MULTI_PROFILE não foi atribuído; procura destino de fila pelo par exato de IDs; remove da fila itens cujo par não existe mais, sem enviá-los a outra aba.
 - `SessionIsolationPolicy.java`: regra pura e testável para gate de conta e identidade exata de fila.
 - `SessionIsolationPolicyTest.java`: cinco testes cobrindo gate, identidade exata, divergência de aba, divergência de perfil e IDs vazios.
 - `.github/workflows/android-build.yml`: habilita CI na branch M196 e quando PR é destinado à branch M195.
