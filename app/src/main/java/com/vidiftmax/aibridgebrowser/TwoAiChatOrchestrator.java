@@ -68,6 +68,8 @@ final class TwoAiChatOrchestrator {
 
     private WebView current() { return "AI-01".equals(nextAiId) ? ai01 : ai02; }
 
+    int getTurnCount() { return turns; }
+
     String lastDeliveredResponse() { return lastDeliveredResponse; }
 
     private void sendCurrent() {
