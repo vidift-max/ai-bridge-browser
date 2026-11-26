@@ -595,10 +595,14 @@ public final class MainActivity extends Activity {
                                     audioStatus.setText("AI-01 ↔ AI-02 · " + state);
                                 }
                                 @Override public void onTurn(String senderAiId, String response) {
-                                    audioStatus.setText(senderAiId + " respondeu. Próximo turno automático. Turno " + (twoAiChatOrchestrator.getTurnCount()) + "/10.");
+                                    audioStatus.setText(senderAiId + " respondeu. Próximo turno automático. " +
+                                            twoAiChatOrchestrator.evidenceSummary() + " · Turno " +
+                                            twoAiChatOrchestrator.getTurnCount() + "/10.");
                                 }
                                 @Override public void onFinished(int count) {
-                                    audioStatus.setText("AI-01 ↔ AI-02 concluído: " + count + " turnos. Verificação física pendente.");
+                                    audioStatus.setText("AI-01 ↔ AI-02 concluído: " + count +
+                                            " turnos · " + twoAiChatOrchestrator.evidenceSummary() +
+                                            ". Verificação física pendente.");
                                 }
                                 @Override public void onError(String code) {
                                     audioStatus.setText("AI-01 ↔ AI-02 bloqueado/interrompido: " + code);
