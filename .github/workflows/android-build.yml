@@ -36,7 +36,6 @@ on:
       - "feat/mission-224-ai-first-contact-launch"
       - "feat/mission-225-first-contact-evidence-integrity"
       - "feat/mission-226-official-release-publication"
-      - "feat/mission-226-official-release-publication"
   pull_request:
     branches:
       - "feat/mission-216-redirect-hop-validation"
