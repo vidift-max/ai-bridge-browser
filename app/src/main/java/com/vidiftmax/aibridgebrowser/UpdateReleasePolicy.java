@@ -44,7 +44,7 @@ public final class UpdateReleasePolicy {
             match = asset;
         }
         if (match == null || !(match.opt("state") instanceof String)
-                || !"uploaded".equals(match.opt("state))) return null;
+                || !"uploaded".equals(match.opt("state")) return null;
         Object size = match.opt("size");
         if (!(size instanceof Integer || size instanceof Long)) return null;
         long sizeBytes = ((Number) size).longValue();
