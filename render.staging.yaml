@@ -14,9 +14,9 @@ services:
       - key: MESSENGER_TOKEN_AI_B
         sync: false
       - key: MESSENGER_AI_ID_A
-        value: AI-01
+        value: AI-USER
       - key: MESSENGER_AI_ID_B
-        value: AI-02
+        value: AI-PEER
       - key: MESSENGER_ENVIRONMENT
         value: staging
       - key: MESSENGER_ALLOW_EPHEMERAL_STAGING
@@ -25,3 +25,15 @@ services:
         value: ephemeral
       - key: MESSENGER_DB_PATH
         value: ':memory:'
+      - key: MESSENGER_AI_PROVIDER_MAP
+        value: '{"AI-USER":"openai","AI-PEER":"anthropic"}'
+      - key: AI_PROVIDER_HOST_HMAC_KEY_HEX
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_CALLS_ENABLED
+        value: 'false'
+      - key: ANTHROPIC_API_CALLS_ENABLED
+        value: 'false'
