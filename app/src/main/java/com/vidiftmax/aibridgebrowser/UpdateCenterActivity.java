@@ -35,7 +35,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
 import android.content.pm.Signature;
-import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -382,20 +381,18 @@ public final class UpdateCenterActivity extends Activity {
                 current.length != incoming.length) {
             throw new SecurityException("A assinatura do APK não corresponde à instalação atual.");
         }
-        boolean allSignersMatched = true;
-        for (Signature installedSigner : current) {
-            boolean matched = false;
-            for (Signature incomingSigner : incoming) {
-                if (Arrays.equals(installedSigner.toByteArray(), incomingSigner.toByteArray())) {
-                    matched = true;
-                    break;
-                }
-            }
-            if (!matched) {
-                allSignersMatched = false;
-                break;
-            }
+        byte[][] installedSignerBytes = new byte[current.length][];
+        byte[][] incomingSignerBytes = new byte[incoming.length][];
+        for (int i = 0; i < current.length; i++) {
+            if (current[i] == null) throw new SecurityException("Assinatura instalada inválida.");
+            installedSignerBytes[i] = current[i].toByteArray();
         }
+        for (int i = 0; i < incoming.length; i++) {
+            if (incoming[i] == null) throw new SecurityException("Assinatura baixada inválida.");
+            incomingSignerBytes[i] = incoming[i].toByteArray();
+        }
+        boolean allSignersMatched = SigningCertificatePolicy.areSameSignerSets(
+                installedSignerBytes, incomingSignerBytes);
         if (!UpdateInstallPolicy.isSameApplicationIdentity(
                 PACKAGE_NAME, downloaded.packageName, allSignersMatched)) {
             throw new SecurityException("Pacote ou certificado diferente. Atualização bloqueada para proteger seus dados.");
