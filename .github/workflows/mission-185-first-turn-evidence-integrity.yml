@@ -1,0 +1,21 @@
+name: Mission 185 First-Turn Evidence Integrity
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-184-operator-execution-record
+  push:
+    branches:
+      - feat/mission-185-first-turn-evidence-integrity
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q server
+      - run: python -m unittest server.test_first_turn_evidence_integrity server.test_operator_execution_record server.test_live_test_execution_evidence server.test_controlled_live_test_gate server.test_live_test_preflight server.test_agent_provider_router
