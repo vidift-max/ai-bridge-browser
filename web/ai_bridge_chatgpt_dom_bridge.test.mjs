@@ -31,7 +31,7 @@ function fixture({assistant=["old"],hasComposer=true,hasSend=true,generating=fal
     }
   };
   const scope={window:{},HTMLTextAreaElement:function(){},InputEvent:function(){},Event:function(){}};
-  Object.defineProperty(scope.HTMLTextAreaElement.prototype,"value",{set(v){this._value=v;}});
+  Object.defineProperty(scope.HTMLTextAreaElement.prototype,"value",{set(v){Object.defineProperty(this,"value",{value:v,writable:true,configurable:true});}});
   vm.runInNewContext(source,scope);
   return {bridge:scope.window.AIBridgeChatGPTDomBridge,doc,textarea,send};
 }
