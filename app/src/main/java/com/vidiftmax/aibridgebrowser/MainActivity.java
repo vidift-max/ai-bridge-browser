@@ -422,17 +422,26 @@ public final class MainActivity extends Activity {
 
         String tabId = restoredTabId == null ? UUID.randomUUID().toString() : restoredTabId;
         String profileId = restoredProfileId == null ? "profile-" + UUID.randomUUID() : restoredProfileId;
+        List<String> assignedProfiles = new ArrayList<>();
+        for (Tab existingTab : tabs) assignedProfiles.add(existingTab.profileId);
+        while (!SessionProfilePolicy.hasUniqueProfileId(profileId, assignedProfiles)) {
+            profileId = "profile-" + UUID.randomUUID();
+        }
+        boolean multiProfileFeature = WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE);
         WebView webView = new WebView(this);
-        boolean sessionIsolationSupported = false;
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+        boolean profileAssignmentSucceeded = false;
+        if (multiProfileFeature) {
             try {
                 // Must be the first WebView operation, before settings, clients, or navigation.
                 WebViewCompat.setProfile(webView, profileId);
-                sessionIsolationSupported = true;
+                profileAssignmentSucceeded = true;
             } catch (RuntimeException profileError) {
-                sessionIsolationSupported = false;
+                profileAssignmentSucceeded = false;
             }
         }
+        boolean sessionIsolationSupported = SessionProfilePolicy.canClaimProfileIsolation(
+                multiProfileFeature, profileAssignmentSucceeded,
+                SessionProfilePolicy.hasUniqueProfileId(profileId, assignedProfiles));
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
