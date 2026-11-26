@@ -367,6 +367,8 @@ class ProviderHostMessengerHttpTest(unittest.TestCase):
 
         ready_status, ready = self.request_get("user-token", "/v1/ai/provider/readiness")
         self.assertEqual(ready_status, 200)
+        self.assertTrue(ready["conversationHostAvailable"])
+        self.assertTrue(ready["sessionRegistryAvailable"])
         readiness = {item["aiId"]: item for item in ready["assignments"]}
         self.assertEqual(readiness["AI-USER"]["providerId"], "openai")
         self.assertEqual(readiness["AI-PEER"]["providerId"], "anthropic")
