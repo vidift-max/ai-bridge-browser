@@ -19,6 +19,8 @@ on:
       - "feat/mission-203-updater-lifecycle"
       - "feat/mission-204-atomic-apk-download"
       - "feat/mission-205-install-data-safety"
+      - "feat/mission-210-ai01-ai02-update-ready"
+      - "feat/mission-211-release-manifest-gate"
   pull_request:
     branches:
       - "feat/mission-90-staging-invite-activation"
@@ -39,6 +41,9 @@ on:
       - "feat/mission-202-updater-state-guard"
       - "feat/mission-203-updater-lifecycle"
       - "feat/mission-204-atomic-apk-download"
+      - "feat/mission-205-install-data-safety"
+      - "feat/mission-210-ai01-ai02-update-ready"
+      - "feat/mission-211-release-manifest-gate"
   workflow_dispatch:
 
 permissions:
@@ -154,11 +159,58 @@ jobs:
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee app-release-signature.txt
           sha256sum "$APK" | tee app-release.apk.sha256
+      - name: Generate strict in-app update manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$AAPT"
+          BADGING="$("$AAPT" dump badging "$APK")"
+          PACKAGE_LINE="$(printf '%s\\n' "$BADGING" | grep -m1 "^package:")"
+          PACKAGE_NAME="$(printf '%s\\n' "$PACKAGE_LINE" | sed -n "s/.*name='\\([^']*\\)'.*/\\1/p")"
+          VERSION_CODE="$(printf '%s\\n' "$PACKAGE_LINE" | sed -n "s/.*versionCode='\\([^']*\\)'.*/\\1/p")"
+          VERSION_NAME="$(printf '%s\\n' "$PACKAGE_LINE" | sed -n "s/.*versionName='\\([^']*\\)'.*/\\1/p")"
+          test "$PACKAGE_NAME" = "com.vidiftmax.aibridgebrowser"
+          test -n "$VERSION_CODE"
+          test -n "$VERSION_NAME"
+          SHA256="$(sha256sum "$APK" | cut -d' ' -f1)"
+          python3 - "$PACKAGE_NAME" "$VERSION_CODE" "$VERSION_NAME" "$SHA256" <<'PY'
+          import json, re, sys
+          package, version_code, version_name, sha256 = sys.argv[1:]
+          if not version_code.isdigit() or int(version_code) < 1:
+              raise SystemExit("Invalid Android versionCode")
+          if not version_name.strip() or not re.fullmatch(r"[a-f0-9]{64}", sha256):
+              raise SystemExit("Invalid versionName or APK SHA-256")
+          manifest = {
+              "packageName": package,
+              "versionCode": int(version_code),
+              "versionName": version_name,
+              "apkAssetName": "app-release.apk",
+              "sha256": sha256,
+              "notes": "AI Bridge Browser — versão oficial assinada."
+          }
+          with open("ai-bridge-update.json", "w", encoding="utf-8") as output:
+              json.dump(manifest, output, ensure_ascii=False, indent=2)
+              output.write("\\n")
+          with open("ai-bridge-update.json", encoding="utf-8") as source:
+              loaded = json.load(source)
+          assert loaded["packageName"] == "com.vidiftmax.aibridgebrowser"
+          assert loaded["apkAssetName"] == "app-release.apk"
+          assert re.fullmatch(r"[a-f0-9]{64}", loaded["sha256"])
+          print("UPDATE_MANIFEST_VALID=true")
+          PY
       - name: Upload signed release APK
         uses: actions/upload-artifact@v4
         with:
           name: ai-phone-release-apk
           path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+      - name: Upload updater manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-phone-release-update-manifest
+          path: ai-bridge-update.json
           if-no-files-found: error
       - name: Upload release verification record
         uses: actions/upload-artifact@v4
