@@ -3,11 +3,11 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 public class AIControlCenterTest {
-    @Test public void supportsAtMostSixDynamicAiTabs() {
+    @Test public void supportsAtMostTwentyDynamicAiAccounts() {
         AIControlCenter center = new AIControlCenter();
-        for (int i = 1; i <= 6; i++) assertTrue(center.register("AI-" + i, "tab-" + i, "profile-" + i));
-        assertEquals(6, center.panels().size());
-        assertFalse(center.register("AI-07", "tab-7", "profile-7"));
+        for (int i = 1; i <= 20; i++) assertTrue(center.register(String.format(java.util.Locale.ROOT, "AI-%02d", i), "tab-" + i, "profile-" + i));
+        assertEquals(20, center.panels().size());
+        assertFalse(center.register("AI-21", "tab-21", "profile-21"));
     }
     @Test public void bindsByStableTabAndProfileIdentity() {
         AIControlCenter center = new AIControlCenter();
