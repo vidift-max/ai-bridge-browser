@@ -48,4 +48,46 @@ public class UpdateInstallPolicyTest {
         assertFalse(UpdateInstallPolicy.isEligibleCandidate(new File(updates, "missing.apk"),
                 new File(updates, "missing.apk"), updates, "missing.apk"));
     }
+
+    @Test public void requiresExactOfficialAssetLengthBeforeInstallerHandoff() throws Exception {
+        File root = Files.createTempDirectory("updater-size").toFile();
+        File updates = new File(root, "updates");
+        assertTrue(updates.mkdir());
+        File apk = new File(updates, "app-release.apk");
+        try (FileOutputStream output = new FileOutputStream(apk)) { output.write(new byte[]{1,2,3,4}); }
+        assertTrue(UpdateInstallPolicy.isExpectedVerifiedApk(
+                apk, apk, updates, "app-release.apk", 4, 1024));
+        assertFalse(UpdateInstallPolicy.isExpectedVerifiedApk(
+                apk, apk, updates, "app-release.apk", 5, 1024));
+        assertFalse(UpdateInstallPolicy.isExpectedVerifiedApk(
+                apk, apk, updates, "app-release.apk", 3, 1024));
+    }
+
+    @Test public void rejectsInvalidOrOversizedExpectedAssetLengthAtInstallTime() throws Exception {
+        File root = Files.createTempDirectory("updater-size").toFile();
+        File updates = new File(root, "updates");
+        assertTrue(updates.mkdir());
+        File apk = new File(updates, "app-release.apk");
+        try (FileOutputStream output = new FileOutputStream(apk)) { output.write(new byte[]{1,2,3,4}); }
+        assertFalse(UpdateInstallPolicy.isExpectedVerifiedApk(
+                apk, apk, updates, "app-release.apk", 0, 1024));
+        assertFalse(UpdateInstallPolicy.isExpectedVerifiedApk(
+                apk, apk, updates, "app-release.apk", 4, 3));
+        assertFalse(UpdateInstallPolicy.isExpectedVerifiedApk(
+                apk, apk, updates, "app-release.apk", 4, 0));
+    }
+
+    @Test public void sizeGateStillRequiresTheExactVerifiedFileAndPrivatePath() throws Exception {
+        File root = Files.createTempDirectory("updater-size").toFile();
+        File updates = new File(root, "updates");
+        assertTrue(updates.mkdir());
+        File apk = new File(updates, "app-release.apk");
+        File other = new File(updates, "other.apk");
+        try (FileOutputStream output = new FileOutputStream(apk)) { output.write(new byte[]{1,2,3,4}); }
+        try (FileOutputStream output = new FileOutputStream(other)) { output.write(new byte[]{1,2,3,4}); }
+        assertFalse(UpdateInstallPolicy.isExpectedVerifiedApk(
+                apk, other, updates, "app-release.apk", 4, 1024));
+        assertFalse(UpdateInstallPolicy.isExpectedVerifiedApk(
+                other, other, updates, "app-release.apk", 4, 1024));
+    }
 }

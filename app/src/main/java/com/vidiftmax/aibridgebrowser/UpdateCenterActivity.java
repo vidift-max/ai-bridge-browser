@@ -274,8 +274,8 @@ public final class UpdateCenterActivity extends Activity {
         File allowedDirectory = downloads == null ? null : new File(downloads, "updates");
         try {
             if (expected == null || apk == null || apk != downloadedApk ||
-                    !UpdateInstallPolicy.isEligibleCandidate(apk, downloadedApk,
-                            allowedDirectory, APK_ASSET)) {
+                    !UpdateInstallPolicy.isExpectedVerifiedApk(apk, downloadedApk,
+                            allowedDirectory, APK_ASSET, expected.apkBytes, MAX_APK_BYTES)) {
                 throw new SecurityException("O arquivo não é o APK verificado desta atualização.");
             }
         } catch (Exception error) {
@@ -289,6 +289,10 @@ public final class UpdateCenterActivity extends Activity {
         setBusy(true, "Revalidando o APK antes de abrir o instalador Android…");
         executor.execute(() -> {
             try {
+                if (!UpdateInstallPolicy.isExpectedVerifiedApk(apk, downloadedApk,
+                        allowedDirectory, APK_ASSET, expected.apkBytes, MAX_APK_BYTES)) {
+                    throw new SecurityException("O tamanho ou caminho do APK mudou antes da instalação. Baixe novamente.");
+                }
                 if (!expected.sha256.equals(sha256(apk))) {
                     throw new SecurityException("O APK foi alterado depois da verificação. Baixe novamente.");
                 }
