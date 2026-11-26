@@ -1,7 +1,6 @@
 package com.vidiftmax.aibridgebrowser;
 
 import android.content.Context;
-import android.webkit.ValueCallback;
 import android.webkit.WebView;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -31,7 +30,6 @@ final class ChatGPTDomBridge {
     }
 
     void send(WebView webView, String text, ResultCallback callback) {
-        String json = android.webkit.JavascriptInterface.class.getName();
         String encoded = org.json.JSONObject.quote(text == null ? "" : text);
         evaluate(webView,
                 "window.AIBridgeChatGPTDomBridge&&window.AIBridgeChatGPTDomBridge.prepareAndSend(document," + encoded + ")",
