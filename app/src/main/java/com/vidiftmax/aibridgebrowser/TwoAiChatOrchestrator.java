@@ -141,7 +141,7 @@ final class TwoAiChatOrchestrator {
     private static String extract(String json, String key) {
         if (json == null || json.equals("null")) return null;
         try {
-            String decoded = json.startsWith(""")
+            String decoded = json.startsWith("\"")
                     ? new org.json.JSONTokener(json).nextValue().toString()
                     : json;
             org.json.JSONObject object = new org.json.JSONObject(decoded);
