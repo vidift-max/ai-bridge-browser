@@ -14,7 +14,7 @@ public final class InstallerIntentPolicy {
         String prefix = "content://" + expectedAuthority + "/";
         if (!uri.startsWith(prefix) || uri.length() <= prefix.length()
                 || uri.indexOf('?') >= 0 || uri.indexOf('#') >= 0
-                || uri.indexOf('\\\\') >= 0) return false;
+                || uri.indexOf('\\') >= 0) return false;
         int read = flags & Intent.FLAG_GRANT_READ_URI_PERMISSION;
         int write = flags & Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
         return read != 0 && write == 0;
