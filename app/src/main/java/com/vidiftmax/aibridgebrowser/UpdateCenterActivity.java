@@ -325,8 +325,8 @@ public final class UpdateCenterActivity extends Activity {
         PackageManager pm = getPackageManager();
         PackageInfo installed = pm.getPackageInfo(getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
         PackageInfo downloaded = pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNING_CERTIFICATES);
-        if (downloaded == null || !PACKAGE_NAME.equals(downloaded.packageName)) {
-            throw new SecurityException("O APK não pertence ao AI Bridge Browser.");
+        if (downloaded == null) {
+            throw new SecurityException("Não foi possível ler a identidade do APK baixado.");
         }
         if (downloaded.getLongVersionCode() != expected.versionCode ||
                 !expected.versionName.equals(downloaded.versionName)) {
@@ -341,6 +341,7 @@ public final class UpdateCenterActivity extends Activity {
                 current.length != incoming.length) {
             throw new SecurityException("A assinatura do APK não corresponde à instalação atual.");
         }
+        boolean allSignersMatched = true;
         for (Signature installedSigner : current) {
             boolean matched = false;
             for (Signature incomingSigner : incoming) {
@@ -350,8 +351,13 @@ public final class UpdateCenterActivity extends Activity {
                 }
             }
             if (!matched) {
-                throw new SecurityException("Certificado diferente. Atualização bloqueada para proteger seus dados.");
+                allSignersMatched = false;
+                break;
             }
+        }
+        if (!UpdateInstallPolicy.isSameApplicationIdentity(
+                PACKAGE_NAME, downloaded.packageName, allSignersMatched)) {
+            throw new SecurityException("Pacote ou certificado diferente. Atualização bloqueada para proteger seus dados.");
         }
     }
 
