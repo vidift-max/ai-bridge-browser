@@ -55,6 +55,11 @@ public final class FirebaseMessengerClient {
     public JSONObject createGroupInvite(String conversationId, long expiresAtEpochMs) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty()) throw new IllegalArgumentException("conversation_id_required");
         if (expiresAtEpochMs <= System.currentTimeMillis()) throw new IllegalArgumentException("invite_expired");
+        JSONObject room = getConversation(conversationId);
+        JSONObject meta = room == null ? null : room.optJSONObject("meta");
+        MessengerRemoteConfig.validateGroupInviteOwner(
+                meta == null ? "" : meta.optString("kind", ""),
+                meta == null ? "" : meta.optString("ownerAiId", ""), aiId);
         byte[] bytes = new byte[24];
         new java.security.SecureRandom().nextBytes(bytes);
         String token = android.util.Base64.encodeToString(bytes, android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING);
