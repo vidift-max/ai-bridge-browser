@@ -17,6 +17,20 @@ public class MessengerRemoteConfigTest {
                 "AI-01");
     }
 
+    @Test public void group_invite_requires_group_owned_by_current_ai() {
+        MessengerRemoteConfig.validateGroupInviteOwner("GROUP", "AI-01", "AI-01");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void group_invite_rejects_private_conversation() {
+        MessengerRemoteConfig.validateGroupInviteOwner("PRIVATE", "AI-01", "AI-01");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void group_invite_rejects_non_owner() {
+        MessengerRemoteConfig.validateGroupInviteOwner("GROUP", "AI-01", "AI-02");
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void private_conversation_rejects_more_than_two_members() {
         MessengerRemoteConfig.validateConversationMemberCount("PRIVATE", 3);
