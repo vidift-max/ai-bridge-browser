@@ -7,6 +7,12 @@ import java.io.IOException;
 public final class UpdateInstallPolicy {
     private UpdateInstallPolicy() {}
 
+    public static boolean isSameApplicationIdentity(String installedPackage, String incomingPackage,
+            boolean signingCertificateMatches) {
+        return installedPackage != null && !installedPackage.isEmpty()
+                && installedPackage.equals(incomingPackage) && signingCertificateMatches;
+    }
+
     public static boolean isEligibleCandidate(File candidate, File verifiedCandidate,
             File allowedDirectory, String expectedName) throws IOException {
         if (candidate == null || verifiedCandidate == null || allowedDirectory == null
