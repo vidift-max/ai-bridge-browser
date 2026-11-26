@@ -31,7 +31,6 @@ on:
       - "feat/mission-219-readonly-installer-handoff"
       - "feat/mission-220-installer-intent-policy"
       - "feat/mission-221-installer-uri-canonical-path"
-      - "feat/mission-221-installer-uri-canonical-path"
       - "feat/mission-222-fileprovider-scope-contract"
   pull_request:
     branches:
@@ -65,6 +64,7 @@ on:
       - "feat/mission-218-preinstall-apk-size-revalidation"
       - "feat/mission-219-readonly-installer-handoff"
       - "feat/mission-220-installer-intent-policy"
+      - "feat/mission-221-installer-uri-canonical-path"
   workflow_dispatch:
 
 permissions:
