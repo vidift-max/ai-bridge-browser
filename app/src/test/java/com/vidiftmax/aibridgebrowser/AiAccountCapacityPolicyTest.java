@@ -10,6 +10,14 @@ public class AiAccountCapacityPolicyTest {
         assertFalse(AiAccountCapacityPolicy.supportsAccountCount(0));
     }
 
+    @Test public void currentMissionRestoresOnlyAi01AndAi02() {
+        assertTrue(AiAccountCapacityPolicy.isCurrentMissionAccountId("AI-01"));
+        assertTrue(AiAccountCapacityPolicy.isCurrentMissionAccountId("AI-02"));
+        assertFalse(AiAccountCapacityPolicy.isCurrentMissionAccountId("AI-03"));
+        assertFalse(AiAccountCapacityPolicy.isCurrentMissionAccountId("AI-20"));
+        assertFalse(AiAccountCapacityPolicy.isCurrentMissionAccountId(null));
+    }
+
     @Test public void currentMissionActivatesOnlyTwoAccounts() {
         assertTrue(AiAccountCapacityPolicy.canActivate(0));
         assertTrue(AiAccountCapacityPolicy.canActivate(1));
