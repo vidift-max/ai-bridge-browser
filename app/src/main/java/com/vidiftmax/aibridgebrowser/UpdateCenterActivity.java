@@ -151,8 +151,8 @@ public final class UpdateCenterActivity extends Activity {
                     throw new IllegalStateException("A publicação ainda não contém o manifesto oficial de atualização.");
                 }
                 String manifestUrl = manifestAsset.getString("browser_download_url");
-                if (!manifestUrl.startsWith("https://github.com/vidift-max/ai-bridge-browser/releases/download/")) {
-                    throw new SecurityException("Origem do manifesto não permitida.");
+                if (!UpdateUrlPolicy.isOfficialReleaseAssetUrl(manifestUrl)) {
+                    throw new SecurityException("URL do manifesto fora da publicação oficial permitida.");
                 }
                 JSONObject manifest = new JSONObject(readUrl(manifestUrl, 128 * 1024));
                 if (!UpdateManifestPolicy.isManifestShapeEligible(manifest)) {
@@ -464,13 +464,8 @@ public final class UpdateCenterActivity extends Activity {
     }
 
     private void requireHttpsRedirect(HttpURLConnection connection) {
-        String protocol = connection.getURL().getProtocol();
-        String host = connection.getURL().getHost();
-        if (!"https".equalsIgnoreCase(protocol) ||
-                !(host.equalsIgnoreCase("github.com") ||
-                  host.equalsIgnoreCase("api.github.com") ||
-                  host.equalsIgnoreCase("objects.githubusercontent.com") ||
-                  host.equalsIgnoreCase("release-assets.githubusercontent.com"))) {
+        if (connection == null ||
+                !UpdateUrlPolicy.isAllowedRedirectUrl(connection.getURL().toString())) {
             throw new SecurityException("Redirecionamento para origem não autorizada.");
         }
     }
