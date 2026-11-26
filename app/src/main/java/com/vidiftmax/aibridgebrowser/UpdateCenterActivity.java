@@ -274,8 +274,8 @@ public final class UpdateCenterActivity extends Activity {
         File allowedDirectory = downloads == null ? null : new File(downloads, "updates");
         try {
             if (expected == null || apk == null || apk != downloadedApk ||
-                    !UpdateInstallPolicy.isEligibleCandidate(apk, downloadedApk,
-                            allowedDirectory, APK_ASSET)) {
+                    !UpdateInstallPolicy.isExpectedVerifiedApk(apk, downloadedApk,
+                            allowedDirectory, APK_ASSET, expected.apkBytes, MAX_APK_BYTES)) {
                 throw new SecurityException("O arquivo não é o APK verificado desta atualização.");
             }
         } catch (Exception error) {
