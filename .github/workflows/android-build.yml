@@ -32,6 +32,8 @@ on:
       - "feat/mission-220-installer-intent-policy"
       - "feat/mission-221-installer-uri-canonical-path"
       - "feat/mission-222-fileprovider-scope-contract"
+      - "feat/mission-222-fileprovider-scope-contract"
+      - "feat/mission-223-fileprovider-handoff-wiring"
   pull_request:
     branches:
       - "feat/mission-216-redirect-hop-validation"
