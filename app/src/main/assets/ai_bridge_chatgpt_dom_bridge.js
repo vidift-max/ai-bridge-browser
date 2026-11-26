@@ -21,7 +21,7 @@
     doc.querySelector('[contenteditable="true"][role="textbox"]') ||
     doc.querySelector('[contenteditable="true"]');
  }
- function sendButton(doc){
+ function sendButtonElement(doc){
   const selectors=[
    'button[data-testid="send-button"]',
    'button[aria-label*="Send prompt" i]',
@@ -30,9 +30,13 @@
   ];
   for(const selector of selectors){
    const button=doc.querySelector(selector);
-   if(button&&!button.disabled)return button;
+   if(button)return button;
   }
   return null;
+ }
+ function sendButton(doc){
+  const button=sendButtonElement(doc);
+  return button&&!button.disabled?button:null;
  }
  function setComposerValue(node,text){
   const value=String(text||"");
@@ -50,7 +54,7 @@
   const box=composer(doc), button=sendButton(doc);
   const body=clean(doc.body?.innerText||"");
   const generating=!!doc.querySelector('button[aria-label*="Stop" i],button[aria-label*="Parar" i],[data-testid*="stop-button"]');
-  return {ok:true,composer:!!box,sendButton:!!button,generating,latestAssistant:latestAssistant(doc),bodyTail:body.slice(-2000)};
+  return {ok:true,composer:!!box,sendButton:!!sendButtonElement(doc),sendButtonEnabled:!!button,generating,latestAssistant:latestAssistant(doc),bodyTail:body.slice(-2000)};
  }
  function prepareAndSend(doc,text){
   const box=composer(doc);
