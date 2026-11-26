@@ -115,7 +115,7 @@ jobs:
       - name: Check repository for signing material
         run: |
           set -euo pipefail
-          if git ls-files | grep -E '(^|/)(.*\\.(keystore|jks)|ai-phone-release-keystore\\.b64)$'; then
+          if git ls-files | grep -E '(^|/)(.*\.(keystore|jks)|ai-phone-release-keystore\.b64)$'; then
             echo "Signing material must not be tracked in git."
             exit 1
           fi
