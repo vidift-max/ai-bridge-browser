@@ -16,7 +16,7 @@ Impedir que o estado persistido associe identidades AI fora do escopo atual e im
 | 07/10 | Adicionar testes para aceitar AI-01/AI-02 e rejeitar AI-03, AI-20 e nulo na restauração atual. | PASS — testes adicionados, execução pendente |
 | 08/10 | Adicionar teste para rejeitar dois painéis ligados ao mesmo perfil de WebView. | PASS — teste adicionado, execução pendente |
 | 09/10 | Detectar também IDs duplicados no estado durável: gerar novos tabId/profileId ao restaurar colisões, impedindo duas WebViews de usar o mesmo perfil de cookies/storage. Adicionar política pura e testes unitários. | PASS em código; execução pendente |
-| 10/10 | Documentar critérios de aceite, abrir PR Draft e verificar CI do commit final. | PENDENTE DE CI / teste físico |
+| 10/10 | Abrir PR Draft e auditar o gatilho do Android Build. O workflow não inclui a branch-base desta PR na lista de destinos de pull_request; por isso não houve execução automática. | BLOCKED por configuração de CI / teste físico |
 
 ## Arquivos alterados
 - app/src/main/java/com/vidiftmax/aibridgebrowser/AiAccountCapacityPolicy.java
@@ -42,11 +42,11 @@ Impedir que o estado persistido associe identidades AI fora do escopo atual e im
 - [x] Dois painéis não podem compartilhar o mesmo profileId.
 - [x] Duas WebViews restauradas não reutilizam silenciosamente o mesmo profileId persistido.
 - [x] Teto arquitetural 20 e limite atual 2 permanecem separados.
-- [ ] CI do commit final verde.
+- [ ] CI do commit final verde. O workflow Android Build atualmente não dispara para PRs cuja base seja feat/mission-193-two-account-boundary; nenhum run foi encontrado para o HEAD final.
 - [ ] Teste no Android real: MULTI_PROFILE disponível e cookies/storage isolados.
 - [ ] Login manual em duas contas ChatGPT diferentes.
 - [ ] Alternância, reinício, logout e limpeza individual confirmados.
 - [ ] Primeira troca supervisionada AI-01 → AI-02 → AI-01.
 
 ## Conclusão
-**PASS em correções de integridade e testes adicionados; BLOCKED operacionalmente.** Os testes ainda precisam ser executados pelo CI. Não há evidência de duas contas autenticadas, isolamento físico de cookies/storage ou comunicação real entre modelos. Nenhum login, envio de mensagem, deploy, publicação de regras ou merge foi realizado.
+**PASS em correções de integridade e testes adicionados; BLOCKED em validação automatizada e operacional.** O workflow Android Build não inclui a branch-base desta PR nos filtros pull_request; por isso não há run para este HEAD. Os testes ainda precisam ser executados. Não há evidência de duas contas autenticadas, isolamento físico de cookies/storage ou comunicação real entre modelos. Nenhum login, envio de mensagem, deploy, publicação de regras ou merge foi realizado.
