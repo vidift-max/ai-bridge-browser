@@ -352,6 +352,10 @@ public final class UpdateCenterActivity extends Activity {
             Intent install = new Intent(Intent.ACTION_VIEW);
             install.setDataAndType(uri, "application/vnd.android.package-archive");
             install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (!InstallerIntentPolicy.isSafeHandoff(uri.toString(),
+                    getPackageName() + ".fileprovider", install.getType(), install.getFlags())) {
+                throw new SecurityException("Permissões ou URI do instalador fora da política permitida.");
+            }
             startActivity(install);
         } catch (Exception error) {
             status.setText("Não foi possível abrir o instalador Android: " + safeMessage(error));
