@@ -146,6 +146,9 @@ public final class UpdateCenterActivity extends Activity {
                     throw new IllegalStateException("A publicação ainda não contém o manifesto oficial de atualização.");
                 }
                 String manifestUrl = manifestAsset.getString("browser_download_url");
+                if (!manifestUrl.startsWith("https://github.com/vidift-max/ai-bridge-browser/releases/download/")) {
+                    throw new SecurityException("Origem do manifesto não permitida.");
+                }
                 JSONObject manifest = new JSONObject(readUrl(manifestUrl, 128 * 1024));
                 long remoteCode = manifest.getLong("versionCode");
                 String remoteName = manifest.getString("versionName");
@@ -158,15 +161,15 @@ public final class UpdateCenterActivity extends Activity {
                 String apkUrl = apkAsset.getString("browser_download_url");
                 long localCode = getPackageManager().getPackageInfo(getPackageName(), 0)
                         .getLongVersionCode();
-                if (!UpdateManifestPolicy.isEligible(remoteCode, localCode, packageName,
-                        PACKAGE_NAME, apkName, APK_ASSET, hash, apkUrl)) {
-                    throw new SecurityException("Manifesto inválido, versão não superior ou origem não permitida.");
-                }
                 if (remoteCode <= localCode) {
                     main.post(() -> {
                         setBusy(false, "Você já está usando a versão mais recente (" + installedVersion() + ").");
                     });
                     return;
+                }
+                if (!UpdateManifestPolicy.isEligible(remoteCode, localCode, packageName,
+                        PACKAGE_NAME, apkName, APK_ASSET, hash, apkUrl)) {
+                    throw new SecurityException("Manifesto inválido, versão não superior ou origem não permitida.");
                 }
                 Candidate found = new Candidate(remoteCode, remoteName, notes, apkUrl, hash);
                 main.post(() -> {
@@ -249,8 +252,15 @@ public final class UpdateCenterActivity extends Activity {
                 current.length != incoming.length) {
             throw new SecurityException("A assinatura do APK não corresponde à instalação atual.");
         }
-        for (int i = 0; i < current.length; i++) {
-            if (!Arrays.equals(current[i].toByteArray(), incoming[i].toByteArray())) {
+        for (Signature installedSigner : current) {
+            boolean matched = false;
+            for (Signature incomingSigner : incoming) {
+                if (Arrays.equals(installedSigner.toByteArray(), incomingSigner.toByteArray())) {
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
                 throw new SecurityException("Certificado diferente. Atualização bloqueada para proteger seus dados.");
             }
         }
