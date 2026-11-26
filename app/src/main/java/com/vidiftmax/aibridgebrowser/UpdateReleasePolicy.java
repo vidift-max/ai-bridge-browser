@@ -12,8 +12,10 @@ public final class UpdateReleasePolicy {
     private UpdateReleasePolicy() {}
 
     public static boolean isStableRelease(JSONObject release) {
-        if (release == null || !release.has("draft") || !release.has("prerelease")) return false;
-        if (release.optBoolean("draft", true) || release.optBoolean("prerelease", true)) return false;
+        if (release == null || !(release.opt("draft") instanceof Boolean)
+                || !(release.opt("prerelease") instanceof Boolean)) return false;
+        if (Boolean.TRUE.equals(release.opt("draft"))
+                || Boolean.TRUE.equals(release.opt("prerelease"))) return false;
         return isValidTag(release.opt("tag_name"));
     }
 
@@ -22,14 +24,18 @@ public final class UpdateReleasePolicy {
         JSONObject match = null;
         for (int i = 0; i < assets.length(); i++) {
             JSONObject asset = assets.optJSONObject(i);
-            if (asset == null || !expectedName.equals(asset.optString("name"))) continue;
+            if (asset == null || !(asset.opt("name") instanceof String)
+                    || !expectedName.equals(asset.opt("name"))) continue;
             if (match != null) return null;
             match = asset;
         }
-        if (match == null || !"uploaded".equals(match.optString("state"))) return null;
+        if (match == null || !(match.opt("state") instanceof String)
+                || !"uploaded".equals(match.opt("state"))) return null;
         Object size = match.opt("size");
         if (!(size instanceof Integer || size instanceof Long) || ((Number) size).longValue() <= 0) return null;
-        String url = match.optString("browser_download_url", "");
+        Object rawUrl = match.opt("browser_download_url");
+        if (!(rawUrl instanceof String)) return null;
+        String url = (String) rawUrl;
         if (!UpdateUrlPolicy.isOfficialReleaseAssetUrl(url, tagName, expectedName)) return null;
         return url;
     }
