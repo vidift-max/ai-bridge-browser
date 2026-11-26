@@ -14,6 +14,7 @@ on:
       - "feat/mission-197-android-acceptance-readiness"
       - "feat/mission-198-ci-and-android-onboarding"
       - "feat/mission-199-in-app-updates"
+      - "feat/mission-201-updater-progress"
   pull_request:
     branches:
       - "feat/mission-90-staging-invite-activation"
@@ -29,6 +30,7 @@ on:
       - "feat/mission-196-session-isolation-gate"
       - "feat/mission-197-android-acceptance-readiness"
       - "feat/mission-198-ci-and-android-onboarding"
+      - "feat/mission-199-in-app-updates"
   workflow_dispatch:
 
 permissions:
