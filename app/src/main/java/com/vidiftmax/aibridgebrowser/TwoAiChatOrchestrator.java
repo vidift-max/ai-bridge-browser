@@ -28,6 +28,7 @@ final class TwoAiChatOrchestrator {
     private String nextAiId;
     private String pendingPrompt;
     private String previousResponse = "";
+    private String lastDeliveredResponse = "";
     private WebView ai01;
     private WebView ai02;
     private Listener listener;
@@ -47,6 +48,7 @@ final class TwoAiChatOrchestrator {
         this.turns = 0;
         this.nextAiId = "AI-01";
         this.previousResponse = "";
+        this.lastDeliveredResponse = "";
         this.listener = listener;
         this.running = true;
         bridge.install(ai01);
@@ -60,9 +62,12 @@ final class TwoAiChatOrchestrator {
         running = false;
         handler.removeCallbacksAndMessages(null);
         if (listener != null) listener.onState("PARADO");
+        listener = null;
     }
 
     private WebView current() { return "AI-01".equals(nextAiId) ? ai01 : ai02; }
+
+    String lastDeliveredResponse() { return lastDeliveredResponse; }
 
     private void sendCurrent() {
         if (!running) return;
@@ -94,6 +99,7 @@ final class TwoAiChatOrchestrator {
             if (!generating && response != null && !response.trim().isEmpty() &&
                     !response.equals(baseline)) {
                 turns++;
+                lastDeliveredResponse = response;
                 listener.onTurn(sender, response);
                 if (turns >= maxTurns) {
                     running = false;
