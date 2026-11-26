@@ -605,6 +605,12 @@ public final class MainActivity extends Activity {
             case "CHATGPT_NOT_OPEN":
                 details = "Abra chatgpt.com nas duas abas AI-01 e AI-02.";
                 break;
+            case "AI01_SESSION_NOT_READY":
+                details = "A aba AI-01 ainda não apresenta o campo de mensagem e o botão Enviar. Entre manualmente na conta ChatGPT dessa aba e tente novamente.";
+                break;
+            case "AI02_SESSION_NOT_READY":
+                details = "A aba AI-02 ainda não apresenta o campo de mensagem e o botão Enviar. Entre manualmente na outra conta ChatGPT e tente novamente.";
+                break;
             default:
                 details = "A preparação ainda não foi concluída.";
         }
