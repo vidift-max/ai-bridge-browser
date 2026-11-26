@@ -132,7 +132,7 @@ jobs:
           if-no-files-found: error
 
   release-final:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/v2-saas-alpha' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
