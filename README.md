@@ -56,6 +56,7 @@ O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Inte
 - `docs/SESSION_ISOLATION.md`: requisitos de isolamento de sessão.
 - `docs/WEBVIEW_SECURITY.md`: baseline de segurança WebView.
 - `docs/ANDROID_UPDATE_AND_GOOGLE_ACCOUNT_SELECTION.md`: requisitos para atualizações dentro do aplicativo e seleção de conta Google no fluxo oficial de login ChatGPT.
+- `docs/MISSION_199_IN_APP_UPDATES.md`: implementação inicial da Central de Atualizações Android, protocolo de release, validações e limitações.
 
 ## Estado de implementação
 
