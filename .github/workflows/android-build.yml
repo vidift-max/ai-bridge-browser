@@ -28,8 +28,10 @@ on:
       - "feat/mission-216-redirect-hop-validation"
       - "feat/mission-217-apk-asset-size-binding"
       - "feat/mission-218-preinstall-apk-size-revalidation"
+      - "feat/mission-219-private-apk-staging"
   pull_request:
     branches:
+      - "feat/mission-218-preinstall-apk-size-revalidation"
       - "feat/mission-216-redirect-hop-validation"
       - "feat/mission-215-release-asset-binding"
       - "feat/mission-214-updater-redirect-origin-guard"
