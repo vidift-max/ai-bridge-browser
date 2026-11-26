@@ -346,6 +346,7 @@ public final class UpdateCenterActivity extends Activity {
         String host = connection.getURL().getHost();
         if (!"https".equalsIgnoreCase(protocol) ||
                 !(host.equalsIgnoreCase("github.com") ||
+                  host.equalsIgnoreCase("api.github.com") ||
                   host.equalsIgnoreCase("objects.githubusercontent.com") ||
                   host.equalsIgnoreCase("release-assets.githubusercontent.com"))) {
             throw new SecurityException("Redirecionamento para origem não autorizada.");
