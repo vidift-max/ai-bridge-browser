@@ -262,6 +262,46 @@ public final class UpdateCenterActivity extends Activity {
     }
 
     private void requestInstall(File apk) {
+        Candidate expected = candidate;
+        File downloads = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        File allowedDirectory = downloads == null ? null : new File(downloads, "updates");
+        try {
+            if (expected == null || apk == null || apk != downloadedApk ||
+                    !UpdateInstallPolicy.isEligibleCandidate(apk, downloadedApk,
+                            allowedDirectory, APK_ASSET)) {
+                throw new SecurityException("O arquivo não é o APK verificado desta atualização.");
+            }
+        } catch (Exception error) {
+            clearDownloadedCandidate();
+            resetInstallAction();
+            installButton.setEnabled(candidate != null);
+            status.setText("Instalação bloqueada: " + safeMessage(error));
+            return;
+        }
+        installButton.setEnabled(false);
+        setBusy(true, "Revalidando o APK antes de abrir o instalador Android…");
+        executor.execute(() -> {
+            try {
+                if (!expected.sha256.equals(sha256(apk))) {
+                    throw new SecurityException("O APK foi alterado depois da verificação. Baixe novamente.");
+                }
+                verifyPackageAndCertificate(apk, expected);
+                postUi(() -> {
+                    setBusy(false, "APK verificado novamente. Aguardando confirmação do Android.");
+                    openAndroidInstaller(apk);
+                });
+            } catch (Exception error) {
+                postUi(() -> {
+                    clearDownloadedCandidate();
+                    resetInstallAction();
+                    setBusy(false, "Instalação bloqueada: " + safeMessage(error));
+                    installButton.setEnabled(candidate != null);
+                });
+            }
+        });
+    }
+
+    private void openAndroidInstaller(File apk) {
         if (android.os.Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
             Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:" + getPackageName()));
