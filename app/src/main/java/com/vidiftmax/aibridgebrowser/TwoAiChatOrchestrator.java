@@ -68,13 +68,15 @@ final class TwoAiChatOrchestrator {
         listener = null;
     }
 
-    private WebView current() { return "AI-01".equals(nextAiId) ? ai01 : ai02; }
-
     int getTurnCount() { return turns; }
 
     String lastDeliveredResponse() { return lastDeliveredResponse; }
 
     String evidenceSummary() { return evidence.summary(); }
+
+    private WebView current() {
+        return "AI-01".equals(nextAiId) ? ai01 : ai02;
+    }
 
     private void sendCurrent() {
         if (!running) return;
@@ -122,7 +124,10 @@ final class TwoAiChatOrchestrator {
                 sendCurrent();
                 return;
             }
-            if (attempts >= 80) { fail("RESPONSE_TIMEOUT_" + sender); return; }
+            if (attempts >= 80) {
+                fail("RESPONSE_TIMEOUT_" + sender);
+                return;
+            }
             handler.postDelayed(() -> pollResponse(target, sender, baseline, attempts + 1), POLL_MS);
         });
     }
@@ -136,8 +141,9 @@ final class TwoAiChatOrchestrator {
     private static String extract(String json, String key) {
         if (json == null || json.equals("null")) return null;
         try {
-            String decoded = json.startsWith(""") ?
-                    new org.json.JSONTokener(json).nextValue().toString() : json;
+            String decoded = json.startsWith(""")
+                    ? new org.json.JSONTokener(json).nextValue().toString()
+                    : json;
             org.json.JSONObject object = new org.json.JSONObject(decoded);
             return object.optString(key, null);
         } catch (Exception ignored) {
