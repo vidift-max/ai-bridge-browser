@@ -25,7 +25,7 @@
 **BLOCKED temporário, resolvido.** A primeira execução do novo teste falhou por duas causas do próprio fixture Node: comparação cross-realm com `deepStrictEqual` e ausência de `HTMLTextAreaElement` no sandbox. Não era falha do APK. As duas causas foram corrigidas no teste. Os runs intermediários foram descartados como validação final.
 
 ## 09/10 — CI final
-**PASS.** Run `45983569402`, commit `9854db792f6ded9ef1d0adeb66c77d9666072135`: Android unit tests SUCCESS; Manifest generator SUCCESS; DOM bridge contract test SUCCESS; Debug APK build SUCCESS; Release-final SKIPPED.
+**PASS.** Run `45983725257`, commit `9854db792f6ded9ef1d0adeb66c77d9666072135`: Android unit tests SUCCESS; Manifest generator SUCCESS; DOM bridge contract test SUCCESS; Debug APK build SUCCESS; Release-final SKIPPED.
 
 ## 10/10 — Veredito
 **PASS para endurecimento técnico; NO-GO para primeiro contato físico.**
@@ -40,7 +40,7 @@
 - Nenhuma prova física de duas contas ChatGPT foi fabricada.
 
 ### Evidência final
-- HEAD: `9854db792f6ded9ef1d0adeb66c77d9666072135`
+- HEAD: `27af5ec70e445c15f4aa59f9ae56b3cf90a0b46f`
 - CI: `45983569402` — SUCCESS
 - Release: SKIPPED
 - PR #242: OPEN / Draft / não merged
