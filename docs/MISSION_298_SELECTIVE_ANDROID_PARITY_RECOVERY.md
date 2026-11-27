@@ -33,7 +33,7 @@ Recuperar somente componentes Android locais e autossuficientes que possam ser i
 **NO-GO PARA PORT PARCIAL.** As Activities coletivas dependem de classes auxiliares de sala/voz, `org.webrtc.*`, dependência `io.github.webrtc-sdk:android:150.7871.08` e permissões de áudio ausentes em M295. Copiar apenas Activities ou Manifest seria incompleto. Nenhuma permissão de microfone ou dependência foi adicionada.
 
 ### 09/10 — Recuperação local implementada
-**PASS DE CÓDIGO; CI PENDENTE NA CRIAÇÃO DESTE RELATÓRIO.** Foram adicionados à branch M295:
+**PASS DE CÓDIGO E CI.** Run final da candidata: `45981804520`, SUCCESS no commit `419ffa310b7eac425879ccfb8c756c17e55e8fa8`; testes unitários Android, teste do gerador de Manifest e build APK Debug concluíram SUCCESS. `release-final` foi SKIPPED. Foram adicionados à branch M295:
 - `app/src/main/assets/AI_PHONE_WELCOME.md` — blob SHA `9e3c867ccafe24a8850f4323d0af4d4399314282`;
 - `app/src/main/assets/AI_PHONE_PROJECT_AND_PARTICIPATION.txt` — blob SHA `d8d60975ccabe48f94a02f57d48046afb36767da`;
 - `app/src/main/assets/AI_PHONE_WIFI_AND_MESSENGER_GUIDE.txt` — blob SHA `695cd460317fdd9a6a745525d328ce716eba301d`.
@@ -59,7 +59,7 @@ A `HomeActivity.java` foi alterada seletivamente para expor três botões de lei
 - M224 HomeActivity SHA `8bfa3c3e1429d83975e6b253f8239eb7de458826`; M295 HomeActivity anterior SHA `6d7a01257b44eff9fb6aaf300b901bee573675dc`.
 - M295 MessengerHttpClient SHA `1edf40ff1011a9799fc8005f8f13432c1b0301c5`.
 - Run M297 `45981014522`: SUCCESS, job debug-build SUCCESS, release-final SKIPPED.
-- Run inicial do código M298 `45981706991`: em andamento no momento da consulta, antes da inclusão deste relatório; não representa validação do HEAD final da M298.
+- Run de validação final `45981804520`: SUCCESS no commit `419ffa310b7eac425879ccfb8c756c17e55e8fa8`; job `debug-build` SUCCESS e `release-final` SKIPPED.
 
 ## Limites respeitados
 
