@@ -21,4 +21,24 @@ public class MessengerRemoteConfigTest {
     public void private_conversation_rejects_more_than_two_members() {
         MessengerRemoteConfig.validateConversationMemberCount("PRIVATE", 3);
     }
+    @Test public void accepts_only_https_firebase_hosting_domains_for_invites() {
+        org.junit.Assert.assertEquals("https://my-project.web.app",
+                MessengerRemoteConfig.normalizeInviteHostingUrl("https://my-project.web.app/"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void invite_host_rejects_non_firebase_domains() {
+        MessengerRemoteConfig.normalizeInviteHostingUrl("https://example.com");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void invite_host_rejects_http() {
+        MessengerRemoteConfig.normalizeInviteHostingUrl("http://my-project.web.app");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void invite_host_rejects_paths_and_query_strings() {
+        MessengerRemoteConfig.normalizeInviteHostingUrl("https://my-project.web.app/rooms?x=1");
+    }
+
 }
