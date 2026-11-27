@@ -65,7 +65,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         if not invitation_columns.issubset({row[1] for row in rows}):
             return False, "RESTORE_SCHEMA_UNSUPPORTED"
         indexes = {row[1] for row in connection.execute("PRAGMA index_list(invitations)")}
-        if not {"sqlite_autoindex_invitations_1", "idx_invitations_conversation_status",
+        if not {"sqlite_autoindex_invitations_2", "idx_invitations_conversation_status",
                 "idx_invitations_target_status"}.issubset(indexes):
             return False, "RESTORE_SCHEMA_UNSUPPORTED"
     return True, "RESTORE_SCHEMA_COMPATIBLE"
