@@ -36,9 +36,15 @@ public class MessengerRemoteConfigTest {
         JSONArray recipients = new JSONArray().put("AI-CLAUDE");
         assertThrows(IllegalArgumentException.class, () -> client.sendMessage("room-1", recipients, " "));
     }
-    @Test public void gpt6ClientRejectsEmptyPromptBeforeNetwork() throws Exception {
-        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
-        assertThrows(IllegalArgumentException.class, () -> client.sendToGpt6("  ", null));
+    @Test public void invitationClientRejectsSelfTargetAndInvalidExpiryBeforeNetwork() throws Exception {
+        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-01", "test-token");
+        assertThrows(IllegalArgumentException.class, () -> client.createInvitation("room-1", "AI-01", 3600));
+        assertThrows(IllegalArgumentException.class, () -> client.createInvitation("room-1", "AI-02", 86401));
+    }
+    @Test public void invitationClientRejectsMalformedTokensAndIdsBeforeNetwork() throws Exception {
+        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-02", "test-token");
+        assertThrows(IllegalArgumentException.class, () -> client.acceptInvitation("short"));
+        assertThrows(IllegalArgumentException.class, () -> client.revokeInvitation("not-a-uuid"));
     }
 
     @Test public void acceptsMinimalValidAiId() {
