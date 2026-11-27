@@ -53,6 +53,7 @@ const sandbox = {
   window: {},
   globalThis: {},
   InputEvent: class { constructor(type, init={}) { this.type=type; Object.assign(this, init); } },
+  HTMLTextAreaElement: class {},
   Event: class { constructor(type) { this.type=type; } }
 };
 sandbox.window = sandbox;
