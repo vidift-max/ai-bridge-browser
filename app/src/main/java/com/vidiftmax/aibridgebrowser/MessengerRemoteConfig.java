@@ -30,7 +30,7 @@ public final class MessengerRemoteConfig {
             URI uri = new URI(value.trim());
             String host = uri.getHost();
             if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null
-                    || !host.toLowerCase(java.util.Locale.ROOT).matches("[a-z0-9-]+(?:\\\\.[a-z0-9-]+)*\\\\.web\\\\.app")
+                    || !host.toLowerCase(java.util.Locale.ROOT).matches("[a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.web\\.app")
                     || (uri.getRawPath() != null && !uri.getRawPath().isEmpty() && !"/".equals(uri.getRawPath()))
                     || uri.getRawUserInfo() != null || uri.getPort() != -1
                     || uri.getRawQuery() != null || uri.getRawFragment() != null)
