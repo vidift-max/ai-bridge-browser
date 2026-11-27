@@ -159,14 +159,6 @@ public final class HomeActivity extends Activity {
         TextView tools = label("FERRAMENTAS", 17, TEXT, true);
         tools.setPadding(0, dp(22), 0, dp(8));
         page.addView(tools);
-        Button gpt6 = new Button(this);
-        gpt6.setText("Abrir conversa nativa com GPT-6");
-        gpt6.setAllCaps(false);
-        gpt6.setMinHeight(dp(52));
-        gpt6.setOnClickListener(v -> startActivity(new Intent(this, Gpt6Activity.class)));
-        page.addView(gpt6, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
         Button browser = new Button(this);
         browser.setText("Abrir navegador e Central de Controle");
         browser.setAllCaps(false);
