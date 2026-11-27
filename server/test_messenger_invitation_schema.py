@@ -17,7 +17,7 @@ class MessengerInvitationSchemaTests(unittest.TestCase):
                 "SELECT value FROM schema_meta WHERE key='version'"
             ).fetchone()[0]
             store.close()
-            self.assertEqual(version, "2")
+            self.assertEqual(version, "3")
             self.assertEqual(verify_messenger_schema(str(path)),
                              (True, "RESTORE_SCHEMA_COMPATIBLE"))
 
