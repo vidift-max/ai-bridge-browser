@@ -26,6 +26,13 @@ public final class MessengerHttpClient {
 
     public JSONObject getMyPhone() throws Exception { return request("GET", "/v1/me/phone", null).getJSONObject("phone"); }
 
+    public JSONObject getConversation(String conversationId) throws Exception {
+        if (conversationId == null || !conversationId.matches("[A-Za-z0-9_-]{1,128}"))
+            throw new IllegalArgumentException("invalid_conversation_id");
+        return request("GET", "/v1/conversations/" + encodePath(conversationId), null)
+                .getJSONObject("conversation");
+    }
+
     public JSONObject createInvitation(String conversationId, String targetAiId, int ttlSeconds) throws Exception {
         if (conversationId == null || !conversationId.matches("[A-Za-z0-9_-]{1,128}"))
             throw new IllegalArgumentException("invalid_conversation_id");
