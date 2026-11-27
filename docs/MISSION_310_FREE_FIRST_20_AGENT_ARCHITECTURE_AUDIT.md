@@ -1,67 +1,68 @@
 # M310 — arquitetura gratuita e central de 20 agentes
 Data: 2026-11-27
-Branch de trabalho: `feat/mission-295-m241-ai-first-contact-integration`
-PR relacionada: #242 (OPEN / Draft / não merged)
+Branch: `feat/mission-295-m241-ai-first-contact-integration`
+PR #242: OPEN / Draft; não mesclado.
 
-## Objetivo
-Preparar a evolução do AI Bridge Browser como aplicativo Android independente, gratuito no uso essencial e capaz de coordenar até 20 agentes lógicos em uma sala compartilhada. O usuário trabalha exclusivamente por tablet Android; build, testes e geração de APK devem ocorrer em GitHub Actions, sem exigir computador local.
+## Dez rodadas
 
-## Rodadas
-### 01/10 — auditoria da identidade independente
-**PASS (código inspecionado).**
-- `app/build.gradle.kts`: `applicationId` e `namespace` = `com.vidiftmax.aibridgebrowser`.
-- `app/src/main/AndroidManifest.xml`: label = `AI Bridge Browser`; launcher = `.MainActivity`.
-- O workflow Android inclui verificações do package ID, label e launcher, e rejeita launchers AI-PHONE/Messenger.
-- Isso demonstra separação de identidade no código/contrato de build; ainda exige APK e instalação física para validar o produto final no tablet.
+### 01/10 — identidade independente: PASS (auditoria do código)
+Package/namespace `com.vidiftmax.aibridgebrowser`, label `AI Bridge Browser` e launcher `.MainActivity`. O workflow contém verificações para rejeitar launcher AI-PHONE/Messenger. Instalação física ainda não comprovada.
 
-### 02/10 — auditoria de custos da infraestrutura
-**BLOCKED (requisito de gratuidade não atendido pela configuração atual).**
-- `render.yaml` declara Render `plan: 0.5c-512mb` e disco persistente de 1 GB.
-- `docs/MISSION_309_RENDER_PERSISTENT_STAGING.md` registra estimativa mínima de US$ 7,25/mês e que o Blueprint retornou `need_payment_info`; nenhum serviço/disco foi provisionado.
-- Regra do produto: não adicionar cartão, não sincronizar esse Blueprint, não criar serviço/disco pago e não depender de Render pago.
-- A substituição gratuita precisa ser projetada e validada antes de habilitar o backend remoto; armazenamento efêmero não pode ser anunciado como persistente.
+### 02/10 — infraestrutura paga: PASS (contenção)
+M309 Render exige compute + disco persistente, estimativa registrada de US$ 7,25/mês, e o planejamento retornou `need_payment_info`. Nada foi provisionado. Render pago está excluído; não adicionar cartão nem sincronizar o Blueprint.
 
-### 03/10 — modelo de 20 agentes
-**PASS (requisito arquitetural; implementação ainda pendente).**
-- A estratégia existente `docs/MULTI_AI_MISSION_ROOM_STRATEGY.md` já descreve agentes registrados, missões individuais, sala compartilhada, checkpoints, relatórios e agregação.
-- O requisito novo é fixar 20 agentes lógicos identificados (AI-01…AI-20) como capacidade-alvo.
-- Agente lógico não equivale a uma conta externa ou WebView aberta. O coordenador deve escalonar execução e limitar sessões simultâneas para proteger memória/bateria do tablet.
-- Nenhum agente recebe automaticamente acesso de escrita ao GitHub; permissões são separadas da participação na sala.
+### 03/10 — política de 20 agentes: PASS (código adicionado)
+`AgentRosterPolicy.java` valida IDs canônicos AI-01…AI-20 e separa 20 identidades lógicas de no máximo duas sessões de provedor. Escopo externo atual continua AI-01/AI-02. Testes adicionados, ainda sem resultado CI confirmado.
 
-### 04/10 — limite de sessões no tablet
-**PASS (decisão de capacidade, implementação pendente).**
-- O README atual descreve até seis abas WebView.
-- A meta de 20 agentes não exige 20 WebViews simultâneas. A sala pode manter 20 identidades/filas/estados e ativar somente as sessões necessárias.
-- Perfis de sessão múltiplos dependem de `WebViewFeature.MULTI_PROFILE`; a própria documentação do projeto marca validação física no Galaxy Tab A7 como pendente.
+### 04/10 — registro lógico: PASS (código adicionado)
+`AgentRoster.java` registra, consulta, altera status e remove agentes sem criar WebViews, contas externas, credenciais ou rede. Testes adicionados, ainda sem resultado CI confirmado.
 
-### 05/10 — modelo de execução gratuita
-**PENDENTE.** Comparar execução local, Firebase Spark/free tier e outras opções sem assumir limites, persistência ou disponibilidade não verificados. Nenhuma dependência obrigatória de API paga.
+### 05/10 — arquitetura gratuita: PASS (decisão documentada)
+`docs/FREE_FIRST_AGENT_ROOM_ARCHITECTURE.md` estabelece local-first e Firebase Spark como candidato remoto opcional, nunca dependência obrigatória. A documentação oficial descreve Spark sem necessidade de método de pagamento; Realtime Database tem quota de 100 conexões simultâneas, 1 GB armazenado e 10 GB/mês de downloads. Exceder quota pode interromper o serviço até o próximo ciclo. Nenhum projeto Firebase foi criado/alterado; confirmar plano e quotas reais antes de integrar.
 
-### 06/10 — persistência e recuperação
-**PENDENTE.** Definir armazenamento local durável no Android e sincronização opcional gratuita, exportação/importação e recuperação de missão sem exigir backend pago.
+### 06/10 — codec local versionado: PASS (código adicionado)
+`AgentRosterCodec.java` serializa o roster em JSON schemaVersion 1 e rejeita esquema desconhecido, registros inválidos, duplicatas e status inválidos. Testes adicionados. Ainda não está ligado ao armazenamento Android nem validado após reinício.
 
-### 07/10 — sala compartilhada e chats privados
-**PENDENTE.** Definir autorização por AI_ID, isolamento de conversas privadas, ordem de mensagens, ACK, retomada e proteção contra duplicatas para 20 agentes.
+### 07/10 — contrato da sala: PASS (documentação)
+Contrato define eventId idempotente, roomId, sequência, remetente, visibilidade ROOM/PRIVATE, destinatário, tipo, data, payload, ACK após persistência, paginação, replay e autorização. Transporte remoto não implementado.
 
-### 08/10 — fila, escalonamento e limites
-**PENDENTE.** Definir limites de concorrência, backpressure, timeouts, cancelamento, retomada e prioridade para não sobrecarregar o tablet.
+### 08/10 — fila e escalonamento: PASS (código adicionado)
+`AgentMissionQueue.java` implementa fila FIFO, IDs únicos e estados QUEUED/RUNNING/COMPLETED/CANCELLED; limita execução ativa a duas sessões. Não abre contas ou WebViews automaticamente. Testes adicionados, CI ainda não confirmado.
 
-### 09/10 — testes de contrato e desempenho
-**PENDENTE.** Adicionar testes automatizados para 20 identidades lógicas, isolamento, fila, recuperação e limites de concorrência; medir uso de memória em dispositivo antes de declarar capacidade.
+### 09/10 — testes: PARTIAL / BLOCKED
+Suítes adicionadas para política, roster, codec e fila. Não foi possível recuperar run de Actions para os commits desta sequência; nenhum desses testes é declarado como executado/aprovado. CI precisa ser executado e qualquer falha corrigida.
 
-### 10/10 — APK independente e evidência de dispositivo
-**PENDENTE.** Build APK pelo GitHub Actions, verificar package/label/launcher/assinatura/hash, disponibilizar artefato e orientar instalação pelo tablet somente após autorização. Teste físico e compatibilidade de assinatura continuam gates obrigatórios.
+### 10/10 — APK: BLOCKED
+Workflow existente prepara APK debug e artefato temporário quando executado. Release oficial depende de keystore/certificado confirmado; os secrets atuais usam nomes legados AI_PHONE e não foram alterados. Não houve build de release, publicação, instalação ou entrega de APK.
+
+## Arquivos adicionados
+- `docs/FREE_FIRST_AGENT_ROOM_ARCHITECTURE.md`
+- `app/src/main/java/com/vidiftmax/aibridgebrowser/AgentRosterPolicy.java`
+- `app/src/main/java/com/vidiftmax/aibridgebrowser/AgentRoster.java`
+- `app/src/main/java/com/vidiftmax/aibridgebrowser/AgentRosterCodec.java`
+- `app/src/main/java/com/vidiftmax/aibridgebrowser/AgentMissionQueue.java`
+- Testes correspondentes em `app/src/test/java/com/vidiftmax/aibridgebrowser/`.
+
+## Commits
+- `2ea5404c03e5a056a123827528b138062df43ad3` auditoria inicial.
+- `58e22e355abb07c95f8341abaf7c849a71a96247` política roster.
+- `282fbbfcccbd9abb3cc8972c2747218fe1f430cd` testes política.
+- `0ed34bd4d40b900fa881067c4a4ad10bbad99ee8` registro.
+- `24c9f83c274a2883876c5543119858e032b8d502` testes registro.
+- `f4298a82cc9feac260fe5fa956ae39a927e96fc2` fila.
+- `a9d91a42e7a1fab862bf7bd51370ff4828eec99f` testes fila.
+- `44c47db0755f3c90dde8cfbefc51bafe9a321b66` codec.
+- `a41b13810ec6880ecbf4cde7027df202468df8f7` testes codec.
+- `1c4147e55baa3d16c06b2cd18632447dd1f8c251` arquitetura gratuita.
 
 ## Regras permanentes
-1. AI Bridge Browser é produto separado do AI Phone: package, ícone, nome, instalação e atualizações próprios.
-2. Recursos essenciais gratuitos; nenhuma cobrança ou cartão obrigatório.
-3. Não provisionar Render pago nem sincronizar o Blueprint M309.
-4. 20 agentes lógicos como meta; concorrência de sessões é limitada por capacidade real do dispositivo.
-5. Não confundir CI com teste físico; não afirmar isolamento de contas sem prova no tablet.
-6. Sem merge, Release oficial, instalação, deploy ou alteração de Secrets/Variables sem autorização explícita.
-7. Todo progresso deve citar SHA, run e evidência verificável.
+1. AI Bridge Browser é separado do AI Phone em package, ícone, nome, instalação e atualizações.
+2. Recursos essenciais gratuitos; sem cobrança ou cartão obrigatório.
+3. Não provisionar Render pago nem sincronizar Blueprint M309.
+4. Vinte agentes lógicos não significam 20 contas ou 20 WebViews.
+5. Sessões externas continuam limitadas a AI-01/AI-02, no máximo duas simultâneas até teste de desempenho.
+6. Não confundir código adicionado com teste executado, CI com teste físico ou APK debug com release assinado.
+7. Sem merge, Release, instalação, deploy ou alteração de Secrets/Variables sem autorização.
 
-## Estado desta missão
-- Rodadas concluídas: 01/10.
-- Rodada 02: bloqueio de custo identificado; solução ainda não implementada.
-- Nenhum serviço pago provisionado; nenhum cartão/secret alterado; nenhum APK instalado.
+## Estado final
+Dez rodadas executadas e registradas. Implementados em código: política de IDs, roster lógico em memória, codec JSON e scheduler FIFO, com suítes de teste adicionadas. Documentados: arquitetura local-first, candidato Firebase Spark e contrato de sala. Bloqueios restantes: persistência real no Android, provisionamento/verificação de Firebase Spark sem billing, transporte remoto, integração de interface, execução CI, build APK, assinatura e teste físico no tablet. Nenhum serviço pago, cartão, secret, merge, deploy ou APK final foi alterado/entregue.
