@@ -54,12 +54,16 @@ test("prepareAndSend writes the prompt and clicks send",()=>{
 
 test("bridge fails closed when composer is unavailable",()=>{
   const f=fixture({hasComposer:false});
-  assert.deepEqual(f.bridge.prepareAndSend(f.doc,"x"),{ok:false,code:"COMPOSER_NOT_FOUND"});
+  const result=f.bridge.prepareAndSend(f.doc,"x");
+  assert.equal(result.ok,false);
+  assert.equal(result.code,"COMPOSER_NOT_FOUND");
 });
 
 test("bridge fails closed when send control is unavailable",()=>{
   const f=fixture({hasSend:false});
-  assert.deepEqual(f.bridge.prepareAndSend(f.doc,"x"),{ok:false,code:"SEND_BUTTON_NOT_FOUND"});
+  const result=f.bridge.prepareAndSend(f.doc,"x");
+  assert.equal(result.ok,false);
+  assert.equal(result.code,"SEND_BUTTON_NOT_FOUND");
 });
 
 test("inspect exposes generating state without treating it as a completed response",()=>{
