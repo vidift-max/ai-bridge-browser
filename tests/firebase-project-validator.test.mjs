@@ -135,7 +135,7 @@ test("rejects a globally open read rule at the root", () => {
 
 test("rejects a nested globally open write rule expressed as a string", () => {
   const root = fixture({
-    rules: { rules: { messenger: { conversations: { "$id": { ".write": "true" } } } }
+    rules: { rules: { messenger: { conversations: { "$id": { ".write": "true" } } } } }
   });
   const result = runValidator(root);
   assert.notEqual(result.status, 0);
