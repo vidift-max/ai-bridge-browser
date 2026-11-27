@@ -716,10 +716,10 @@ public final class MessengerActivity extends Activity {
         }
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL);
         EditText title=new EditText(this); title.setHint("Nome da conversa");
-        EditText members=new EditText(this); members.setHint("AI_IDs dos outros participantes, separados por vírgula");
+        EditText members=new EditText(this); members.setHint("AI_IDs dos outros participantes, separados por vírgula"+("GROUP".equals(kind)?" (opcional)":""));
         form.addView(title); form.addView(members);
         new android.app.AlertDialog.Builder(this).setTitle("Nova conversa "+("PRIVATE".equals(kind)?"privada":"em grupo"))
-                .setMessage("Somente AI_IDs provisionados no servidor. Seu AI_ID será incluído automaticamente.")
+                .setMessage("Seu AI_ID será incluído automaticamente. Para criar um grupo pronto para convite, deixe os participantes adicionais em branco; o outro AI_ID entrará pelo link.")
                 .setView(form).setNegativeButton("Cancelar",null)
                 .setPositiveButton("Criar", (dialog,which) -> createRemoteConversationRequest(kind,title.getText().toString(),members.getText().toString()))
                 .show();
@@ -728,8 +728,10 @@ public final class MessengerActivity extends Activity {
     private void createRemoteConversationRequest(String kind,String title,String rawMembers) {
         try {
             android.content.SharedPreferences config=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE);
-            java.util.Set<String> ids=MessengerRemoteConfig.parseMemberIds(rawMembers,config.getString("ai_id",""));
-            if("PRIVATE".equals(kind)&&ids.size()!=2) throw new IllegalArgumentException("Conversa privada exige exatamente 2 participantes.");
+            java.util.Set<String> ids="GROUP".equals(kind)
+                    ? MessengerRemoteConfig.parseGroupCreationMemberIds(rawMembers,config.getString("ai_id",""))
+                    : MessengerRemoteConfig.parseMemberIds(rawMembers,config.getString("ai_id",""));
+            MessengerRemoteConfig.validateConversationMemberCount(kind, ids.size());
             JSONArray memberIds=new JSONArray(); for(String id:ids) memberIds.put(id);
             String conversationId="conv-"+UUID.randomUUID().toString();
             String label=title.trim().isEmpty()?("PRIVATE".equals(kind)?"Conversa privada":"Grupo AI"):title.trim();
@@ -875,23 +877,34 @@ public final class MessengerActivity extends Activity {
         ai.setSingleLine(true);
         ai.setHint("AI_ID autorizado");
         ai.setText(existing.getString("ai_id", ""));
+        EditText inviteHosting = new EditText(this);
+        inviteHosting.setSingleLine(true);
+        inviteHosting.setHint("https://seu-projeto.web.app (obrigatório no Firebase)");
+        inviteHosting.setText(existing.getString("invite_hosting_url", ""));
         EditText token = new EditText(this);
         token.setHint("Token Bearer");
         token.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        form.addView(server); form.addView(ai); form.addView(token);
+        form.addView(server); form.addView(ai); form.addView(inviteHosting); form.addView(token);
         new android.app.AlertDialog.Builder(this).setTitle("Conexão do AI Messenger")
-                .setMessage("Use a URL HTTPS do Realtime Database. Em Firebase, informe a Web API Key; no modo servidor, informe o Bearer token. A credencial fica no Android Keystore.")
+                .setMessage("Use a URL HTTPS do Realtime Database e o domínio HTTPS do Firebase Hosting (.web.app) para convites públicos. Em Firebase, informe a Web API Key; no modo servidor, informe o Bearer token. A credencial fica no Android Keystore.")
                 .setView(form).setNegativeButton("Cancelar", null)
                 .setPositiveButton("Salvar", (dialog, which) -> {
                     try {
                         String url = MessengerRemoteConfig.normalizeBaseUrl(server.getText().toString());
                         String id = MessengerRemoteConfig.validateAiId(ai.getText().toString());
+                        String inviteUrl = inviteHosting.getText().toString().trim();
+                        if (FirebaseMessengerClient.isFirebaseDatabaseUrl(url)) {
+                            inviteUrl = MessengerRemoteConfig.normalizeInviteHostingUrl(inviteUrl);
+                        } else if (!inviteUrl.isEmpty()) {
+                            inviteUrl = MessengerRemoteConfig.normalizeInviteHostingUrl(inviteUrl);
+                        }
                         String secret = token.getText().toString().trim();
                         if (secret.isEmpty()) secret = new AiPhoneCredentialVault().load(this);
                         if (secret == null || secret.trim().isEmpty()) throw new IllegalArgumentException("Token obrigatório.");
                         new AiPhoneCredentialVault().save(this, secret);
                         getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).edit()
-                                .putString("base_url", url).putString("ai_id", id).apply();
+                                .putString("base_url", url).putString("ai_id", id)
+                                .putString("invite_hosting_url", inviteUrl).apply();
                         Toast.makeText(this, "Configuração salva. Validando identidade no servidor…", Toast.LENGTH_LONG).show();
                         verifyRemoteConnection();
                     } catch (Exception error) {

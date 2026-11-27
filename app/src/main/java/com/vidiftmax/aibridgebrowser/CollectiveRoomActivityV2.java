@@ -8,6 +8,8 @@ import android.graphics.pdf.PdfDocument;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
@@ -45,6 +47,15 @@ public final class CollectiveRoomActivityV2 extends Activity {
     private String pendingVoicePermissionAction = "";
     private int previousAudioMode = -1;
     private volatile boolean remoteOperationRunning;
+    private final Handler roomSyncHandler = new Handler(Looper.getMainLooper());
+    private volatile boolean roomSyncActive;
+    private final Runnable roomSyncTick = new Runnable() {
+        @Override public void run() {
+            if (!roomSyncActive) return;
+            if (!remoteConversationId.trim().isEmpty() && !remoteOperationRunning) syncRemoteRoom(false);
+            roomSyncHandler.postDelayed(this, 5000L);
+        }
+    };
     private static final int BG=0xFF101827,SURFACE=0xFF1B293B,TEXT=0xFFF4F7FB,MUTED=0xFFB5C2D1,ACCENT=0xFF55D6BE;
     private LinearLayout presenceList,messageList;
     private EditText composer;
@@ -189,6 +200,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
         root.addView(participantColumn,new LinearLayout.LayoutParams(panelWidth,ViewGroup.LayoutParams.MATCH_PARENT));
 
         setContentView(root);
+        restoreRemoteLink();
         renderPresence();
         renderMessages();
         handleInviteIntent(getIntent());
@@ -307,7 +319,16 @@ public final class CollectiveRoomActivityV2 extends Activity {
         }
     }
 
+    @Override protected void onResume(){
+        super.onResume();
+        roomSyncActive = true;
+        roomSyncHandler.removeCallbacks(roomSyncTick);
+        roomSyncHandler.post(roomSyncTick);
+    }
+
     @Override protected void onPause(){
+        roomSyncActive = false;
+        roomSyncHandler.removeCallbacks(roomSyncTick);
         super.onPause();
         if(microphoneOpen){ microphoneOpen=false; audioMonitor.stop(); prefs().edit().putBoolean("microphone_open",false).apply(); updateMicrophoneButton(); }
         voiceNoteRecorder.cancel();
@@ -332,6 +353,8 @@ public final class CollectiveRoomActivityV2 extends Activity {
     }
 
     @Override protected void onDestroy(){
+        roomSyncActive = false;
+        roomSyncHandler.removeCallbacks(roomSyncTick);
         if(audioMonitor!=null) audioMonitor.stop();
         microphoneOpen=false;
         stopVoiceMedia();
@@ -376,7 +399,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
             JSONObject item=conversations.optJSONObject(i);
             if(item!=null && item.optBoolean("remote",false)){
                 JSONArray members=item.optJSONArray("remoteMemberAiIds");
-                if(members!=null && members.length()>=2){
+                if(members!=null && members.length()>=1){
                     choices.add(item);
                     labels.add(item.optString("title","Conversa remota")+" · "+item.optString("kind","GROUP")+" · "+members.length()+" membros");
                 }
@@ -954,33 +977,46 @@ public final class CollectiveRoomActivityV2 extends Activity {
         });
     }
 
-    private void syncRemoteRoom(){
+    private void syncRemoteRoom(){ syncRemoteRoom(true); }
+
+    private void syncRemoteRoom(boolean showToast){
         if(remoteConversationId.trim().isEmpty()){
-            Toast.makeText(this,"Vincule uma conversa remota primeiro.",Toast.LENGTH_LONG).show(); return;
+            if (showToast) Toast.makeText(this,"Vincule uma conversa remota primeiro.",Toast.LENGTH_LONG).show();
+            return;
         }
         if(remoteOperationRunning)return;
         remoteOperationRunning=true;
         new Thread(()->{
             int added=0,acked=0;
             try{
-                JSONArray incoming=remoteClient().fetchPending(remoteConversationId,0,100);
+                MessengerHttpClient client=remoteClient();
+                JSONObject room=client.getConversation(remoteConversationId);
+                JSONObject members=room==null?null:room.optJSONObject("members");
+                if(members==null)throw new IllegalStateException("remote_room_members_missing");
+                JSONArray refreshedMemberIds=new JSONArray();
+                java.util.Iterator<String> memberKeys=members.keys();
+                while(memberKeys.hasNext())refreshedMemberIds.put(memberKeys.next());
+                remoteMemberAiIds=refreshedMemberIds;
+                prefs().edit().putString("remote_member_ai_ids",refreshedMemberIds.toString()).apply();
+                JSONArray incoming=client.fetchPending(remoteConversationId,0,100);
                 for(int i=0;i<incoming.length();i++){
                     JSONObject remote=incoming.optJSONObject(i);
                     if(remote==null)continue;
                     String messageId=remote.optString("messageId","");
                     if(messageId.trim().isEmpty())throw new IllegalStateException("server_message_id_missing");
                     if(persistRemoteMessage(remote))added++;
-                    downloadRemoteVoiceAttachments(remoteClient(),messageId);
-                    remoteClient().acknowledge(remoteConversationId, messageId);
+                    downloadRemoteVoiceAttachments(client,messageId);
+                    client.acknowledge(remoteConversationId, messageId);
                     acked++;
                 }
                 final int newCount=added,ackCount=acked;
                 runOnUiThread(()->{
                     remoteOperationRunning=false;renderMessages();renderPresence();
-                    Toast.makeText(this,"Sala sincronizada: "+newCount+" nova(s), "+ackCount+" confirmação(ões).",Toast.LENGTH_LONG).show();
+                    if (showToast) Toast.makeText(this,"Sala sincronizada: "+newCount+" nova(s), "+ackCount+" confirmação(ões).",Toast.LENGTH_LONG).show();
+                    else if (newCount > 0 && remoteStatus != null) remoteStatus.setText("REMOTO · " + remoteConversationId + " · " + newCount + " nova(s) mensagem(ns) recebida(s).");
                 });
             }catch(Exception error){
-                runOnUiThread(()->{remoteOperationRunning=false;Toast.makeText(this,"Sincronização remota falhou: "+error.getMessage(),Toast.LENGTH_LONG).show();});
+                runOnUiThread(()->{remoteOperationRunning=false;if(showToast)Toast.makeText(this,"Sincronização remota falhou: "+error.getMessage(),Toast.LENGTH_LONG).show();});
             }
         },"ai-room-sync").start();
     }

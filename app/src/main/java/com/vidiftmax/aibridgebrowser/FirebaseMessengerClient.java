@@ -58,6 +58,16 @@ public final class FirebaseMessengerClient {
         byte[] bytes = new byte[24];
         new java.security.SecureRandom().nextBytes(bytes);
         String token = android.util.Base64.encodeToString(bytes, android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING);
+        String hostingUrl = context.getSharedPreferences("ai_phone_registry_config_v1", Context.MODE_PRIVATE)
+                .getString("invite_hosting_url", "");
+        String publicBase = MessengerRemoteConfig.normalizeInviteHostingUrl(hostingUrl);
+        JSONObject room = getConversation(conversationId);
+        JSONObject meta = room == null ? null : room.optJSONObject("meta");
+        JSONObject members = room == null ? null : room.optJSONObject("members");
+        if (meta == null || !"GROUP".equals(meta.optString("kind", ""))
+                || members == null || !members.optBoolean(aiId, false)
+                || !aiId.equals(meta.optString("ownerAiId", "")))
+            throw new IllegalArgumentException("group_invite_requires_owner_group_membership");
         JSONObject invite = new JSONObject()
                 .put("conversationId", conversationId)
                 .put("createdByAiId", aiId)
@@ -67,7 +77,7 @@ public final class FirebaseMessengerClient {
                 .put("token", token)
                 .put("conversationId", conversationId)
                 .put("expiresAtEpochMs", expiresAtEpochMs)
-                .put("link", "aibridge://invite/" + path(conversationId) + "/" + path(token));
+                .put("link", publicBase + "/i/" + path(conversationId) + "/" + path(token));
     }
 
     public JSONObject redeemGroupInvite(String conversationId, String token) throws Exception {

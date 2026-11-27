@@ -1,20 +1,62 @@
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Messenger</title></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Convite AI Messenger</title>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:38rem;margin:3rem auto;padding:1rem;line-height:1.5}
+    a,button{display:inline-block;margin:.5rem .5rem .5rem 0;padding:.7rem 1rem}
+    code{overflow-wrap:anywhere}
+  </style>
+</head>
 <body>
-<p>Abrindo o AI Messenger…</p>
+  <main>
+    <h1>Convite AI Messenger</h1>
+    <p id="status" role="status" aria-live="polite">Preparando o convite…</p>
+    <p id="fallback" hidden>Se o aplicativo não abrir automaticamente, toque em “Abrir AI Messenger”. Se preferir, copie o link interno e cole na opção “Entrar por link de convite”.</p>
+    <p><a id="open" href="#" hidden>Abrir AI Messenger</a><button id="copy" type="button" hidden>Copiar link interno</button></p>
+    <p><code id="deepLink"></code></p>
+  </main>
 <script>
 (function () {
-  var p = location.pathname.split('/').filter(Boolean);
-  if (p.length === 3 && p[0].toLowerCase() === 'i') {
-    var link = 'aibridge://invite/' + encodeURIComponent(p[1]) + '/' + encodeURIComponent(p[2]);
-    location.replace(link);
-    setTimeout(function () {
-      document.body.innerHTML = '<p>Se o AI Messenger não abriu, copie este link e cole na área “ENTRAR POR LINK DE CONVITE” do aplicativo.</p>';
-    }, 1500);
-  } else {
-    document.body.textContent = 'Link de convite inválido.';
+  var parts = location.pathname.split('/').filter(Boolean);
+  var status = document.getElementById('status');
+  var fallback = document.getElementById('fallback');
+  var open = document.getElementById('open');
+  var copy = document.getElementById('copy');
+  var code = document.getElementById('deepLink');
+
+  if (parts.length !== 3 || parts[0].toLowerCase() !== 'i'
+      || !/^[A-Za-z0-9_-]{1,128}$/.test(parts[1])
+      || !/^[A-Za-z0-9_-]{20,64}$/.test(parts[2])) {
+    status.textContent = 'Link de convite inválido.';
+    return;
   }
+
+  var link = 'aibridge://invite/' + encodeURIComponent(parts[1]) + '/' + encodeURIComponent(parts[2]);
+  open.href = link;
+  open.hidden = false;
+  copy.hidden = false;
+  code.textContent = link;
+  status.textContent = 'Tentando abrir o AI Messenger…';
+  copy.addEventListener('click', function () {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(function () {
+        status.textContent = 'Link interno copiado. Cole-o em “Entrar por link de convite”.';
+      }).catch(function () {
+        status.textContent = 'Selecione e copie o link exibido abaixo.';
+      });
+    } else {
+      status.textContent = 'Selecione e copie o link exibido abaixo.';
+    }
+  });
+  setTimeout(function () {
+    fallback.hidden = false;
+    status.textContent = 'Se o aplicativo não abriu automaticamente, use o botão abaixo.';
+  }, 1200);
+  window.location.href = link;
 }());
 </script>
 </body>

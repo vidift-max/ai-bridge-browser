@@ -329,25 +329,21 @@ public final class MainActivity extends Activity {
     }
 
     private void openCollectiveRoom() {
-        String configured = prefs.getString(PREF_COLLECTIVE_ROOMS_URL, "");
-        String validated = CollectiveRoomBrowserRoute.validate(configured);
-        if (validated == null) {
-            promptCollectiveRoomUrl(configured);
-            return;
-        }
-        WebView current = currentWebView();
-        if (current == null) {
-            Toast.makeText(this, "Abra uma aba antes de acessar a sala.", Toast.LENGTH_SHORT).show();
-            return;
-        }
         if (showingControlCenter) {
             showingControlCenter = false;
             controlCenterView.setVisibility(View.GONE);
             frameHost.setVisibility(View.VISIBLE);
         }
-        current.loadUrl(validated);
-        addressBar.setText(validated);
-        audioStatus.setText("Sala coletiva solicitada na aba atual. A comunicação depende do serviço remoto configurado.");
+        // Open the already-integrated native AI Messenger room. The hosted Rooms
+        // URL remains an optional browser route (long-press on the toolbar button),
+        // not a required placeholder that blocks first contact.
+        try {
+            startActivity(new android.content.Intent(this, CollectiveRoomActivityV2.class));
+            audioStatus.setText("AI Messenger aberto. Configure o transporte remoto para conectar AI-01 e AI-02.");
+        } catch (Exception error) {
+            Toast.makeText(this, "Não foi possível abrir o AI Messenger: " + error.getMessage(),
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void promptCollectiveRoomUrl(String initialValue) {
