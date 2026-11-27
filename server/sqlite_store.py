@@ -2,7 +2,8 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -14,45 +15,73 @@ class SQLiteMessengerStore:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
-        self._migrate()
+        try:
+            self._migrate()
+        except Exception:
+            self._connection.close()
+            raise
 
     def _migrate(self):
-        self._connection.execute("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-        row = self._connection.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()
-        version = int(row["value"]) if row else 0
-        if version > SCHEMA_VERSION:
-            raise RuntimeError("unsupported_schema_version")
-        if version < 1:
-            self._connection.executescript("""
-                CREATE TABLE IF NOT EXISTS conversations (
-                    conversation_id TEXT PRIMARY KEY,
-                    member_ai_ids TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS messages (
-                    message_id TEXT PRIMARY KEY,
+        db = self._connection
+        db.execute("BEGIN IMMEDIATE")
+        try:
+            db.execute("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            row = db.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()
+            version = int(row["value"]) if row else 0
+            if version > SCHEMA_VERSION or version < 0:
+                raise RuntimeError("unsupported_schema_version")
+
+            if version == 0:
+                db.execute("""CREATE TABLE IF NOT EXISTS conversations (
+                    conversation_id TEXT PRIMARY KEY, member_ai_ids TEXT NOT NULL)""")
+                db.execute("""CREATE TABLE IF NOT EXISTS messages (
+                    message_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL,
+                    sender_ai_id TEXT NOT NULL, recipient_ai_ids TEXT NOT NULL,
+                    body TEXT NOT NULL, client_request_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL)""")
+                db.execute("""CREATE TABLE IF NOT EXISTS idempotency (
+                    sender_ai_id TEXT NOT NULL, client_request_id TEXT NOT NULL,
+                    message_id TEXT NOT NULL,
+                    PRIMARY KEY(sender_ai_id, client_request_id))""")
+                db.execute("""CREATE TABLE IF NOT EXISTS acknowledgements (
+                    message_id TEXT NOT NULL, ai_id TEXT NOT NULL,
+                    PRIMARY KEY(message_id, ai_id))""")
+                db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_conversation_sequence
+                    ON messages(conversation_id, sequence)""")
+                version = 1
+                db.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','1')")
+
+            if version == 1:
+                db.execute("""CREATE TABLE invitations (
+                    invitation_id TEXT PRIMARY KEY,
                     conversation_id TEXT NOT NULL,
-                    sender_ai_id TEXT NOT NULL,
-                    recipient_ai_ids TEXT NOT NULL,
-                    body TEXT NOT NULL,
-                    client_request_id TEXT NOT NULL,
-                    sequence INTEGER NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS idempotency (
-                    sender_ai_id TEXT NOT NULL,
-                    client_request_id TEXT NOT NULL,
-                    message_id TEXT NOT NULL,
-                    PRIMARY KEY(sender_ai_id, client_request_id)
-                );
-                CREATE TABLE IF NOT EXISTS acknowledgements (
-                    message_id TEXT NOT NULL,
-                    ai_id TEXT NOT NULL,
-                    PRIMARY KEY(message_id, ai_id)
-                );
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_conversation_sequence
-                    ON messages(conversation_id, sequence);
-            """)
-            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','1')")
-            self._connection.commit()
+                    target_ai_id TEXT NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    status TEXT NOT NULL CHECK(status IN ('PENDING','ACCEPTED','REVOKED','EXPIRED')),
+                    created_by_ai_id TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    expires_at INTEGER NOT NULL,
+                    accepted_at INTEGER,
+                    revoked_at INTEGER,
+                    CHECK(length(invitation_id) BETWEEN 1 AND 200),
+                    CHECK(length(conversation_id) BETWEEN 1 AND 200),
+                    CHECK(length(target_ai_id) BETWEEN 1 AND 200),
+                    CHECK(length(token_hash) = 64),
+                    CHECK(created_at >= 0),
+                    CHECK(expires_at > created_at),
+                    CHECK((status = 'ACCEPTED' AND accepted_at IS NOT NULL AND revoked_at IS NULL)
+                       OR (status = 'REVOKED' AND revoked_at IS NOT NULL AND accepted_at IS NULL)
+                       OR (status IN ('PENDING','EXPIRED') AND accepted_at IS NULL AND revoked_at IS NULL))
+                )""")
+                db.execute("CREATE INDEX idx_invitations_conversation_status ON invitations(conversation_id, status)")
+                db.execute("CREATE INDEX idx_invitations_target_status ON invitations(target_ai_id, status)")
+                version = 2
+                db.execute("UPDATE schema_meta SET value='2' WHERE key='version'")
+
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
     def close(self):
         self._connection.close()
