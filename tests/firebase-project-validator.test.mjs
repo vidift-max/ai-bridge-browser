@@ -89,6 +89,9 @@ test("rejects a Hosting directory that drifts from the config-relative public pa
       }
     }
   });
+  const wrongPublicDir = path.join(root, "firebase", "firebase", "public", "i");
+  fs.mkdirSync(wrongPublicDir, { recursive: true });
+  fs.writeFileSync(path.join(wrongPublicDir, "index.html"), "<title>Wrong path fixture</title>");
   const result = runValidator(root);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Hosting public deve ser public/);
@@ -107,7 +110,7 @@ test("rejects deployment when template files are not excluded", () => {
   });
   const result = runValidator(root);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /templates não estão excluídos/);
+  assert.match(result.stderr, /Arquivos de template não estão excluídos/);
 });
 
 test("rejects an unexpected Realtime Database rules path", () => {
