@@ -267,5 +267,20 @@ class MessengerBackendTest(unittest.TestCase):
         finally:
             backend.close()
 
+
+    def test_private_kind_survives_backend_restart(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            first = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            first.create_conversation("opaque-a", "private-persisted",
+                                      ["AI-A", "AI-B"], "PRIVATE")
+            first.close()
+            second = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            try:
+                with self.assertRaisesRegex(ValueError, "private_conversation_cannot_expand"):
+                    second.create_invitation("opaque-a", "private-persisted", "AI-C")
+            finally:
+                second.close()
+
 if __name__ == "__main__":
     unittest.main()
