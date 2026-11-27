@@ -594,7 +594,8 @@ public final class MessengerActivity extends Activity {
     }
 
     private void revokeLastRemoteInvitation() {
-        String invitationId = prefs().getString(KEY_LAST_INVITATION_PREFIX + selectedConversationId, null);
+        final String conversationId = selectedConversationId;
+        String invitationId = prefs().getString(KEY_LAST_INVITATION_PREFIX + conversationId, null);
         if (invitationId == null || invitationId.trim().isEmpty()) {
             Toast.makeText(this, "Nenhum convite criado neste aparelho para esta conversa.", Toast.LENGTH_LONG).show();
             return;
@@ -605,7 +606,7 @@ public final class MessengerActivity extends Activity {
                 .setPositiveButton("Revogar", (dialog, which) -> new Thread(() -> {
                     try {
                         remoteClient().revokeInvitation(invitationId);
-                        prefs().edit().remove(KEY_LAST_INVITATION_PREFIX + selectedConversationId).apply();
+                        prefs().edit().remove(KEY_LAST_INVITATION_PREFIX + conversationId).apply();
                         runOnUiThread(() -> Toast.makeText(this, "Convite revogado no servidor.", Toast.LENGTH_LONG).show());
                     } catch (Exception error) {
                         runOnUiThread(() -> Toast.makeText(this, "Revogação não confirmada: " + remoteError(error), Toast.LENGTH_LONG).show());
