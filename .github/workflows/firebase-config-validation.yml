@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - "feat/mission-181-firebase-project-bootstrap"
+      - "test/mission-182-firebase-preflight-hardening"
     paths:
       - "firebase/**"
       - "scripts/validate-firebase-project.mjs"
