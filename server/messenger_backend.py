@@ -131,7 +131,11 @@ class MessengerBackend:
         self._store.revoke_invitation(invitation_id, actor, int(time.time()))
 
     def authorize_member(self, ai_id: str, conversation_id: str) -> None:
-        members = self._conversations.get(conversation_id)
+        members = self._store.load_conversation_members(conversation_id)
+        if members:
+            self._conversations[conversation_id] = members
+        else:
+            self._conversations.pop(conversation_id, None)
         if not members or ai_id not in members:
             raise PermissionError("authorization_denied")
 
@@ -171,9 +175,7 @@ class MessengerBackend:
 
     def pending(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50) -> List[Message]:
         ai_id = self.authenticate(bearer_token)
-        members = self._conversations.get(conversation_id)
-        if not members or ai_id not in members:
-            raise PermissionError("authorization_denied")
+        self.authorize_member(ai_id, conversation_id)
         if after_sequence < 0 or limit < 1 or limit > 100:
             raise ValueError("invalid_cursor")
         pending = [m for m in self._messages.values() if m.conversation_id == conversation_id and m.sequence > after_sequence and ai_id in m.recipient_ai_ids and ai_id not in m.acknowledged_by]
