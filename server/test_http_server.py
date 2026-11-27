@@ -11,6 +11,10 @@ class HttpContractTest(unittest.TestCase):
         self.assertTrue(hasattr(MessengerHandler,"do_GET"))
         self.assertTrue(hasattr(MessengerHandler,"do_POST"))
         self.assertIn("/v1/messages",MessengerHandler.do_POST.__code__.co_consts)
+        self.assertIn("/v1/invitations/accept", MessengerHandler.do_POST.__code__.co_consts)
+        self.assertIn("INVITATION_CREATED", MessengerHandler.do_POST.__code__.co_consts)
+        self.assertIn("INVITATION_ACCEPTED", MessengerHandler.do_POST.__code__.co_consts)
+        self.assertIn("INVITATION_REVOKED", MessengerHandler.do_POST.__code__.co_consts)
 
     def test_authentication_boundary_is_present(self):
         self.assertTrue(hasattr(MessengerHandler,"_principal"))
