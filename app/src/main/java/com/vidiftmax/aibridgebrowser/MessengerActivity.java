@@ -133,7 +133,7 @@ public final class MessengerActivity extends Activity {
         manageMembers.setAllCaps(false);
         manageMembers.setOnClickListener(v -> manageConversationMembers());
         page.addView(manageMembers);
-        page.addView(text("MEMBROS · SELEÇÃO LOCAL · NENHUM CONVITE ENVIADO", 11, ACCENT, true));
+        page.addView(text("MEMBROS · CONVITES REMOTOS EXIGEM AI_ID AUTORIZADO", 11, ACCENT, true));
         memberSummary = text("", 11, MUTED, false);
         page.addView(memberSummary);
         transportSummary = text("", 11, MUTED, false);
@@ -313,6 +313,23 @@ public final class MessengerActivity extends Activity {
 
     private void renderConversationMembersSummary() {
         if (memberSummary == null) return;
+        JSONObject selected = selectedConversation();
+        if (selected != null && selected.optBoolean("remote", false)) {
+            JSONArray remoteMembers = selected.optJSONArray("remoteMemberAiIds");
+            StringBuilder remoteIds = new StringBuilder();
+            if (remoteMembers != null) {
+                for (int i = 0; i < remoteMembers.length(); i++) {
+                    String id = remoteMembers.optString(i, "");
+                    if (id.isEmpty()) continue;
+                    if (remoteIds.length() > 0) remoteIds.append(", ");
+                    remoteIds.append(id);
+                }
+            }
+            memberSummary.setText(remoteIds.length() == 0
+                    ? "Membros remotos ainda não foram carregados do servidor."
+                    : "Membros registrados no servidor: " + remoteIds);
+            return;
+        }
         JSONArray memberships = readArray(KEY_MEMBERSHIPS);
         StringBuilder names = new StringBuilder();
         JSONArray participants = readArray(KEY_PARTICIPANTS);
