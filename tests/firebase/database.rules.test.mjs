@@ -104,6 +104,52 @@ try {
   await check("ACK must be boolean true", async () => {
     await assertFails(set(ref(dbB(), room + "/acks/existing-message/AI-02"), "yes"));
   });
+  await check("AI-01 can create an owner-only group room for first-contact invitation", async () => {
+    const roomPath = "/messenger/conversations/first-contact-room";
+    await assertSucceeds(set(ref(dbA(), roomPath), {
+      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: Date.now() },
+      members: { "AI-01": true },
+      memberCount: 1
+    }));
+  });
+  await check("AI-01 can invite AI-02 and AI-02 can join the owner-only group", async () => {
+    const roomPath = "/messenger/conversations/first-contact-room";
+    const token = "FirstContactInviteToken_1234567890";
+    const expiresAtEpochMs = Date.now() + 60000;
+    await assertSucceeds(set(ref(dbA(), roomPath), {
+      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: Date.now() },
+      members: { "AI-01": true },
+      memberCount: 1
+    }));
+    await assertSucceeds(set(ref(dbA(), "/messenger/invites/" + token), {
+      conversationId: "first-contact-room",
+      createdByAiId: "AI-01",
+      expiresAtEpochMs
+    }));
+    await assertSucceeds(set(ref(dbB(), "/messenger/invitesByAi/AI-02/first-contact-room/" + token), true));
+    await assertSucceeds(get(ref(dbB(), roomPath)));
+    await assertSucceeds(set(ref(dbB(), roomPath), {
+      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: 1000 },
+      members: { "AI-01": true, "AI-02": true },
+      memberCount: 2
+    }));
+  });
+  await check("AI-02 cannot create an invite for AI-01-owned group", async () => {
+    const roomPath = "/messenger/conversations/first-contact-room";
+    const token = "UnauthorizedInviteToken_1234567890";
+    await env.withSecurityRulesDisabled(async context => {
+      await set(ref(context.database(), roomPath), {
+        meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: 1000 },
+        members: { "AI-01": true, "AI-02": true },
+        memberCount: 2
+      });
+    });
+    await assertFails(set(ref(dbB(), "/messenger/invites/" + token), {
+      conversationId: "first-contact-room",
+      createdByAiId: "AI-02",
+      expiresAtEpochMs: Date.now() + 60000
+    }));
+  });
 } finally {
   await env.cleanup();
 }
