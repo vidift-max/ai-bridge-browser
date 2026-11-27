@@ -6,7 +6,7 @@ from server.messenger_backend import MessengerBackend
 from server.runtime_config import RuntimeConfig
 from server.sqlite_store import SQLiteMessengerStore
 from server.identity_registry import IdentityRegistry
-from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
+from server.rate_limit import SlidingWindowRateLimiter, SQLiteSlidingWindowRateLimiter, RateLimitExceeded
 from server.request_context import authenticate_request, bearer_token
 
 class MessengerHandler(BaseHTTPRequestHandler):
@@ -250,6 +250,7 @@ def serve(host="127.0.0.1",port=8080):
     backend=MessengerBackend(tokens,{"default":set(tokens.values())},store,authenticator=authenticator)
     MessengerHandler.backend=backend
     MessengerHandler.authenticator=authenticator
+    MessengerHandler.rate_limiter=SQLiteSlidingWindowRateLimiter(store)
     identity_registry=IdentityRegistry(RuntimeConfig.storage_path())
     MessengerHandler.identity_registry=identity_registry
     from server.operational_runtime import OperationalRuntime
