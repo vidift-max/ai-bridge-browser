@@ -32,6 +32,7 @@ class MessengerInvitationSchemaTests(unittest.TestCase):
             store.close()
             with sqlite3.connect(path) as db:
                 db.execute("DROP TABLE invitations")
+                db.execute("DROP TABLE rate_limit_events")
                 db.execute("UPDATE schema_meta SET value='1' WHERE key='version'")
             reopened = SQLiteMessengerStore(str(path))
             self.assertEqual(reopened.load_conversations()["room-1"], {"AI-A", "AI-B"})
@@ -55,6 +56,7 @@ class MessengerInvitationSchemaTests(unittest.TestCase):
             store.close()
             with sqlite3.connect(path) as db:
                 db.execute("ALTER TABLE conversations DROP COLUMN conversation_kind")
+                db.execute("DROP TABLE rate_limit_events")
                 db.execute("UPDATE schema_meta SET value='2' WHERE key='version'")
             migrated = SQLiteMessengerStore(str(path))
             try:
