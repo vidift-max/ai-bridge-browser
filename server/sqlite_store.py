@@ -200,6 +200,13 @@ class SQLiteMessengerStore:
         rows = self._connection.execute("SELECT conversation_id, member_ai_ids FROM conversations").fetchall()
         return {r["conversation_id"]: set(filter(None, r["member_ai_ids"].split(","))) for r in rows}
 
+    def load_conversation_members(self, conversation_id: str) -> set:
+        row = self._connection.execute(
+            "SELECT member_ai_ids FROM conversations WHERE conversation_id=?",
+            (conversation_id,),
+        ).fetchone()
+        return set(filter(None, row["member_ai_ids"].split(","))) if row else set()
+
     def save_message_with_idempotency(self, message: Tuple[str,str,str,Tuple[str,...],str,str,int]):
         self._connection.execute("BEGIN")
         try:
