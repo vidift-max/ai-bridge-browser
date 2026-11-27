@@ -875,6 +875,10 @@ public final class MessengerActivity extends Activity {
         ai.setSingleLine(true);
         ai.setHint("AI_ID autorizado");
         ai.setText(existing.getString("ai_id", ""));
+        EditText inviteHosting = new EditText(this);
+        inviteHosting.setSingleLine(true);
+        inviteHosting.setHint("https://seu-projeto.web.app");
+        inviteHosting.setText(existing.getString("invite_hosting_url", ""));
         EditText token = new EditText(this);
         token.setHint("Token Bearer");
         token.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
