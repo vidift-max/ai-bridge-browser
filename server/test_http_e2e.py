@@ -382,6 +382,19 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(replay["error"], "invitation_unavailable")
 
+    def test_http_conversation_membership_refresh_is_authenticated_and_current(self):
+        status, denied = self.request("GET", "/v1/conversations/room", "token-c")
+        self.assertEqual(status, 403)
+        created_status, created = self.request(
+            "POST", "/v1/conversations/room/invitations", "token-a", {"targetAiId": "AI-C"})
+        self.assertEqual(created_status, 201)
+        accepted_status, accepted = self.request(
+            "POST", "/v1/invitations/accept", "token-c", {"token": created["invitation"]["token"]})
+        self.assertEqual(accepted_status, 200)
+        status, current = self.request("GET", "/v1/conversations/room", "token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual(set(current["conversation"]["memberAiIds"]), {"AI-A", "AI-B", "AI-C"})
+
     def test_http_invitation_cannot_expand_private_conversation(self):
         status, created = self.request(
             "POST", "/v1/conversations", "token-a",
