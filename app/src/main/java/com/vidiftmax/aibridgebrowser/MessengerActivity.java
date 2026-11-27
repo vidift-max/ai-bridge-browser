@@ -632,17 +632,24 @@ public final class MessengerActivity extends Activity {
     }
 
     private void sendRemoteMessage(String body,JSONObject conversation) {
-        JSONArray members=conversation.optJSONArray("remoteMemberAiIds");
-        if(members==null) { Toast.makeText(this,"Lista de participantes remotos ausente.",Toast.LENGTH_LONG).show(); return; }
-        String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");
-        JSONArray recipients=new JSONArray();
-        for(int i=0;i<members.length();i++) {
-            String id=members.optString(i,""); if(!own.equals(id)) recipients.put(id);
-        }
-        if(recipients.length()==0) { Toast.makeText(this,"Não há destinatários nesta conversa.",Toast.LENGTH_LONG).show(); return; }
+        final String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");
         final String cid=selectedConversationId;
         new Thread(() -> {
             try {
+                JSONObject current=remoteClient().getConversation(cid);
+                JSONArray members=current.optJSONArray("memberAiIds");
+                if(members==null || members.length()<2 || members.length()>20)
+                    throw new IllegalStateException("remote_membership_invalid");
+                JSONArray recipients=new JSONArray();
+                boolean ownIsMember=false;
+                for(int i=0;i<members.length();i++) {
+                    String id=members.optString(i,"");
+                    if(own.equals(id)) ownIsMember=true;
+                    else recipients.put(id);
+                }
+                if(!ownIsMember || recipients.length()==0)
+                    throw new IllegalStateException("authenticated_ai_not_in_conversation");
+                persistRemoteMembers(cid,members);
                 JSONObject response=remoteClient().sendMessage(cid,recipients,body);
                 runOnUiThread(() -> {
                     try {
@@ -674,6 +681,11 @@ public final class MessengerActivity extends Activity {
         final String cid=selectedConversationId;
         new Thread(() -> {
             try {
+                JSONObject current=remoteClient().getConversation(cid);
+                JSONArray currentMembers=current.optJSONArray("memberAiIds");
+                if(currentMembers==null || currentMembers.length()<2 || currentMembers.length()>20)
+                    throw new IllegalStateException("remote_membership_invalid");
+                persistRemoteMembers(cid,currentMembers);
                 JSONArray incoming=remoteClient().fetchPending(cid,0,100);
                 int added=0,acked=0;
                 for(int i=0;i<incoming.length();i++) {
@@ -703,13 +715,30 @@ public final class MessengerActivity extends Activity {
                 }
                 final int newCount=added,ackCount=acked;
                 runOnUiThread(() -> {
-                    renderMessages(); renderTransportSummary();
+                    renderConversationMembersSummary(); renderMessages(); renderTransportSummary();
                     Toast.makeText(this,"Sincronização concluída: "+newCount+" nova(s), "+ackCount+" confirmação(ões).",Toast.LENGTH_LONG).show();
                 });
             } catch(Exception error) {
                 runOnUiThread(() -> Toast.makeText(this,"Sincronização falhou: "+remoteError(error),Toast.LENGTH_LONG).show());
             }
         }).start();
+    }
+
+    private void persistRemoteMembers(String conversationId, JSONArray memberIds) throws JSONException {
+        JSONArray all = readConversations();
+        boolean found = false;
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject item = all.optJSONObject(i);
+            if (item != null && conversationId.equals(item.optString("conversationId"))
+                    && item.optBoolean("remote", false)) {
+                item.put("remoteMemberAiIds", memberIds);
+                found = true;
+                break;
+            }
+        }
+        if (!found) throw new IllegalStateException("remote_conversation_not_registered_locally");
+        if (!prefs().edit().putString(KEY_CONVERSATIONS, all.toString()).commit())
+            throw new IllegalStateException("remote_membership_persistence_failed");
     }
 
     private String remoteError(Exception error) {
