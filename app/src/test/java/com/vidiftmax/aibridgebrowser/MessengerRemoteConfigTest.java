@@ -36,6 +36,11 @@ public class MessengerRemoteConfigTest {
         JSONArray recipients = new JSONArray().put("AI-CLAUDE");
         assertThrows(IllegalArgumentException.class, () -> client.sendMessage("room-1", recipients, " "));
     }
+    @Test public void gpt6ClientRejectsEmptyPromptBeforeNetwork() throws Exception {
+        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
+        assertThrows(IllegalArgumentException.class, () -> client.sendToGpt6("  ", null));
+    }
+
     @Test public void acceptsMinimalValidAiId() {
         assertEquals("AI-1", MessengerRemoteConfig.validateAiId("AI-1"));
     }
