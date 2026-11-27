@@ -6,9 +6,11 @@ on:
       - "firebase/**"
       - "scripts/validate-firebase-project.mjs"
       - "scripts/verify-firebase-live.mjs"
+      - "scripts/validate-firebase-wif-config.mjs"
       - "tests/**"
       - ".github/workflows/firebase-ai-messenger-deploy.yml"
       - ".github/workflows/firebase-live-smoke.yml"
+      - ".github/workflows/firebase-wif-readiness.yml"
       - ".github/workflows/firebase-config-validation.yml"
   push:
     branches:
@@ -16,13 +18,16 @@ on:
       - "test/mission-182-firebase-preflight-hardening"
       - "security/mission-183-firebase-deploy-guardrails"
       - "test/mission-184-firebase-live-smoke-verification"
+      - "test/mission-185-firebase-wif-readiness"
     paths:
       - "firebase/**"
       - "scripts/validate-firebase-project.mjs"
       - "scripts/verify-firebase-live.mjs"
+      - "scripts/validate-firebase-wif-config.mjs"
       - "tests/**"
       - ".github/workflows/firebase-ai-messenger-deploy.yml"
       - ".github/workflows/firebase-live-smoke.yml"
+      - ".github/workflows/firebase-wif-readiness.yml"
       - ".github/workflows/firebase-config-validation.yml"
 
 permissions:
@@ -46,3 +51,7 @@ jobs:
         run: node --test tests/firebase-live-smoke.test.mjs
       - name: Run Firebase live smoke workflow guardrail tests
         run: node --test tests/firebase-live-smoke-workflow.test.mjs
+      - name: Run Firebase WIF configuration tests
+        run: node --test tests/firebase-wif-config.test.mjs
+      - name: Run Firebase WIF readiness workflow tests
+        run: node --test tests/firebase-wif-readiness-workflow.test.mjs
