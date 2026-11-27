@@ -127,8 +127,10 @@ class MessengerBackendTest(unittest.TestCase):
         backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
         try:
             invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
-            self.assertNotIn("token", str(backend._store._connection.execute(
-                "SELECT token_hash FROM invitations").fetchone()[0]))
+            stored_hash = backend._store._connection.execute(
+                "SELECT token_hash FROM invitations").fetchone()[0]
+            self.assertEqual(len(stored_hash), 64)
+            self.assertNotEqual(stored_hash, invitation["token"])
             result = backend.accept_invitation("opaque-c", invitation["token"])
             self.assertEqual(result["memberCount"], 3)
             self.assertEqual(result["memberAiIds"], ["AI-A", "AI-B", "AI-C"])
