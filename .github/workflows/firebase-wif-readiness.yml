@@ -1,0 +1,58 @@
+name: Firebase Workload Identity readiness — AI Messenger
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_verify:
+        description: Type VERIFY_FIREBASE_WIF to authorize a read-only Google authentication check.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ai-messenger-firebase-wif-readiness
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Validate WIF configuration and authenticate without deployment
+    if: ${{ inputs.confirm_verify == 'VERIFY_FIREBASE_WIF' && github.ref == 'refs/heads/feat/mission-181-firebase-project-bootstrap' }}
+    environment: firebase-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FIREBASE_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.FIREBASE_WORKLOAD_IDENTITY_PROVIDER }}
+      FIREBASE_DEPLOY_SERVICE_ACCOUNT: ${{ vars.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate WIF variable presence and format without printing values
+        run: node scripts/validate-firebase-wif-config.mjs
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ai-messenger-b97df
+          workload_identity_provider: ${{ env.FIREBASE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+          token_format: access_token
+
+      - name: Confirm an access token was minted without displaying it
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_ACCESS_TOKEN"
+          echo "FIREBASE_WIF_AUTHENTICATION_OK"
