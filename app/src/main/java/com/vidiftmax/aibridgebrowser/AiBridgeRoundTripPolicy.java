@@ -14,6 +14,10 @@ final class AiBridgeRoundTripPolicy {
         return ids.size() == 2 && ids.contains("AI-01") && ids.contains("AI-02");
     }
 
+    static boolean isIsolatedPairReady(String[] aiIds, boolean ai01Isolated, boolean ai02Isolated) {
+        return isAllowed(aiIds) && ai01Isolated && ai02Isolated;
+    }
+
     static boolean isTurnCountAllowed(int turns) {
         return turns >= MIN_TURNS && turns <= MAX_TURNS;
     }
