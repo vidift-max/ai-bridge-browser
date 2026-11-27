@@ -890,6 +890,7 @@ public final class MessengerActivity extends Activity {
                     try {
                         String url = MessengerRemoteConfig.normalizeBaseUrl(server.getText().toString());
                         String id = MessengerRemoteConfig.validateAiId(ai.getText().toString());
+                        String inviteUrl = MessengerRemoteConfig.normalizeInviteHostingUrl(inviteHosting.getText().toString());
                         String secret = token.getText().toString().trim();
                         if (secret.isEmpty()) secret = new AiPhoneCredentialVault().load(this);
                         if (secret == null || secret.trim().isEmpty()) throw new IllegalArgumentException("Token obrigatório.");
