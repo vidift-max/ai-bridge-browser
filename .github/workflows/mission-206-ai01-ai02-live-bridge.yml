@@ -1,0 +1,42 @@
+name: M206 AI-01 AI-02 bridge
+
+on:
+  pull_request:
+    branches:
+      - feat/mission-205-install-data-safety
+    paths:
+      - "app/src/main/**"
+      - "app/src/main/assets/**"
+      - "app/src/test/**"
+      - "web/ai_bridge_chatgpt_dom_bridge.test.mjs"
+      - "docs/MISSION_206_AI01_AI02_LIVE_BRIDGE.md"
+      - ".github/workflows/mission-206-ai01-ai02-live-bridge.yml"
+  push:
+    branches:
+      - feat/mission-206-ai01-ai02-live-bridge
+
+permissions:
+  contents: read
+
+jobs:
+  js-bridge-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test web/ai_bridge_chatgpt_dom_bridge.test.mjs
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - run: gradle :app:testDebugUnitTest :app:assembleDebug
