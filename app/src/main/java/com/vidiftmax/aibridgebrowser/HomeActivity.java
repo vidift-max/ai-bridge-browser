@@ -192,8 +192,8 @@ public final class HomeActivity extends Activity {
         details.setOrientation(LinearLayout.VERTICAL);
         details.setPadding(dp(10), 0, 0, 0);
         details.addView(label("AI MESSENGER", 15, TEXT, true));
-        details.addView(label("Conversas e histórico local de demonstração", 12, MUTED, false));
-        details.addView(label("LOCAL ONLY · sem envio remoto", 11, ACCENT, true));
+        details.addView(label("Conversas locais; transporte remoto HTTPS depende de servidor ativo e credencial", 12, MUTED, false));
+        details.addView(label("REMOTO OPCIONAL · requer servidor e AI_ID provisionado", 11, ACCENT, true));
         row.addView(details, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         row.setFocusable(true);
         row.setClickable(true);
