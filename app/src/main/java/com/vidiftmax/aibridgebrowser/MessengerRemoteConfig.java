@@ -24,6 +24,23 @@ public final class MessengerRemoteConfig {
         }
     }
 
+    public static String normalizeInviteHostingUrl(String value) {
+        if (value == null || value.trim().isEmpty()) throw new IllegalArgumentException("firebase_invite_hosting_url_required");
+        try {
+            URI uri = new URI(value.trim());
+            String host = uri.getHost();
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null
+                    || !host.toLowerCase(java.util.Locale.ROOT).matches("[a-z0-9-]+(?:\\\\.[a-z0-9-]+)*\\\\.web\\\\.app")
+                    || (uri.getRawPath() != null && !uri.getRawPath().isEmpty() && !"/".equals(uri.getRawPath()))
+                    || uri.getRawUserInfo() != null || uri.getPort() != -1
+                    || uri.getRawQuery() != null || uri.getRawFragment() != null)
+                throw new IllegalArgumentException("firebase_invite_hosting_url_invalid");
+            return "https://" + host.toLowerCase(java.util.Locale.ROOT);
+        } catch (java.net.URISyntaxException invalid) {
+            throw new IllegalArgumentException("firebase_invite_hosting_url_invalid");
+        }
+    }
+
     public static String validateAiId(String value) {
         if (value == null || !value.trim().matches("AI-[A-Z0-9][A-Z0-9-]{0,62}"))
             throw new IllegalArgumentException("invalid_ai_id");
