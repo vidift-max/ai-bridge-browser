@@ -24,6 +24,8 @@ import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.Toast;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
@@ -460,6 +462,90 @@ public final class MainActivity extends Activity {
     }
 
     private void startAiConversationDialog() {
+        showAiAccountSelection();
+    }
+
+    private void showAiAccountSelection() {
+        List<Tab> candidates = new ArrayList<>();
+        List<String> tabIds = new ArrayList<>();
+        List<String> profileIds = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        for (int i = 0; i < tabs.size(); i++) {
+            Tab tab = tabs.get(i);
+            if (!tab.sessionIsolationSupported) continue;
+            candidates.add(tab);
+            tabIds.add(tab.tabId);
+            profileIds.add(tab.profileId);
+            labels.add("Aba " + (i + 1) + " — " +
+                    (tab.title == null || tab.title.trim().isEmpty() ? "ChatGPT" : tab.title));
+        }
+        if (candidates.size() < 2) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Selecionar contas ChatGPT")
+                    .setMessage("Abra pelo menos duas abas com perfis WebView isolados. Depois, escolha qual sessão aberta será AI-01 e qual será AI-02. O aplicativo não solicita nem lê e-mail ou senha.")
+                    .setPositiveButton("Entendi", null)
+                    .show();
+            audioStatus.setText("Seleção de contas bloqueada: são necessários dois perfis WebView distintos.");
+            return;
+        }
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(18), dp(8), dp(18), dp(8));
+        TextView ai01Label = new TextView(this);
+        ai01Label.setText("Escolha a sessão já aberta para AI-01");
+        content.addView(ai01Label);
+        Spinner ai01Spinner = new Spinner(this);
+        ArrayAdapter<String> adapter01 = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, labels);
+        adapter01.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ai01Spinner.setAdapter(adapter01);
+        content.addView(ai01Spinner);
+        TextView ai02Label = new TextView(this);
+        ai02Label.setText("Escolha outra sessão já aberta para AI-02");
+        content.addView(ai02Label);
+        Spinner ai02Spinner = new Spinner(this);
+        ArrayAdapter<String> adapter02 = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, labels);
+        adapter02.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ai02Spinner.setAdapter(adapter02);
+        ai02Spinner.setSelection(1);
+        content.addView(ai02Spinner);
+        TextView note = new TextView(this);
+        note.setText("Selecione duas sessões diferentes. Se uma conta ainda não estiver autenticada, entre nela diretamente pelo site oficial do ChatGPT e volte aqui. Nenhuma senha será solicitada pelo AI Bridge Browser.");
+        content.addView(note);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Selecionar AI-01 e AI-02")
+                .setView(content)
+                .setPositiveButton("Confirmar sessões", (dialog, which) -> {
+                    int first = ai01Spinner.getSelectedItemPosition();
+                    int second = ai02Spinner.getSelectedItemPosition();
+                    if (!AiAccountSelectionPolicy.isValidSelection(
+                            tabIds, profileIds, first, second)) {
+                        Toast.makeText(this, "Escolha duas sessões diferentes.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    controlCenter.clear();
+                    boolean firstAssigned = controlCenter.register(
+                            "AI-01", candidates.get(first).tabId, candidates.get(first).profileId);
+                    boolean secondAssigned = controlCenter.register(
+                            "AI-02", candidates.get(second).tabId, candidates.get(second).profileId);
+                    if (!firstAssigned || !secondAssigned) {
+                        controlCenter.clear();
+                        renderControlCenter();
+                        Toast.makeText(this, "Não foi possível associar os dois perfis. Tente novamente.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    persistTabs();
+                    renderControlCenter();
+                    startAiConversationAfterSelection();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void startAiConversationAfterSelection() {
         AIControlCenter.Panel ai01Panel = null, ai02Panel = null;
         for (AIControlCenter.Panel panel : controlCenter.panels()) {
             if ("AI-01".equals(panel.aiId)) ai01Panel = panel;
