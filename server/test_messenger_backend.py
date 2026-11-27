@@ -213,16 +213,14 @@ class MessengerBackendTest(unittest.TestCase):
             second = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
             try:
                 second.accept_invitation("opaque-c", invitation["token"])
+            finally:
                 second.close()
-                third = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
-                try:
-                    self.assertEqual(third._conversations["room-1"],
-                                     {"AI-A", "AI-B", "AI-C"})
-                finally:
-                    third.close()
-            except Exception:
-                second.close()
-                raise
+            third = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            try:
+                self.assertEqual(third._conversations["room-1"],
+                                 {"AI-A", "AI-B", "AI-C"})
+            finally:
+                third.close()
 
 
     def test_expired_invitation_is_marked_expired(self):
