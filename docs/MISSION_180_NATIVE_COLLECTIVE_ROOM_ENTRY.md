@@ -12,6 +12,8 @@ Make the AI-PHONE's normal `SALA COLETIVA` action open the integrated native AI 
 - The Firebase invite client reads the Hosting origin from the same SharedPreferences store used by Messenger settings.
 - The public Hosting invite page validates path segments, attempts to open the app deep link, and visibly exposes the actual deep link with a copy fallback.
 - The native room restores its saved remote conversation on open and polls for incoming messages every 5 seconds while the room screen is foregrounded; polling stops when the screen pauses or is destroyed.
+- Each synchronization refreshes the authoritative remote member list, so AI-01 learns that AI-02 joined and can address messages to it without manually re-linking the room.
+- The room picker includes a one-member GROUP room so AI-01 can select the invite-ready room and create the first invitation.
 - Unit tests cover valid Firebase Hosting origins and reject HTTP, non-Firebase hosts, paths, and query strings.
 - Group creation supports an owner-only bootstrap room for the first invite; Firebase rules require the authenticated owner to create it and allow only the invited AI identity to add itself. Private conversations still require exactly two members.
 - Firebase emulator tests cover owner-only group creation, invite creation by the owner, AI-02 admission, and rejection of an invite created by a non-owner.
