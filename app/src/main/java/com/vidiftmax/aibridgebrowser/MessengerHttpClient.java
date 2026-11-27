@@ -49,7 +49,7 @@ public final class MessengerHttpClient {
     }
 
     public JSONObject revokeInvitation(String invitationId) throws Exception {
-        if (invitationId == null || !invitationId.matches("[0-9a-fA-F-]{36}"))
+        if (invitationId == null || !invitationId.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}"))
             throw new IllegalArgumentException("invalid_invitation_id");
         return request("POST", "/v1/invitations/" + encodePath(invitationId) + "/revoke", new JSONObject());
     }
