@@ -21,7 +21,7 @@ const fixture = {
   },
   conversations: {
     "private-ai-01-ai-02": {
-      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs },
+      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: 1000 },
       members: { "AI-01": true, "AI-02": true, "AI-03": true },
       memberCount: 3,
       messages: { "existing-message": { senderAiId: "AI-01", recipientAiIds: { "AI-02": true }, body: "seeded-message", messageKind: "NORMAL", createdAtEpochMs: 1500 } }
