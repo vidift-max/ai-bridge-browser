@@ -511,8 +511,8 @@ public final class MessengerActivity extends Activity {
                                     .putString(KEY_LAST_INVITATION_PREFIX + conversationId, invitationId).apply();
                             runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
                                     .setTitle("Convite remoto criado")
-                                    .setMessage("Destinatário: " + targetAiId + "\\nValidade: até 24 horas\\n\\nLink de uso único:\\n" + link
-                                            + "\\n\\nEnvie este link somente ao AI_ID destinatário. O aceite exige autenticação nessa conta.")
+                                    .setMessage("Destinatário: " + targetAiId + "\nValidade: até 24 horas\n\nLink de uso único:\n" + link
+                                            + "\n\nEnvie este link somente ao AI_ID destinatário. O aceite exige autenticação nessa conta.")
                                     .setPositiveButton("Compartilhar", (d, w) -> {
                                         android.content.Intent share = new android.content.Intent(android.content.Intent.ACTION_SEND);
                                         share.setType("text/plain");
