@@ -27,7 +27,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] not in ("1", "2", "3"):
+    if not version_row or version_row[0] not in ("1", "2", "3", "4"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     schema_version = version_row[0]
     required_columns = {
@@ -55,7 +55,14 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     )]
     if index_columns != ["conversation_id", "sequence"]:
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
-    if schema_version in ("2", "3"):
+    if schema_version == "4":
+        rate_columns = {row[1] for row in connection.execute("PRAGMA table_info(rate_limit_events)")}
+        if not {"event_id", "principal", "event_at"}.issubset(rate_columns):
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
+        rate_indexes = {row[1] for row in connection.execute("PRAGMA index_list(rate_limit_events)")}
+        if "idx_rate_limit_principal_time" not in rate_indexes:
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
+    if schema_version in ("2", "3", "4"):
         invitation_columns = {
             "invitation_id", "conversation_id", "target_ai_id", "token_hash",
             "status", "created_by_ai_id", "created_at", "expires_at",
@@ -68,7 +75,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         if not {"sqlite_autoindex_invitations_2", "idx_invitations_conversation_status",
                 "idx_invitations_target_status"}.issubset(indexes):
             return False, "RESTORE_SCHEMA_UNSUPPORTED"
-    if schema_version == "3":
+    if schema_version in ("3", "4"):
         conversation_columns = {row[1] for row in connection.execute("PRAGMA table_info(conversations)")}
         if "conversation_kind" not in conversation_columns:
             return False, "RESTORE_SCHEMA_UNSUPPORTED"
@@ -110,7 +117,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     ).fetchone()
     schema_version = version_row[0] if version_row else None
     conversation_query = ("SELECT conversation_id, member_ai_ids, conversation_kind FROM conversations"
-                          if schema_version == "3"
+                          if schema_version in ("3", "4")
                           else "SELECT conversation_id, member_ai_ids FROM conversations")
     for row in connection.execute(conversation_query):
         members = _parse_identifier_list(row["member_ai_ids"])
@@ -163,7 +170,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if version_row and version_row[0] in ("2", "3"):
+    if version_row and version_row[0] in ("2", "3", "4"):
         import re
         for row in connection.execute(
             "SELECT invitation_id, conversation_id, target_ai_id, token_hash, status, "
