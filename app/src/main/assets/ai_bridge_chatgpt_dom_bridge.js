@@ -17,8 +17,10 @@
   return "";
  }
  function composer(doc){
-  return doc.querySelector('textarea') ||
-    doc.querySelector('[contenteditable="true"][role="textbox"]') ||
+  return doc.querySelector('[contenteditable="true"][role="textbox"]') ||
+    doc.querySelector('[contenteditable="true"][data-lexical-editor="true"]') ||
+    doc.querySelector('[contenteditable="true"][data-testid*="composer"]') ||
+    doc.querySelector('textarea') ||
     doc.querySelector('[contenteditable="true"]');
  }
  function sendButtonElement(doc){
@@ -47,7 +49,14 @@
   }else{
    node.textContent=value;
   }
-  node.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertText",data:value}));
+  const InputCtor=typeof InputEvent==="function" ? InputEvent : Event;
+  let inputEvent;
+  try {
+   inputEvent=new InputCtor("input",{bubbles:true,inputType:"insertText",data:value});
+  } catch(_) {
+   inputEvent=new Event("input",{bubbles:true});
+  }
+  node.dispatchEvent(inputEvent);
   node.dispatchEvent(new Event("change",{bubbles:true}));
  }
  function inspect(doc){
