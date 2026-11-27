@@ -9,7 +9,7 @@ from server.sqlite_store import SQLiteMessengerStore
 
 
 class MessengerInvitationSchemaTests(unittest.TestCase):
-    def test_fresh_database_migrates_to_v3(self):
+    def test_fresh_database_migrates_to_v4(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "fresh.sqlite"
             store = SQLiteMessengerStore(str(path))
@@ -17,7 +17,7 @@ class MessengerInvitationSchemaTests(unittest.TestCase):
                 "SELECT value FROM schema_meta WHERE key='version'"
             ).fetchone()[0]
             store.close()
-            self.assertEqual(version, "3")
+            self.assertEqual(version, "4")
             self.assertEqual(verify_messenger_schema(str(path)),
                              (True, "RESTORE_SCHEMA_COMPATIBLE"))
 
@@ -67,7 +67,7 @@ class MessengerInvitationSchemaTests(unittest.TestCase):
                 invitation = migrated._connection.execute(
                     "SELECT status, token_hash FROM invitations WHERE invitation_id='inv-v2'"
                 ).fetchone()
-                self.assertEqual(version, "3")
+                self.assertEqual(version, "4")
                 self.assertEqual(kind, "GROUP")
                 self.assertEqual(invitation["status"], "PENDING")
                 self.assertEqual(invitation["token_hash"], "c" * 64)
