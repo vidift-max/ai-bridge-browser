@@ -282,5 +282,22 @@ class MessengerBackendTest(unittest.TestCase):
             finally:
                 second.close()
 
+
+    def test_other_backend_refreshes_membership_after_acceptance(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            owner = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}},
+                                     SQLiteMessengerStore(f.name))
+            invitee = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            try:
+                invitation = owner.create_invitation("opaque-a", "room-1", "AI-C")
+                invitee.accept_invitation("opaque-c", invitation["token"])
+                owner.authorize_member("AI-C", "room-1")
+                self.assertEqual(owner._conversations["room-1"],
+                                 {"AI-A", "AI-B", "AI-C"})
+            finally:
+                owner.close()
+                invitee.close()
+
 if __name__ == "__main__":
     unittest.main()
