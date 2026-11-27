@@ -46,8 +46,23 @@ if (config.database?.rules !== "database.rules.json") {
 if (!rules.rules || typeof rules.rules !== "object") {
   throw new Error("Estrutura raiz das regras do Realtime Database inválida.");
 }
-if (rules.rules[".read"] === true || rules.rules[".write"] === true) {
-  throw new Error("Regra global aberta detectada; deploy bloqueado.");
+function findOpenPermission(node, currentPath = "rules") {
+  if (!node || typeof node !== "object" || Array.isArray(node)) return null;
+  for (const [key, value] of Object.entries(node)) {
+    const nextPath = currentPath + "." + key;
+    if ((key === ".read" || key === ".write") &&
+        (value === true || (typeof value === "string" && value.trim() === "true"))) {
+      return nextPath;
+    }
+    const nested = findOpenPermission(value, nextPath);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+const openPermissionPath = findOpenPermission(rules.rules);
+if (openPermissionPath) {
+  throw new Error("Regra aberta detectada em " + openPermissionPath + "; deploy bloqueado.");
 }
 
 console.log("FIREBASE_PROJECT_CONFIG_OK");
