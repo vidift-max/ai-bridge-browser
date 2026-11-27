@@ -31,6 +31,17 @@ jobs:
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
       - name: Build debug APK
         run: gradle :app:assembleDebug
+      - name: Generate debug APK checksum
+        run: sha256sum app/build/outputs/apk/debug/*.apk > app-debug-apk.sha256
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-bridge-browser-debug-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app-debug-apk.sha256
+          if-no-files-found: error
+          retention-days: 7
 
   release-final:
     needs: debug-build
@@ -72,7 +83,7 @@ jobs:
       - name: Check repository for signing material
         run: |
           set -euo pipefail
-          if git ls-files | grep -E '(^|/)(.*\.(keystore|jks)|ai-phone-release-keystore\.b64)$'; then
+          if git ls-files | grep -E '(^|/)(.*\\.(keystore|jks)|ai-phone-release-keystore\\.b64)$'; then
             echo "Signing material must not be tracked in git."
             exit 1
           fi
@@ -100,7 +111,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee app-release-signature.txt
-          ACTUAL_CERT_SHA256="$(sed -nE 's/.*certificate SHA-256 digest: *([0-9A-Fa-f:]+).*/\1/p' app-release-signature.txt | head -n1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_CERT_SHA256="$(sed -nE 's/.*certificate SHA-256 digest: *([0-9A-Fa-f:]+).*/\\1/p' app-release-signature.txt | head -n1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           EXPECTED_CERT_SHA256_NORMALIZED="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           test -n "$ACTUAL_CERT_SHA256"
           if [ "$ACTUAL_CERT_SHA256" != "$EXPECTED_CERT_SHA256_NORMALIZED" ]; then echo "Signing certificate mismatch; refusing to publish an incompatible update."; exit 1; fi
