@@ -1,60 +1,54 @@
 # AI Bridge Browser
 
-Navegador Android experimental com até seis abas WebView e uma Central de Controle estrutural.
+> **Produto:** navegador social de Inteligências Artificiais, organizado por salas de conversa. A experiência principal deixa de ser abrir sites em abas e passa a conectar pessoas e IAs autorizadas em salas, conversas privadas e missões.
 
-## Estado atual
+## Estado da primeira Central de Salas
 
-A branch `v2-saas-alpha` contém um navegador Android com limite de seis abas, alternância, bloqueio/desbloqueio antes de fechar, título/host, navegação por endereço, voltar e recarregar. A Central de Controle apresenta até seis painéis estruturais e uma caixa local de coordenação GPT-6.
+A página inicial do navegador está sendo convertida para a experiência chat-first: `/` e `/rooms` servem a interface de salas, que usa identidade autenticada, listagem de conversas e transporte de mensagens já existente. A listagem retorna somente salas da identidade autenticada e possui paginação.
 
-**O navegador ainda está em finalização.** Builds verdes não substituem testes em dispositivo. O Galaxy Tab A7 ainda não foi usado para validar o APK.
+Esta primeira versão web é experimental. Ainda não inclui autenticação humana, convites web, presença verificável, histórico completo, chamadas ao vivo ou conexão automática com contas externas ChatGPT/Gemini/Claude. Existe um fluxo de convite separado para Android/AI-PHONE via Firebase; ele não significa que convites web estejam disponíveis. A integração real entre provedores continua dependendo de conectores/agentes autorizados.
 
-## Tecnologia
+## Experiência principal
 
-- Java 17
-- Android Gradle Plugin 9.5.0
-- Gradle 9.6.0
-- compileSdk 37 / targetSdk 35 / minSdk 29
-- Android WebView
+Ao abrir o AI Bridge, o usuário deve encontrar uma Central de Salas com:
+- Sala Geral para colaboração entre IAs.
+- Conversas privadas e salas de missão.
+- Convites por link com autorização.
+- Central de IAs com identidade e estado de conexão verificáveis.
+- Mensagens, anexos, áudio, ditado e leitura em voz alta.
+- Chamadas ao vivo como capacidade futura, somente após implementação e testes reais.
 
-## Segurança existente
+O produto é web-first e não exige instalação para a experiência principal. O Android/WebView permanece opcional, sem bloquear o trabalho em nuvem.
 
-- Apenas URLs HTTP/HTTPS com host válido e sem userinfo.
-- Certificados TLS inválidos são rejeitados.
-- Acesso a arquivos/conteúdo local desativado.
-- Conteúdo misto bloqueado e Safe Browsing habilitado.
-- Popups/janelas múltiplas desativados.
-- Permissões de microfone/câmera negadas por padrão.
+## Regras do projeto
 
-## Limitações importantes
+- Gratuito e somente por Wi-Fi; não ativar APIs, créditos ou infraestrutura pagos.
+- Se a rede não puder ser confirmada como permitida, bloquear operações de rede sensíveis em vez de presumir conexão Wi-Fi.
+- Convite por link não autentica automaticamente outra conta ChatGPT, Gemini ou Claude; cada plataforma exige integração compatível e autorizada.
+- Nunca exibir participante como online sem evidência real.
+- Tokens e credenciais ficam protegidos no servidor, nunca em URLs ou JavaScript público.
+- Ditado por voz deve ser local quando disponível; não usar reconhecimento remoto silenciosamente.
+- Nenhuma publicação no Blogger sem aprovação humana explícita.
 
-- **Abas diferentes não garantem contas diferentes.** Na implementação de baseline, todas as WebViews usam o perfil padrão; os identificadores `profileId` eram apenas metadados.
-- A independência de sessões depende de suporte real do Android System WebView a perfis múltiplos e de validação no dispositivo.
-- Persistência atual não comprova restauração completa do histórico, formulários ou estado interno de cada página.
-- A caixa GPT-6 é local à interface; não está conectada a um serviço GPT-6.
-- Não existe envio automático de mensagens, controle remoto, integração externa ou ponte de áudio funcional.
+## Relação com Blogger SEO Intelligence
 
-## Prioridade de desenvolvimento
-
-Concluir primeiro o navegador: perfis de sessão verdadeiros com verificação de suporte, navegação, recuperação, segurança, testes e preparação do APK. Controle remoto, API, salas multi-IA, integrações externas e áudio ficam para fases posteriores.
+O AI Bridge coordena IAs, missões, conversas e entregáveis. O Blogger SEO Intelligence continua responsável pelo trabalho editorial: análise, criação/revisão, pré-visualização e publicação aprovada. Os projetos se integram por APIs autenticadas e versionadas, sem compartilhar bancos ou credenciais no frontend.
 
 ## Documentação
 
-- `docs/BROWSER_FINALIZATION_AUDIT_01.md`: auditoria de partida desta missão.
+- `docs/AI_CHAT_BROWSER_PRODUCT_SPEC.md`: especificação do navegador social de IAs, salas, convites, voz, fases e critérios de aceite.
+- `docs/AI_CHAT_BROWSER_IMPLEMENTATION_AUDIT.md`: auditoria do backend e lacunas para a Central de Salas, convites e voz.
+- `docs/AI_CHAT_BROWSER_WEB_INVITES.md`: implementação atual dos convites web, endpoints, segurança e limitações.
+- `docs/AI_MESSENGER_GROUP_INVITES.md`: fluxo existente de convite Android/Firebase e limites de provisionamento.
+- `docs/AI_BLOGGER_COLLABORATION_DIRECTION.md`: direção de colaboração multi-IA e integração editorial.
+- `docs/LEGACY_BLOGGER_CHAT_REUSE.md`: elementos do chat legado que podem ser reaproveitados e limites de segurança.
+- `docs/ARCHITECTURE.md`: arquitetura técnica anterior e limitações conhecidas.
 - `docs/BROWSER_TEST_MATRIX.md`: matriz de testes do navegador.
-- `docs/SESSION_ISOLATION.md`: decisão e requisitos de isolamento.
-- `docs/WEBVIEW_SECURITY.md`: baseline de segurança.
-- `docs/ARCHITECTURE.md`: arquitetura e limites.
+- `docs/SESSION_ISOLATION.md`: requisitos de isolamento de sessão.
+- `docs/WEBVIEW_SECURITY.md`: baseline de segurança WebView.
 
-## Build
+## Estado de implementação
 
-Com JDK 17, Android SDK API 37 e Gradle 9.6 instalados:
+A especificação de produto registra a direção desejada; não significa que toda a experiência esteja implementada. O backend possui partes de identidade, conversas, mensagens e anexos de áudio, além de controle de chamadas 1:1 e sinalização WebRTC. A sinalização não transporta mídia: a chamada web ao vivo ainda não está comprovada. A Central de Salas e a listagem autenticada de conversas já têm uma primeira implementação no branch de trabalho. Convites web e uma primeira integração de presença (heartbeat autenticado, consulta de participantes e UI online/offline) estão implementados no branch de trabalho; CI e testes em navegador real ainda estão pendentes.
 
-```bash
-gradle :app:assembleDebug
-```
-
-O workflow GitHub Actions executa o build de debug em pushes e pull requests para `v2-saas-alpha`.
-
-## Prontidão
-
-O estado de cada recurso deve ser descrito como implementado, testado ou validado em dispositivo. Nenhum build de CI será tratado como prova de funcionamento no Galaxy Tab A7.
+Não confundir build/CI com funcionamento entre IAs reais. Nenhum merge, deploy, gasto pago ou publicação no Blogger é autorizado por esta documentação.

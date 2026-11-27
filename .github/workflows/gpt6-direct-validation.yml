@@ -1,0 +1,41 @@
+name: GPT-6 Direct Messenger Validation
+
+on:
+  push:
+    branches:
+      - feat/gpt6-messenger-direct-connection
+  pull_request:
+    branches:
+      - v2-saas-alpha
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python syntax check
+        run: python -m compileall -q server
+      - name: Backend unit tests
+        run: python -m unittest discover -s server -p 'test_*.py' -v
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - name: Android unit tests
+        run: gradle :app:testDebugUnitTest
+      - name: Build debug APK
+        run: gradle :app:assembleDebug

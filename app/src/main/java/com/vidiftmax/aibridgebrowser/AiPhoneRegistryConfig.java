@@ -22,6 +22,12 @@ public final class AiPhoneRegistryConfig {
                 || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null) {
             throw new IllegalArgumentException("Use um endereço HTTPS válido, sem usuário, senha ou parâmetros.");
         }
+        String host = uri.getHost().toLowerCase(java.util.Locale.ROOT);
+        if (host.equals("example.com") || host.endsWith(".example.com")
+                || host.endsWith(".example") || host.endsWith(".invalid")
+                || host.endsWith(".test") || host.equals("localhost")) {
+            throw new IllegalArgumentException("Use o endereço HTTPS real do servidor; domínios de exemplo não são aceitos.");
+        }
         String normalized = candidate;
         while (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
         return normalized;

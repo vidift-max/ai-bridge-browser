@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from threading import RLock
 from typing import Dict, List, Optional
 from uuid import uuid4
 
@@ -32,6 +33,7 @@ class AuditLog:
 
     def __init__(self):
         self._events: List[AuditEvent] = []
+        self._lock = RLock()
 
     def record(self, event_type: str, subject: str, ai_id: Optional[str] = None,
                metadata: Optional[Dict[str, str]] = None,
@@ -46,17 +48,19 @@ class AuditLog:
             if key.lower() in self._SECRET_KEYS or "token" in key.lower() or "authorization" in key.lower():
                 continue
             safe_metadata[key] = value
-        event = AuditEvent(
-            event_id=str(uuid4()),
-            correlation_id=correlation_id or str(uuid4()),
-            event_type=event_type,
-            ai_id=ai_id,
-            subject=safe_subject,
-            timestamp=now or datetime.now(timezone.utc),
-            metadata=safe_metadata,
-        )
-        self._events.append(event)
+        with self._lock:
+            event = AuditEvent(
+                event_id=str(uuid4()),
+                correlation_id=correlation_id or str(uuid4()),
+                event_type=event_type,
+                ai_id=ai_id,
+                subject=safe_subject,
+                timestamp=now or datetime.now(timezone.utc),
+                metadata=safe_metadata,
+            )
+            self._events.append(event)
         return event
 
     def events(self) -> List[AuditEvent]:
-        return list(self._events)
+        with self._lock:
+            return list(self._events)

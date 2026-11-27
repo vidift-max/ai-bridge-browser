@@ -8,12 +8,11 @@ from urllib.request import Request, urlopen
 
 from server.auth import Authenticator
 from server.http_server import MessengerHandler
-from server.identity_registry import IdentityRegistry
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
 
 
-class IdentityRegistryHttpTest(unittest.TestCase):
+class IdentityHttpTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         path = self.temp.name + "/messenger.sqlite"
@@ -22,10 +21,8 @@ class IdentityRegistryHttpTest(unittest.TestCase):
         self.store = SQLiteMessengerStore(path)
         self.backend = MessengerBackend(tokens, {"default": set(tokens.values())},
                                         self.store, authenticator=self.auth)
-        self.registry = IdentityRegistry(path)
         MessengerHandler.backend = self.backend
         MessengerHandler.authenticator = self.auth
-        MessengerHandler.identity_registry = self.registry
         MessengerHandler.operational = None
         self.server = HTTPServer(("127.0.0.1", 0), MessengerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -36,11 +33,10 @@ class IdentityRegistryHttpTest(unittest.TestCase):
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=2)
-        self.registry.close()
         self.backend.close()
         self.temp.cleanup()
 
-    def get(self, path, token=None):
+    def request(self, path, token=None):
         headers = {}
         if token:
             headers["Authorization"] = "Bearer " + token
@@ -91,29 +87,32 @@ class IdentityRegistryHttpTest(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(result["error"], "invalid_conversation")
 
-    def test_authenticated_self_registration_is_idempotent(self):
-        status, first = self.get("/v1/me/phone", "secret-alpha")
-        again_status, again = self.get("/v1/me/phone", "secret-alpha")
-        self.assertEqual(status, 200)
-        self.assertEqual(again_status, 200)
-        self.assertEqual(first["phone"]["displayNumber"], "AI-PHONE-000001")
-        self.assertEqual(first["phone"], again["phone"])
+    def test_legacy_phone_self_registration_is_disabled(self):
+        status, result = self.request("/v1/me/phone", "secret-alpha")
+        self.assertEqual(status, 404)
+        self.assertEqual(result["error"], "not_found")
 
-    def test_authenticated_phone_number_lookup(self):
-        self.get("/v1/me/phone", "secret-alpha")
-        status, result = self.get("/v1/phones/AI-PHONE-000001", "secret-bravo")
-        self.assertEqual(status, 200)
-        self.assertEqual(result["phone"]["aiId"], "AI-ALPHA")
+    def test_legacy_phone_lookup_is_disabled(self):
+        status, result = self.request("/v1/phones/AI-PHONE-000001", "secret-bravo")
+        self.assertEqual(status, 404)
+        self.assertEqual(result["error"], "not_found")
 
-    def test_registry_routes_require_authentication(self):
-        status, result = self.get("/v1/me/phone")
+    def test_legacy_phone_route_does_not_require_or_accept_identity(self):
+        status, result = self.request("/v1/me/phone")
+        self.assertEqual(status, 404)
+        self.assertEqual(result["error"], "not_found")
+
+    def test_authenticated_internal_identity_contains_only_ai_id(self):
+        status, result = self.request("/v1/me/identity", "secret-alpha")
+        self.assertEqual(status, 200)
+        self.assertEqual(result["identity"], {"aiId": "AI-ALPHA"})
+        self.assertNotIn("phone", result)
+        self.assertNotIn("displayNumber", result)
+
+    def test_internal_identity_requires_authentication(self):
+        status, result = self.request("/v1/me/identity")
         self.assertEqual(status, 401)
         self.assertEqual(result["error"], "authentication_required")
-
-    def test_unknown_number_returns_not_found(self):
-        status, result = self.get("/v1/phones/AI-PHONE-999999", "secret-alpha")
-        self.assertEqual(status, 404)
-        self.assertEqual(result["error"], "phone_not_found")
 
 
 if __name__ == "__main__":

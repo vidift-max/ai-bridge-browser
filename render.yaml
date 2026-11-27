@@ -1,31 +1,29 @@
 services:
   - type: web
-    name: ai-messenger-experimental
+    name: ai-bridge-gpt6-web
     runtime: python
     plan: free
-    buildCommand: "python -m compileall server"
-    startCommand: "python -c 'from server.http_server import serve; serve(host=\"0.0.0.0\", port=10000)'"
+    region: oregon
+    buildCommand: python --version
+    startCommand: python -c "from server.http_server import serve; import os; serve(host='0.0.0.0', port=int(os.environ.get('PORT','10000')))"
     healthCheckPath: /healthz
+    autoDeployTrigger: commit
     envVars:
       - key: MESSENGER_TOKEN_AI_A
         sync: false
       - key: MESSENGER_TOKEN_AI_B
         sync: false
       - key: MESSENGER_AI_ID_A
-        sync: false
+        value: AI-USER
       - key: MESSENGER_AI_ID_B
-        sync: false
+        value: AI-GPT6
+      - key: MESSENGER_STORAGE_MODE
+        value: local
       - key: MESSENGER_DB_PATH
         value: server/data/messenger.sqlite
-      - key: MESSENGER_STORAGE_MODE
-        value: ephemeral
-      - key: MESSENGER_REQUEST_TIMEOUT_SECONDS
-        value: "10"
-      - key: MESSENGER_RETRY_LIMIT
-        value: "2"
-
-# Preparation only. No Render service is deployed by this file.
-# The free experimental Blueprint deliberately declares ephemeral storage.
-# /readyz therefore returns 503 until an operator explicitly provisions a
-# persistent disk and sets MESSENGER_STORAGE_MODE=persistent plus its mount root.
-# This Blueprint must not be treated as a deployable two-AI staging environment.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_TEXT_MODEL
+        value: gpt-6.2-astra
+      - key: OPENAI_REALTIME_MODEL
+        value: gpt-realtime-2.1

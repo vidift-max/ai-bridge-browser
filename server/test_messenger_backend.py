@@ -1,14 +1,55 @@
 import tempfile
 import unittest
+from unittest.mock import patch
+from concurrent.futures import ThreadPoolExecutor
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
+from server.audio_blob_store import AudioBlobStore
 
 class MessengerBackendTest(unittest.TestCase):
     def setUp(self):
-        self.backend = MessengerBackend({"opaque-a": "AI-A", "opaque-b": "AI-B"}, {"room-1": {"AI-A", "AI-B"}})
+        self.backend = MessengerBackend({"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C", "opaque-d": "AI-D"}, {"room-1": {"AI-A", "AI-B"}})
 
     def tearDown(self):
         self.backend.close()
+
+    def test_audio_attachment_is_bound_to_message_and_survives_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = SQLiteMessengerStore(f"{directory}/messenger.sqlite")
+            backend = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B"},
+                {"room-1": {"AI-A", "AI-B"}}, db)
+            store = AudioBlobStore(f"{directory}/audio")
+            backend.submit("opaque-a", "audio-msg", "room-1", ["AI-B"], "voice", "voice-req")
+            attachment = backend.attach_audio("opaque-a", "audio-msg", store, b"OggS" + b"x" * 20, "audio/ogg")
+            self.assertEqual(attachment.message_id, "audio-msg")
+            self.assertEqual(attachment.sender_ai_id, "AI-A")
+            self.assertEqual(backend.read_audio("opaque-b", "audio-msg", attachment.object_id, store), b"OggS" + b"x" * 20)
+            backend.close()
+            db = SQLiteMessengerStore(f"{directory}/messenger.sqlite")
+
+            restarted = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B"}, {}, db)
+            listed = restarted.list_audio_attachments("opaque-b", "audio-msg")
+            self.assertEqual([item.object_id for item in listed], [attachment.object_id])
+            restarted.close()
+
+    def test_audio_attachment_sender_only_and_member_only_read_access(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = SQLiteMessengerStore(f"{directory}/messenger.sqlite")
+            backend = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"},
+                {"room-1": {"AI-A", "AI-B"}}, db)
+            store = AudioBlobStore(f"{directory}/audio")
+            backend.submit("opaque-a", "audio-msg", "room-1", ["AI-B"], "voice", "voice-req")
+            with self.assertRaisesRegex(PermissionError, "attachment_sender_only"):
+                backend.attach_audio("opaque-b", "audio-msg", store, b"OggS" + b"x" * 20, "audio/ogg")
+            attachment = backend.attach_audio("opaque-a", "audio-msg", store, b"OggS" + b"x" * 20, "audio/ogg")
+            with self.assertRaisesRegex(PermissionError, "authorization_denied"):
+                backend.list_audio_attachments("opaque-c", "audio-msg")
+            with self.assertRaisesRegex(PermissionError, "authorization_denied"):
+                backend.read_audio("opaque-c", "audio-msg", attachment.object_id, store)
+            backend.close()
 
     def test_authenticated_submit_and_pending(self):
         msg=self.backend.submit("opaque-a","m-1","room-1",["AI-B"],"hello","req-1")
@@ -111,6 +152,35 @@ class MessengerBackendTest(unittest.TestCase):
             finally:
                 second.close()
 
+    def test_group_normal_message_expires_after_one_hour(self):
+        with patch("server.messenger_backend.time.time", return_value=1000.0):
+            message = self.backend.submit("opaque-a", "retention-group", "room-1",
+                                          ["AI-B"], "normal", "retention-group-req")
+        with patch("server.messenger_backend.time.time", return_value=1000.0 + 3600 - 1):
+            self.assertEqual(len(self.backend.pending("opaque-b", "room-1")), 1)
+        with patch("server.messenger_backend.time.time", return_value=1000.0 + 3600):
+            self.assertEqual(self.backend.pending("opaque-b", "room-1"), [])
+
+    def test_mission_message_expires_after_twenty_four_hours(self):
+        with patch("server.messenger_backend.time.time", return_value=2000.0):
+            self.backend.submit("opaque-a", "retention-mission", "room-1",
+                                ["AI-B"], "mission", "retention-mission-req", "MISSION")
+        with patch("server.messenger_backend.time.time", return_value=2000.0 + 86400 - 1):
+            self.assertEqual(len(self.backend.pending("opaque-b", "room-1")), 1)
+        with patch("server.messenger_backend.time.time", return_value=2000.0 + 86400):
+            self.assertEqual(self.backend.pending("opaque-b", "room-1"), [])
+
+    def test_private_message_expires_after_twenty_four_hours(self):
+        with patch("server.messenger_backend.time.time", return_value=3000.0):
+            self.backend.create_conversation("opaque-a", "retention-private",
+                                              ["AI-A", "AI-B"], "PRIVATE")
+            self.backend.submit("opaque-a", "retention-private-msg", "retention-private",
+                                ["AI-B"], "private", "retention-private-req")
+        with patch("server.messenger_backend.time.time", return_value=3000.0 + 86400 - 1):
+            self.assertEqual(len(self.backend.pending("opaque-b", "retention-private")), 1)
+        with patch("server.messenger_backend.time.time", return_value=3000.0 + 86400):
+            self.assertEqual(self.backend.pending("opaque-b", "retention-private"), [])
+
     def test_body_limit_rejected(self):
         with self.assertRaises(ValueError):
             self.backend.submit("opaque-a","m-1","room-1",["AI-B"],"x"*5001,"req-1")
@@ -119,6 +189,190 @@ class MessengerBackendTest(unittest.TestCase):
         self.backend.submit("opaque-a","m-1","room-1",["AI-B"],"one","req-1")
         self.backend.submit("opaque-a","m-2","room-1",["AI-B"],"two","req-2")
         self.assertEqual([m.message_id for m in self.backend.pending("opaque-b","room-1",after_sequence=1)],["m-2"])
+
+    def test_submit_rejects_non_string_or_blank_message_fields(self):
+        invalid_cases = [
+            (None, "room-1", "body", "request"),
+            ("message", None, "body", "request"),
+            ("message", "room-1", ["not", "text"], "request"),
+            ("message", "room-1", "body", {"not": "text"}),
+            ("message", "room-1", "   ", "request"),
+        ]
+        for message_id, conversation_id, body, request_id in invalid_cases:
+            with self.subTest(message_id=message_id, conversation_id=conversation_id, body=body):
+                with self.assertRaises(ValueError):
+                    self.backend.submit("opaque-a", message_id, conversation_id,
+                                        ["AI-B"], body, request_id)
+
+    def test_submit_rejects_invalid_recipient_container_and_values(self):
+        invalid_recipients = [None, "AI-B", {"AI-B": True}, [], [None], ["   "]]
+        for recipients in invalid_recipients:
+            with self.subTest(recipients=recipients):
+                with self.assertRaisesRegex(ValueError, "invalid_recipients"):
+                    self.backend.submit("opaque-a", "m-invalid-recipient", "room-1",
+                                        recipients, "body", "req-invalid-recipient")
+
+    def test_concurrent_identical_submissions_are_idempotent(self):
+        payload = ("opaque-a", "m-concurrent", "room-1", ["AI-B"],
+                   "one logical message", "req-concurrent")
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            messages = list(pool.map(lambda _: self.backend.submit(*payload), range(12)))
+        self.assertEqual({message.message_id for message in messages}, {"m-concurrent"})
+        self.assertEqual({message.sequence for message in messages}, {1})
+        pending = self.backend.pending("opaque-b", "room-1")
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0].message_id, "m-concurrent")
+
+    def test_concurrent_distinct_messages_receive_unique_ordered_sequences(self):
+        def submit(index):
+            return self.backend.submit(
+                "opaque-a", f"m-parallel-{index}", "room-1", ["AI-B"],
+                f"parallel-{index}", f"req-parallel-{index}")
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            messages = list(pool.map(submit, range(10)))
+        self.assertEqual(sorted(message.sequence for message in messages),
+                         list(range(1, 11)))
+        pending = self.backend.pending("opaque-b", "room-1", limit=100)
+        self.assertEqual([message.sequence for message in pending],
+                         list(range(1, 11)))
+
+    def test_list_conversations_returns_only_authenticated_memberships(self):
+        self.backend.create_conversation(
+            "opaque-a", "private-a", ["AI-A", "AI-B"], "PRIVATE")
+        self.backend.create_conversation(
+            "opaque-b", "private-b", ["AI-B", "AI-A"], "PRIVATE")
+        result_a = self.backend.list_conversations("opaque-a")
+        result_b = self.backend.list_conversations("opaque-b")
+        self.assertEqual(
+            [item["conversationId"] for item in result_a["conversations"]],
+            ["private-a", "private-b", "room-1"])
+        self.assertEqual(
+            [item["conversationId"] for item in result_b["conversations"]],
+            ["private-a", "private-b", "room-1"])
+        self.assertEqual(result_a["conversations"][0]["kind"], "PRIVATE")
+        self.assertEqual(result_a["conversations"][0]["memberAiIds"],
+                         ["AI-A", "AI-B"])
+
+    def test_list_conversations_paginates_with_stable_exclusive_cursor(self):
+        for room_id in ("room-a", "room-b", "room-c"):
+            self.backend.create_conversation(
+                "opaque-a", room_id, ["AI-A", "AI-B"], "GROUP")
+        first = self.backend.list_conversations("opaque-a", limit=2)
+        second = self.backend.list_conversations(
+            "opaque-a", limit=2, after=first["nextCursor"])
+        self.assertEqual(
+            [item["conversationId"] for item in first["conversations"]],
+            ["room-1", "room-a"])
+        self.assertEqual(
+            [item["conversationId"] for item in second["conversations"]],
+            ["room-b", "room-c"])
+        self.assertIsNone(second["nextCursor"])
+
+    def test_list_conversations_rejects_invalid_auth_limit_and_cursor(self):
+        with self.assertRaises(PermissionError):
+            self.backend.list_conversations("invalid-token")
+        for limit in (0, 101, True, "10"):
+            with self.subTest(limit=limit):
+                with self.assertRaisesRegex(ValueError, "invalid_conversation_limit"):
+                    self.backend.list_conversations("opaque-a", limit=limit)
+        with self.assertRaisesRegex(ValueError, "invalid_conversation_cursor"):
+            self.backend.list_conversations("opaque-a", after=None)
+
+
+    def test_room_invite_requires_creator_admin_and_approval_before_membership(self):
+        self.backend.create_conversation(
+            "opaque-a", "invite-room", ["AI-A", "AI-B"], "GROUP")
+        with self.assertRaisesRegex(PermissionError, "room_admin_required"):
+            self.backend.create_room_invite("opaque-b", "invite-room")
+        invite = self.backend.create_room_invite(
+            "opaque-a", "invite-room", expires_in_seconds=600, max_uses=2)
+        self.assertNotIn("token", self.backend.get_public_invite(invite["inviteId"]))
+        self.assertEqual(
+            self.backend.get_public_invite(invite["inviteId"])["status"], "ACTIVE")
+        request = self.backend.redeem_room_invite("opaque-c", invite["token"])
+        self.assertEqual(request["status"], "PENDING")
+        self.assertNotIn("AI-C", self.backend.conversation_members()["invite-room"])
+        repeated = self.backend.redeem_room_invite("opaque-c", invite["token"])
+        self.assertEqual(repeated["requestId"], request["requestId"])
+        pending = self.backend.list_join_requests("opaque-a", "invite-room")
+        self.assertEqual([item["ai_id"] for item in pending], ["AI-C"])
+        approved = self.backend.decide_join_request(
+            "opaque-a", "invite-room", request["requestId"], "APPROVE")
+        self.assertEqual(approved["status"], "APPROVED")
+        self.assertIn("AI-C", self.backend.conversation_members()["invite-room"])
+
+    def test_room_invite_reject_revocation_and_token_hash_storage(self):
+        self.backend.create_conversation(
+            "opaque-a", "invite-revoke-room", ["AI-A", "AI-B"], "GROUP")
+        invite = self.backend.create_room_invite("opaque-a", "invite-revoke-room")
+        stored = self.backend._store.get_room_invite(invite["inviteId"])
+        self.assertNotEqual(stored["token_hash"], invite["token"])
+        self.assertEqual(len(stored["token_hash"]), 64)
+        revoked = self.backend.revoke_room_invite(
+            "opaque-a", "invite-revoke-room", invite["inviteId"])
+        self.assertEqual(revoked["status"], "REVOKED")
+        self.assertEqual(
+            self.backend.get_public_invite(invite["inviteId"])["status"], "REVOKED")
+        with self.assertRaisesRegex(ValueError, "invite_unavailable"):
+            self.backend.redeem_room_invite("opaque-c", invite["token"])
+
+    def test_join_request_rejection_does_not_add_member(self):
+        self.backend.create_conversation(
+            "opaque-a", "invite-reject-room", ["AI-A", "AI-B"], "GROUP")
+        invite = self.backend.create_room_invite("opaque-a", "invite-reject-room")
+        request = self.backend.redeem_room_invite("opaque-c", invite["token"])
+        rejected = self.backend.decide_join_request(
+            "opaque-a", "invite-reject-room", request["requestId"], "REJECT")
+        self.assertEqual(rejected["status"], "REJECTED")
+        self.assertNotIn("AI-C", self.backend.conversation_members()["invite-reject-room"])
+
+
+    def test_room_invite_expiry_and_use_limit_are_enforced(self):
+        self.backend.create_conversation(
+            "opaque-a", "invite-limit-room", ["AI-A", "AI-B"], "GROUP")
+        invite = self.backend.create_room_invite(
+            "opaque-a", "invite-limit-room", expires_in_seconds=60, max_uses=1)
+        self.backend.redeem_room_invite("opaque-c", invite["token"])
+        with self.assertRaisesRegex(ValueError, "invite_unavailable"):
+            self.backend.redeem_room_invite("opaque-d", invite["token"])
+        self.assertEqual(
+            self.backend.get_public_invite(invite["inviteId"])["status"], "EXHAUSTED")
+
+        expiring = self.backend.create_room_invite(
+            "opaque-a", "invite-limit-room", expires_in_seconds=60, max_uses=2)
+        with patch("server.messenger_backend.time.time",
+                   return_value=expiring["expiresAt"] + 1):
+            with self.assertRaisesRegex(ValueError, "invite_unavailable"):
+                self.backend.redeem_room_invite("opaque-d", expiring["token"])
+
+    def test_invites_admin_and_membership_survive_backend_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = f"{directory}/messenger.sqlite"
+            first = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"},
+                {}, SQLiteMessengerStore(path))
+            first.create_conversation("opaque-a", "persistent-invite-room",
+                                      ["AI-A", "AI-B"], "GROUP")
+            invite = first.create_room_invite(
+                "opaque-a", "persistent-invite-room")
+            first.close()
+
+            second = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"},
+                {}, SQLiteMessengerStore(path))
+            request = second.redeem_room_invite("opaque-c", invite["token"])
+            second.decide_join_request(
+                "opaque-a", "persistent-invite-room", request["requestId"], "APPROVE")
+            second.close()
+
+            third = MessengerBackend(
+                {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"},
+                {}, SQLiteMessengerStore(path))
+            self.assertIn("AI-C", third.conversation_members()["persistent-invite-room"])
+            self.assertEqual(
+                third.list_join_requests("opaque-a", "persistent-invite-room")[0]["status"],
+                "APPROVED")
+            third.close()
 
 if __name__ == "__main__":
     unittest.main()

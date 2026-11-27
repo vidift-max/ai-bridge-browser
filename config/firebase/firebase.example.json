@@ -1,0 +1,6 @@
+{
+  "transport": "firebase_rtdb",
+  "databaseUrl": "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  "webApiKey": "YOUR_FIREBASE_WEB_API_KEY",
+  "rootPath": "messenger"
+}
