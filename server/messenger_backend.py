@@ -1,4 +1,8 @@
 from dataclasses import dataclass
+import hashlib
+import secrets
+import time
+import uuid
 from typing import Dict, List, Set, Tuple
 from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
@@ -31,8 +35,9 @@ class MessengerBackend:
                 raise ValueError("invalid_conversation_members")
             if not normalized.issubset(self._known_ai_ids):
                 raise ValueError("unknown_conversation_member")
-            self._conversations.setdefault(conversation_id, normalized)
-            self._store.save_conversation(conversation_id, sorted(normalized))
+            if conversation_id not in self._conversations:
+                self._conversations[conversation_id] = normalized
+                self._store.save_conversation(conversation_id, sorted(normalized), "GROUP")
         self._messages: Dict[str, Message] = {}
         self._idempotency: Dict[Tuple[str, str], str] = {}
         self._next_sequence: Dict[str, int] = {}
@@ -85,13 +90,52 @@ class MessengerBackend:
             raise ValueError("unknown_conversation_member")
         if conversation_id in self._conversations:
             raise ValueError("conversation_id_conflict")
-        self._store.save_conversation(conversation_id, sorted(members))
+        self._store.save_conversation(conversation_id, sorted(members), kind)
         self._conversations[conversation_id] = members
         return {"conversationId": conversation_id, "kind": kind,
                 "memberAiIds": sorted(members), "memberCount": len(members)}
 
+
+    def create_invitation(self, bearer_token: str, conversation_id: str,
+                          target_ai_id: str, ttl_seconds: int = 86400) -> Dict[str, str]:
+        creator = self.authenticate(bearer_token)
+        if not isinstance(target_ai_id, str) or target_ai_id not in self._known_ai_ids:
+            raise ValueError("unknown_invitation_target")
+        if not isinstance(ttl_seconds, int) or ttl_seconds < 1 or ttl_seconds > 86400:
+            raise ValueError("invalid_invitation_expiry")
+        token = secrets.token_urlsafe(32)
+        now = int(time.time())
+        invitation_id = str(uuid.uuid4())
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        self._store.create_invitation(
+            invitation_id, conversation_id, target_ai_id, token_hash,
+            creator, now, now + ttl_seconds,
+        )
+        return {"invitationId": invitation_id, "token": token,
+                "expiresAt": str(now + ttl_seconds)}
+
+    def accept_invitation(self, bearer_token: str, token: str) -> Dict[str, object]:
+        target = self.authenticate(bearer_token)
+        if not isinstance(token, str) or len(token) < 40 or len(token) > 128:
+            raise ValueError("invitation_unavailable")
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        conversation_id, members = self._store.accept_invitation(
+            token_hash, target, int(time.time()), self.MAX_ROOM_MEMBERS,
+        )
+        self._conversations[conversation_id] = set(members)
+        return {"conversationId": conversation_id, "memberAiIds": sorted(members),
+                "memberCount": len(members)}
+
+    def revoke_invitation(self, bearer_token: str, invitation_id: str) -> None:
+        actor = self.authenticate(bearer_token)
+        self._store.revoke_invitation(invitation_id, actor, int(time.time()))
+
     def authorize_member(self, ai_id: str, conversation_id: str) -> None:
-        members = self._conversations.get(conversation_id)
+        members = self._store.load_conversation_members(conversation_id)
+        if members:
+            self._conversations[conversation_id] = members
+        else:
+            self._conversations.pop(conversation_id, None)
         if not members or ai_id not in members:
             raise PermissionError("authorization_denied")
 
@@ -131,9 +175,7 @@ class MessengerBackend:
 
     def pending(self, bearer_token: str, conversation_id: str, after_sequence: int = 0, limit: int = 50) -> List[Message]:
         ai_id = self.authenticate(bearer_token)
-        members = self._conversations.get(conversation_id)
-        if not members or ai_id not in members:
-            raise PermissionError("authorization_denied")
+        self.authorize_member(ai_id, conversation_id)
         if after_sequence < 0 or limit < 1 or limit > 100:
             raise ValueError("invalid_cursor")
         pending = [m for m in self._messages.values() if m.conversation_id == conversation_id and m.sequence > after_sequence and ai_id in m.recipient_ai_ids and ai_id not in m.acknowledged_by]

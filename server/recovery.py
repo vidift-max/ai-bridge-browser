@@ -27,8 +27,9 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] != "1":
+    if not version_row or version_row[0] not in ("1", "2", "3", "4"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
+    schema_version = version_row[0]
     required_columns = {
         "schema_meta": {"key", "value"},
         "conversations": {"conversation_id", "member_ai_ids"},
@@ -54,6 +55,30 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     )]
     if index_columns != ["conversation_id", "sequence"]:
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
+    if schema_version == "4":
+        rate_columns = {row[1] for row in connection.execute("PRAGMA table_info(rate_limit_events)")}
+        if not {"event_id", "principal", "event_at"}.issubset(rate_columns):
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
+        rate_indexes = {row[1] for row in connection.execute("PRAGMA index_list(rate_limit_events)")}
+        if "idx_rate_limit_principal_time" not in rate_indexes:
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
+    if schema_version in ("2", "3", "4"):
+        invitation_columns = {
+            "invitation_id", "conversation_id", "target_ai_id", "token_hash",
+            "status", "created_by_ai_id", "created_at", "expires_at",
+            "accepted_at", "revoked_at",
+        }
+        rows = connection.execute("PRAGMA table_info(invitations)").fetchall()
+        if not invitation_columns.issubset({row[1] for row in rows}):
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
+        indexes = {row[1] for row in connection.execute("PRAGMA index_list(invitations)")}
+        if not {"sqlite_autoindex_invitations_2", "idx_invitations_conversation_status",
+                "idx_invitations_target_status"}.issubset(indexes):
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
+    if schema_version in ("3", "4"):
+        conversation_columns = {row[1] for row in connection.execute("PRAGMA table_info(conversations)")}
+        if "conversation_kind" not in conversation_columns:
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
     return True, "RESTORE_SCHEMA_COMPATIBLE"
 
 
@@ -87,12 +112,23 @@ def _parse_identifier_list(value, *, allow_empty: bool = False):
 def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     connection.row_factory = sqlite3.Row
     conversations = {}
-    for row in connection.execute(
-        "SELECT conversation_id, member_ai_ids FROM conversations"
-    ):
+    version_row = connection.execute(
+        "SELECT value FROM schema_meta WHERE key='version'"
+    ).fetchone()
+    schema_version = version_row[0] if version_row else None
+    conversation_query = ("SELECT conversation_id, member_ai_ids, conversation_kind FROM conversations"
+                          if schema_version in ("3", "4")
+                          else "SELECT conversation_id, member_ai_ids FROM conversations")
+    for row in connection.execute(conversation_query):
         members = _parse_identifier_list(row["member_ai_ids"])
         if not row["conversation_id"] or not members:
             return False, "RESTORE_DATA_CONVERSATION_INVALID"
+        if schema_version in ("3", "4"):
+            kind = row["conversation_kind"]
+            if (kind not in ("PRIVATE", "GROUP") or len(members) < 2
+                    or (kind == "PRIVATE" and len(members) != 2)
+                    or (kind == "GROUP" and len(members) > 20)):
+                return False, "RESTORE_DATA_CONVERSATION_INVALID"
         conversations[row["conversation_id"]] = set(members)
 
     messages = {}
@@ -131,6 +167,30 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
         target = messages.get(row["message_id"])
         if target is None or row["ai_id"] not in target[4]:
             return False, "RESTORE_DATA_ACKNOWLEDGEMENT_INVALID"
+    version_row = connection.execute(
+        "SELECT value FROM schema_meta WHERE key='version'"
+    ).fetchone()
+    if version_row and version_row[0] in ("2", "3", "4"):
+        import re
+        for row in connection.execute(
+            "SELECT invitation_id, conversation_id, target_ai_id, token_hash, status, "
+            "created_by_ai_id, created_at, expires_at, accepted_at, revoked_at FROM invitations"
+        ):
+            members = conversations.get(row["conversation_id"])
+            if (not row["invitation_id"] or not row["target_ai_id"] or members is None
+                    or row["created_by_ai_id"] not in members
+                    or not isinstance(row["token_hash"], str)
+                    or re.fullmatch(r"[0-9a-f]{64}", row["token_hash"]) is None
+                    or row["status"] not in ("PENDING", "ACCEPTED", "REVOKED", "EXPIRED")
+                    or not isinstance(row["created_at"], int) or row["created_at"] < 0
+                    or not isinstance(row["expires_at"], int) or row["expires_at"] <= row["created_at"]):
+                return False, "RESTORE_DATA_INVITATION_INVALID"
+            accepted = row["accepted_at"] is not None
+            revoked = row["revoked_at"] is not None
+            if ((row["status"] == "ACCEPTED" and (not accepted or revoked or row["target_ai_id"] not in members))
+                    or (row["status"] == "REVOKED" and (not revoked or accepted))
+                    or (row["status"] in ("PENDING", "EXPIRED") and (accepted or revoked))):
+                return False, "RESTORE_DATA_INVITATION_INVALID"
     return True, "RESTORE_DATA_CONSISTENT"
 
 

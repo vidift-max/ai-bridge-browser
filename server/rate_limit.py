@@ -29,3 +29,22 @@ class SlidingWindowRateLimiter:
             raise RateLimitExceeded("rate_limit_exceeded")
         events.append(current)
         return True
+
+class SQLiteSlidingWindowRateLimiter:
+    """Atomic sliding-window limiter shared by processes using one SQLite file."""
+    def __init__(self, store, max_events: int = 60, window_seconds: int = 60, clock=None):
+        if max_events < 1 or window_seconds < 1:
+            raise ValueError("rate_limit_configuration_invalid")
+        import time
+        self.store = store
+        self.max_events = max_events
+        self.window_seconds = window_seconds
+        self.clock = clock or time.time
+
+    def allow(self, principal: str, now=None) -> bool:
+        if not principal:
+            raise ValueError("principal_required")
+        current = self.clock() if now is None else now
+        if not self.store.consume_rate_limit(principal, current, self.window_seconds, self.max_events):
+            raise RateLimitExceeded("rate_limit_exceeded")
+        return True

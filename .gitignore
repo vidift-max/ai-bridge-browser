@@ -7,3 +7,8 @@ local.properties
 **/build/
 .externalNativeBuild/
 .cxx/
+
+# Local Android release-signing material — never commit these files.
+*.keystore
+*.jks
+ai-phone-release-keystore.b64

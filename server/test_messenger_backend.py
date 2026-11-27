@@ -1,4 +1,5 @@
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 import unittest
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
@@ -119,6 +120,182 @@ class MessengerBackendTest(unittest.TestCase):
         self.backend.submit("opaque-a","m-1","room-1",["AI-B"],"one","req-1")
         self.backend.submit("opaque-a","m-2","room-1",["AI-B"],"two","req-2")
         self.assertEqual([m.message_id for m in self.backend.pending("opaque-b","room-1",after_sequence=1)],["m-2"])
+
+
+    def test_invitation_acceptance_adds_only_authenticated_target(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            stored_hash = backend._store._connection.execute(
+                "SELECT token_hash FROM invitations").fetchone()[0]
+            self.assertEqual(len(stored_hash), 64)
+            self.assertNotEqual(stored_hash, invitation["token"])
+            result = backend.accept_invitation("opaque-c", invitation["token"])
+            self.assertEqual(result["memberCount"], 3)
+            self.assertEqual(result["memberAiIds"], ["AI-A", "AI-B", "AI-C"])
+            with self.assertRaises(ValueError):
+                backend.accept_invitation("opaque-c", invitation["token"])
+        finally:
+            backend.close()
+
+    def test_invitation_rejects_wrong_target(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            with self.assertRaises(ValueError):
+                backend.accept_invitation("opaque-b", invitation["token"])
+            self.assertEqual(backend._conversations["room-1"], {"AI-A", "AI-B"})
+        finally:
+            backend.close()
+
+    def test_invitation_cannot_expand_private_conversation(self):
+        backend = MessengerBackend(
+            {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}, {})
+        try:
+            backend.create_conversation("opaque-a", "private-1",
+                                        ["AI-A", "AI-B"], "PRIVATE")
+            with self.assertRaisesRegex(ValueError, "private_conversation_cannot_expand"):
+                backend.create_invitation("opaque-a", "private-1", "AI-C")
+        finally:
+            backend.close()
+
+    def test_invitation_revocation_blocks_acceptance(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            backend.revoke_invitation("opaque-a", invitation["invitationId"])
+            with self.assertRaises(ValueError):
+                backend.accept_invitation("opaque-c", invitation["token"])
+        finally:
+            backend.close()
+
+    def test_invitation_target_must_be_provisioned(self):
+        with self.assertRaisesRegex(ValueError, "unknown_invitation_target"):
+            self.backend.create_invitation("opaque-a", "room-1", "AI-NOT-PROVISIONED")
+
+
+    def test_invitation_single_use_under_concurrent_acceptance(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            first = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}},
+                                     SQLiteMessengerStore(f.name))
+            invitation = first.create_invitation("opaque-a", "room-1", "AI-C")
+            first.close()
+            second = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            third = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+
+            def accept(backend):
+                try:
+                    backend.accept_invitation("opaque-c", invitation["token"])
+                    return "accepted"
+                except ValueError:
+                    return "rejected"
+
+            try:
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    outcomes = list(pool.map(accept, [second, third]))
+                self.assertEqual(outcomes.count("accepted"), 1)
+                self.assertEqual(outcomes.count("rejected"), 1)
+            finally:
+                second.close()
+                third.close()
+
+    def test_invitation_acceptance_survives_backend_restart(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            first = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            first.create_conversation("opaque-a", "room-1", ["AI-A", "AI-B"], "GROUP")
+            invitation = first.create_invitation("opaque-a", "room-1", "AI-C")
+            first.close()
+            second = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            try:
+                second.accept_invitation("opaque-c", invitation["token"])
+            finally:
+                second.close()
+            third = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            try:
+                self.assertEqual(third._conversations["room-1"],
+                                 {"AI-A", "AI-B", "AI-C"})
+            finally:
+                third.close()
+
+
+    def test_expired_invitation_is_marked_expired(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            backend._store._connection.execute(
+                "UPDATE invitations SET created_at=0, expires_at=1 WHERE invitation_id=?",
+                (invitation["invitationId"],))
+            backend._store._connection.commit()
+            with self.assertRaises(ValueError):
+                backend.accept_invitation("opaque-c", invitation["token"])
+            state = backend._store._connection.execute(
+                "SELECT status FROM invitations WHERE invitation_id=?",
+                (invitation["invitationId"],)).fetchone()[0]
+            self.assertEqual(state, "EXPIRED")
+        finally:
+            backend.close()
+
+    def test_only_invitation_creator_can_revoke(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            with self.assertRaises(ValueError):
+                backend.revoke_invitation("opaque-b", invitation["invitationId"])
+            backend.revoke_invitation("opaque-a", invitation["invitationId"])
+        finally:
+            backend.close()
+
+    def test_invitation_acceptance_cannot_exceed_twenty_members(self):
+        tokens = {f"token-{i}": f"AI-{i}" for i in range(1, 22)}
+        backend = MessengerBackend(tokens, {})
+        try:
+            backend.create_conversation("token-1", "room-20",
+                                        [f"AI-{i}" for i in range(1, 21)], "GROUP")
+            invitation = backend.create_invitation("token-1", "room-20", "AI-21")
+            with self.assertRaisesRegex(ValueError, "conversation_member_limit"):
+                backend.accept_invitation("token-21", invitation["token"])
+            self.assertEqual(len(backend._conversations["room-20"]), 20)
+        finally:
+            backend.close()
+
+
+    def test_private_kind_survives_backend_restart(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            first = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            first.create_conversation("opaque-a", "private-persisted",
+                                      ["AI-A", "AI-B"], "PRIVATE")
+            first.close()
+            second = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            try:
+                with self.assertRaisesRegex(ValueError, "private_conversation_cannot_expand"):
+                    second.create_invitation("opaque-a", "private-persisted", "AI-C")
+            finally:
+                second.close()
+
+
+    def test_other_backend_refreshes_membership_after_acceptance(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            owner = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}},
+                                     SQLiteMessengerStore(f.name))
+            invitee = MessengerBackend(tokens, {}, SQLiteMessengerStore(f.name))
+            try:
+                invitation = owner.create_invitation("opaque-a", "room-1", "AI-C")
+                invitee.accept_invitation("opaque-c", invitation["token"])
+                owner.authorize_member("AI-C", "room-1")
+                self.assertEqual(owner._conversations["room-1"],
+                                 {"AI-A", "AI-B", "AI-C"})
+            finally:
+                owner.close()
+                invitee.close()
 
 if __name__ == "__main__":
     unittest.main()
