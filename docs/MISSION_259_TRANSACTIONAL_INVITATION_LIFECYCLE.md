@@ -30,7 +30,7 @@ Backend gera 32 bytes aleatórios com `secrets.token_urlsafe(32)`; persiste some
 **Limite** — token continua sendo segredo bearer; cliente deve protegê-lo e transportá-lo somente por HTTPS.
 
 ### 05/10 — Aceite autenticado e atômico
-Aceite autentica o bearer, calcula hash e abre `BEGIN IMMEDIATE`. Dentro da mesma transação verifica hash, target AI_ID, status PENDING, expiração, tipo/limite da conversa; marca ACCEPTED e adiciona o membro. Cache de membership atualiza somente após commit.
+Aceite autentica o bearer, calcula hash e abre `BEGIN IMMEDIATE`. Dentro da mesma transação verifica hash, target AI_ID, status PENDING, expiração, tipo/limite da conversa; marca ACCEPTED e adiciona o membro. Cache de membership atualiza somente após commit; operações de autorização recarregam a membership persistida para refletir aceites feitos por outra instância.
 
 **PASS** — consumo e membership são atômicos no SQLite.
 
@@ -57,7 +57,7 @@ Rotas verificam principal autenticado, rate limit, JSON e respostas sem cache. A
 **BLOCKED** — não há teste HTTP de integração executado nem confirmação de serviço implantado.
 
 ### 09/10 — Testes de regressão
-Adicionados testes para hash sem token em claro, aceite pelo destinatário correto, target incorreto, PRIVATE, revogação, target não provisionado, concorrência single-use, persistência após restart, expiração, permissão de revogação, limite de 20, e rotas HTTP. Atualizados testes de schema para v3.
+Adicionados testes para hash sem token em claro, aceite pelo destinatário correto, target incorreto, PRIVATE, revogação, target não provisionado, concorrência single-use, persistência após restart, expiração, permissão de revogação, limite de 20, refresh de membership entre instâncias e rotas HTTP. Atualizados testes de schema para v3.
 
 **PASS** — cobertura automatizada adicionada.
 **BLOCKED** — execução local/CI não foi confirmada nesta missão.
