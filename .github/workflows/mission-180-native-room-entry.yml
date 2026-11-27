@@ -28,6 +28,18 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Firebase emulator test tooling
+        run: npm install --no-save --no-package-lock firebase-tools@14.7.0 firebase@11.6.0 @firebase/rules-unit-testing@4.0.1
+      - name: Run Firebase Realtime Database security rules tests
+        run: npx firebase --config firebase/firebase.json emulators:exec --only database --project demo-ai-bridge-rules "node tests/firebase/database.rules.test.mjs"
+      - name: Run Firebase rules parity regressions
+        run: python -m unittest server.test_firebase_rules server.test_firebase_rules_parity -v
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.6.0"
