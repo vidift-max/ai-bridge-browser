@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "v2-saas-alpha" ]
+    branches: [ "v2-saas-alpha", "feat/mission-295-m241-ai-first-contact-integration" ]
   pull_request:
     branches: [ "v2-saas-alpha" ]
   workflow_dispatch:
