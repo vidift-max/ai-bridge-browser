@@ -74,3 +74,7 @@ After an explicitly authorized workflow run reports success:
 ## Explicit non-claims
 
 This repository change does not prove that the Firebase project is reachable, that rules were actually published, that Hosting has been deployed, that IAM/WIF exists, that either device is configured, or that AI-01 and AI-02 have exchanged a message. No deployment, merge, release, installation, or identity bootstrap was performed.
+
+## Subsequent deployment hardening
+
+See [Mission 183 — Firebase production deployment guardrails](MISSION_183_FIREBASE_DEPLOY_GUARDRAILS.md) for the trusted-branch restriction, GitHub production environment approval boundary, and workflow regression tests. The GitHub environment's required reviewers and branch policy must be configured manually before any deployment.
