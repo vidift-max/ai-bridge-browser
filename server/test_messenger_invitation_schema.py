@@ -9,14 +9,6 @@ from server.sqlite_store import SQLiteMessengerStore
 
 
 class MessengerInvitationSchemaTests(unittest.TestCase):
-    def _legacy_v1_database(self, path):
-        store = SQLiteMessengerStore(str(path))
-        store.close()
-        with sqlite3.connect(path) as db:
-            db.execute("DROP TABLE invitations")
-            db.execute("DELETE FROM sqlite_master WHERE 0")
-            db.execute("UPDATE schema_meta SET value='1' WHERE key='version'")
-
     def test_fresh_database_migrates_to_v2(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "fresh.sqlite"
