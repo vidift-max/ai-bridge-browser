@@ -27,7 +27,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] not in ("1", "2"):
+    if not version_row or version_row[0] not in ("1", "2", "3"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     schema_version = version_row[0]
     required_columns = {
@@ -55,7 +55,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     )]
     if index_columns != ["conversation_id", "sequence"]:
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
-    if schema_version == "2":
+    if schema_version in ("2", "3"):
         invitation_columns = {
             "invitation_id", "conversation_id", "target_ai_id", "token_hash",
             "status", "created_by_ai_id", "created_at", "expires_at",
@@ -67,6 +67,10 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         indexes = {row[1] for row in connection.execute("PRAGMA index_list(invitations)")}
         if not {"sqlite_autoindex_invitations_2", "idx_invitations_conversation_status",
                 "idx_invitations_target_status"}.issubset(indexes):
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
+    if schema_version == "3":
+        conversation_columns = {row[1] for row in connection.execute("PRAGMA table_info(conversations)")}
+        if "conversation_kind" not in conversation_columns:
             return False, "RESTORE_SCHEMA_UNSUPPORTED"
     return True, "RESTORE_SCHEMA_COMPATIBLE"
 
@@ -148,7 +152,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if version_row and version_row[0] == "2":
+    if version_row and version_row[0] in ("2", "3"):
         import re
         for row in connection.execute(
             "SELECT invitation_id, conversation_id, target_ai_id, token_hash, status, "
