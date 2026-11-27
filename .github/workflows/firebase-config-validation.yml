@@ -1,0 +1,29 @@
+name: Firebase config validation
+
+on:
+  pull_request:
+    paths:
+      - "firebase/**"
+      - "scripts/validate-firebase-project.mjs"
+      - ".github/workflows/firebase-config-validation.yml"
+  push:
+    branches:
+      - "feat/mission-181-firebase-project-bootstrap"
+    paths:
+      - "firebase/**"
+      - "scripts/validate-firebase-project.mjs"
+      - ".github/workflows/firebase-config-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate Firebase project files
+        run: node scripts/validate-firebase-project.mjs

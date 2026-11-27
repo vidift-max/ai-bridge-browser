@@ -1,0 +1,68 @@
+name: Firebase deploy — AI-Messenger
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: Type DEPLOY_AI_MESSENGER to authorize deployment of Hosting and Realtime Database rules.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ai-messenger-firebase-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Validate and deploy Firebase
+    if: ${{ inputs.confirm_deploy == 'DEPLOY_AI_MESSENGER' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FIREBASE_PROJECT_ID: ai-messenger-b97df
+      FIREBASE_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.FIREBASE_WORKLOAD_IDENTITY_PROVIDER }}
+      FIREBASE_DEPLOY_SERVICE_ACCOUNT: ${{ vars.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate Firebase configuration before authentication
+        run: node scripts/validate-firebase-project.mjs
+
+      - name: Check deployment identity configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$FIREBASE_WORKLOAD_IDENTITY_PROVIDER" || {
+            echo "::error::GitHub variable FIREBASE_WORKLOAD_IDENTITY_PROVIDER is missing."
+            exit 1
+          }
+          test -n "$FIREBASE_DEPLOY_SERVICE_ACCOUNT" || {
+            echo "::error::GitHub variable FIREBASE_DEPLOY_SERVICE_ACCOUNT is missing."
+            exit 1
+          }
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.FIREBASE_PROJECT_ID }}
+          workload_identity_provider: ${{ env.FIREBASE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+
+      - name: Deploy Hosting and Realtime Database rules
+        env:
+          CI: "true"
+        run: firebase deploy --config firebase/firebase.json --project "$FIREBASE_PROJECT_ID" --only hosting,database --non-interactive
