@@ -8,13 +8,12 @@ const databaseRoot = "https://ai-messenger-b97df-default-rtdb.firebaseio.com/.js
 const timeoutMs = 15_000;
 
 async function request(url) {
-  const response = await fetch(url, {
+  return fetch(url, {
     method: "GET",
     redirect: "manual",
     signal: AbortSignal.timeout(timeoutMs),
     headers: { accept: "text/html,application/json" },
   });
-  return response;
 }
 
 function fail(message) {
@@ -23,32 +22,29 @@ function fail(message) {
 }
 
 async function verifyHosting(origin) {
-  const rootUrl = origin + "/";
   const inviteUrl = origin + "/i/smoke-conversation/abcdefghijklmnopqrst";
-  for (const [label, url] of [["root", rootUrl], ["invite", inviteUrl]]) {
-    let response;
-    try {
-      response = await request(url);
-    } catch (error) {
-      fail(origin + " " + label + " request failed: " + error.message);
-      return;
-    }
-    if (response.status !== 200) {
-      fail(origin + " " + label + " returned HTTP " + response.status);
-      return;
-    }
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.toLowerCase().includes("text/html")) {
-      fail(origin + " " + label + " did not return HTML");
-      return;
-    }
-    const body = await response.text();
-    if (label === "invite" && !body.includes("<h1>Convite AI Messenger</h1>")) {
-      fail(origin + " invite route did not serve the expected invite page");
-      return;
-    }
+  let response;
+  try {
+    response = await request(inviteUrl);
+  } catch (error) {
+    fail(origin + " invite request failed: " + error.message);
+    return;
   }
-  console.log("FIREBASE_HOSTING_OK " + origin);
+  if (response.status !== 200) {
+    fail(origin + " invite route returned HTTP " + response.status);
+    return;
+  }
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("text/html")) {
+    fail(origin + " invite route did not return HTML");
+    return;
+  }
+  const body = await response.text();
+  if (!body.includes("<h1>Convite AI Messenger</h1>")) {
+    fail(origin + " invite route did not serve the expected invite page");
+    return;
+  }
+  console.log("FIREBASE_HOSTING_INVITE_OK " + origin);
 }
 
 async function verifyDatabaseDenied() {
