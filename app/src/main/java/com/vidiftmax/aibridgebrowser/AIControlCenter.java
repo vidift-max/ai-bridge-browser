@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Dynamic control-center registry for up to six independently bound AI tabs. */
+/** Registry capacity is 20; the current mission activates only AI-01 and AI-02. */
 final class AIControlCenter {
-    static final int MAX_AI_TABS = 6;
+    static final int MAX_AI_TABS = 20;
     enum ResponseState { IDLE, SENDING, UNKNOWN, RESPONDING, RESPONSE_COMPLETE, ERROR }
     enum ContextState { UNKNOWN, NORMAL, CRITICAL, FULL, NEW_CHAT_REQUIRED, NEW_CHAT_LOADING }
 
@@ -31,7 +31,7 @@ final class AIControlCenter {
 
     boolean register(String aiId, String tabId, String profileId) {
         if (blank(aiId) || blank(tabId) || blank(profileId)) return false;
-        if (findByTab(tabId) != null || findByAi(aiId) != null || panels.size() >= MAX_AI_TABS) return false;
+        if (findByTab(tabId) != null || findByAi(aiId) != null || findByProfile(profileId) != null || panels.size() >= MAX_AI_TABS) return false;
         panels.add(new Panel(aiId, tabId, profileId));
         return true;
     }
@@ -148,6 +148,10 @@ final class AIControlCenter {
     }
     private Panel findByAi(String aiId) {
         for (Panel panel : panels) if (panel.aiId.equals(aiId)) return panel;
+        return null;
+    }
+    private Panel findByProfile(String profileId) {
+        for (Panel panel : panels) if (panel.profileId.equals(profileId)) return panel;
         return null;
     }
     private Panel find(String tabId, String profileId) {
