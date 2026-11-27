@@ -5,6 +5,7 @@ on:
     paths:
       - "firebase/**"
       - "scripts/validate-firebase-project.mjs"
+      - "tests/**"
       - ".github/workflows/firebase-config-validation.yml"
   push:
     branches:
