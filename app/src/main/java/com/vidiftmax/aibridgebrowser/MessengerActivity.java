@@ -896,7 +896,8 @@ public final class MessengerActivity extends Activity {
                         if (secret == null || secret.trim().isEmpty()) throw new IllegalArgumentException("Token obrigatório.");
                         new AiPhoneCredentialVault().save(this, secret);
                         getSharedPreferences(REMOTE_PREFS, MODE_PRIVATE).edit()
-                                .putString("base_url", url).putString("ai_id", id).apply();
+                                .putString("base_url", url).putString("ai_id", id)
+                                .putString("invite_hosting_url", inviteUrl).apply();
                         Toast.makeText(this, "Configuração salva. Validando identidade no servidor…", Toast.LENGTH_LONG).show();
                         verifyRemoteConnection();
                     } catch (Exception error) {
