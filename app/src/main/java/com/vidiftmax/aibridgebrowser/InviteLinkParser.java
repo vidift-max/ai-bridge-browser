@@ -38,7 +38,7 @@ final class InviteLinkParser {
 
             String normalizedHost = host.toLowerCase(Locale.ROOT);
             if (!"https".equalsIgnoreCase(scheme)
-                    || !normalizedHost.matches("[a-z0-9-]+(?:\.[a-z0-9-]+)*\.web\.app")) return null;
+                    || !normalizedHost.matches("[a-z0-9-]+(?:[.][a-z0-9-]+)*[.]web[.]app")) return null;
 
             parts = rawPath.split("/", -1);
             if (parts.length != 4 || !parts[0].isEmpty() || !"i".equals(parts[1])) return null;
