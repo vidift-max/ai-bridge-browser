@@ -36,6 +36,11 @@ public class MessengerRemoteConfigTest {
         JSONArray recipients = new JSONArray().put("AI-CLAUDE");
         assertThrows(IllegalArgumentException.class, () -> client.sendMessage("room-1", recipients, " "));
     }
+    @Test public void conversationRefreshRejectsMalformedIdBeforeNetwork() throws Exception {
+        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-01", "test-token");
+        assertThrows(IllegalArgumentException.class, () -> client.getConversation("bad.id"));
+    }
+
     @Test public void invitationClientRejectsSelfTargetAndInvalidExpiryBeforeNetwork() throws Exception {
         MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-01", "test-token");
         assertThrows(IllegalArgumentException.class, () -> client.createInvitation("room-1", "AI-01", 3600));
