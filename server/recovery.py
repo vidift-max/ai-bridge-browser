@@ -118,7 +118,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
             return False, "RESTORE_DATA_CONVERSATION_INVALID"
         if schema_version == "3":
             kind = row["conversation_kind"]
-            if (kind not in ("PRIVATE", "GROUP")
+            if (kind not in ("PRIVATE", "GROUP") or len(members) < 2
                     or (kind == "PRIVATE" and len(members) != 2)
                     or (kind == "GROUP" and len(members) > 20)):
                 return False, "RESTORE_DATA_CONVERSATION_INVALID"
