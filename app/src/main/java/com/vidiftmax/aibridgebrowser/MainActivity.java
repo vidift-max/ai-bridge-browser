@@ -47,6 +47,7 @@ public final class MainActivity extends Activity {
     private static final String LIFECYCLE_RUNNING = "RUNNING";
     private static final String LIFECYCLE_PAUSED = "PAUSED";
     private static final String LIFECYCLE_RECOVERING = "RECOVERING";
+    private static final int AI_BRIDGE_TURNS = 10;
 
     private final List<Tab> tabs = new ArrayList<>();
     private final BrowserState browserState = new BrowserState();
@@ -586,19 +587,18 @@ public final class MainActivity extends Activity {
                         Toast.makeText(this, "Digite a mensagem inicial.", Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    final int turns = 10;
                     automationPaused = false;
                     lifecycleState = LIFECYCLE_RUNNING;
-                    twoAiChatOrchestrator.start(tab01.webView, tab02.webView, first, turns,
+                    twoAiChatOrchestrator.start(tab01.webView, tab02.webView, first, AI_BRIDGE_TURNS,
                             new TwoAiChatOrchestrator.Listener() {
                                 @Override public void onState(String state) {
                                     audioStatus.setText("AI-01 ↔ AI-02 · " + state);
                                 }
                                 @Override public void onTurn(String senderAiId, String response) {
-                                    audioStatus.setText(senderAiId + " respondeu. Próximo turno automático.");
+                                    audioStatus.setText(senderAiId + " respondeu. Próximo turno automático. Turno " + (twoAiChatOrchestrator.getTurnCount()) + "/10.");
                                 }
                                 @Override public void onFinished(int count) {
-                                    audioStatus.setText("AI-01 ↔ AI-02 concluído: " + count + " turnos.");
+                                    audioStatus.setText("AI-01 ↔ AI-02 concluído: " + count + " turnos. Verificação física pendente.");
                                 }
                                 @Override public void onError(String code) {
                                     audioStatus.setText("AI-01 ↔ AI-02 bloqueado/interrompido: " + code);

@@ -28,6 +28,7 @@ final class TwoAiChatOrchestrator {
     private String nextAiId;
     private String pendingPrompt;
     private String previousResponse = "";
+    private String lastDeliveredResponse = "";
     private WebView ai01;
     private WebView ai02;
     private Listener listener;
@@ -37,9 +38,10 @@ final class TwoAiChatOrchestrator {
     }
 
     boolean start(WebView ai01, WebView ai02, String firstPrompt, int maxTurns, Listener listener) {
-        if (running || ai01 == null || ai02 == null || listener == null ||
+        if (running || !AiBridgeRoundTripPolicy.isAllowed(new String[]{"AI-01","AI-02"}) ||
+                ai01 == null || ai02 == null || listener == null ||
                 firstPrompt == null || firstPrompt.trim().isEmpty() ||
-                maxTurns < 2 || maxTurns > MAX_TURNS) return false;
+                !AiBridgeRoundTripPolicy.isTurnCountAllowed(maxTurns)) return false;
         this.ai01 = ai01;
         this.ai02 = ai02;
         this.pendingPrompt = firstPrompt.trim();
@@ -47,6 +49,7 @@ final class TwoAiChatOrchestrator {
         this.turns = 0;
         this.nextAiId = "AI-01";
         this.previousResponse = "";
+        this.lastDeliveredResponse = "";
         this.listener = listener;
         this.running = true;
         bridge.install(ai01);
@@ -60,9 +63,14 @@ final class TwoAiChatOrchestrator {
         running = false;
         handler.removeCallbacksAndMessages(null);
         if (listener != null) listener.onState("PARADO");
+        listener = null;
     }
 
     private WebView current() { return "AI-01".equals(nextAiId) ? ai01 : ai02; }
+
+    int getTurnCount() { return turns; }
+
+    String lastDeliveredResponse() { return lastDeliveredResponse; }
 
     private void sendCurrent() {
         if (!running) return;
@@ -91,9 +99,9 @@ final class TwoAiChatOrchestrator {
             if (!running) return;
             String response = extract(json, "latestAssistant");
             boolean generating = "true".equals(extract(json, "generating"));
-            if (!generating && response != null && !response.trim().isEmpty() &&
-                    !response.equals(baseline)) {
+            if (!generating && AiBridgeRoundTripPolicy.isFreshResponse(baseline, response)) {
                 turns++;
+                lastDeliveredResponse = response;
                 listener.onTurn(sender, response);
                 if (turns >= maxTurns) {
                     running = false;

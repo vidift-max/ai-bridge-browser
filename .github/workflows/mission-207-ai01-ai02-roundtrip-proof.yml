@@ -1,0 +1,32 @@
+name: M207 AI roundtrip verification
+
+on:
+  push:
+    branches: [feat/mission-207-ai01-ai02-roundtrip-proof]
+  pull_request:
+    branches: [feat/mission-206-ai01-ai02-live-bridge]
+    paths:
+      - "app/src/main/java/**"
+      - "app/src/test/java/**"
+      - "docs/MISSION_207_AI01_AI02_ROUNDTRIP_PROOF.md"
+      - ".github/workflows/mission-207-ai01-ai02-roundtrip-proof.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  android-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - name: Run Android unit tests
+        run: gradle :app:testDebugUnitTest
+      - name: Build debug APK
+        run: gradle :app:assembleDebug
