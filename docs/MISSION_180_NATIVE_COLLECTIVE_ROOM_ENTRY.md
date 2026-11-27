@@ -11,6 +11,7 @@ Make the AI-PHONE's normal `SALA COLETIVA` action open the integrated native AI 
 - The Hosting origin is validated before the invitation record is written, so missing or invalid Hosting configuration does not leave an orphaned invite.
 - The Firebase invite client reads the Hosting origin from the same SharedPreferences store used by Messenger settings.
 - The public Hosting invite page validates path segments, attempts to open the app deep link, and visibly exposes the actual deep link with a copy fallback.
+- The native room restores its saved remote conversation on open and polls for incoming messages every 5 seconds while the room screen is foregrounded; polling stops when the screen pauses or is destroyed.
 - Unit tests cover valid Firebase Hosting origins and reject HTTP, non-Firebase hosts, paths, and query strings.
 - A focused GitHub Actions workflow runs Android unit tests and builds the debug APK for this mission branch.
 
