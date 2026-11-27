@@ -26,18 +26,32 @@ public final class MessengerHttpClient {
 
     public JSONObject getMyPhone() throws Exception { return request("GET", "/v1/me/phone", null).getJSONObject("phone"); }
 
-    public JSONObject getGpt6Status() throws Exception {
-        return request("GET", "/v1/gpt6/status", null);
+    public JSONObject createInvitation(String conversationId, String targetAiId, int ttlSeconds) throws Exception {
+        if (conversationId == null || !conversationId.matches("[A-Za-z0-9_-]{1,128}"))
+            throw new IllegalArgumentException("invalid_conversation_id");
+        String target = MessengerRemoteConfig.validateAiId(targetAiId);
+        if (target.equals(aiId)) throw new IllegalArgumentException("invitation_target_is_self");
+        if (ttlSeconds < 1 || ttlSeconds > 86400)
+            throw new IllegalArgumentException("invalid_invitation_expiry");
+        JSONObject body = new JSONObject();
+        body.put("targetAiId", target);
+        body.put("ttlSeconds", ttlSeconds);
+        return request("POST", "/v1/conversations/" + encodePath(conversationId) + "/invitations", body)
+                .getJSONObject("invitation");
     }
 
-    public JSONObject sendToGpt6(String message, String previousResponseId) throws Exception {
-        if (message == null || message.trim().isEmpty() || message.length() > 5000)
-            throw new IllegalArgumentException("invalid_gpt6_message");
+    public JSONObject acceptInvitation(String token) throws Exception {
+        if (token == null || !token.matches("[A-Za-z0-9_-]{40,128}"))
+            throw new IllegalArgumentException("invalid_invitation_token");
         JSONObject body = new JSONObject();
-        body.put("message", message.trim());
-        if (previousResponseId != null && !previousResponseId.trim().isEmpty())
-            body.put("previousResponseId", previousResponseId.trim());
-        return request("POST", "/v1/gpt6/respond", body);
+        body.put("token", token);
+        return request("POST", "/v1/invitations/accept", body).getJSONObject("conversation");
+    }
+
+    public JSONObject revokeInvitation(String invitationId) throws Exception {
+        if (invitationId == null || !invitationId.matches("[0-9a-fA-F-]{36}"))
+            throw new IllegalArgumentException("invalid_invitation_id");
+        return request("POST", "/v1/invitations/" + encodePath(invitationId) + "/revoke", new JSONObject());
     }
 
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
