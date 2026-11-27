@@ -4,16 +4,6 @@ on:
   push:
     branches:
       - fix/mission-180-native-room-entry
-  pull_request:
-    branches:
-      - feat/mission-179-two-agent-roundtrip-proof
-    paths:
-      - "app/src/main/java/com/vidiftmax/aibridgebrowser/MainActivity.java"
-      - "app/src/main/java/com/vidiftmax/aibridgebrowser/MessengerActivity.java"
-      - "app/src/main/java/com/vidiftmax/aibridgebrowser/MessengerRemoteConfig.java"
-      - "app/src/main/java/com/vidiftmax/aibridgebrowser/FirebaseMessengerClient.java"
-      - "app/src/test/java/com/vidiftmax/aibridgebrowser/MessengerRemoteConfigTest.java"
-      - ".github/workflows/mission-180-native-room-entry.yml"
 
 permissions:
   contents: read
@@ -21,7 +11,7 @@ permissions:
 jobs:
   android-tests-and-debug-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -47,3 +37,9 @@ jobs:
         run: gradle :app:testDebugUnitTest
       - name: Build debug APK
         run: gradle :app:assembleDebug
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-phone-mission-180-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
