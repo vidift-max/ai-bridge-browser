@@ -123,7 +123,7 @@ def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
         members = _parse_identifier_list(row["member_ai_ids"])
         if not row["conversation_id"] or not members:
             return False, "RESTORE_DATA_CONVERSATION_INVALID"
-        if schema_version == "3":
+        if schema_version in ("3", "4"):
             kind = row["conversation_kind"]
             if (kind not in ("PRIVATE", "GROUP") or len(members) < 2
                     or (kind == "PRIVATE" and len(members) != 2)
