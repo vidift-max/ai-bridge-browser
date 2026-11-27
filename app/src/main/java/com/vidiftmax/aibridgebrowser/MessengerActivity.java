@@ -882,7 +882,7 @@ public final class MessengerActivity extends Activity {
         EditText token = new EditText(this);
         token.setHint("Token Bearer");
         token.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        form.addView(server); form.addView(ai); form.addView(token);
+        form.addView(server); form.addView(ai); form.addView(inviteHosting); form.addView(token);
         new android.app.AlertDialog.Builder(this).setTitle("Conexão do AI Messenger")
                 .setMessage("Use a URL HTTPS do Realtime Database. Em Firebase, informe a Web API Key; no modo servidor, informe o Bearer token. A credencial fica no Android Keystore.")
                 .setView(form).setNegativeButton("Cancelar", null)
