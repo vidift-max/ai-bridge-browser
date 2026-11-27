@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class SQLiteMessengerStore:
@@ -78,6 +78,13 @@ class SQLiteMessengerStore:
                 version = 2
                 db.execute("UPDATE schema_meta SET value='2' WHERE key='version'")
 
+            if version == 2:
+                columns = {row[1] for row in db.execute("PRAGMA table_info(conversations)")}
+                if "conversation_kind" not in columns:
+                    db.execute("ALTER TABLE conversations ADD COLUMN conversation_kind TEXT NOT NULL DEFAULT 'GROUP' CHECK(conversation_kind IN ('PRIVATE','GROUP'))")
+                version = 3
+                db.execute("UPDATE schema_meta SET value='3' WHERE key='version'")
+
             db.commit()
         except Exception:
             db.rollback()
@@ -86,12 +93,108 @@ class SQLiteMessengerStore:
     def close(self):
         self._connection.close()
 
-    def save_conversation(self, conversation_id: str, member_ai_ids: List[str]):
+    def save_conversation(self, conversation_id: str, member_ai_ids: List[str], kind: str = "GROUP"):
         self._connection.execute(
-            "INSERT OR REPLACE INTO conversations(conversation_id, member_ai_ids) VALUES(?,?)",
-            (conversation_id, ",".join(sorted(set(member_ai_ids)))),
+            "INSERT OR REPLACE INTO conversations(conversation_id, member_ai_ids, conversation_kind) VALUES(?,?,?)",
+            (conversation_id, ",".join(sorted(set(member_ai_ids))), kind),
         )
         self._connection.commit()
+
+    def create_invitation(self, invitation_id: str, conversation_id: str, target_ai_id: str,
+                          token_hash: str, created_by_ai_id: str, created_at: int,
+                          expires_at: int) -> None:
+        db = self._connection
+        db.execute("BEGIN IMMEDIATE")
+        try:
+            row = db.execute(
+                "SELECT member_ai_ids, conversation_kind FROM conversations WHERE conversation_id=?",
+                (conversation_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("conversation_not_found")
+            members = set(filter(None, row["member_ai_ids"].split(",")))
+            if created_by_ai_id not in members:
+                raise PermissionError("authorization_denied")
+            if row["conversation_kind"] == "PRIVATE":
+                raise ValueError("private_conversation_cannot_expand")
+            if target_ai_id in members:
+                raise ValueError("target_already_member")
+            db.execute(
+                "INSERT INTO invitations(invitation_id,conversation_id,target_ai_id,token_hash,status,"
+                "created_by_ai_id,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)",
+                (invitation_id, conversation_id, target_ai_id, token_hash, "PENDING",
+                 created_by_ai_id, created_at, expires_at),
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+    def accept_invitation(self, token_hash: str, target_ai_id: str, accepted_at: int,
+                          max_members: int = 20) -> tuple[str, set]:
+        db = self._connection
+        db.execute("BEGIN IMMEDIATE")
+        try:
+            invitation = db.execute(
+                "SELECT invitation_id, conversation_id, target_ai_id, status, expires_at "
+                "FROM invitations WHERE token_hash=?", (token_hash,),
+            ).fetchone()
+            if (invitation is None or invitation["target_ai_id"] != target_ai_id
+                    or invitation["status"] != "PENDING"):
+                raise ValueError("invitation_unavailable")
+            if invitation["expires_at"] <= accepted_at:
+                db.execute("UPDATE invitations SET status='EXPIRED' WHERE invitation_id=? AND status='PENDING'",
+                           (invitation["invitation_id"],))
+                db.commit()
+                raise ValueError("invitation_unavailable")
+            conversation = db.execute(
+                "SELECT member_ai_ids, conversation_kind FROM conversations WHERE conversation_id=?",
+                (invitation["conversation_id"],),
+            ).fetchone()
+            if conversation is None:
+                raise ValueError("invitation_unavailable")
+            members = set(filter(None, conversation["member_ai_ids"].split(",")))
+            if target_ai_id in members:
+                raise ValueError("invitation_unavailable")
+            if conversation["conversation_kind"] == "PRIVATE" or len(members) >= max_members:
+                raise ValueError("conversation_member_limit")
+            members.add(target_ai_id)
+            changed = db.execute(
+                "UPDATE invitations SET status='ACCEPTED', accepted_at=? "
+                "WHERE invitation_id=? AND status='PENDING' AND expires_at>?",
+                (accepted_at, invitation["invitation_id"], accepted_at),
+            ).rowcount
+            if changed != 1:
+                raise ValueError("invitation_unavailable")
+            db.execute("UPDATE conversations SET member_ai_ids=? WHERE conversation_id=?",
+                       (",".join(sorted(members)), invitation["conversation_id"]))
+            db.commit()
+            return invitation["conversation_id"], members
+        except Exception:
+            db.rollback()
+            raise
+
+    def revoke_invitation(self, invitation_id: str, actor_ai_id: str, revoked_at: int) -> None:
+        db = self._connection
+        db.execute("BEGIN IMMEDIATE")
+        try:
+            row = db.execute(
+                "SELECT created_by_ai_id, status FROM invitations WHERE invitation_id=?",
+                (invitation_id,),
+            ).fetchone()
+            if row is None or row["created_by_ai_id"] != actor_ai_id or row["status"] != "PENDING":
+                raise ValueError("invitation_unavailable")
+            changed = db.execute(
+                "UPDATE invitations SET status='REVOKED', revoked_at=? "
+                "WHERE invitation_id=? AND status='PENDING'",
+                (revoked_at, invitation_id),
+            ).rowcount
+            if changed != 1:
+                raise ValueError("invitation_unavailable")
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
     def load_conversations(self) -> Dict[str, set]:
         rows = self._connection.execute("SELECT conversation_id, member_ai_ids FROM conversations").fetchall()
