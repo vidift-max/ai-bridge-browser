@@ -134,6 +134,43 @@ class RuntimeConfigTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+
+    def test_transport_contract_allows_local_http(self):
+        self.assertEqual(RuntimeConfig.validate_transport_contract("127.0.0.1"), "local_http")
+
+    def test_transport_contract_blocks_public_http_without_tls_attestation(self):
+        keys = ["MESSENGER_TLS_TERMINATED", "MESSENGER_PUBLIC_BASE_URL"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ.pop("MESSENGER_TLS_TERMINATED", None)
+            os.environ.pop("MESSENGER_PUBLIC_BASE_URL", None)
+            with self.assertRaisesRegex(RuntimeError, "public_bind_requires_trusted_tls_termination"):
+                RuntimeConfig.validate_transport_contract("0.0.0.0")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    def test_transport_contract_requires_https_public_base_url(self):
+        keys = ["MESSENGER_TLS_TERMINATED", "MESSENGER_PUBLIC_BASE_URL"]
+        old = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ["MESSENGER_TLS_TERMINATED"] = "true"
+            os.environ["MESSENGER_PUBLIC_BASE_URL"] = "http://messenger.example.test"
+            with self.assertRaisesRegex(RuntimeError, "MESSENGER_PUBLIC_BASE_URL"):
+                RuntimeConfig.validate_transport_contract("0.0.0.0")
+            os.environ["MESSENGER_PUBLIC_BASE_URL"] = "https://messenger.example.test"
+            self.assertEqual(RuntimeConfig.validate_transport_contract("0.0.0.0"),
+                             "tls_terminated_at_trusted_edge")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
 if __name__ == "__main__":
     unittest.main()
 
