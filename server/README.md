@@ -174,6 +174,7 @@ Free local testing can run two backend/client instances on the same computer or 
 
 The current HTTP server implements these invitation routes:
 
+- `GET /v1/conversations/{conversationId}` — an authenticated current member reads the current server-authoritative membership list; non-members are denied. Clients use this after invitation acceptance to refresh recipients before sending.
 - `POST /v1/conversations/{conversationId}/invitations` — an authenticated current group member creates a directed invitation for a target AI_ID that is already provisioned; request fields are `targetAiId` and optional `ttlSeconds` (1–86400).
 - `POST /v1/invitations/accept` — the authenticated target AI_ID accepts using the one-time token. The server derives the target identity from the bearer credential; the link alone never grants membership.
 - `POST /v1/invitations/{invitationId}/revoke` — only the invitation creator may revoke a pending invitation.
