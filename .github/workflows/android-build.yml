@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "v2-saas-alpha" ]
+    branches: [ "v2-saas-alpha", "feat/mission-295-m241-ai-first-contact-integration" ]
   pull_request:
     branches: [ "v2-saas-alpha" ]
   workflow_dispatch:
@@ -29,8 +29,55 @@ jobs:
         run: gradle :app:testDebugUnitTest
       - name: Test update manifest generator
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+      - name: Test ChatGPT DOM bridge contract
+        run: node scripts/tests/test_chatgpt_dom_bridge.js
       - name: Build debug APK
         run: gradle :app:assembleDebug
+      - name: Record and verify standalone AI Bridge Browser identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$AAPT"
+          BADGING="$("$AAPT" dump badging "$APK")"
+          PACKAGE="$(printf '%s\\n' "$BADGING" | sed -nE "s/^package: name='([^']+)'.*/\\1/p" | head -n1)"
+          VERSION_CODE="$(printf '%s\\n' "$BADGING" | sed -nE "s/^package:.* versionCode='([^']+)'.*/\\1/p" | head -n1)"
+          VERSION_NAME="$(printf '%s\\n' "$BADGING" | sed -nE "s/^package:.* versionName='([^']+)'.*/\\1/p" | head -n1)"
+          test "$PACKAGE" = "com.vidiftmax.aibridgebrowser"
+          printf '%s\\n' "$BADGING" | grep -F "application-label:'AI Bridge Browser'"
+          printf '%s\\n' "$BADGING" | grep -F "launchable-activity: name='com.vidiftmax.aibridgebrowser.MainActivity'"
+          if printf '%s\\n' "$BADGING" | grep -Eq "launchable-activity: name='com.vidiftmax.aibridgebrowser.(HomeActivity|MessengerLauncher|MessengerActivity)'"; then
+            echo "AI-PHONE/Messenger launcher detected in standalone browser APK."
+            exit 1
+          fi
+          test -n "$VERSION_CODE"
+          test -n "$VERSION_NAME"
+          sha256sum "$APK" | tee ai-bridge-browser-debug.apk.sha256
+          {
+            echo "package=$PACKAGE"
+            echo "applicationLabel=AI Bridge Browser"
+            echo "launcherActivity=com.vidiftmax.aibridgebrowser.MainActivity"
+            echo "versionCode=$VERSION_CODE"
+            echo "versionName=$VERSION_NAME"
+            echo "gitCommit=$GITHUB_SHA"
+            echo "workflowRunId=$GITHUB_RUN_ID"
+            echo "workflowRunAttempt=$GITHUB_RUN_ATTEMPT"
+            echo "workflowRef=$GITHUB_REF"
+            echo "buildType=debug"
+            echo "distribution=temporary-github-actions-artifact"
+          } | tee ai-bridge-browser-debug-build.txt
+      - name: Upload debug APK and verification metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-bridge-browser-debug-apk-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            ai-bridge-browser-debug.apk.sha256
+            ai-bridge-browser-debug-build.txt
+          if-no-files-found: error
+          retention-days: 7
 
   release-final:
     needs: debug-build
@@ -72,7 +119,7 @@ jobs:
       - name: Check repository for signing material
         run: |
           set -euo pipefail
-          if git ls-files | grep -E '(^|/)(.*\.(keystore|jks)|ai-phone-release-keystore\.b64)$'; then
+          if git ls-files | grep -E '(^|/)(.*\\.(keystore|jks)|ai-phone-release-keystore\\.b64)$'; then
             echo "Signing material must not be tracked in git."
             exit 1
           fi
@@ -100,7 +147,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee app-release-signature.txt
-          ACTUAL_CERT_SHA256="$(sed -nE 's/.*certificate SHA-256 digest: *([0-9A-Fa-f:]+).*/\1/p' app-release-signature.txt | head -n1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_CERT_SHA256="$(sed -nE 's/.*certificate SHA-256 digest: *([0-9A-Fa-f:]+).*/\\1/p' app-release-signature.txt | head -n1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           EXPECTED_CERT_SHA256_NORMALIZED="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           test -n "$ACTUAL_CERT_SHA256"
           if [ "$ACTUAL_CERT_SHA256" != "$EXPECTED_CERT_SHA256_NORMALIZED" ]; then echo "Signing certificate mismatch; refusing to publish an incompatible update."; exit 1; fi
@@ -115,19 +162,19 @@ jobs:
       - name: Upload signed release APK
         uses: actions/upload-artifact@v4
         with:
-          name: ai-phone-release-apk
+          name: ai-bridge-browser-release-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
       - name: Upload updater manifest
         uses: actions/upload-artifact@v4
         with:
-          name: ai-phone-release-update-manifest
+          name: ai-bridge-browser-release-update-manifest
           path: ai-bridge-update.json
           if-no-files-found: error
       - name: Upload release verification record
         uses: actions/upload-artifact@v4
         with:
-          name: ai-phone-release-verification
+          name: ai-bridge-browser-release-verification
           path: |
             app-release.apk.sha256
             app-release-signature.txt

@@ -126,6 +126,15 @@ class MessengerBackend:
         return {"conversationId": conversation_id, "memberAiIds": sorted(members),
                 "memberCount": len(members)}
 
+    def get_conversation(self, bearer_token: str, conversation_id: str) -> Dict[str, object]:
+        caller = self.authenticate(bearer_token)
+        members = self._store.load_conversation_members(conversation_id)
+        if not members or caller not in members:
+            raise PermissionError("authorization_denied")
+        self._conversations[conversation_id] = members
+        return {"conversationId": conversation_id, "memberAiIds": sorted(members),
+                "memberCount": len(members)}
+
     def revoke_invitation(self, bearer_token: str, invitation_id: str) -> None:
         actor = self.authenticate(bearer_token)
         self._store.revoke_invitation(invitation_id, actor, int(time.time()))

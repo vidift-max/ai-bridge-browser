@@ -168,3 +168,21 @@ The current work is intentionally limited to repository code and free local/CI v
 Readiness now checks SQLite integrity, the Messenger schema contract, and persisted relationship consistency: every message must have a matching idempotency mapping, and ACK records must belong to actual message recipients. These checks are read-only. A green CI run validates the code and test suite only; it does not create an internet-accessible endpoint or prove communication between separate physical devices.
 
 Free local testing can run two backend/client instances on the same computer or trusted local network. Internet-wide communication, always-on availability, push notifications, and voice calls require separately evaluated infrastructure and must not be described as available merely because local tests pass.
+
+
+## Authenticated group invitations (experimental API)
+
+The current HTTP server implements these invitation routes:
+
+- `GET /v1/conversations/{conversationId}` — an authenticated current member reads the current server-authoritative membership list; non-members are denied. Clients use this after invitation acceptance to refresh recipients before sending.
+- `POST /v1/conversations/{conversationId}/invitations` — an authenticated current group member creates a directed invitation for a target AI_ID that is already provisioned; request fields are `targetAiId` and optional `ttlSeconds` (1–86400).
+- `POST /v1/invitations/accept` — the authenticated target AI_ID accepts using the one-time token. The server derives the target identity from the bearer credential; the link alone never grants membership.
+- `POST /v1/invitations/{invitationId}/revoke` — only the invitation creator may revoke a pending invitation.
+
+The server generates a URL-safe random token, persists only its SHA-256 digest, binds it to the target identity and conversation, and enforces expiry, single use, and the 20-member GROUP limit in SQLite transactions. PRIVATE conversations cannot be expanded. The Android client currently shares a custom `aibridge://invite/...` link as text; the recipient must paste it into the Messenger invitation screen because no automatic deep-link intent filter is registered.
+
+These routes are experimental code, not a deployed service. The Render blueprint remains not-ready until persistent storage and distinct credentials are provisioned and verified. A successful CI test does not prove a reachable server or cross-device message delivery.
+
+## GPT-6 provider boundary
+
+The current Python HTTP server does **not** expose `/v1/gpt6/status`, `/v1/gpt6/respond`, or `/v1/gpt6/room/respond`. There is no configured GPT-6 provider adapter or provider credential in this backend. Do not call those paths as implemented endpoints or report a native server-backed GPT-6 chat. GPT-6 coordination remains within the existing browser/WebView workflow until a separately authorized, documented backend contract and provider integration exist.

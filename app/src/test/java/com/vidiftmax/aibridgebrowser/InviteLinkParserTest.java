@@ -15,6 +15,14 @@ public class InviteLinkParserTest {
         assertEquals(TOKEN, invite.token);
     }
 
+    @Test public void parsesServerGeneratedFortyThreeCharacterUrlSafeToken() {
+        String token = "A".repeat(43);
+        InviteLinkParser.Invite invite = InviteLinkParser.parse(
+                "aibridge://invite/conv-123/" + token);
+        assertNotNull(invite);
+        assertEquals(token, invite.token);
+    }
+
     @Test public void parsesWebAppInvite() {
         InviteLinkParser.Invite invite =
                 InviteLinkParser.parse("https://example.web.app/i/room-01/" + TOKEN);

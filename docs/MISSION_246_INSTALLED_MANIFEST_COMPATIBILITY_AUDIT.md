@@ -79,3 +79,25 @@ Comparar o AndroidManifest.xml extraído do AI-PHONE fornecido pelo usuário com
 ## Limites respeitados
 
 Nenhum merge, Release, workflow_dispatch, instalação, desinstalação, limpeza de dados, alteração de Secrets ou publicação foi executado. AI-01 e AI-02 continuam sendo o único escopo; AI-03 permanece desativada.
+
+
+## Adendo M304 — estado após recuperação seletiva M303 (2026-11-27)
+
+A comparação original desta auditoria foi feita contra a candidata M241 e é histórica. A branch M295 agora contém recuperação parcial dos seguintes elementos:
+
+- `RECORD_AUDIO` e `MODIFY_AUDIO_SETTINGS` declaradas no Manifest;
+- `.CollectiveRoomActivity` registrada como não exportada;
+- alias exportado `.MessengerLauncher` apontando para `.CollectiveRoomActivity`;
+- componentes locais `MessengerRetentionPolicy` e `CollectiveRoomMessageCodec`, com testes JVM adicionados.
+
+**Não declarar paridade completa.** Permanecem ausentes ou sem integração compatível: `MessengerInviteActivity`, `Gpt6Activity`, `CollectiveRoomActivityV2`, WebRTC e os handlers de deep link. O alias atual não aponta para `CollectiveRoomActivityV2`. O Manifest não recebeu filtros de convite/deep link sem handlers correspondentes. O Gradle desta branch não declara dependência WebRTC, e a implementação V2 de origem importa `org.webrtc` e várias APIs que não estão presentes na implementação HTTP da branch M295.
+
+### Evidência de branch
+
+- PR #242 permanece OPEN / Draft / não merged.
+- Head auditada: `83b8074a84790bc8a9286f80102a6517e3a2d3e7`.
+- Manifest M295: blob `ad8a5a85a89920ce2ae6fb4864a5a0648527c90d`.
+- `CollectiveRoomActivity.java`: blob `60dbfd3b5366971b09a33655f752454b3b988ff5`.
+- Build e testes unitários nessa HEAD: não comprovados por CI nesta auditoria.
+
+**Veredito atualizado: NO-GO para atualização in-place.** M303 reduziu a diferença do Manifest, mas não resolveu compatibilidade integral nem prova de execução. Nenhuma instalação, Release, merge ou ação no dispositivo foi realizada.

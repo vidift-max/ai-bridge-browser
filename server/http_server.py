@@ -106,6 +106,17 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except ValueError:
                 self._json(400,{"error":"invalid_phone_number"})
             return
+        if len(parts)==4 and parts[1:3]==["v1","conversations"]:
+            try:
+                identity=self._principal()
+                principal=identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                conversation=self.backend.get_conversation(self._auth(), parts[3])
+                self._audit(identity, "CONVERSATION_READ", parts[3], member_count=str(conversation["memberCount"]))
+                self._json(200,{"conversation":conversation,"correlationId":identity.correlation_id})
+            except PermissionError as exc:
+                self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
+            return
         if len(parts)==5 and parts[1:3]==["v1","conversations"] and parts[4]=="messages":
             try:
                 identity=self._principal()

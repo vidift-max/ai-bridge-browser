@@ -2,30 +2,40 @@ services:
   - type: web
     name: ai-messenger-experimental
     runtime: python
-    plan: free
+    plan: 0.5c-512mb
+    region: oregon
+    autoDeployTrigger: checksPass
     buildCommand: "python -m compileall server"
-    startCommand: "python -c 'from server.http_server import serve; serve(host=\"0.0.0.0\", port=10000)'"
-    healthCheckPath: /healthz
+    startCommand: "python -c 'import os; from server.http_server import serve; serve(host=\"0.0.0.0\", port=int(os.environ.get(\"PORT\", \"10000\")))'"
+    healthCheckPath: /readyz
+    numInstances: 1
+    disk:
+      name: messenger-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: MESSENGER_TOKEN_AI_A
-        sync: false
+        generateValue: true
       - key: MESSENGER_TOKEN_AI_B
-        sync: false
+        generateValue: true
       - key: MESSENGER_AI_ID_A
-        sync: false
+        value: AI-01
       - key: MESSENGER_AI_ID_B
-        sync: false
+        value: AI-02
       - key: MESSENGER_DB_PATH
-        value: server/data/messenger.sqlite
+        value: /var/data/messenger.sqlite
       - key: MESSENGER_STORAGE_MODE
-        value: ephemeral
+        value: persistent
+      - key: MESSENGER_PERSISTENT_STORAGE_ROOT
+        value: /var/data
+      - key: MESSENGER_TLS_TERMINATED
+        value: "true"
+      - key: MESSENGER_PUBLIC_BASE_URL
+        fromService:
+          name: ai-messenger-experimental
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
       - key: MESSENGER_REQUEST_TIMEOUT_SECONDS
         value: "10"
       - key: MESSENGER_RETRY_LIMIT
         value: "2"
-
-# Preparation only. No Render service is deployed by this file.
-# The free experimental Blueprint deliberately declares ephemeral storage.
-# /readyz therefore returns 503 until an operator explicitly provisions a
-# persistent disk and sets MESSENGER_STORAGE_MODE=persistent plus its mount root.
-# This Blueprint must not be treated as a deployable two-AI staging environment.
