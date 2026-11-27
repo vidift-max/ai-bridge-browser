@@ -337,6 +337,19 @@ class HttpE2ETest(unittest.TestCase):
         self.assertTrue(any(e.correlation_id == "corr-15" and e.event_type == "MESSAGE_SUBMITTED" for e in events))
 
 
+    def test_http_rate_limit_is_persisted_and_shared_by_handler(self):
+        MessengerHandler.rate_limiter = SQLiteSlidingWindowRateLimiter(
+            self.store, max_events=1, window_seconds=60, clock=lambda: 100.0)
+        status, created = self.request(
+            "POST", "/v1/conversations/room/invitations", "token-a",
+            {"targetAiId": "AI-C"})
+        self.assertEqual(status, 201)
+        status, limited = self.request(
+            "POST", "/v1/invitations/accept", "token-c",
+            {"token": "x" * 50})
+        self.assertEqual(status, 429)
+        self.assertEqual(limited["error"], "rate_limit_exceeded")
+
     def test_http_invitation_create_accept_is_target_bound_and_single_use(self):
         status, created = self.request(
             "POST", "/v1/conversations/room/invitations", "token-a",
