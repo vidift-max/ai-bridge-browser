@@ -260,7 +260,7 @@ public final class MainActivity extends Activity {
         heading.setPadding(0, dp(6), 0, dp(10));
         controlCenterView.addView(heading);
 
-        for (int i = 1; i <= AIControlCenter.MAX_AI_TABS; i++) {
+        for (int i = 1; i <= CURRENT_MISSION_AI_LIMIT; i++) {
             TextView panel = new TextView(this);
             panel.setTag("ai_panel_" + i);
             panel.setText("IA " + i + " · aguardando associação a uma aba");
@@ -305,7 +305,7 @@ public final class MainActivity extends Activity {
     private void renderControlCenter() {
         if (controlCenterView == null) return;
         List<AIControlCenter.Panel> panels = controlCenter.panels();
-        for (int i = 1; i <= AIControlCenter.MAX_AI_TABS; i++) {
+        for (int i = 1; i <= CURRENT_MISSION_AI_LIMIT; i++) {
             View child = controlCenterView.findViewWithTag("ai_panel_" + i);
             if (!(child instanceof TextView)) continue;
             TextView row = (TextView) child;
