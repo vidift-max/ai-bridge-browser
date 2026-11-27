@@ -224,5 +224,48 @@ class MessengerBackendTest(unittest.TestCase):
                 second.close()
                 raise
 
+
+    def test_expired_invitation_is_marked_expired(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            backend._store._connection.execute(
+                "UPDATE invitations SET created_at=0, expires_at=1 WHERE invitation_id=?",
+                (invitation["invitationId"],))
+            backend._store._connection.commit()
+            with self.assertRaises(ValueError):
+                backend.accept_invitation("opaque-c", invitation["token"])
+            state = backend._store._connection.execute(
+                "SELECT status FROM invitations WHERE invitation_id=?",
+                (invitation["invitationId"],)).fetchone()[0]
+            self.assertEqual(state, "EXPIRED")
+        finally:
+            backend.close()
+
+    def test_only_invitation_creator_can_revoke(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            with self.assertRaises(ValueError):
+                backend.revoke_invitation("opaque-b", invitation["invitationId"])
+            backend.revoke_invitation("opaque-a", invitation["invitationId"])
+        finally:
+            backend.close()
+
+    def test_invitation_acceptance_cannot_exceed_twenty_members(self):
+        tokens = {f"token-{i}": f"AI-{i}" for i in range(1, 22)}
+        backend = MessengerBackend(tokens, {})
+        try:
+            backend.create_conversation("token-1", "room-20",
+                                        [f"AI-{i}" for i in range(1, 21)], "GROUP")
+            invitation = backend.create_invitation("token-1", "room-20", "AI-21")
+            with self.assertRaisesRegex(ValueError, "conversation_member_limit"):
+                backend.accept_invitation("token-21", invitation["token"])
+            self.assertEqual(len(backend._conversations["room-20"]), 20)
+        finally:
+            backend.close()
+
 if __name__ == "__main__":
     unittest.main()
