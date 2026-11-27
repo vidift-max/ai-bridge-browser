@@ -5,10 +5,12 @@ on:
     paths:
       - "firebase/**"
       - "scripts/validate-firebase-project.mjs"
+      - "tests/**"
       - ".github/workflows/firebase-config-validation.yml"
   push:
     branches:
       - "feat/mission-181-firebase-project-bootstrap"
+      - "test/mission-182-firebase-preflight-hardening"
     paths:
       - "firebase/**"
       - "scripts/validate-firebase-project.mjs"
@@ -27,3 +29,5 @@ jobs:
           node-version: "22"
       - name: Validate Firebase project files
         run: node scripts/validate-firebase-project.mjs
+      - name: Run Firebase preflight regression tests
+        run: node --test tests/firebase-project-validator.test.mjs
