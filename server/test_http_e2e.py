@@ -345,7 +345,7 @@ class HttpE2ETest(unittest.TestCase):
             {"targetAiId": "AI-C"})
         self.assertEqual(status, 201)
         status, limited = self.request(
-            "POST", "/v1/invitations/accept", "token-c",
+            "POST", "/v1/invitations/accept", "token-a",
             {"token": "x" * 50})
         self.assertEqual(status, 429)
         self.assertEqual(limited["error"], "rate_limit_exceeded")
