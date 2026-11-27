@@ -35,8 +35,9 @@ class MessengerBackend:
                 raise ValueError("invalid_conversation_members")
             if not normalized.issubset(self._known_ai_ids):
                 raise ValueError("unknown_conversation_member")
-            self._conversations.setdefault(conversation_id, normalized)
-            self._store.save_conversation(conversation_id, sorted(normalized))
+            if conversation_id not in self._conversations:
+                self._conversations[conversation_id] = normalized
+                self._store.save_conversation(conversation_id, sorted(normalized), "GROUP")
         self._messages: Dict[str, Message] = {}
         self._idempotency: Dict[Tuple[str, str], str] = {}
         self._next_sequence: Dict[str, int] = {}
