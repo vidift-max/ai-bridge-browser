@@ -662,6 +662,10 @@ public final class MainActivity extends Activity {
     }
 
     private void setAutomationPaused(boolean paused) {
+        if (paused && twoAiChatOrchestrator != null) {
+            twoAiChatOrchestrator.stop();
+            if (aiConversationButton != null) aiConversationButton.setEnabled(true);
+        }
         automationPaused = paused;
         browserState.setPaused(paused);
         lifecycleState = paused ? LIFECYCLE_PAUSED : LIFECYCLE_RUNNING;
