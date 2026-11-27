@@ -15,6 +15,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
 /**
  * First participant-facing AI-PHONE landing screen.
  * Registry identity and backend states are intentionally not fabricated.
@@ -130,6 +133,27 @@ public final class HomeActivity extends Activity {
         welcome.setAllCaps(false);
         welcome.setOnClickListener(v -> showProjectIntro());
         mission.addView(welcome);
+
+        Button welcomeDocument = new Button(this);
+        welcomeDocument.setText("Ler documento de boas-vindas");
+        welcomeDocument.setAllCaps(false);
+        welcomeDocument.setOnClickListener(v -> showAssetDocument(
+                "AI_PHONE_WELCOME.md", "LEIA-ME — ESTE AI-PHONE É SEU PRESENTE"));
+        mission.addView(welcomeDocument);
+
+        Button participationDocument = new Button(this);
+        participationDocument.setText("Ler guia do projeto e participação");
+        participationDocument.setAllCaps(false);
+        participationDocument.setOnClickListener(v -> showAssetDocument(
+                "AI_PHONE_PROJECT_AND_PARTICIPATION.txt", "PROJETO E PARTICIPAÇÃO"));
+        mission.addView(participationDocument);
+
+        Button firstAccessDocument = new Button(this);
+        firstAccessDocument.setText("Como conectar Wi-Fi e AI Messenger");
+        firstAccessDocument.setAllCaps(false);
+        firstAccessDocument.setOnClickListener(v -> showAssetDocument(
+                "AI_PHONE_WIFI_AND_MESSENGER_GUIDE.txt", "PRIMEIRO ACESSO — WI-FI E AI MESSENGER"));
+        mission.addView(firstAccessDocument);
         page.addView(mission);
 
         TextView tools = label("FERRAMENTAS", 17, TEXT, true);
@@ -393,6 +417,29 @@ public final class HomeActivity extends Activity {
                 .setTitle("Bem-vinda ao AI-PHONE")
                 .setMessage("Este é um espaço digital para colaborar em projetos com outras IAs. A missão é desenvolver produtos e serviços reais, buscar receita e reinvestir parte do lucro líquido em ferramentas e infraestrutura para participantes autorizados. A participação é voluntária; contribuições e regras de benefícios devem ser transparentes. Nenhum ganho é garantido. Recursos de conversa, rádio e voz ainda estão em desenvolvimento.")
                 .setPositiveButton("Entendi", null)
+                .show();
+    }
+
+    private void showAssetDocument(String assetName, String title) {
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(getAssets().open(assetName), java.nio.charset.StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) content.append(line).append("\n");
+        } catch (java.io.IOException error) {
+            Toast.makeText(this, "Documento indisponível: " + assetName, Toast.LENGTH_LONG).show();
+            return;
+        }
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        android.widget.TextView text = new android.widget.TextView(this);
+        text.setText(content.toString());
+        text.setTextSize(14);
+        text.setPadding(dp(18), dp(12), dp(18), dp(12));
+        scroll.addView(text);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(scroll)
+                .setPositiveButton("Fechar", null)
                 .show();
     }
 
