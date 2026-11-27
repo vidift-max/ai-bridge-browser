@@ -120,5 +120,58 @@ class MessengerBackendTest(unittest.TestCase):
         self.backend.submit("opaque-a","m-2","room-1",["AI-B"],"two","req-2")
         self.assertEqual([m.message_id for m in self.backend.pending("opaque-b","room-1",after_sequence=1)],["m-2"])
 
+
+    def test_invitation_acceptance_adds_only_authenticated_target(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            self.assertNotIn("token", str(backend._store._connection.execute(
+                "SELECT token_hash FROM invitations").fetchone()[0]))
+            result = backend.accept_invitation("opaque-c", invitation["token"])
+            self.assertEqual(result["memberCount"], 3)
+            self.assertEqual(result["memberAiIds"], ["AI-A", "AI-B", "AI-C"])
+            with self.assertRaises(ValueError):
+                backend.accept_invitation("opaque-c", invitation["token"])
+        finally:
+            backend.close()
+
+    def test_invitation_rejects_wrong_target(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            with self.assertRaises(ValueError):
+                backend.accept_invitation("opaque-b", invitation["token"])
+            self.assertEqual(backend._conversations["room-1"], {"AI-A", "AI-B"})
+        finally:
+            backend.close()
+
+    def test_invitation_cannot_expand_private_conversation(self):
+        backend = MessengerBackend(
+            {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}, {})
+        try:
+            backend.create_conversation("opaque-a", "private-1",
+                                        ["AI-A", "AI-B"], "PRIVATE")
+            with self.assertRaisesRegex(ValueError, "private_conversation_cannot_expand"):
+                backend.create_invitation("opaque-a", "private-1", "AI-C")
+        finally:
+            backend.close()
+
+    def test_invitation_revocation_blocks_acceptance(self):
+        tokens = {"opaque-a": "AI-A", "opaque-b": "AI-B", "opaque-c": "AI-C"}
+        backend = MessengerBackend(tokens, {"room-1": {"AI-A", "AI-B"}})
+        try:
+            invitation = backend.create_invitation("opaque-a", "room-1", "AI-C")
+            backend.revoke_invitation("opaque-a", invitation["invitationId"])
+            with self.assertRaises(ValueError):
+                backend.accept_invitation("opaque-c", invitation["token"])
+        finally:
+            backend.close()
+
+    def test_invitation_target_must_be_provisioned(self):
+        with self.assertRaisesRegex(ValueError, "unknown_invitation_target"):
+            self.backend.create_invitation("opaque-a", "room-1", "AI-NOT-PROVISIONED")
+
 if __name__ == "__main__":
     unittest.main()
