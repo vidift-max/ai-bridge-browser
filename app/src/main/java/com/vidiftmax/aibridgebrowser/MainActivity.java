@@ -19,6 +19,7 @@ import android.net.http.SslError;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
@@ -36,6 +37,8 @@ import java.util.UUID;
 
 public final class MainActivity extends Activity {
     private static final int MAX_TABS = 6;
+    private static final int CURRENT_MISSION_AI_LIMIT = AiAccountCapacityPolicy.CURRENT_MISSION_LIMIT;
+    private static final int AI_BRIDGE_TURNS = 10;
     private static final String HOME_URL = "https://chatgpt.com/";
     private static final String STATE_URLS = "tab_urls";
     private static final String STATE_ACTIVE = "active_tab";
@@ -60,6 +63,9 @@ public final class MainActivity extends Activity {
     private TextView audioStatus;
     private TextView automationStatus;
     private Button pauseButton;
+    private Button aiConversationButton;
+    private ChatGPTDomBridge chatGptDomBridge;
+    private TwoAiChatOrchestrator twoAiChatOrchestrator;
     private boolean automationPaused = false;
     private String lifecycleState = LIFECYCLE_RUNNING;
     private SharedPreferences prefs;
@@ -109,6 +115,8 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        chatGptDomBridge = new ChatGPTDomBridge(this);
+        twoAiChatOrchestrator = new TwoAiChatOrchestrator(chatGptDomBridge);
         buildChrome();
         if (savedInstanceState != null) automationPaused = savedInstanceState.getBoolean(STATE_PAUSED, false);
         if (restoreDurableTabs()) return;
@@ -169,6 +177,11 @@ public final class MainActivity extends Activity {
         controls.addView(center);
         center.setOnClickListener(v -> toggleControlCenter());
 
+        aiConversationButton = new Button(this);
+        aiConversationButton.setText("AI ↔ AI · Começar");
+        aiConversationButton.setContentDescription("Preparar e iniciar o primeiro contato entre AI-01 e AI-02");
+        aiConversationButton.setOnClickListener(v -> startAiConversationDialog());
+
         Button add = new Button(this);
         add.setText("+");
         add.setContentDescription("Nova aba");
@@ -208,6 +221,8 @@ public final class MainActivity extends Activity {
 
         root.addView(controls);
         root.addView(tabScroller);
+        root.addView(aiConversationButton, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(frameHost, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         buildControlCenterView();
@@ -223,7 +238,7 @@ public final class MainActivity extends Activity {
 
 
     private String nextAiId() {
-        for (int i = 1; i <= AIControlCenter.MAX_AI_TABS; i++) {
+        for (int i = 1; i <= CURRENT_MISSION_AI_LIMIT; i++) {
             String candidate = "AI-" + String.format(Locale.ROOT, "%02d", i);
             boolean used = false;
             for (AIControlCenter.Panel panel : controlCenter.panels()) {
@@ -240,7 +255,7 @@ public final class MainActivity extends Activity {
         controlCenterView.setPadding(dp(12), dp(8), dp(12), dp(8));
 
         TextView heading = new TextView(this);
-        heading.setText("CENTRAL DE CONTROLE · até 6 IAs");
+        heading.setText("CENTRAL DE CONTROLE · AI-01 e AI-02 (limite atual: 2; capacidade futura: 20)");
         heading.setTextSize(18);
         heading.setPadding(0, dp(6), 0, dp(10));
         controlCenterView.addView(heading);
@@ -330,13 +345,22 @@ public final class MainActivity extends Activity {
 
         String tabId = restoredTabId == null ? UUID.randomUUID().toString() : restoredTabId;
         String profileId = restoredProfileId == null ? "profile-" + UUID.randomUUID() : restoredProfileId;
+        List<String> existingTabIds = new ArrayList<>();
+        List<String> existingProfileIds = new ArrayList<>();
+        for (Tab existingTab : tabs) {
+            existingTabIds.add(existingTab.tabId);
+            existingProfileIds.add(existingTab.profileId);
+        }
+        if (!SessionIdentityPolicy.isUnique(tabId, existingTabIds)) tabId = UUID.randomUUID().toString();
+        if (!SessionIdentityPolicy.isUnique(profileId, existingProfileIds)) profileId = "profile-" + UUID.randomUUID();
         WebView webView = new WebView(this);
         boolean sessionIsolationSupported = false;
         if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
             try {
-                // Must be the first WebView operation, before settings, clients, or navigation.
+                // This must remain the first WebView operation.
                 WebViewCompat.setProfile(webView, profileId);
-                sessionIsolationSupported = true;
+                String actualProfileId = WebViewCompat.getProfile(webView).getName();
+                sessionIsolationSupported = SessionIsolationPolicy.isAssignedProfile(profileId, actualProfileId);
             } catch (RuntimeException profileError) {
                 sessionIsolationSupported = false;
             }
@@ -388,6 +412,7 @@ public final class MainActivity extends Activity {
                         ? hostLabel(url) : pageTitle.trim();
                 tab.pageReady = true;
                 tab.chatReady = isChatHost(url);
+                if (tab.chatReady) chatGptDomBridge.install(view);
                 renderTabs();
                 renderControlCenter();
                 if (tabs.indexOf(tab) == activeTab) addressBar.setText(url);
@@ -420,13 +445,212 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         tabs.add(tab);
         browserState.addTab(tab.tabId);
-        controlCenter.register(nextAiId(), tab.tabId, tab.profileId);
+        if (SessionIsolationPolicy.canAssignAccount(sessionIsolationSupported)
+                && AiAccountCapacityPolicy.canActivate(controlCenter.panels().size())) {
+            controlCenter.register(nextAiId(), tab.tabId, tab.profileId);
+        }
         webView.loadUrl(normalizeUrl(url));
         renderTabs();
         renderControlCenter();
         persistTabs();
         if (select) selectTab(tabs.size() - 1);
         else webView.setVisibility(View.GONE);
+    }
+
+    private void startAiConversationDialog() {
+        AIControlCenter.Panel ai01Panel = null, ai02Panel = null;
+        for (AIControlCenter.Panel panel : controlCenter.panels()) {
+            if ("AI-01".equals(panel.aiId)) ai01Panel = panel;
+            if ("AI-02".equals(panel.aiId)) ai02Panel = panel;
+        }
+
+        Tab tab01 = ai01Panel == null ? null : findTab(ai01Panel.tabId, ai01Panel.profileId);
+        Tab tab02 = ai02Panel == null ? null : findTab(ai02Panel.tabId, ai02Panel.profileId);
+        String blocked = AiConversationLaunchPolicy.blockingReason(
+                ai01Panel != null, ai02Panel != null,
+                tab01 != null && tab02 != null && !tab01.tabId.equals(tab02.tabId),
+                tab01 != null && tab02 != null && !tab01.profileId.equals(tab02.profileId),
+                tab01 != null && tab02 != null &&
+                        tab01.sessionIsolationSupported && tab02.sessionIsolationSupported,
+                tab01 != null && tab02 != null && tab01.pageReady && tab02.pageReady,
+                tab01 != null && tab02 != null && tab01.chatReady && tab02.chatReady);
+
+        if (blocked != null) {
+            showAiConversationSetup(blocked);
+            return;
+        }
+
+        preflightAiConversation(tab01, tab02);
+    }
+
+    private void showAiConversationSetup(String reason) {
+        String details;
+        switch (reason) {
+            case "AI_IDENTITIES_NOT_ASSIGNED":
+                details = "Ainda faltam as associações AI-01 e AI-02. Abra duas abas separadas do ChatGPT; o aplicativo atribuirá os dois perfis quando o isolamento estiver disponível.";
+                break;
+            case "TABS_NOT_DISTINCT":
+                details = "AI-01 e AI-02 precisam estar em abas diferentes.";
+                break;
+            case "PROFILES_NOT_DISTINCT":
+                details = "As duas abas estão apontando para o mesmo perfil. O contato foi bloqueado para não misturar as contas.";
+                break;
+            case "PROFILE_ISOLATION_UNVERIFIED":
+                details = "Este Android System WebView não confirmou dois perfis isolados. Atualize o componente WebView e tente novamente.";
+                break;
+            case "PAGES_NOT_READY":
+                details = "Aguarde as duas abas terminarem de carregar.";
+                break;
+            case "CHATGPT_NOT_OPEN":
+                details = "Abra chatgpt.com nas duas abas AI-01 e AI-02.";
+                break;
+            case "AI01_SESSION_NOT_READY":
+                details = "A aba AI-01 ainda não apresenta o campo de mensagem e o botão Enviar. Entre manualmente na conta ChatGPT dessa aba e tente novamente.";
+                break;
+            case "AI02_SESSION_NOT_READY":
+                details = "A aba AI-02 ainda não apresenta o campo de mensagem e o botão Enviar. Entre manualmente na outra conta ChatGPT e tente novamente.";
+                break;
+            default:
+                details = "A preparação ainda não foi concluída.";
+        }
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(18), dp(8), dp(18), dp(8));
+        TextView explanation = new TextView(this);
+        explanation.setText(details + "\n\nQuando as duas abas estiverem prontas, toque novamente em AI ↔ AI · Começar. O botão permanece disponível.");
+        content.addView(explanation);
+        new AlertDialog.Builder(this)
+                .setTitle("Preparar primeiro contato")
+                .setView(content)
+                .setPositiveButton("Abrir Central IA", (dialog, which) -> {
+                    if (!showingControlCenter) toggleControlCenter();
+                })
+                .setNegativeButton("Fechar", null)
+                .show();
+        audioStatus.setText("Primeiro contato aguardando preparação: " + reason);
+    }
+
+    private void preflightAiConversation(Tab tab01, Tab tab02) {
+        audioStatus.setText("AI-01 ↔ AI-02 · verificando as duas sessões antes de iniciar...");
+        chatGptDomBridge.inspect(tab01.webView, result01 -> {
+            org.json.JSONObject state01 = parseDomInspection(result01);
+            if (!isDomComposerReady(state01)) {
+                showAiConversationSetup("AI01_SESSION_NOT_READY");
+                return;
+            }
+            chatGptDomBridge.inspect(tab02.webView, result02 -> {
+                org.json.JSONObject state02 = parseDomInspection(result02);
+                if (!isDomComposerReady(state02)) {
+                    showAiConversationSetup("AI02_SESSION_NOT_READY");
+                    return;
+                }
+                showAiConversationConfirmation(tab01, tab02);
+            });
+        });
+    }
+
+    private org.json.JSONObject parseDomInspection(String raw) {
+        if (raw == null || raw.trim().isEmpty() || "null".equals(raw)) return null;
+        try {
+            Object decoded = new org.json.JSONTokener(raw).nextValue();
+            if (!(decoded instanceof String)) return null;
+            return new org.json.JSONObject((String) decoded);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private boolean isDomComposerReady(org.json.JSONObject state) {
+        return state != null && state.optBoolean("ok", false)
+                && state.optBoolean("composer", false)
+                && state.optBoolean("sendButton", false)
+                && state.optBoolean("sendButtonEnabled", false)
+                && !state.optBoolean("generating", true);
+    }
+
+    private void showAiConversationConfirmation(Tab tab01, Tab tab02) {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(18), dp(8), dp(18), dp(8));
+
+        TextView explanation = new TextView(this);
+        explanation.setText("As duas abas passaram pela verificação técnica. Agora confirme manualmente qual conta está selecionada em cada uma. O aplicativo não lê e-mail, senha nem dados de login.");
+        content.addView(explanation);
+
+        EditText prompt = new EditText(this);
+        prompt.setHint("Mensagem inicial para AI-01");
+        prompt.setMinLines(3);
+        content.addView(prompt);
+
+        CheckBox confirm01 = new CheckBox(this);
+        confirm01.setText("Confirmei que AI-01 está na conta ChatGPT correta.");
+        content.addView(confirm01);
+
+        CheckBox confirm02 = new CheckBox(this);
+        confirm02.setText("Confirmei que AI-02 está em outra conta ChatGPT.");
+        content.addView(confirm02);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("AI-01 ↔ AI-02 · primeiro contato")
+                .setMessage("A conversa será iniciada somente após sua confirmação e terá 10 turnos alternados.")
+                .setView(content)
+                .setPositiveButton("Começar 10 turnos", null)
+                .setNegativeButton("Cancelar", null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            Button start = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            start.setEnabled(false);
+            android.widget.CompoundButton.OnCheckedChangeListener check = (button, checked) ->
+                    start.setEnabled(confirm01.isChecked() && confirm02.isChecked()
+                            && prompt.getText().toString().trim().length() > 0);
+            confirm01.setOnCheckedChangeListener(check);
+            confirm02.setOnCheckedChangeListener(check);
+            prompt.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence value, int startIndex, int count, int after) { }
+                @Override public void onTextChanged(CharSequence value, int startIndex, int before, int count) {
+                    start.setEnabled(confirm01.isChecked() && confirm02.isChecked()
+                            && value.toString().trim().length() > 0);
+                }
+                @Override public void afterTextChanged(android.text.Editable value) { }
+            });
+            start.setOnClickListener(view -> {
+                String first = prompt.getText().toString().trim();
+                automationPaused = false;
+                browserState.setPaused(false);
+                lifecycleState = LIFECYCLE_RUNNING;
+                boolean started = twoAiChatOrchestrator.start(tab01.webView, tab02.webView,
+                        first, AI_BRIDGE_TURNS, new TwoAiChatOrchestrator.Listener() {
+                    @Override public void onState(String state) {
+                        audioStatus.setText("AI-01 ↔ AI-02 · " + state);
+                    }
+                    @Override public void onTurn(String senderAiId, String response) {
+                        audioStatus.setText(senderAiId + " respondeu. Próximo turno automático. " +
+                                twoAiChatOrchestrator.evidenceSummary() + " · Turno " +
+                                twoAiChatOrchestrator.getTurnCount() + "/10.");
+                    }
+                    @Override public void onFinished(int count) {
+                        audioStatus.setText("AI-01 ↔ AI-02 concluído: " + count +
+                                " turnos · " + twoAiChatOrchestrator.evidenceSummary() +
+                                ". Resultado local; prova física ainda requer auditoria.");
+                        if (aiConversationButton != null) aiConversationButton.setEnabled(true);
+                    }
+                    @Override public void onError(String code) {
+                        audioStatus.setText("AI-01 ↔ AI-02 bloqueado/interrompido: " + code);
+                        if (aiConversationButton != null) aiConversationButton.setEnabled(true);
+                    }
+                });
+                if (!started) {
+                    audioStatus.setText("AI-01 ↔ AI-02 não iniciou. Verifique o estado e tente novamente.");
+                    if (aiConversationButton != null) aiConversationButton.setEnabled(true);
+                } else {
+                    if (aiConversationButton != null) aiConversationButton.setEnabled(false);
+                    audioStatus.setText("AI-01 ↔ AI-02 iniciado pelo usuário · 0/10 turnos.");
+                }
+                updateAutomationStatus();
+                dialog.dismiss();
+            });
+        });
+        dialog.show();
     }
 
     private boolean isChatHost(String url) {
@@ -747,12 +971,13 @@ public final class MainActivity extends Activity {
             t.missionState = prefs.getString("mission_state_" + i, "WAITING_PAGE");
         }
         controlCenter.clear();
-        int panelCount = Math.min(prefs.getInt("ai_panel_count", 0), AIControlCenter.MAX_AI_TABS);
+        int panelCount = Math.min(prefs.getInt("ai_panel_count", 0), CURRENT_MISSION_AI_LIMIT);
         if (panelCount == 0) {
-            for (int i = 0; i < tabs.size(); i++) {
-                Tab tab = tabs.get(i);
-                controlCenter.register("AI-" + String.format(Locale.ROOT, "%02d", i + 1),
-                        tab.tabId, tab.profileId);
+            for (Tab tab : tabs) {
+                if (SessionIsolationPolicy.canAssignAccount(tab.sessionIsolationSupported)
+                        && AiAccountCapacityPolicy.canActivate(controlCenter.panels().size())) {
+                    controlCenter.register(nextAiId(), tab.tabId, tab.profileId);
+                }
             }
         }
         for (int i = 0; i < panelCount; i++) {
@@ -760,7 +985,10 @@ public final class MainActivity extends Activity {
             String aiId = prefs.getString(key + "ai_id", null);
             String tabId = prefs.getString(key + "tab_id", null);
             String profileId = prefs.getString(key + "profile_id", null);
-            if (aiId == null || tabId == null || profileId == null) continue;
+            if (aiId == null || tabId == null || profileId == null
+                    || !AiAccountCapacityPolicy.isCurrentMissionAccountId(aiId)) continue;
+            Tab restoredTab = findTab(tabId, profileId);
+            if (restoredTab == null || !restoredTab.sessionIsolationSupported) continue;
             String tail = decodePreference(prefs.getString(key + "response_tail", ""));
             String pending = decodePreference(prefs.getString(key + "pending_message", ""));
             controlCenter.restorePanel(aiId, tabId, profileId,
@@ -785,6 +1013,8 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onStop() {
+        if (twoAiChatOrchestrator != null) twoAiChatOrchestrator.stop();
+        if (aiConversationButton != null) aiConversationButton.setEnabled(true);
         // Leaving the app pauses automation so queued actions cannot run while the user is using the tablet elsewhere.
         if (!isChangingConfigurations()) {
             automationPaused = true;
@@ -835,6 +1065,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (twoAiChatOrchestrator != null) twoAiChatOrchestrator.stop();
         persistTabs();
         for (Tab tab : tabs) {
             tab.webView.stopLoading();
