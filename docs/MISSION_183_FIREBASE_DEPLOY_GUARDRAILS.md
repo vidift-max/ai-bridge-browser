@@ -45,6 +45,10 @@ node --test tests/firebase-project-validator.test.mjs
 
 The deployment workflow guardrail suite checks manual-only triggering, exact confirmation, trusted branch, environment declaration, token permissions, fixed project, WIF authentication, restricted deployment targets, validation order, timeout, and concurrency.
 
+## Follow-up live verification
+
+After the operator has completed the required GitHub and Google Cloud setup and explicitly authorized deployment, use the separate read-only smoke workflow documented in [Mission 184](MISSION_184_FIREBASE_LIVE_SMOKE_VERIFICATION.md). That workflow checks the published invite routes and unauthenticated database-root denial; it does not deploy or prove device-to-device messaging.
+
 ## Evidence boundary
 
 Passing these repository tests proves only that the checked-in workflow text contains the expected guardrails. It does not prove that GitHub Environment protection rules, WIF provider, IAM bindings, GitHub variables, Firebase Hosting, or live Realtime Database rules are configured correctly.
