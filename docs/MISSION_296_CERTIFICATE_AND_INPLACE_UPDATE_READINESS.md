@@ -77,3 +77,30 @@ Não preencher `AI_PHONE_EXPECTED_SIGNING_CERT_SHA256` com valor presumido; não
 ## Ações explicitamente não executadas
 
 Nenhum merge, release, workflow_dispatch, deploy, alteração de Secrets/Variables, geração de chave, instalação, atualização, desinstalação, limpeza de cache/dados ou ação no tablet.
+
+
+## Adendo M304 — reconciliação da evidência atual (2026-11-27)
+
+Este adendo prevalece sobre a redação histórica da rodada 04/10 acima somente quanto à identificação do certificado atualmente reportado para a instalação examinada. O usuário apresentou novamente o relatório do App Manager, associado ao pacote `com.vidiftmax.aibridgebrowser`, com fingerprint SHA-256 completo:
+
+`5c0b529a5447f7bf9f69ba2ce0c82e99c070a073544fda16301fecf73591696a`
+
+**Resultado atualizado:** PASS como evidência fornecida pelo usuário para o certificado da instalação atual. Os fingerprints históricos `861f7689b6502c8dd7b3dcb8f0c9484816e662d8c4cad8ae8da98d5aacfa8ea5` e `390cd6d35ca8429bd4c7f77727ee909b2c99e4f830237cd5c1940195b7b189f2` permanecem apenas como registros históricos e não devem ser usados para essa instalação atual.
+
+**O que não foi resolvido:** não há evidência do certificado público do keystore de Release que será usado para assinar o APK futuro. Portanto, a igualdade entre o signer da instalação atual e o signer do futuro Release continua BLOCKED. Não alterar `AI_PHONE_EXPECTED_SIGNING_CERT_SHA256`, Secrets ou Variables; não gerar chave; não executar Release.
+
+### Atualização M303 da paridade do Manifest
+
+A branch M295 recebeu a recuperação parcial M303. O Manifest atual declara `RECORD_AUDIO` e `MODIFY_AUDIO_SETTINGS`, registra `.CollectiveRoomActivity` como não exportada e cria o alias exportado `.MessengerLauncher` apontando para essa Activity local. Isso resolve somente a presença desses três elementos no candidato. Não equivale à Activity remota V2 nem restaura os filtros/handlers de convite e deep link.
+
+Continuam ausentes/integrados de forma incompleta: `MessengerInviteActivity`, `Gpt6Activity`, `CollectiveRoomActivityV2`, WebRTC e handlers compatíveis de deep link. O alias atual aponta para `CollectiveRoomActivity`, não para V2. O Gradle atual não declara dependência `org.webrtc`; importar a implementação V2 sem fechar essa dependência/API seria inseguro.
+
+### Estado atual da revisão
+
+- PR #242: OPEN / Draft / não merged.
+- Head: `83b8074a84790bc8a9286f80102a6517e3a2d3e7`.
+- O wrapper de status do commit não retornou checks; o wrapper de workflow-runs disponível filtra execuções disparadas por pull_request e não comprova a execução push configurada para esta branch. Logo, CI para essa HEAD: NÃO COMPROVADO.
+- M303 adicionou testes JVM para codec e retenção, mas não há resultado de execução confirmado para essa HEAD.
+- Nenhum merge, Release, instalação, alteração de Secrets/Variables ou ação no dispositivo.
+
+**Decisão M304:** certificado instalado atual identificado conforme relato do usuário; atualização in-place continua NO-GO até comprovar que o certificado público da chave de Release corresponde a `5c0b529a5447f7bf9f69ba2ce0c82e99c070a073544fda16301fecf73591696a`, restaurar/justificar a paridade funcional do Manifest e obter CI verde na HEAD exata.
