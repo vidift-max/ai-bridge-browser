@@ -58,7 +58,7 @@ public final class FirebaseMessengerClient {
         byte[] bytes = new byte[24];
         new java.security.SecureRandom().nextBytes(bytes);
         String token = android.util.Base64.encodeToString(bytes, android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING);
-        String hostingUrl = context.getSharedPreferences("ai_messenger_remote_v1", Context.MODE_PRIVATE)
+        String hostingUrl = context.getSharedPreferences("ai_phone_registry_config_v1", Context.MODE_PRIVATE)
                 .getString("invite_hosting_url", "");
         String publicBase = MessengerRemoteConfig.normalizeInviteHostingUrl(hostingUrl);
         JSONObject invite = new JSONObject()
