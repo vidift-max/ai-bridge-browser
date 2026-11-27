@@ -12,6 +12,7 @@ from server.http_server import MessengerHandler
 from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
 from server.operational_runtime import OperationalRuntime
+from server.rate_limit import SQLiteSlidingWindowRateLimiter, RateLimitExceeded
 
 
 class HttpE2ETest(unittest.TestCase):
@@ -24,6 +25,7 @@ class HttpE2ETest(unittest.TestCase):
         self.backend = MessengerBackend(self.tokens, {"room": {"AI-A", "AI-B"}}, self.store, authenticator=self.auth)
         MessengerHandler.backend = self.backend
         MessengerHandler.authenticator = self.auth
+        MessengerHandler.rate_limiter = SQLiteSlidingWindowRateLimiter(self.store)
         MessengerHandler.operational = OperationalRuntime()
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MessengerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
