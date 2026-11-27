@@ -63,11 +63,14 @@ public final class FirebaseMessengerClient {
                 .put("createdByAiId", aiId)
                 .put("expiresAtEpochMs", expiresAtEpochMs);
         databaseRequest("PUT", "/messenger/invites/" + path(token), invite);
+        String hostingUrl = context.getSharedPreferences("ai_messenger_remote_v1", Context.MODE_PRIVATE)
+                .getString("invite_hosting_url", "");
+        String publicBase = MessengerRemoteConfig.normalizeInviteHostingUrl(hostingUrl);
         return new JSONObject()
                 .put("token", token)
                 .put("conversationId", conversationId)
                 .put("expiresAtEpochMs", expiresAtEpochMs)
-                .put("link", "aibridge://invite/" + path(conversationId) + "/" + path(token));
+                .put("link", publicBase + "/i/" + path(conversationId) + "/" + path(token));
     }
 
     public JSONObject redeemGroupInvite(String conversationId, String token) throws Exception {
