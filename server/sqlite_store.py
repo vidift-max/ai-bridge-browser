@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 class SQLiteMessengerStore:
@@ -13,7 +13,9 @@ class SQLiteMessengerStore:
             raise ValueError("storage_path_required")
         if path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self._connection = sqlite3.connect(path, check_same_thread=False)
+        self._path = path
+        self._connection = sqlite3.connect(path, check_same_thread=False, timeout=10)
+        self._connection.execute("PRAGMA busy_timeout=10000")
         self._connection.row_factory = sqlite3.Row
         try:
             self._migrate()
@@ -85,6 +87,12 @@ class SQLiteMessengerStore:
                 version = 3
                 db.execute("UPDATE schema_meta SET value='3' WHERE key='version'")
 
+            if version == 3:
+                db.execute("CREATE TABLE rate_limit_events (event_id INTEGER PRIMARY KEY AUTOINCREMENT, principal TEXT NOT NULL, event_at REAL NOT NULL)")
+                db.execute("CREATE INDEX idx_rate_limit_principal_time ON rate_limit_events(principal,event_at)")
+                version = 4
+                db.execute("UPDATE schema_meta SET value='4' WHERE key='version'")
+
             db.commit()
         except Exception:
             db.rollback()
@@ -92,6 +100,31 @@ class SQLiteMessengerStore:
 
     def close(self):
         self._connection.close()
+
+    def consume_rate_limit(self, principal: str, now: float, window_seconds: int, max_events: int) -> bool:
+        if not principal or window_seconds < 1 or max_events < 1:
+            raise ValueError("rate_limit_configuration_invalid")
+        owns_connection = self._path != ":memory:"
+        db = sqlite3.connect(self._path, timeout=10) if owns_connection else self._connection
+        if owns_connection:
+            db.execute("PRAGMA busy_timeout=10000")
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            cutoff = now - window_seconds
+            db.execute("DELETE FROM rate_limit_events WHERE event_at <= ?", (cutoff,))
+            count = db.execute("SELECT COUNT(*) FROM rate_limit_events WHERE principal=? AND event_at>?", (principal, cutoff)).fetchone()[0]
+            if count >= max_events:
+                db.commit()
+                return False
+            db.execute("INSERT INTO rate_limit_events(principal,event_at) VALUES(?,?)", (principal, now))
+            db.commit()
+            return True
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            if owns_connection:
+                db.close()
 
     def save_conversation(self, conversation_id: str, member_ai_ids: List[str], kind: str = "GROUP"):
         self._connection.execute(
