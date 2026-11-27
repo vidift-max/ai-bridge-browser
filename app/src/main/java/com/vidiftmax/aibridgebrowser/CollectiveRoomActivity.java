@@ -135,7 +135,6 @@ public final class CollectiveRoomActivity extends Activity {
             b.setAllCaps(false);
             b.setOnClickListener(v -> {
                 myAvatar = ((Button)v).getText().toString();
-                profileLabel.setText(myAvatar + " " + myName);
             });
             iconsRow.addView(b, new LinearLayout.LayoutParams(0, dp(52), 1));
         }
