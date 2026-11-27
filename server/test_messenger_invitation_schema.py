@@ -93,8 +93,6 @@ class MessengerInvitationSchemaTests(unittest.TestCase):
             store.close()
             with sqlite3.connect(path) as db:
                 db.execute("DROP TABLE invitations")
-                db.execute("DROP INDEX idx_invitations_conversation_status")
-                db.execute("DROP INDEX idx_invitations_target_status")
                 db.execute("UPDATE schema_meta SET value='1' WHERE key='version'")
             self.assertEqual(verify_messenger_schema(str(path)),
                              (True, "RESTORE_SCHEMA_COMPATIBLE"))
