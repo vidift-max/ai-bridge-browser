@@ -18,7 +18,7 @@ class HttpE2ETest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
         self.tmp.close()
-        self.tokens = {"token-a": "AI-A", "token-b": "AI-B"}
+        self.tokens = {"token-a": "AI-A", "token-b": "AI-B", "token-c": "AI-C"}
         self.auth = Authenticator(self.tokens)
         self.store = SQLiteMessengerStore(self.tmp.name)
         self.backend = MessengerBackend(self.tokens, {"room": {"AI-A", "AI-B"}}, self.store, authenticator=self.auth)
@@ -333,6 +333,62 @@ class HttpE2ETest(unittest.TestCase):
         self.assertEqual(data["correlationId"], "corr-15")
         events = self.auth.audit_log.events()
         self.assertTrue(any(e.correlation_id == "corr-15" and e.event_type == "MESSAGE_SUBMITTED" for e in events))
+
+
+    def test_http_invitation_create_accept_is_target_bound_and_single_use(self):
+        status, created = self.request(
+            "POST", "/v1/conversations/room/invitations", "token-a",
+            {"targetAiId": "AI-C"})
+        self.assertEqual(status, 201)
+        invitation = created["invitation"]
+        self.assertNotIn("token", str(self.auth.audit_log.events()))
+        stored = self.store._connection.execute(
+            "SELECT token_hash, status FROM invitations WHERE invitation_id=?",
+            (invitation["invitationId"],)).fetchone()
+        self.assertEqual(len(stored["token_hash"]), 64)
+        self.assertNotEqual(stored["token_hash"], invitation["token"])
+        self.assertEqual(stored["status"], "PENDING")
+
+        status, wrong_target = self.request(
+            "POST", "/v1/invitations/accept", "token-b",
+            {"token": invitation["token"]})
+        self.assertEqual(status, 400)
+        self.assertEqual(wrong_target["error"], "invitation_unavailable")
+
+        status, accepted = self.request(
+            "POST", "/v1/invitations/accept", "token-c",
+            {"token": invitation["token"]})
+        self.assertEqual(status, 200)
+        self.assertEqual(accepted["conversation"]["memberCount"], 3)
+
+        status, replay = self.request(
+            "POST", "/v1/invitations/accept", "token-c",
+            {"token": invitation["token"]})
+        self.assertEqual(status, 400)
+        self.assertEqual(replay["error"], "invitation_unavailable")
+
+    def test_http_invitation_revoke_requires_creator(self):
+        status, created = self.request(
+            "POST", "/v1/conversations/room/invitations", "token-a",
+            {"targetAiId": "AI-C"})
+        self.assertEqual(status, 201)
+        invitation_id = created["invitation"]["invitationId"]
+
+        status, denied = self.request(
+            "POST", f"/v1/invitations/{invitation_id}/revoke", "token-b")
+        self.assertEqual(status, 400)
+        self.assertEqual(denied["error"], "invitation_unavailable")
+
+        status, revoked = self.request(
+            "POST", f"/v1/invitations/{invitation_id}/revoke", "token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual(revoked["state"], "REVOKED")
+
+        status, accepted = self.request(
+            "POST", "/v1/invitations/accept", "token-c",
+            {"token": created["invitation"]["token"]})
+        self.assertEqual(status, 400)
+        self.assertEqual(accepted["error"], "invitation_unavailable")
 
 
 if __name__ == "__main__":
