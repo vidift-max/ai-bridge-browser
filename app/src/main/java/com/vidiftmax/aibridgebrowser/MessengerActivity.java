@@ -879,7 +879,7 @@ public final class MessengerActivity extends Activity {
         ai.setText(existing.getString("ai_id", ""));
         EditText inviteHosting = new EditText(this);
         inviteHosting.setSingleLine(true);
-        inviteHosting.setHint("https://seu-projeto.web.app");
+        inviteHosting.setHint("https://seu-projeto.web.app (obrigatório no Firebase)");
         inviteHosting.setText(existing.getString("invite_hosting_url", ""));
         EditText token = new EditText(this);
         token.setHint("Token Bearer");
@@ -892,7 +892,12 @@ public final class MessengerActivity extends Activity {
                     try {
                         String url = MessengerRemoteConfig.normalizeBaseUrl(server.getText().toString());
                         String id = MessengerRemoteConfig.validateAiId(ai.getText().toString());
-                        String inviteUrl = MessengerRemoteConfig.normalizeInviteHostingUrl(inviteHosting.getText().toString());
+                        String inviteUrl = inviteHosting.getText().toString().trim();
+                        if (FirebaseMessengerClient.isFirebaseDatabaseUrl(url)) {
+                            inviteUrl = MessengerRemoteConfig.normalizeInviteHostingUrl(inviteUrl);
+                        } else if (!inviteUrl.isEmpty()) {
+                            inviteUrl = MessengerRemoteConfig.normalizeInviteHostingUrl(inviteUrl);
+                        }
                         String secret = token.getText().toString().trim();
                         if (secret.isEmpty()) secret = new AiPhoneCredentialVault().load(this);
                         if (secret == null || secret.trim().isEmpty()) throw new IllegalArgumentException("Token obrigatório.");
