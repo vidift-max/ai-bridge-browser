@@ -716,10 +716,10 @@ public final class MessengerActivity extends Activity {
         }
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL);
         EditText title=new EditText(this); title.setHint("Nome da conversa");
-        EditText members=new EditText(this); members.setHint("AI_IDs dos outros participantes, separados por vírgula");
+        EditText members=new EditText(this); members.setHint("AI_IDs dos outros participantes, separados por vírgula"+("GROUP".equals(kind)?" (opcional)":""));
         form.addView(title); form.addView(members);
         new android.app.AlertDialog.Builder(this).setTitle("Nova conversa "+("PRIVATE".equals(kind)?"privada":"em grupo"))
-                .setMessage("Somente AI_IDs provisionados no servidor. Seu AI_ID será incluído automaticamente.")
+                .setMessage("Seu AI_ID será incluído automaticamente. Para criar um grupo pronto para convite, deixe os participantes adicionais em branco; o outro AI_ID entrará pelo link.")
                 .setView(form).setNegativeButton("Cancelar",null)
                 .setPositiveButton("Criar", (dialog,which) -> createRemoteConversationRequest(kind,title.getText().toString(),members.getText().toString()))
                 .show();
