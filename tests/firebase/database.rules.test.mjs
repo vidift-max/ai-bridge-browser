@@ -21,7 +21,7 @@ const fixture = {
   },
   conversations: {
     "private-ai-01-ai-02": {
-      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: 1000 },
+      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs },
       members: { "AI-01": true, "AI-02": true, "AI-03": true },
       memberCount: 3,
       messages: { "existing-message": { senderAiId: "AI-01", recipientAiIds: { "AI-02": true }, body: "seeded-message", messageKind: "NORMAL", createdAtEpochMs: 1500 } }
@@ -115,9 +115,10 @@ try {
   await check("AI-01 can invite AI-02 and AI-02 can join the owner-only group", async () => {
     const roomPath = "/messenger/conversations/first-contact-room";
     const token = "FirstContactInviteToken_1234567890";
-    const expiresAtEpochMs = Date.now() + 60000;
+    const createdAtEpochMs = Date.now();
+    const expiresAtEpochMs = createdAtEpochMs + 60000;
     await assertSucceeds(set(ref(dbA(), roomPath), {
-      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: Date.now() },
+      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs },
       members: { "AI-01": true },
       memberCount: 1
     }));
