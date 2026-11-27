@@ -53,6 +53,20 @@ class RuntimeConfig:
         return mode
 
     @staticmethod
+    def validate_transport_contract(bind_host: str) -> str:
+        from urllib.parse import urlsplit
+        if bind_host in ("127.0.0.1", "::1", "localhost"):
+            return "local_http"
+        if RuntimeConfig.optional("MESSENGER_TLS_TERMINATED") != "true":
+            raise RuntimeError("public_bind_requires_trusted_tls_termination")
+        public_url = RuntimeConfig.require("MESSENGER_PUBLIC_BASE_URL")
+        parsed = urlsplit(public_url)
+        if (parsed.scheme != "https" or not parsed.hostname or parsed.username
+                or parsed.password or parsed.fragment):
+            raise RuntimeError("invalid_runtime_config:MESSENGER_PUBLIC_BASE_URL")
+        return "tls_terminated_at_trusted_edge"
+
+    @staticmethod
     def request_timeout_seconds() -> int:
         raw = RuntimeConfig.optional("MESSENGER_REQUEST_TIMEOUT_SECONDS", "10")
         try:
