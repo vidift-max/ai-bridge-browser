@@ -631,7 +631,7 @@ public final class MessengerActivity extends Activity {
                 }).start()).show();
     }
 
-    private void sendRemoteMessage(String body,JSONObject conversation) {
+    private void sendRemoteMessage(String body) {
         final String own=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE).getString("ai_id","");
         final String cid=selectedConversationId;
         new Thread(() -> {
@@ -661,7 +661,7 @@ public final class MessengerActivity extends Activity {
                         item.put("localState","SERVER_ACCEPTED");
                         JSONArray all=readMessages(); all.put(item);
                         prefs().edit().putString(KEY_MESSAGES,all.toString()).apply();
-                        composer.setText(""); renderMessages(); renderTransportSummary();
+                        composer.setText(""); renderConversationMembersSummary(); renderMessages(); renderTransportSummary();
                         Toast.makeText(this,"Mensagem enfileirada no servidor. Ainda não confirma leitura.",Toast.LENGTH_LONG).show();
                     } catch(JSONException error) {
                         Toast.makeText(this,"Mensagem enfileirada, mas o histórico local falhou.",Toast.LENGTH_LONG).show();
@@ -872,7 +872,7 @@ public final class MessengerActivity extends Activity {
         }
         JSONObject selected = selectedConversation();
         if (selected != null && selected.optBoolean("remote", false)) {
-            sendRemoteMessage(body, selected);
+            sendRemoteMessage(body);
             return;
         }
         try {
