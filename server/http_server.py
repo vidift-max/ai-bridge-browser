@@ -125,6 +125,67 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+
+        parsed = urlsplit(self.path)
+        path_parts = parsed.path.split("/")
+        if len(path_parts) == 5 and path_parts[1:3] == ["v1", "conversations"] and path_parts[4] == "invitations":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                payload = self._read_json()
+                invitation = self.backend.create_invitation(
+                    self._auth(), path_parts[3], payload.get("targetAiId"),
+                    payload.get("ttlSeconds", 86400))
+                self._audit(identity, "INVITATION_CREATED", invitation["invitationId"],
+                            conversation_id=path_parts[3], target_ai_id=payload.get("targetAiId", ""))
+                self._json(201, {"invitation": invitation, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self._json(400, {"error": "invitation_unavailable"})
+            return
+        if parsed.path == "/v1/invitations/accept":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                payload = self._read_json()
+                result = self.backend.accept_invitation(self._auth(), payload.get("token"))
+                self._audit(identity, "INVITATION_ACCEPTED", result["conversationId"],
+                            member_count=str(result["memberCount"]))
+                self._json(200, {"conversation": result, "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self._json(400, {"error": "invitation_unavailable"})
+            return
+        if len(path_parts) == 5 and path_parts[1:3] == ["v1", "invitations"] and path_parts[4] == "revoke":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
+                self.backend.revoke_invitation(self._auth(), path_parts[3])
+                self._audit(identity, "INVITATION_REVOKED", path_parts[3])
+                self._json(200, {"invitationId": path_parts[3], "state": "REVOKED",
+                                 "correlationId": identity.correlation_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except ValueError:
+                self._json(400, {"error": "invitation_unavailable"})
+            return
         if self.path=="/v1/conversations":
             try:
                 identity=self._principal()
