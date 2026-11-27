@@ -385,6 +385,8 @@ public final class MainActivity extends Activity {
 
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                if (twoAiChatOrchestrator != null) twoAiChatOrchestrator.stop();
+                if (aiConversationButton != null) aiConversationButton.setEnabled(true);
                 tab.pageReady = false;
                 tab.chatReady = false;
                 if (tabs.indexOf(tab) == activeTab) addressBar.setText(url);
@@ -829,6 +831,8 @@ public final class MainActivity extends Activity {
         int index = tabs.indexOf(crashedTab);
         if (index < 0) return;
         String failedUrl = crashedTab.webView.getUrl();
+        if (twoAiChatOrchestrator != null) twoAiChatOrchestrator.stop();
+        if (aiConversationButton != null) aiConversationButton.setEnabled(true);
         tabs.remove(index);
         browserState.removeTab(crashedTab.tabId);
         controlCenter.unregisterByTab(crashedTab.tabId);
@@ -855,6 +859,8 @@ public final class MainActivity extends Activity {
             Toast.makeText(this, "Aba bloqueada 🔒. Desbloqueie antes de fechar.", Toast.LENGTH_SHORT).show();
             return;
         }
+        if (twoAiChatOrchestrator != null) twoAiChatOrchestrator.stop();
+        if (aiConversationButton != null) aiConversationButton.setEnabled(true);
         Tab removed = tabs.remove(index);
         browserState.removeTab(removed.tabId);
         controlCenter.unregisterByTab(removed.tabId);
