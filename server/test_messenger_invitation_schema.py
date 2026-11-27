@@ -41,7 +41,7 @@ class MessengerInvitationSchemaTests(unittest.TestCase):
             self.assertEqual(verify_messenger_schema(str(path)),
                              (True, "RESTORE_SCHEMA_COMPATIBLE"))
 
-    def test_v2_database_migrates_to_v3_and_preserves_invitations(self):
+    def test_v2_database_migrates_to_v4_and_preserves_invitations(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "v2.sqlite"
             store = SQLiteMessengerStore(str(path))
@@ -74,6 +74,27 @@ class MessengerInvitationSchemaTests(unittest.TestCase):
             finally:
                 migrated.close()
 
+    def test_v3_database_migrates_to_v4_rate_limit_ledger(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "v3.sqlite"
+            store = SQLiteMessengerStore(str(path))
+            store.close()
+            with sqlite3.connect(path) as db:
+                db.execute("DROP TABLE rate_limit_events")
+                db.execute("UPDATE schema_meta SET value='3' WHERE key='version'")
+            migrated = SQLiteMessengerStore(str(path))
+            try:
+                version = migrated._connection.execute(
+                    "SELECT value FROM schema_meta WHERE key='version'"
+                ).fetchone()[0]
+                columns = {row[1] for row in migrated._connection.execute(
+                    "PRAGMA table_info(rate_limit_events)")}
+                self.assertEqual(version, "4")
+                self.assertEqual(columns, {"event_id", "principal", "event_at"})
+                self.assertEqual(verify_messenger_schema(str(path)),
+                                 (True, "RESTORE_SCHEMA_COMPATIBLE"))
+            finally:
+                migrated.close()
     def test_future_schema_is_rejected_without_downgrade(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "future.sqlite"
