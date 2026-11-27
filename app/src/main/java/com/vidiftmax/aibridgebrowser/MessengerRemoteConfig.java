@@ -50,10 +50,10 @@ public final class MessengerRemoteConfig {
     public static void validateConversationMemberCount(String kind, int memberCount) {
         if (!"PRIVATE".equals(kind) && !"GROUP".equals(kind))
             throw new IllegalArgumentException("invalid_conversation_kind");
-        if (memberCount < 2 || memberCount > 20)
-            throw new IllegalArgumentException("invalid_member_count");
         if ("PRIVATE".equals(kind) && memberCount != 2)
             throw new IllegalArgumentException("invalid_conversation_members");
+        if ("GROUP".equals(kind) && (memberCount < 1 || memberCount > 20))
+            throw new IllegalArgumentException("invalid_member_count");
     }
 
     public static void validateMessageBody(String bodyText) {
