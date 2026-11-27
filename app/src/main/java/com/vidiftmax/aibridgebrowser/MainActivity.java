@@ -36,7 +36,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 public final class MainActivity extends Activity {
-    private static final int MAX_TABS = 6;
+    private static final int MAX_TABS = 20;
     private static final int CURRENT_MISSION_AI_LIMIT = AiAccountCapacityPolicy.CURRENT_MISSION_LIMIT;
     private static final int AI_BRIDGE_TURNS = 10;
     private static final String HOME_URL = "https://chatgpt.com/";
