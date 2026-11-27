@@ -33,6 +33,43 @@ jobs:
         run: node scripts/tests/test_chatgpt_dom_bridge.js
       - name: Build debug APK
         run: gradle :app:assembleDebug
+      - name: Record debug APK identity and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$AAPT"
+          BADGING="$("$AAPT" dump badging "$APK")"
+          PACKAGE="$(printf '%s\\n' "$BADGING" | sed -nE "s/^package: name='([^']+)'.*/\\1/p" | head -n1)"
+          VERSION_CODE="$(printf '%s\\n' "$BADGING" | sed -nE "s/^package:.* versionCode='([^']+)'.*/\\1/p" | head -n1)"
+          VERSION_NAME="$(printf '%s\\n' "$BADGING" | sed -nE "s/^package:.* versionName='([^']+)'.*/\\1/p" | head -n1)"
+          test "$PACKAGE" = "com.vidiftmax.aibridgebrowser"
+          test -n "$VERSION_CODE"
+          test -n "$VERSION_NAME"
+          sha256sum "$APK" | tee ai-phone-debug.apk.sha256
+          {
+            echo "package=$PACKAGE"
+            echo "versionCode=$VERSION_CODE"
+            echo "versionName=$VERSION_NAME"
+            echo "gitCommit=$GITHUB_SHA"
+            echo "workflowRunId=$GITHUB_RUN_ID"
+            echo "workflowRunAttempt=$GITHUB_RUN_ATTEMPT"
+            echo "workflowRef=$GITHUB_REF"
+            echo "buildType=debug"
+            echo "distribution=temporary-github-actions-artifact"
+          } | tee ai-phone-debug-build.txt
+      - name: Upload debug APK and verification metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-phone-debug-apk-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            ai-phone-debug.apk.sha256
+            ai-phone-debug-build.txt
+          if-no-files-found: error
+          retention-days: 7
 
   release-final:
     needs: debug-build
