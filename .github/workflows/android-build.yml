@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "v2-saas-alpha" ]
+    branches: [ "v2-saas-alpha", "feat/ai01-ai02-invite-link-bridge" ]
   pull_request:
     branches: [ "v2-saas-alpha" ]
   workflow_dispatch:
