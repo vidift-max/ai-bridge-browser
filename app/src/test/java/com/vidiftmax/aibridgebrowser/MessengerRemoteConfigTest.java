@@ -41,4 +41,23 @@ public class MessengerRemoteConfigTest {
         MessengerRemoteConfig.normalizeInviteHostingUrl("https://my-project.web.app/rooms?x=1");
     }
 
+    @Test public void group_allows_owner_only_bootstrap_for_first_invite() {
+        MessengerRemoteConfig.validateConversationMemberCount("GROUP", 1);
+    }
+
+    @Test public void group_creation_with_blank_member_list_keeps_only_owner() {
+        java.util.Set<String> ids = MessengerRemoteConfig.parseGroupCreationMemberIds("  ", "AI-01");
+        assertEquals(1, ids.size());
+        assertEquals(true, ids.contains("AI-01"));
+    }
+
+    @Test public void group_creation_with_second_ai_includes_both_ids() {
+        assertEquals(2, MessengerRemoteConfig.parseGroupCreationMemberIds("AI-02", "AI-01").size());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void private_conversation_rejects_owner_only_bootstrap() {
+        MessengerRemoteConfig.validateConversationMemberCount("PRIVATE", 1);
+    }
+
 }
