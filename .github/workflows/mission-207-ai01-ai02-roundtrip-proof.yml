@@ -11,6 +11,9 @@ on:
       - "docs/MISSION_207_AI01_AI02_ROUNDTRIP_PROOF.md"
       - ".github/workflows/mission-207-ai01-ai02-roundtrip-proof.yml"
 
+permissions:
+  contents: read
+
 jobs:
   android-tests:
     runs-on: ubuntu-latest
@@ -20,5 +23,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - run: chmod +x ./gradlew
-      - run: ./gradlew testDebugUnitTest assembleDebug
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - name: Run Android unit tests
+        run: gradle :app:testDebugUnitTest
+      - name: Build debug APK
+        run: gradle :app:assembleDebug
