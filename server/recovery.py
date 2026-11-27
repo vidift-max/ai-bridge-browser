@@ -105,12 +105,23 @@ def _parse_identifier_list(value, *, allow_empty: bool = False):
 def _verify_messenger_data_connection(connection) -> tuple[bool, str]:
     connection.row_factory = sqlite3.Row
     conversations = {}
-    for row in connection.execute(
-        "SELECT conversation_id, member_ai_ids FROM conversations"
-    ):
+    version_row = connection.execute(
+        "SELECT value FROM schema_meta WHERE key='version'"
+    ).fetchone()
+    schema_version = version_row[0] if version_row else None
+    conversation_query = ("SELECT conversation_id, member_ai_ids, conversation_kind FROM conversations"
+                          if schema_version == "3"
+                          else "SELECT conversation_id, member_ai_ids FROM conversations")
+    for row in connection.execute(conversation_query):
         members = _parse_identifier_list(row["member_ai_ids"])
         if not row["conversation_id"] or not members:
             return False, "RESTORE_DATA_CONVERSATION_INVALID"
+        if schema_version == "3":
+            kind = row["conversation_kind"]
+            if (kind not in ("PRIVATE", "GROUP")
+                    or (kind == "PRIVATE" and len(members) != 2)
+                    or (kind == "GROUP" and len(members) > 20)):
+                return False, "RESTORE_DATA_CONVERSATION_INVALID"
         conversations[row["conversation_id"]] = set(members)
 
     messages = {}
