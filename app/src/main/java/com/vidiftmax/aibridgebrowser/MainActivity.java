@@ -26,6 +26,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Spinner;
 import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
 import android.widget.Toast;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
@@ -515,34 +516,53 @@ public final class MainActivity extends Activity {
         note.setText("Selecione duas sessões diferentes. Se uma conta ainda não estiver autenticada, entre nela diretamente pelo site oficial do ChatGPT e volte aqui. Nenhuma senha será solicitada pelo AI Bridge Browser.");
         content.addView(note);
 
-        new AlertDialog.Builder(this)
+        AlertDialog selectionDialog = new AlertDialog.Builder(this)
                 .setTitle("Selecionar AI-01 e AI-02")
                 .setView(content)
-                .setPositiveButton("Confirmar sessões", (dialog, which) -> {
-                    int first = ai01Spinner.getSelectedItemPosition();
-                    int second = ai02Spinner.getSelectedItemPosition();
-                    if (!AiAccountSelectionPolicy.isValidSelection(
-                            tabIds, profileIds, first, second)) {
-                        Toast.makeText(this, "Escolha duas sessões diferentes.", Toast.LENGTH_LONG).show();
-                        return;
-                    }
-                    controlCenter.clear();
-                    boolean firstAssigned = controlCenter.register(
-                            "AI-01", candidates.get(first).tabId, candidates.get(first).profileId);
-                    boolean secondAssigned = controlCenter.register(
-                            "AI-02", candidates.get(second).tabId, candidates.get(second).profileId);
-                    if (!firstAssigned || !secondAssigned) {
-                        controlCenter.clear();
-                        renderControlCenter();
-                        Toast.makeText(this, "Não foi possível associar os dois perfis. Tente novamente.", Toast.LENGTH_LONG).show();
-                        return;
-                    }
-                    persistTabs();
-                    renderControlCenter();
-                    startAiConversationAfterSelection();
-                })
+                .setPositiveButton("Confirmar sessões", null)
                 .setNegativeButton("Cancelar", null)
-                .show();
+                .create();
+        selectionDialog.setOnShowListener(ignored -> {
+            Button confirm = selectionDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            Runnable updateEnabled = () -> confirm.setEnabled(AiAccountSelectionPolicy.isValidSelection(
+                    tabIds, profileIds, ai01Spinner.getSelectedItemPosition(),
+                    ai02Spinner.getSelectedItemPosition()));
+            AdapterView.OnItemSelectedListener selectionChanged = new AdapterView.OnItemSelectedListener() {
+                @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                    updateEnabled.run();
+                }
+                @Override public void onNothingSelected(AdapterView<?> parent) {
+                    updateEnabled.run();
+                }
+            };
+            ai01Spinner.setOnItemSelectedListener(selectionChanged);
+            ai02Spinner.setOnItemSelectedListener(selectionChanged);
+            updateEnabled.run();
+            confirm.setOnClickListener(view -> {
+                int first = ai01Spinner.getSelectedItemPosition();
+                int second = ai02Spinner.getSelectedItemPosition();
+                if (!AiAccountSelectionPolicy.isValidSelection(tabIds, profileIds, first, second)) {
+                    updateEnabled.run();
+                    return;
+                }
+                controlCenter.clear();
+                boolean firstAssigned = controlCenter.register(
+                        "AI-01", candidates.get(first).tabId, candidates.get(first).profileId);
+                boolean secondAssigned = controlCenter.register(
+                        "AI-02", candidates.get(second).tabId, candidates.get(second).profileId);
+                if (!firstAssigned || !secondAssigned) {
+                    controlCenter.clear();
+                    renderControlCenter();
+                    Toast.makeText(this, "Não foi possível associar os dois perfis. Tente novamente.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                persistTabs();
+                renderControlCenter();
+                selectionDialog.dismiss();
+                startAiConversationAfterSelection();
+            });
+        });
+        selectionDialog.show();
     }
 
     private void startAiConversationAfterSelection() {
