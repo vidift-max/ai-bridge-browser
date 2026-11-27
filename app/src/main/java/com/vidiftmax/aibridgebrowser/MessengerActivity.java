@@ -728,8 +728,10 @@ public final class MessengerActivity extends Activity {
     private void createRemoteConversationRequest(String kind,String title,String rawMembers) {
         try {
             android.content.SharedPreferences config=getSharedPreferences(REMOTE_PREFS,MODE_PRIVATE);
-            java.util.Set<String> ids=MessengerRemoteConfig.parseMemberIds(rawMembers,config.getString("ai_id",""));
-            if("PRIVATE".equals(kind)&&ids.size()!=2) throw new IllegalArgumentException("Conversa privada exige exatamente 2 participantes.");
+            java.util.Set<String> ids="GROUP".equals(kind)
+                    ? MessengerRemoteConfig.parseGroupCreationMemberIds(rawMembers,config.getString("ai_id",""))
+                    : MessengerRemoteConfig.parseMemberIds(rawMembers,config.getString("ai_id",""));
+            MessengerRemoteConfig.validateConversationMemberCount(kind, ids.size());
             JSONArray memberIds=new JSONArray(); for(String id:ids) memberIds.put(id);
             String conversationId="conv-"+UUID.randomUUID().toString();
             String label=title.trim().isEmpty()?("PRIVATE".equals(kind)?"Conversa privada":"Grupo AI"):title.trim();
