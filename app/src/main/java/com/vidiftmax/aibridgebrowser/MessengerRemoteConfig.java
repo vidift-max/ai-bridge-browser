@@ -61,6 +61,16 @@ public final class MessengerRemoteConfig {
             throw new IllegalArgumentException("invalid_message_body");
     }
 
+    public static Set<String> parseGroupCreationMemberIds(String value, String ownAiId) {
+        String own = validateAiId(ownAiId);
+        if (value == null || value.trim().isEmpty()) {
+            Set<String> ownerOnly = new LinkedHashSet<>();
+            ownerOnly.add(own);
+            return ownerOnly;
+        }
+        return parseMemberIds(value, own);
+    }
+
     public static Set<String> parseMemberIds(String value, String ownAiId) {
         String own = validateAiId(ownAiId);
         if (value == null || value.trim().isEmpty()) throw new IllegalArgumentException("members_required");
