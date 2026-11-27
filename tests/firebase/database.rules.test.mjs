@@ -130,7 +130,7 @@ try {
     await assertSucceeds(set(ref(dbB(), "/messenger/invitesByAi/AI-02/first-contact-room/" + token), true));
     await assertSucceeds(get(ref(dbB(), roomPath)));
     await assertSucceeds(set(ref(dbB(), roomPath), {
-      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs: 1000 },
+      meta: { ownerAiId: "AI-01", kind: "GROUP", createdAtEpochMs },
       members: { "AI-01": true, "AI-02": true },
       memberCount: 2
     }));
