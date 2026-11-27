@@ -244,6 +244,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     def log_message(self,*_args): return
 
 def serve(host="127.0.0.1",port=8080):
+    RuntimeConfig.validate_transport_contract(host)
     tokens=RuntimeConfig.auth_tokens()
     authenticator=Authenticator(tokens)
     store=SQLiteMessengerStore(RuntimeConfig.storage_path())
