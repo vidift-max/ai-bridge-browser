@@ -399,7 +399,7 @@ public final class CollectiveRoomActivityV2 extends Activity {
             JSONObject item=conversations.optJSONObject(i);
             if(item!=null && item.optBoolean("remote",false)){
                 JSONArray members=item.optJSONArray("remoteMemberAiIds");
-                if(members!=null && members.length()>=2){
+                if(members!=null && members.length()>=1){
                     choices.add(item);
                     labels.add(item.optString("title","Conversa remota")+" · "+item.optString("kind","GROUP")+" · "+members.length()+" membros");
                 }
