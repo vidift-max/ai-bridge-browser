@@ -9,7 +9,7 @@ from server.sqlite_store import SQLiteMessengerStore
 
 
 class MessengerInvitationSchemaTests(unittest.TestCase):
-    def test_fresh_database_migrates_to_v2(self):
+    def test_fresh_database_migrates_to_v3(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "fresh.sqlite"
             store = SQLiteMessengerStore(str(path))
