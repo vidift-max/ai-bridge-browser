@@ -19,7 +19,8 @@ concurrency:
 jobs:
   deploy:
     name: Validate and deploy Firebase
-    if: ${{ inputs.confirm_deploy == 'DEPLOY_AI_MESSENGER' }}
+    if: ${{ inputs.confirm_deploy == 'DEPLOY_AI_MESSENGER' && github.ref == 'refs/heads/feat/mission-181-firebase-project-bootstrap' }}
+    environment: firebase-production
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

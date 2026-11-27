@@ -6,14 +6,18 @@ on:
       - "firebase/**"
       - "scripts/validate-firebase-project.mjs"
       - "tests/**"
+      - ".github/workflows/firebase-ai-messenger-deploy.yml"
       - ".github/workflows/firebase-config-validation.yml"
   push:
     branches:
       - "feat/mission-181-firebase-project-bootstrap"
       - "test/mission-182-firebase-preflight-hardening"
+      - "security/mission-183-firebase-deploy-guardrails"
     paths:
       - "firebase/**"
       - "scripts/validate-firebase-project.mjs"
+      - "tests/**"
+      - ".github/workflows/firebase-ai-messenger-deploy.yml"
       - ".github/workflows/firebase-config-validation.yml"
 
 permissions:
@@ -31,3 +35,5 @@ jobs:
         run: node scripts/validate-firebase-project.mjs
       - name: Run Firebase preflight regression tests
         run: node --test tests/firebase-project-validator.test.mjs
+      - name: Run Firebase deployment workflow guardrail tests
+        run: node --test tests/firebase-deploy-workflow.test.mjs
