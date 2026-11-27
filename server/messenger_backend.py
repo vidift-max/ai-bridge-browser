@@ -1,4 +1,8 @@
 from dataclasses import dataclass
+import hashlib
+import secrets
+import time
+import uuid
 from typing import Dict, List, Set, Tuple
 from server.auth import Authenticator
 from server.sqlite_store import SQLiteMessengerStore
@@ -85,10 +89,45 @@ class MessengerBackend:
             raise ValueError("unknown_conversation_member")
         if conversation_id in self._conversations:
             raise ValueError("conversation_id_conflict")
-        self._store.save_conversation(conversation_id, sorted(members))
+        self._store.save_conversation(conversation_id, sorted(members), kind)
         self._conversations[conversation_id] = members
         return {"conversationId": conversation_id, "kind": kind,
                 "memberAiIds": sorted(members), "memberCount": len(members)}
+
+
+    def create_invitation(self, bearer_token: str, conversation_id: str,
+                          target_ai_id: str, ttl_seconds: int = 86400) -> Dict[str, str]:
+        creator = self.authenticate(bearer_token)
+        if not isinstance(target_ai_id, str) or target_ai_id not in self._known_ai_ids:
+            raise ValueError("unknown_invitation_target")
+        if not isinstance(ttl_seconds, int) or ttl_seconds < 1 or ttl_seconds > 86400:
+            raise ValueError("invalid_invitation_expiry")
+        token = secrets.token_urlsafe(32)
+        now = int(time.time())
+        invitation_id = str(uuid.uuid4())
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        self._store.create_invitation(
+            invitation_id, conversation_id, target_ai_id, token_hash,
+            creator, now, now + ttl_seconds,
+        )
+        return {"invitationId": invitation_id, "token": token,
+                "expiresAt": str(now + ttl_seconds)}
+
+    def accept_invitation(self, bearer_token: str, token: str) -> Dict[str, object]:
+        target = self.authenticate(bearer_token)
+        if not isinstance(token, str) or len(token) < 40 or len(token) > 128:
+            raise ValueError("invitation_unavailable")
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        conversation_id, members = self._store.accept_invitation(
+            token_hash, target, int(time.time()), self.MAX_ROOM_MEMBERS,
+        )
+        self._conversations[conversation_id] = set(members)
+        return {"conversationId": conversation_id, "memberAiIds": sorted(members),
+                "memberCount": len(members)}
+
+    def revoke_invitation(self, bearer_token: str, invitation_id: str) -> None:
+        actor = self.authenticate(bearer_token)
+        self._store.revoke_invitation(invitation_id, actor, int(time.time()))
 
     def authorize_member(self, ai_id: str, conversation_id: str) -> None:
         members = self._conversations.get(conversation_id)
