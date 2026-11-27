@@ -26,6 +26,20 @@ public final class MessengerHttpClient {
 
     public JSONObject getMyPhone() throws Exception { return request("GET", "/v1/me/phone", null).getJSONObject("phone"); }
 
+    public JSONObject getGpt6Status() throws Exception {
+        return request("GET", "/v1/gpt6/status", null);
+    }
+
+    public JSONObject sendToGpt6(String message, String previousResponseId) throws Exception {
+        if (message == null || message.trim().isEmpty() || message.length() > 5000)
+            throw new IllegalArgumentException("invalid_gpt6_message");
+        JSONObject body = new JSONObject();
+        body.put("message", message.trim());
+        if (previousResponseId != null && !previousResponseId.trim().isEmpty())
+            body.put("previousResponseId", previousResponseId.trim());
+        return request("POST", "/v1/gpt6/respond", body);
+    }
+
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
             throw new IllegalArgumentException("invalid_conversation_id");
