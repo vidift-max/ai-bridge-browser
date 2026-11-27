@@ -29,6 +29,8 @@ jobs:
         run: gradle :app:testDebugUnitTest
       - name: Test update manifest generator
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+      - name: Test ChatGPT DOM bridge contract
+        run: node scripts/tests/test_chatgpt_dom_bridge.js
       - name: Build debug APK
         run: gradle :app:assembleDebug
 
