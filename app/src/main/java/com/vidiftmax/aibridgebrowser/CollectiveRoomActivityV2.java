@@ -989,15 +989,24 @@ public final class CollectiveRoomActivityV2 extends Activity {
         new Thread(()->{
             int added=0,acked=0;
             try{
-                JSONArray incoming=remoteClient().fetchPending(remoteConversationId,0,100);
+                MessengerHttpClient client=remoteClient();
+                JSONObject room=client.getConversation(remoteConversationId);
+                JSONObject members=room==null?null:room.optJSONObject("members");
+                if(members==null)throw new IllegalStateException("remote_room_members_missing");
+                JSONArray refreshedMemberIds=new JSONArray();
+                java.util.Iterator<String> memberKeys=members.keys();
+                while(memberKeys.hasNext())refreshedMemberIds.put(memberKeys.next());
+                remoteMemberAiIds=refreshedMemberIds;
+                prefs().edit().putString("remote_member_ai_ids",refreshedMemberIds.toString()).apply();
+                JSONArray incoming=client.fetchPending(remoteConversationId,0,100);
                 for(int i=0;i<incoming.length();i++){
                     JSONObject remote=incoming.optJSONObject(i);
                     if(remote==null)continue;
                     String messageId=remote.optString("messageId","");
                     if(messageId.trim().isEmpty())throw new IllegalStateException("server_message_id_missing");
                     if(persistRemoteMessage(remote))added++;
-                    downloadRemoteVoiceAttachments(remoteClient(),messageId);
-                    remoteClient().acknowledge(remoteConversationId, messageId);
+                    downloadRemoteVoiceAttachments(client,messageId);
+                    client.acknowledge(remoteConversationId, messageId);
                     acked++;
                 }
                 final int newCount=added,ackCount=acked;
