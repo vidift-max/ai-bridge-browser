@@ -29,6 +29,7 @@ public final class MessengerActivity extends Activity {
     private static final String KEY_MEMBERSHIPS = "local_memberships";
     private static final String KEY_INVITATIONS = "local_invitation_drafts";
     private static final String KEY_TRANSPORT_RECORDS = "local_transport_records";
+    private static final String KEY_LAST_INVITATION_PREFIX = "last_remote_invitation_";
     private static final String DEFAULT_ID = "LOCAL-DEMO";
     private static final int BG = 0xFF101827;
     private static final int SURFACE = 0xFF1B293B;
@@ -74,6 +75,21 @@ public final class MessengerActivity extends Activity {
         remoteCreate.setAllCaps(false);
         remoteCreate.setOnClickListener(v -> chooseRemoteConversationKind());
         page.addView(remoteCreate);
+        Button remoteInvite = new Button(this);
+        remoteInvite.setText("Convidar AI_ID para grupo remoto");
+        remoteInvite.setAllCaps(false);
+        remoteInvite.setOnClickListener(v -> createRemoteInvitation());
+        page.addView(remoteInvite);
+        Button acceptInvite = new Button(this);
+        acceptInvite.setText("Aceitar convite remoto");
+        acceptInvite.setAllCaps(false);
+        acceptInvite.setOnClickListener(v -> acceptRemoteInvitation());
+        page.addView(acceptInvite);
+        Button revokeInvite = new Button(this);
+        revokeInvite.setText("Revogar último convite desta conversa");
+        revokeInvite.setAllCaps(false);
+        revokeInvite.setOnClickListener(v -> revokeLastRemoteInvitation());
+        page.addView(revokeInvite);
         Button remoteSync = new Button(this);
         remoteSync.setText("↻ Buscar mensagens remotas");
         remoteSync.setAllCaps(false);
@@ -459,6 +475,142 @@ public final class MessengerActivity extends Activity {
         } catch(Exception error) {
             Toast.makeText(this,"Participantes inválidos: "+error.getMessage(),Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void createRemoteInvitation() {
+        JSONObject conversation = selectedConversation();
+        if (conversation == null || !conversation.optBoolean("remote", false)
+                || !"GROUP".equals(conversation.optString("kind"))) {
+            Toast.makeText(this, "Selecione uma conversa GROUP remota. Conversas privadas não aceitam convites.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        EditText target = new EditText(this);
+        target.setSingleLine(true);
+        target.setHint("AI_ID destinatário já provisionado (ex.: AI-02)");
+        new android.app.AlertDialog.Builder(this).setTitle("Convidar participante para o grupo")
+                .setMessage("O servidor só aceitará um AI_ID já provisionado. O link é direcionado e não cria uma identidade.")
+                .setView(target).setNegativeButton("Cancelar", null)
+                .setPositiveButton("Criar convite", (dialog, which) -> {
+                    final String targetAiId;
+                    try {
+                        targetAiId = MessengerRemoteConfig.validateAiId(target.getText().toString());
+                        if (targetAiId.equals(remoteClient().getAiId()))
+                            throw new IllegalArgumentException("Escolha outra identidade, não a deste aparelho.");
+                    } catch (Exception error) {
+                        Toast.makeText(this, "Destinatário inválido: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    final String conversationId = selectedConversationId;
+                    new Thread(() -> {
+                        try {
+                            JSONObject invitation = remoteClient().createInvitation(conversationId, targetAiId, 86400);
+                            String invitationId = invitation.getString("invitationId");
+                            String token = invitation.getString("token");
+                            String link = "aibridge://invite/" + conversationId + "/" + token;
+                            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                                    .putString(KEY_LAST_INVITATION_PREFIX + conversationId, invitationId).apply();
+                            runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
+                                    .setTitle("Convite remoto criado")
+                                    .setMessage("Destinatário: " + targetAiId + "\\nValidade: até 24 horas\\n\\nLink de uso único:\\n" + link
+                                            + "\\n\\nEnvie este link somente ao AI_ID destinatário. O aceite exige autenticação nessa conta.")
+                                    .setPositiveButton("Compartilhar", (d, w) -> {
+                                        android.content.Intent share = new android.content.Intent(android.content.Intent.ACTION_SEND);
+                                        share.setType("text/plain");
+                                        share.putExtra(android.content.Intent.EXTRA_TEXT, link);
+                                        startActivity(android.content.Intent.createChooser(share, "Compartilhar convite AI-PHONE"));
+                                    })
+                                    .setNegativeButton("Fechar", null).show());
+                        } catch (Exception error) {
+                            runOnUiThread(() -> Toast.makeText(this, "Convite não criado: " + remoteError(error), Toast.LENGTH_LONG).show());
+                        }
+                    }).start();
+                }).show();
+    }
+
+    private void acceptRemoteInvitation() {
+        EditText linkInput = new EditText(this);
+        linkInput.setSingleLine(false);
+        linkInput.setMinLines(2);
+        linkInput.setHint("Cole o link aibridge://invite/… recebido");
+        new android.app.AlertDialog.Builder(this).setTitle("Aceitar convite remoto")
+                .setMessage("Configure primeiro o AI_ID destinatário e a credencial desse AI-PHONE. O servidor confere o destinatário autenticado e o uso único do token.")
+                .setView(linkInput).setNegativeButton("Cancelar", null)
+                .setPositiveButton("Validar e aceitar", (dialog, which) -> {
+                    InviteLinkParser.Invite invite = InviteLinkParser.parse(linkInput.getText().toString());
+                    if (invite == null) {
+                        Toast.makeText(this, "Link de convite inválido.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    new Thread(() -> {
+                        try {
+                            JSONObject accepted = remoteClient().acceptInvitation(invite.token);
+                            String acceptedConversationId = accepted.optString("conversationId", "");
+                            if (!invite.conversationId.equals(acceptedConversationId))
+                                throw new IllegalStateException("invitation_conversation_mismatch");
+                            JSONArray memberIds = accepted.optJSONArray("memberAiIds");
+                            if (memberIds == null || memberIds.length() < 2 || memberIds.length() > 20)
+                                throw new IllegalStateException("invitation_membership_invalid");
+                            runOnUiThread(() -> {
+                                try {
+                                    JSONArray all = readConversations();
+                                    boolean exists = false;
+                                    for (int i = 0; i < all.length(); i++) {
+                                        JSONObject saved = all.optJSONObject(i);
+                                        if (saved != null && acceptedConversationId.equals(saved.optString("conversationId"))) {
+                                            exists = true;
+                                            saved.put("remote", true);
+                                            saved.put("remoteMemberAiIds", memberIds);
+                                            saved.put("kind", "GROUP");
+                                            saved.put("status", "REMOTE_ACCEPTED");
+                                        }
+                                    }
+                                    if (!exists) {
+                                        JSONObject item = new JSONObject();
+                                        item.put("conversationId", acceptedConversationId);
+                                        item.put("title", "Grupo remoto " + acceptedConversationId);
+                                        item.put("createdAtEpochMs", System.currentTimeMillis());
+                                        item.put("kind", "GROUP");
+                                        item.put("status", "REMOTE_ACCEPTED");
+                                        item.put("remote", true);
+                                        item.put("remoteMemberAiIds", memberIds);
+                                        all.put(item);
+                                    }
+                                    prefs().edit().putString(KEY_CONVERSATIONS, all.toString()).apply();
+                                    selectedConversationId = acceptedConversationId;
+                                    renderConversations();
+                                    renderConversationMembersSummary();
+                                    renderMessages();
+                                    renderTransportSummary();
+                                    Toast.makeText(this, "Convite aceito pelo servidor. A identidade autenticada foi adicionada ao grupo.", Toast.LENGTH_LONG).show();
+                                } catch (JSONException error) {
+                                    Toast.makeText(this, "Convite aceito, mas não foi possível salvar a conversa localmente.", Toast.LENGTH_LONG).show();
+                                }
+                            });
+                        } catch (Exception error) {
+                            runOnUiThread(() -> Toast.makeText(this, "Aceite recusado: " + remoteError(error), Toast.LENGTH_LONG).show());
+                        }
+                    }).start();
+                }).show();
+    }
+
+    private void revokeLastRemoteInvitation() {
+        String invitationId = prefs().getString(KEY_LAST_INVITATION_PREFIX + selectedConversationId, null);
+        if (invitationId == null || invitationId.trim().isEmpty()) {
+            Toast.makeText(this, "Nenhum convite criado neste aparelho para esta conversa.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new android.app.AlertDialog.Builder(this).setTitle("Revogar convite")
+                .setMessage("O servidor invalidará o último convite pendente criado neste aparelho. Essa ação não pode ser desfeita.")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Revogar", (dialog, which) -> new Thread(() -> {
+                    try {
+                        remoteClient().revokeInvitation(invitationId);
+                        prefs().edit().remove(KEY_LAST_INVITATION_PREFIX + selectedConversationId).apply();
+                        runOnUiThread(() -> Toast.makeText(this, "Convite revogado no servidor.", Toast.LENGTH_LONG).show());
+                    } catch (Exception error) {
+                        runOnUiThread(() -> Toast.makeText(this, "Revogação não confirmada: " + remoteError(error), Toast.LENGTH_LONG).show());
+                    }
+                }).start()).show();
     }
 
     private void sendRemoteMessage(String body,JSONObject conversation) {
