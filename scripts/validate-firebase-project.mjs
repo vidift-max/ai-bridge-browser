@@ -35,6 +35,10 @@ const rewrite = (config.hosting?.rewrites ?? []).some(
   (item) => item.source === "/i/**" && item.destination === "/i/index.html"
 );
 if (!rewrite) throw new Error("Rewrite /i/** -> /i/index.html ausente.");
+if (config.hosting.public !== "public") throw new Error("Hosting public deve ser public, relativo a firebase/firebase.json.");
+if (!(config.hosting.ignore ?? []).includes("**/*.template")) {
+  throw new Error("Arquivos de template não estão excluídos da publicação do Hosting.");
+}
 
 if (config.database?.rules !== "database.rules.json") {
   throw new Error("Realtime Database deve apontar para database.rules.json dentro de firebase/.");
