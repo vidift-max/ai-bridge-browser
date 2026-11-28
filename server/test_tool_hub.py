@@ -60,7 +60,7 @@ class ToolHubServiceTest(unittest.TestCase):
         with self.assertRaises(ToolUnavailable):
             self.service.invoke("AI-A", "duration_timer")
 
-    def test_ready_tool_still_has_no_executor(self):
+    def test_ready_tool_executes_clean_room_adapter_after_authorization(self):
         self.catalog["tools"][0].update({
             "status": "READY", "enabled": True,
             "inputSchemaRef": "schemas/duration_timer.input.schema.json",
@@ -69,8 +69,12 @@ class ToolHubServiceTest(unittest.TestCase):
         self.catalog["status"] = "PARTIALLY_BLOCKED"
         self.write_catalog()
         service = ToolHubService(self.path, self.permissions)
-        with self.assertRaises(ToolNotImplemented):
-            service.invoke("AI-A", "duration_timer")
+        result = service.invoke("AI-A", "duration_timer", {
+            "requestId": "123e4567-e89b-42d3-a456-426614174000",
+            "toolVersion": "0.0.0", "input": {"duration": "2m"}
+        })
+        self.assertEqual(result["status"], "SUCCEEDED")
+        self.assertEqual(result["result"]["seconds"], 120)
 
     def test_catalog_must_contain_exact_supported_set(self):
         self.catalog["tools"].pop()
