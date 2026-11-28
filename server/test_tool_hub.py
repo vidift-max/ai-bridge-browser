@@ -40,8 +40,8 @@ class ToolHubServiceTest(unittest.TestCase):
 
     def test_discovery_filters_by_exact_principal_grant(self):
         self.catalog["tools"][0].update({"status": "READY", "enabled": True,
-                                         "inputSchemaRef": "schemas/duration_timer.input.schema.json",
-                                         "outputSchemaRef": "schemas/duration_timer.output.schema.json"})
+                                         "inputSchemaRef": "registry/tool-hub/schemas/duration_timer.input.schema.json",
+                                         "outputSchemaRef": "registry/tool-hub/schemas/duration_timer.output.schema.json"})
         self.catalog["status"] = "PARTIALLY_BLOCKED"
         self.write_catalog()
         service = ToolHubService(self.path, self.permissions)
@@ -63,8 +63,8 @@ class ToolHubServiceTest(unittest.TestCase):
     def test_ready_tool_executes_clean_room_adapter_after_authorization(self):
         self.catalog["tools"][0].update({
             "status": "READY", "enabled": True,
-            "inputSchemaRef": "schemas/duration_timer.input.schema.json",
-            "outputSchemaRef": "schemas/duration_timer.output.schema.json",
+            "inputSchemaRef": "registry/tool-hub/schemas/duration_timer.input.schema.json",
+            "outputSchemaRef": "registry/tool-hub/schemas/duration_timer.output.schema.json",
         })
         self.catalog["status"] = "PARTIALLY_BLOCKED"
         self.write_catalog()
