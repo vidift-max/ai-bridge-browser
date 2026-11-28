@@ -161,6 +161,13 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(revoked["revoked"])
         self.assertFalse(MessengerHandler.tool_hub.permissions.can_use("AI-A", "duration_timer"))
+        status, audit = self.request(
+            "GET", "/v1/admin/tool-permissions/audit", self.admin_token
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual([event["action"] for event in audit["events"]], ["GRANT", "REVOKE"])
+        self.assertEqual([event["actorId"] for event in audit["events"]],
+                         ["tool-hub-admin", "tool-hub-admin"])
 
         events = [event.event_type for event in self.auth.audit_log.events()]
         self.assertIn("TOOL_PERMISSION_GRANTED", events)
