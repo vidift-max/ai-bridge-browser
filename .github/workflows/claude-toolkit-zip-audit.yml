@@ -123,3 +123,9 @@ jobs:
           print("----- END PACKAGE TEXT CONTENTS -----")
           print("AUDIT_SCOPE=static inspection only; package code was not executed")
           PY
+
+      - name: Run package tests after static inspection
+        shell: bash
+        run: |
+          cd AI_Tool_Hub_Package/05_Testes
+          python3 executar_todos.py
