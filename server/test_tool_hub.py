@@ -119,5 +119,28 @@ class ToolHubServiceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsupported_tool_catalog_version"):
             ToolHubService(self.path, self.permissions)
 
+
+    def test_catalog_rejects_malformed_semantic_version(self):
+        self.catalog["tools"][0]["version"] = "1.2"
+        self.write_catalog()
+        with self.assertRaisesRegex(ValueError, "invalid_tool_version"):
+            ToolHubService(self.path, self.permissions)
+
+    def test_catalog_rejects_wrong_permission_contract(self):
+        self.catalog["tools"][0]["requiredPermission"] = "SEND_MESSAGE"
+        self.write_catalog()
+        with self.assertRaisesRegex(ValueError, "invalid_tool_permission_contract"):
+            ToolHubService(self.path, self.permissions)
+
+    def test_catalog_rejects_oversized_or_non_string_description(self):
+        self.catalog["tools"][0]["description"] = "x" * 241
+        self.write_catalog()
+        with self.assertRaisesRegex(ValueError, "invalid_tool_description"):
+            ToolHubService(self.path, self.permissions)
+        self.catalog["tools"][0]["description"] = None
+        self.write_catalog()
+        with self.assertRaisesRegex(ValueError, "invalid_tool_description"):
+            ToolHubService(self.path, self.permissions)
+
 if __name__ == "__main__":
     unittest.main()
