@@ -48,5 +48,22 @@ class ToolPermissionRegistryTest(unittest.TestCase):
             registry.permitted_tool_ids("AI-01").add("quiz_engine")
 
 
+
+    def test_string_grant_is_not_silently_treated_as_iterable_tool_ids(self):
+        with self.assertRaisesRegex(ValueError, "invalid_tool_permission_grants"):
+            ToolPermissionRegistry({"AI-01": "duration_timer"})
+
+    def test_non_string_tool_id_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_tool_permission_grants"):
+            ToolPermissionRegistry({"AI-01": [None]})
+
+    def test_malformed_lookup_values_fail_closed(self):
+        registry = ToolPermissionRegistry({"AI-01": ["duration_timer"]})
+        self.assertFalse(registry.can_use([], "duration_timer"))
+        self.assertFalse(registry.can_use("AI-01", []))
+        self.assertEqual(registry.permitted_tool_ids([]), frozenset())
+        with self.assertRaisesRegex(LookupError, "tool_not_found"):
+            registry.require("AI-01", [])
+
 if __name__ == "__main__":
     unittest.main()
