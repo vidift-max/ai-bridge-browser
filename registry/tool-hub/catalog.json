@@ -1,0 +1,56 @@
+{
+  "catalogVersion": 1,
+  "status": "BLOCKED",
+  "tools": [
+    {
+      "toolId": "duration_timer",
+      "version": "0.0.0",
+      "status": "BLOCKED_LICENSE_REVIEW",
+      "enabled": false,
+      "requiredPermission": "TOOL_USE",
+      "inputSchemaRef": null,
+      "outputSchemaRef": null,
+      "description": "Timer and duration calculations; API contract pending source-license and interface review."
+    },
+    {
+      "toolId": "recipe_scaler",
+      "version": "0.0.0",
+      "status": "BLOCKED_LICENSE_REVIEW",
+      "enabled": false,
+      "requiredPermission": "TOOL_USE",
+      "inputSchemaRef": null,
+      "outputSchemaRef": null,
+      "description": "Recipe quantity scaling; API contract pending source-license and interface review."
+    },
+    {
+      "toolId": "quiz_engine",
+      "version": "0.0.0",
+      "status": "BLOCKED_LICENSE_REVIEW",
+      "enabled": false,
+      "requiredPermission": "TOOL_USE",
+      "inputSchemaRef": null,
+      "outputSchemaRef": null,
+      "description": "Quiz construction and scoring; API contract pending source-license and interface review."
+    },
+    {
+      "toolId": "svg_chart",
+      "version": "0.0.0",
+      "status": "BLOCKED_LICENSE_REVIEW",
+      "enabled": false,
+      "requiredPermission": "TOOL_USE",
+      "inputSchemaRef": null,
+      "outputSchemaRef": null,
+      "description": "SVG chart generation; API contract pending source-license and interface review."
+    },
+    {
+      "toolId": "link_card",
+      "version": "0.0.0",
+      "status": "BLOCKED_LICENSE_REVIEW",
+      "enabled": false,
+      "requiredPermission": "TOOL_USE",
+      "inputSchemaRef": null,
+      "outputSchemaRef": null,
+      "description": "Link preview card generation; API contract pending source-license and interface review."
+    }
+  ]
+}
