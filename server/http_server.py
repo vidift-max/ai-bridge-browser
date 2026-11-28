@@ -155,6 +155,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 if self.tool_hub is None:
                     self._json(503, {"error": "tool_hub_unavailable"})
                     return
+                self._audit(identity, "TOOL_INVOCATION_ATTEMPTED", parts[3])
                 self.tool_hub.invoke(principal.ai_id, parts[3])
             except PermissionError as exc:
                 self._json(401 if str(exc) == "authentication_required" else 403,
