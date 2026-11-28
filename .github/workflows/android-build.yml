@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "v2-saas-alpha", "fix/**", "feat/tool-hub-cleanroom-agent-adapters" ]
+    branches: [ "v2-saas-alpha", "fix/**", "feat/tool-hub-cleanroom-agent-adapters", "feat/agent-tool-dispatch-integration" ]
   pull_request:
     branches: [ "v2-saas-alpha", "fix/browser-session-isolation-https-policy" ]
   workflow_dispatch:
