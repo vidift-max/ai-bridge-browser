@@ -26,6 +26,15 @@ class MessengerHandler(BaseHTTPRequestHandler):
     def _principal(self):
         return authenticate_request(self.authenticator, self.headers)
 
+    @staticmethod
+    def _reject_duplicate_json_keys(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate_json_key")
+            result[key] = value
+        return result
+
     def _read_json(self):
         if self.headers.get("Content-Type","").split(";")[0].lower()!="application/json":
             raise ValueError("content_type_required")
@@ -36,7 +45,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
             raise ValueError("invalid_content_length")
         if length<1 or length>10000:
             raise ValueError("invalid_content_length")
-        payload=json.loads(self.rfile.read(length))
+        payload=json.loads(self.rfile.read(length), object_pairs_hook=self._reject_duplicate_json_keys)
         if not isinstance(payload, dict):
             raise ValueError("json_object_required")
         return payload
