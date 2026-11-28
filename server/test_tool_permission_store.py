@@ -104,5 +104,20 @@ class DurableToolPermissionStoreTest(unittest.TestCase):
         )
         self.assertEqual(migrated.list_audit_events(), [])
 
+
+    def test_permission_audit_rows_are_immutable(self):
+        registry = ToolPermissionRegistry(store=self.store)
+        registry.grant("AI-01", "duration_timer", "admin-01")
+        with self.assertRaisesRegex(Exception, "tool_permission_audit_immutable"):
+            self.store._connection.execute(
+                "UPDATE tool_permission_audit SET actor_id='tampered' WHERE audit_id=1"
+            )
+        with self.assertRaisesRegex(Exception, "tool_permission_audit_immutable"):
+            self.store._connection.execute(
+                "DELETE FROM tool_permission_audit WHERE audit_id=1"
+            )
+        self.store._connection.rollback()
+        self.assertEqual(len(registry.list_audit_events()), 1)
+
 if __name__ == "__main__":
     unittest.main()
