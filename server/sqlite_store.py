@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -92,6 +92,23 @@ class SQLiteMessengerStore:
             """SELECT principal_ai_id,tool_id,granted_by,granted_at
                FROM tool_permissions ORDER BY principal_ai_id,tool_id"""
         ).fetchall()
+
+        if version < 3:
+            self._connection.executescript("""
+                CREATE TABLE IF NOT EXISTS tool_permission_audit (
+                    audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    action TEXT NOT NULL CHECK(action IN ('GRANT', 'REVOKE')),
+                    principal_ai_id TEXT NOT NULL,
+                    tool_id TEXT NOT NULL,
+                    actor_id TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL,
+                    grant_existed INTEGER NOT NULL CHECK(grant_existed IN (0, 1))
+                );
+                CREATE INDEX IF NOT EXISTS idx_tool_permission_audit_subject
+                    ON tool_permission_audit(principal_ai_id, tool_id, audit_id);
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','3')")
+            self._connection.commit()
 
     def close(self):
         self._connection.close()
