@@ -72,19 +72,34 @@ class ToolPermissionRegistry:
         return {"principalAiId": principal_ai_id, "toolId": tool_id,
                 "grantedBy": granted_by, "grantedAt": granted_at}
 
-    def revoke(self, principal_ai_id: str, tool_id: str):
+    def revoke(self, principal_ai_id: str, tool_id: str, revoked_by: str = "tool-hub-admin"):
         self._validate_principal(principal_ai_id)
         if not isinstance(tool_id, str) or tool_id not in SUPPORTED_TOOL_IDS:
             raise ValueError("unsupported_tool_permission")
         removed = tool_id in self._grants.get(principal_ai_id, frozenset())
+        self._validate_principal(revoked_by)
         if self._store is not None:
-            removed = self._store.revoke_tool_permission(principal_ai_id, tool_id)
+            revoked_at = datetime.now(timezone.utc).isoformat()
+            removed = self._store.revoke_tool_permission(
+                principal_ai_id, tool_id, revoked_by, revoked_at
+            )
         current = self._grants.get(principal_ai_id, frozenset()) - frozenset({tool_id})
         if current:
             self._grants[principal_ai_id] = current
         else:
             self._grants.pop(principal_ai_id, None)
         return removed
+
+    def list_audit_events(self):
+        if self._store is None:
+            return []
+        return [
+            {"auditId": row["audit_id"], "action": row["action"],
+             "principalAiId": row["principal_ai_id"], "toolId": row["tool_id"],
+             "actorId": row["actor_id"], "occurredAt": row["occurred_at"],
+             "grantExisted": bool(row["grant_existed"])}
+            for row in self._store.load_tool_permission_audit()
+        ]
 
     def list_grants(self):
         if self._store is not None:
