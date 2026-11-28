@@ -45,7 +45,7 @@ class ToolHubServiceTest(unittest.TestCase):
         self.catalog["status"] = "PARTIALLY_BLOCKED"
         self.write_catalog()
         service = ToolHubService(self.path, self.permissions)
-        self.assertEqual([x["toolId"] for x in service.discover("AI-A")], ["duration_timer"])
+        self.assertEqual([x["toolId"] for x in service.discover("AI-A")["tools"]], ["duration_timer"])
         self.assertEqual(service.discover("AI-UNKNOWN"), {"tools": []})
 
     def test_invocation_denies_without_tool_use(self):
