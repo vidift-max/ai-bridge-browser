@@ -19,7 +19,7 @@ class ToolNotImplemented(Exception):
 
 
 class ToolHubService:
-    _VERSION = re.compile(r"^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    _VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
     _STATUSES = {"BLOCKED_LICENSE_REVIEW", "BLOCKED_API_REVIEW", "READY"}
     _CATALOG_STATUSES = {"READY", "PARTIALLY_BLOCKED", "BLOCKED"}
     _REQUIRED_FIELDS = {
