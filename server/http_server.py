@@ -9,6 +9,7 @@ from server.identity_registry import IdentityRegistry
 from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
 from server.request_context import authenticate_request, bearer_token
 from server.tool_hub import ToolHubService, ToolUnavailable, ToolNotImplemented
+from server.tool_adapters import ToolInputError
 from server.tool_admin_auth import authenticate_tool_admin
 
 class MessengerHandler(BaseHTTPRequestHandler):
@@ -218,12 +219,15 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 identity = self._principal()
                 principal = identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
-                self.rate_limiter.allow(principal.ai_id)
+                self.rate_limiter.allow(principal.ai_id + ":tool:" + parts[3])
                 if self.tool_hub is None:
                     self._json(503, {"error": "tool_hub_unavailable"})
                     return
+                request = self._read_json()
                 self._audit(identity, "TOOL_INVOCATION_ATTEMPTED", parts[3])
-                self.tool_hub.invoke(principal.ai_id, parts[3])
+                result = self.tool_hub.invoke(principal.ai_id, parts[3], request)
+                self._audit(identity, "TOOL_INVOCATION_SUCCEEDED", parts[3])
+                self._json(200, result)
             except RateLimitExceeded:
                 self._json(429, {"error": "rate_limit_exceeded"})
             except PermissionError as exc:
@@ -233,6 +237,10 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(404, {"error": "tool_not_found"})
             except ToolUnavailable:
                 self._json(409, {"error": "tool_unavailable"})
+            except ToolInputError as exc:
+                self._json(400, {"error": exc.code})
+            except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+                self._json(400, {"error": "invalid_request"})
             except ToolNotImplemented:
                 self._json(501, {"error": "tool_adapter_not_implemented"})
             return
