@@ -30,16 +30,9 @@ The neutral catalog and generic request/result contracts are under
 All five catalog entries are disabled. The original package's license and
 rights holder are not established. Until the user confirms the license/usage
 rights, no original package source may be copied, adapted, bundled, or
-executed. Tool-specific input/output schemas, reviewed adapters/executors, durable
-permission grants, administrator grant/revoke flow, production per-tool rate
-limits, sandboxing, and Android UI wiring are not implemented.
+executed. Tool-specific input/output schemas, reviewed adapters/executors, production-grade admin identity/rotation, per-tool production quotas, sandboxing, and Android UI wiring are not implemented.
 
-The server now has authenticated HTTP capability discovery and an invocation
-route that is deliberately deny-only. Discovery filters by the authenticated
-AI principal's explicit in-memory `TOOL_USE` grants and READY catalog state;
-currently it returns no tools. Invocation returns 403 without a grant, 409
-for any currently blocked tool, and would return 501 for a hypothetical READY
-tool because no executor exists. No request can execute Tool Hub code.
+The server now has authenticated capability discovery and a deliberately deny-only invocation route. `TOOL_USE` grants are persisted in the Messenger SQLite database (schema v2). Separate administrator-only HTTP routes list, grant, and revoke permissions using `TOOL_HUB_ADMIN_TOKEN` (minimum 32 characters); if it is not configured, these routes fail closed. Admin actions are audited. AI discovery filters by the authenticated principal's durable grants and READY catalog state; currently it returns no tools because all five tools remain blocked. Invocation returns 403 without a grant, 409 for a blocked tool, and would return 501 for a hypothetical READY tool because no executor exists. No request can execute Tool Hub code.
 Messenger access and room membership never grant tool access.
 
 No tool can be invoked in this state.
