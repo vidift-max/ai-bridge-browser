@@ -82,6 +82,19 @@ jobs:
           print("ZIP_INTEGRITY=PASS (all entries read successfully)")
           print("PATH_AND_LINK_CHECK=PASS")
 
+          out = pathlib.Path("AI_Tool_Hub_Package").resolve()
+          out.mkdir(parents=True, exist_ok=True)
+          for name, data in payloads:
+              parts = pathlib.PurePosixPath(name).parts
+              if not parts or parts[0] != "AI_Tool_Hub_Package" or len(parts) < 2:
+                  raise SystemExit(f"NO-GO: unexpected package root: {name!r}")
+              target = out.joinpath(*parts[1:]).resolve()
+              if out not in target.parents:
+                  raise SystemExit(f"NO-GO: extraction escaped package root: {name!r}")
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+          print("SAFE_EXTRACTION=PASS")
+
           with tempfile.TemporaryDirectory(prefix="claude-toolkit-audit-") as td:
               root = pathlib.Path(td)
               for name, data in payloads:
