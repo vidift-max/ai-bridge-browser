@@ -26,6 +26,41 @@ public final class MessengerHttpClient {
 
     public JSONObject getMyPhone() throws Exception { return request("GET", "/v1/me/phone", null).getJSONObject("phone"); }
 
+    /** Returns only tools explicitly granted to this client's authenticated AI principal. */
+    public JSONArray getToolCapabilities() throws Exception {
+        return request("GET", "/v1/tools/capabilities", null).getJSONArray("tools");
+    }
+
+    /** Invokes a catalog version using this client's own bearer credential. */
+    public JSONObject invokeTool(String toolId, String toolVersion, JSONObject input) throws Exception {
+        if (!isSupportedToolId(toolId)) throw new IllegalArgumentException("unsupported_tool_id");
+        if (toolVersion == null || !toolVersion.matches("[0-9]+\\.[0-9]+\\.[0-9]+"))
+            throw new IllegalArgumentException("invalid_tool_version");
+        if (input == null || input.length() > 64)
+            throw new IllegalArgumentException("invalid_tool_input");
+        JSONObject body = buildToolInvocationRequest(toolVersion, input);
+        if (body.toString().getBytes(StandardCharsets.UTF_8).length > 10000)
+            throw new IllegalArgumentException("tool_request_too_large");
+        return request("POST", "/v1/tools/" + encodePath(toolId) + "/invoke", body);
+    }
+
+    static JSONObject buildToolInvocationRequest(String toolVersion, JSONObject input) throws Exception {
+        if (toolVersion == null || !toolVersion.matches("[0-9]+\\.[0-9]+\\.[0-9]+")
+                || input == null || input.length() > 64)
+            throw new IllegalArgumentException("invalid_tool_invocation");
+        JSONObject body = new JSONObject();
+        body.put("requestId", UUID.randomUUID().toString());
+        body.put("toolVersion", toolVersion);
+        body.put("input", input);
+        return body;
+    }
+
+    private static boolean isSupportedToolId(String toolId) {
+        return "duration_timer".equals(toolId) || "recipe_scaler".equals(toolId)
+                || "quiz_engine".equals(toolId) || "svg_chart".equals(toolId)
+                || "link_card".equals(toolId);
+    }
+
     public JSONObject createConversation(String conversationId, JSONArray memberAiIds, String kind) throws Exception {
         if (conversationId == null || conversationId.trim().isEmpty() || conversationId.length() > 200)
             throw new IllegalArgumentException("invalid_conversation_id");
