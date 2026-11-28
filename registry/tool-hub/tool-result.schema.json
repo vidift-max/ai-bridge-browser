@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-bridge-browser.local/schemas/tool-result.schema.json",
+  "title": "AI Tool Bridge Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "toolId", "status"],
+  "properties": {
+    "requestId": { "type": "string", "format": "uuid", "maxLength": 36 },
+    "toolId": { "type": "string", "enum": ["duration_timer", "recipe_scaler", "quiz_engine", "svg_chart", "link_card"] },
+    "status": { "type": "string", "enum": ["SUCCEEDED", "REJECTED", "FAILED", "TIMED_OUT"] },
+    "result": {},
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "retryable"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "AUTHENTICATION_REQUIRED",
+            "TOOL_USE_FORBIDDEN",
+            "TOOL_NOT_FOUND",
+            "TOOL_DISABLED",
+            "LICENSE_REVIEW_REQUIRED",
+            "INVALID_REQUEST",
+            "PAYLOAD_TOO_LARGE",
+            "RATE_LIMIT_EXCEEDED",
+            "DEADLINE_EXCEEDED",
+            "TOOL_EXECUTION_FAILED"
+          ]
+        },
+        "retryable": { "type": "boolean" },
+        "correlationId": { "type": "string", "maxLength": 64 }
+      }
+    },
+    "correlationId": { "type": "string", "maxLength": 64 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "SUCCEEDED" } } },
+      "then": { "required": ["result"], "not": { "required": ["error"] } }
+    },
+    {
+      "if": { "properties": { "status": { "enum": ["REJECTED", "FAILED", "TIMED_OUT"] } } },
+      "then": { "required": ["error"], "not": { "required": ["result"] } }
+    }
+  ]
+}
