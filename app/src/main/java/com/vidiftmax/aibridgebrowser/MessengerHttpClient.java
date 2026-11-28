@@ -11,7 +11,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-/** Synchronous HTTPS Messenger API client. Call only from a worker thread. */
 public final class MessengerHttpClient {
     private final String baseUrl;
     private final String aiId;
@@ -24,7 +23,9 @@ public final class MessengerHttpClient {
         this.token = token.trim();
     }
 
-    public JSONObject getMyPhone() throws Exception { return request("GET", "/v1/me/phone", null).getJSONObject("phone"); }
+    public JSONObject getMyPhone() throws Exception {
+        return request("GET", "/v1/me/phone", null).getJSONObject("phone");
+    }
 
     /** Returns only tools explicitly granted to this authenticated AI principal. */
     public JSONArray getToolCapabilities() throws Exception {
@@ -34,36 +35,9 @@ public final class MessengerHttpClient {
     /** Invokes a catalog version using this client's bearer; AI identity is derived server-side. */
     public JSONObject invokeTool(String toolId, String toolVersion, JSONObject input) throws Exception {
         if (!isSupportedToolId(toolId)) throw new IllegalArgumentException("unsupported_tool_id");
-        if (toolVersion == null || !toolVersion.matches("[0-9]+\\\\.[0-9]+\\\\.[0-9]+"))
-            throw new IllegalArgumentException("invalid_tool_version");
-        if (input == null || input.length() > 64) throw new IllegalArgumentException("invalid_tool_input");
-        JSONObject body = new JSONObject();
-        body.put("requestId", UUID.randomUUID().toString());
-        body.put("toolVersion", toolVersion);
-        body.put("input", input);
-        if (body.toString().getBytes(StandardCharsets.UTF_8).length > 10000)
-            throw new IllegalArgumentException("tool_request_too_large");
-        return request("POST", "/v1/tools/" + encodePath(toolId) + "/invoke", body);
-    }
-
-    private static boolean isSupportedToolId(String toolId) {
-        return "duration_timer".equals(toolId) || "recipe_scaler".equals(toolId)
-                || "quiz_engine".equals(toolId) || "svg_chart".equals(toolId)
-                || "link_card".equals(toolId);
-    }
-
-    /** Returns only tools explicitly granted to this client's authenticated AI principal. */
-    public JSONArray getToolCapabilities() throws Exception {
-        return request("GET", "/v1/tools/capabilities", null).getJSONArray("tools");
-    }
-
-    /** Invokes a catalog version using this client's own bearer credential. */
-    public JSONObject invokeTool(String toolId, String toolVersion, JSONObject input) throws Exception {
-        if (!isSupportedToolId(toolId)) throw new IllegalArgumentException("unsupported_tool_id");
         if (toolVersion == null || !toolVersion.matches("[0-9]+\\.[0-9]+\\.[0-9]+"))
             throw new IllegalArgumentException("invalid_tool_version");
-        if (input == null || input.length() > 64)
-            throw new IllegalArgumentException("invalid_tool_input");
+        if (input == null || input.length() > 64) throw new IllegalArgumentException("invalid_tool_input");
         JSONObject body = buildToolInvocationRequest(toolVersion, input);
         if (body.toString().getBytes(StandardCharsets.UTF_8).length > 10000)
             throw new IllegalArgumentException("tool_request_too_large");
@@ -96,7 +70,7 @@ public final class MessengerHttpClient {
             throw new IllegalArgumentException("invalid_member_count");
         boolean includesSelf = false;
         java.util.HashSet<String> unique = new java.util.HashSet<>();
-        for (int i=0;i<memberAiIds.length();i++) {
+        for (int i = 0; i < memberAiIds.length(); i++) {
             String id = MessengerRemoteConfig.validateAiId(memberAiIds.optString(i, ""));
             if (!unique.add(id)) throw new IllegalArgumentException("duplicate_member_id");
             if (aiId.equals(id)) includesSelf = true;
@@ -118,7 +92,7 @@ public final class MessengerHttpClient {
         if (recipients == null || recipients.length() < 1)
             throw new IllegalArgumentException("message_recipients_required");
         java.util.HashSet<String> uniqueRecipients = new java.util.HashSet<>();
-        for (int i=0;i<recipients.length();i++) {
+        for (int i = 0; i < recipients.length(); i++) {
             String id = MessengerRemoteConfig.validateAiId(recipients.optString(i, ""));
             if (aiId.equals(id) || !uniqueRecipients.add(id))
                 throw new IllegalArgumentException("invalid_message_recipient");
@@ -135,7 +109,8 @@ public final class MessengerHttpClient {
 
     public JSONArray fetchPending(String conversationId, int afterSequence, int limit) throws Exception {
         String path = "/v1/conversations/" + encodePath(conversationId)
-                + "/messages?after=" + Math.max(0, afterSequence) + "&limit=" + Math.max(1, Math.min(100, limit));
+                + "/messages?after=" + Math.max(0, afterSequence)
+                + "&limit=" + Math.max(1, Math.min(100, limit));
         return request("GET", path, null).getJSONArray("messages");
     }
 
@@ -190,7 +165,9 @@ public final class MessengerHttpClient {
 
     private static String encodePath(String value) {
         try { return java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20"); }
-        catch (java.io.UnsupportedEncodingException impossible) { throw new IllegalStateException("UTF-8 unavailable", impossible); }
+        catch (java.io.UnsupportedEncodingException impossible) {
+            throw new IllegalStateException("UTF-8 unavailable", impossible);
+        }
     }
 
     public static final class MessengerHttpException extends Exception {
