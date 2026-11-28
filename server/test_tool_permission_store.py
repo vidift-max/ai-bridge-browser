@@ -58,7 +58,7 @@ class DurableToolPermissionStoreTest(unittest.TestCase):
         version = self.store._connection.execute(
             "SELECT value FROM schema_meta WHERE key='version'"
         ).fetchone()["value"]
-        self.assertEqual(version, "2")
+        self.assertEqual(version, "3")
         self.store.save_conversation("room", ["AI-01", "AI-02"])
         self.store.close()
         self.store = SQLiteMessengerStore(self.path)
@@ -68,6 +68,21 @@ class DurableToolPermissionStoreTest(unittest.TestCase):
 
     def test_schema_v2_is_accepted_by_read_only_recovery_validation(self):
         self.assertEqual(verify_messenger_schema(self.path), (True, "RESTORE_SCHEMA_COMPATIBLE"))
+
+
+    def test_permission_audit_is_durable_and_records_grant_and_revoke_actor(self):
+        registry = ToolPermissionRegistry(store=self.store)
+        registry.grant("AI-01", "duration_timer", "admin-01")
+        registry.revoke("AI-01", "duration_timer", "admin-02")
+        events = registry.list_audit_events()
+        self.assertEqual([event["action"] for event in events], ["GRANT", "REVOKE"])
+        self.assertEqual([event["actorId"] for event in events], ["admin-01", "admin-02"])
+        self.assertTrue(events[0]["grantExisted"])
+        self.assertTrue(events[1]["grantExisted"])
+        self.store.close()
+        self.store = SQLiteMessengerStore(self.path)
+        restarted = ToolPermissionRegistry(store=self.store)
+        self.assertEqual(len(restarted.list_audit_events()), 2)
 
 if __name__ == "__main__":
     unittest.main()
