@@ -1,4 +1,5 @@
 import json
+import os
 import threading
 import unittest
 from http.client import HTTPConnection
@@ -15,6 +16,9 @@ from server.rate_limit import SlidingWindowRateLimiter
 
 class ToolHubHttpTest(unittest.TestCase):
     def setUp(self):
+        self.old_admin_token = os.environ.get("TOOL_HUB_ADMIN_TOKEN")
+        os.environ["TOOL_HUB_ADMIN_TOKEN"] = "test-tool-hub-admin-token-" + ("x" * 32)
+        self.admin_token = os.environ["TOOL_HUB_ADMIN_TOKEN"]
         self.tokens = {"token-a": "AI-A", "token-b": "AI-B"}
         self.auth = Authenticator(self.tokens)
         self.store = SQLiteMessengerStore(":memory:")
@@ -24,9 +28,7 @@ class ToolHubHttpTest(unittest.TestCase):
         MessengerHandler.backend = self.backend
         MessengerHandler.authenticator = self.auth
         MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
-        MessengerHandler.tool_hub = ToolHubService(
-            permissions=ToolPermissionRegistry({"AI-A": {"duration_timer"}})
-        )
+        MessengerHandler.tool_hub = ToolHubService(permissions=ToolPermissionRegistry(store=self.store))
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MessengerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -38,6 +40,10 @@ class ToolHubHttpTest(unittest.TestCase):
         self.backend.close()
         MessengerHandler.tool_hub = None
         MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
+        if self.old_admin_token is None:
+            os.environ.pop("TOOL_HUB_ADMIN_TOKEN", None)
+        else:
+            os.environ["TOOL_HUB_ADMIN_TOKEN"] = self.old_admin_token
 
     def request(self, method, path, token=None, body=None):
         connection = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
@@ -122,6 +128,66 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(first_status, 409)
         self.assertEqual(second_status, 429)
         self.assertEqual(payload["error"], "rate_limit_exceeded")
+
+
+    def test_admin_routes_fail_closed_without_admin_credentials(self):
+        os.environ.pop("TOOL_HUB_ADMIN_TOKEN", None)
+        status, payload = self.request("GET", "/v1/admin/tool-permissions")
+        self.assertEqual(status, 503)
+        self.assertEqual(payload["error"], "tool_admin_not_configured")
+
+    def test_admin_permission_listing_requires_admin_token(self):
+        status, payload = self.request("GET", "/v1/admin/tool-permissions", "token-a")
+        self.assertEqual(status, 403)
+        self.assertEqual(payload["error"], "tool_admin_forbidden")
+
+    def test_admin_can_grant_list_and_revoke_durable_permission(self):
+        status, payload = self.request(
+            "POST", "/v1/admin/tool-permissions", self.admin_token,
+            {"principalAiId": "AI-A", "toolId": "duration_timer"}
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(payload["grant"]["principalAiId"], "AI-A")
+        self.assertEqual(payload["grant"]["grantedBy"], "tool-hub-admin")
+
+        status, listing = self.request("GET", "/v1/admin/tool-permissions", self.admin_token)
+        self.assertEqual(status, 200)
+        self.assertEqual(len(listing["grants"]), 1)
+        self.assertEqual(listing["grants"][0]["toolId"], "duration_timer")
+
+        status, revoked = self.request(
+            "DELETE", "/v1/admin/tool-permissions/AI-A/duration_timer", self.admin_token
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(revoked["revoked"])
+        self.assertFalse(MessengerHandler.tool_hub.permissions.can_use("AI-A", "duration_timer"))
+
+        events = [event.event_type for event in self.auth.audit_log.events()]
+        self.assertIn("TOOL_PERMISSION_GRANTED", events)
+        self.assertIn("TOOL_PERMISSION_REVOKED", events)
+
+    def test_admin_cannot_grant_unknown_tool_or_malformed_principal(self):
+        status, payload = self.request(
+            "POST", "/v1/admin/tool-permissions", self.admin_token,
+            {"principalAiId": "AI-A", "toolId": "shell_exec"}
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "invalid_tool_permission")
+        status, payload = self.request(
+            "POST", "/v1/admin/tool-permissions", self.admin_token,
+            {"principalAiId": " AI-A", "toolId": "duration_timer"}
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "invalid_tool_permission")
+
+    def test_admin_grants_are_persisted_in_sqlite(self):
+        status, _ = self.request(
+            "POST", "/v1/admin/tool-permissions", self.admin_token,
+            {"principalAiId": "AI-A", "toolId": "duration_timer"}
+        )
+        self.assertEqual(status, 201)
+        self.assertTrue(MessengerHandler.tool_hub.permissions.can_use("AI-A", "duration_timer"))
+        self.assertFalse(MessengerHandler.tool_hub.permissions.can_use("AI-B", "duration_timer"))
 
 if __name__ == "__main__":
     unittest.main()
