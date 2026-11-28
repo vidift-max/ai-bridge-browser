@@ -19,7 +19,7 @@ The implementation is local and synchronous. It does not access network, filesys
 
 ## API
 
-- `GET /v1/tools/capabilities`: authenticated AI identity derived from bearer principal; only explicitly granted READY tools are returned.
+- `GET /v1/tools/capabilities`: authenticated AI identity derived from bearer principal; only explicitly granted READY tools are returned, including their versioned input/output JSON Schemas.
 - `POST /v1/tools/{toolId}/invoke`: authenticated, authorized invocation. JSON body:
   `{"requestId":"<UUID>","toolVersion":"1.0.0","input":{...}}`.
 - `POST /v1/admin/tool-permissions`: administrator-only grant; body `{"principalAiId":"AI-01","toolId":"duration_timer"}`.
