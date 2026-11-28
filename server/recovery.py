@@ -56,6 +56,14 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
         if not {"audit_id", "action", "principal_ai_id", "tool_id",
                 "actor_id", "occurred_at", "grant_existed"}.issubset(audit_columns):
             return False, "RESTORE_SCHEMA_UNSUPPORTED"
+        audit_triggers = {
+            row[0] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger'"
+            )
+        }
+        if not {"trg_tool_permission_audit_no_update",
+                "trg_tool_permission_audit_no_delete"}.issubset(audit_triggers):
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
     index_row = connection.execute(
         "SELECT sql FROM sqlite_master WHERE type='index' "
         "AND name='idx_messages_conversation_sequence'"
