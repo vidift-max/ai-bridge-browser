@@ -5,6 +5,10 @@ on:
     branches: [v2-saas-alpha, 'fix/**']
     paths:
       - 'server/**'
+      - 'registry/tool-hub/**'
+      - 'docs/AI_TOOL_BRIDGE.md'
+      - 'docs/AI_BRIDGE_AUTHORIZATION_MODEL.md'
+      - 'integrations/README.md'
       - 'render.yaml'
       - '.github/workflows/server-test.yml'
       - 'docs/AI_MESSENGER_MISSION_06_**'
