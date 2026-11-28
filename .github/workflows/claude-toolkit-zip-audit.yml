@@ -95,6 +95,29 @@ jobs:
               target.write_bytes(data)
           print("SAFE_EXTRACTION=PASS")
 
+          manifest_bytes = next(data for name, data in payloads if name == "AI_Tool_Hub_Package/MANIFESTO.json")
+          manifest = __import__("json").loads(manifest_bytes.decode("utf-8"))
+          expected = {item["arquivo"]: item for item in manifest["arquivos"]}
+          actual = {
+              name[len("AI_Tool_Hub_Package/"):]: data
+              for name, data in payloads
+              if name.startswith("AI_Tool_Hub_Package/")
+              and name not in (
+                  "AI_Tool_Hub_Package/MANIFESTO.json",
+                  "AI_Tool_Hub_Package/MANIFESTO.md"
+              )
+          }
+          if set(expected) != set(actual):
+              missing = sorted(set(expected) - set(actual))
+              extra = sorted(set(actual) - set(expected))
+              raise SystemExit(f"NO-GO: manifest file set mismatch; missing={missing}; extra={extra}")
+          for name, data in actual.items():
+              item = expected[name]
+              digest = hashlib.sha256(data).hexdigest()
+              if len(data) != item["bytes"] or digest != item["sha256"]:
+                  raise SystemExit(f"NO-GO: manifest hash/size mismatch: {name}")
+          print(f"MANIFEST_HASHES=PASS ({len(actual)} files; bytes and SHA-256 match)")
+
           with tempfile.TemporaryDirectory(prefix="claude-toolkit-audit-") as td:
               root = pathlib.Path(td)
               for name, data in payloads:
@@ -134,7 +157,7 @@ jobs:
                   except UnicodeDecodeError:
                       print("[NON-UTF8 CONTENT OMITTED]")
           print("----- END PACKAGE TEXT CONTENTS -----")
-          print("AUDIT_SCOPE=static inspection only; package code was not executed")
+          print("AUDIT_SCOPE=static inspection followed by package test execution")
           PY
 
       - name: Run package tests after static inspection
