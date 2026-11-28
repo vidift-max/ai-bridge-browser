@@ -9,6 +9,7 @@ from server.identity_registry import IdentityRegistry
 from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
 from server.request_context import authenticate_request, bearer_token
 from server.tool_hub import ToolHubService, ToolUnavailable, ToolNotImplemented
+from server.tool_admin_auth import authenticate_tool_admin
 
 class MessengerHandler(BaseHTTPRequestHandler):
     backend=None
@@ -76,6 +77,26 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         parsed = urlsplit(self.path)
         parts=parsed.path.split("/")
+        if parsed.path == "/v1/admin/tool-permissions":
+            try:
+                admin_id = authenticate_tool_admin(self.headers)
+                self.rate_limiter.allow("admin:" + admin_id)
+                if self.tool_hub is None:
+                    self._json(503, {"error": "tool_hub_unavailable"})
+                    return
+                grants = self.tool_hub.permissions.list_grants()
+                self.authenticator.audit_log.record(
+                    "TOOL_PERMISSIONS_LISTED", "tool-permissions",
+                    ai_id=admin_id, metadata={"grant_count": str(len(grants))})
+                self._json(200, {"grants": grants})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                message = str(exc)
+                status = 503 if message == "tool_admin_not_configured" else (
+                    401 if message == "authentication_required" else 403)
+                self._json(status, {"error": message})
+            return
         if parsed.path == "/v1/tools/capabilities":
             try:
                 identity = self._principal()
@@ -150,6 +171,56 @@ class MessengerHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlsplit(self.path)
         parts = parsed.path.split("/")
+        if parsed.path == "/v1/admin/tool-permissions":
+            try:
+                admin_id = authenticate_tool_admin(self.headers)
+                self.rate_limiter.allow("admin:" + admin_id)
+                if self.tool_hub is None:
+                    self._json(503, {"error": "tool_hub_unavailable"})
+                    return
+                payload = self._read_json()
+                principal_ai_id = payload.get("principalAiId")
+                tool_id = payload.get("toolId")
+                grant = self.tool_hub.permissions.grant(principal_ai_id, tool_id, admin_id)
+                self.authenticator.audit_log.record(
+                    "TOOL_PERMISSION_GRANTED", tool_id, ai_id=admin_id,
+                    metadata={"principal_ai_id": principal_ai_id})
+                self._json(201, {"grant": grant})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                message = str(exc)
+                status = 503 if message == "tool_admin_not_configured" else (
+                    401 if message == "authentication_required" else 403)
+                self._json(status, {"error": message})
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self._json(400, {"error": "invalid_tool_permission"})
+            return
+        if len(parts) == 6 and parts[1:4] == ["v1", "admin", "tool-permissions"]:
+            try:
+                admin_id = authenticate_tool_admin(self.headers)
+                self.rate_limiter.allow("admin:" + admin_id)
+                if self.tool_hub is None:
+                    self._json(503, {"error": "tool_hub_unavailable"})
+                    return
+                principal_ai_id, tool_id = parts[4], parts[5]
+                removed = self.tool_hub.permissions.revoke(principal_ai_id, tool_id)
+                self.authenticator.audit_log.record(
+                    "TOOL_PERMISSION_REVOKED", tool_id, ai_id=admin_id,
+                    metadata={"principal_ai_id": principal_ai_id,
+                              "grant_existed": str(removed).lower()})
+                self._json(200, {"revoked": removed, "principalAiId": principal_ai_id,
+                                "toolId": tool_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                message = str(exc)
+                status = 503 if message == "tool_admin_not_configured" else (
+                    401 if message == "authentication_required" else 403)
+                self._json(status, {"error": message})
+            except ValueError:
+                self._json(400, {"error": "invalid_tool_permission"})
+            return
         if len(parts) == 5 and parts[1:3] == ["v1", "tools"] and parts[4] == "invoke":
             try:
                 identity = self._principal()
@@ -237,7 +308,8 @@ def serve(host="127.0.0.1",port=8080):
     backend=MessengerBackend(tokens,{"default":set(tokens.values())},store,authenticator=authenticator)
     MessengerHandler.backend=backend
     MessengerHandler.authenticator=authenticator
-    MessengerHandler.tool_hub=ToolHubService()
+    from server.tool_permissions import ToolPermissionRegistry
+    MessengerHandler.tool_hub=ToolHubService(permissions=ToolPermissionRegistry(store=store))
     identity_registry=IdentityRegistry(RuntimeConfig.storage_path())
     MessengerHandler.identity_registry=identity_registry
     from server.operational_runtime import OperationalRuntime
