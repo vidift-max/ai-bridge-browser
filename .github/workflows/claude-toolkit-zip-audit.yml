@@ -1,0 +1,125 @@
+name: Claude Toolkit ZIP Static Audit
+
+on:
+  push:
+    branches:
+      - audit/claude-toolkit-zip-review
+    paths:
+      - .github/workflows/claude-toolkit-zip-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout audit branch without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: audit/claude-toolkit-zip-review
+          persist-credentials: false
+
+      - name: Inspect ZIP safely without executing package code
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import pathlib
+          import subprocess
+          import tempfile
+          import zipfile
+
+          archive = pathlib.Path("integrations/AI_Tool_Hub_Pacote_Independente.zip")
+          if not archive.is_file():
+              raise SystemExit("BLOCKED: ZIP not found")
+
+          raw = archive.read_bytes()
+          print(f"ARCHIVE_BYTES={len(raw)}")
+          print(f"ARCHIVE_SHA256={hashlib.sha256(raw).hexdigest()}")
+          print(f"ZIP_MAGIC={raw[:4].hex()}")
+          if not raw.startswith(b"PK\\x03\\x04"):
+              raise SystemExit("NO-GO: invalid ZIP local-file signature")
+
+          with zipfile.ZipFile(archive) as zf:
+              infos = zf.infolist()
+              print(f"ENTRY_COUNT={len(infos)}")
+              if len(infos) > 300:
+                  raise SystemExit("NO-GO: too many archive entries")
+
+              seen = set()
+              total = 0
+              payloads = []
+              for info in infos:
+                  name = info.filename
+                  p = pathlib.PurePosixPath(name)
+                  mode = (info.external_attr >> 16) & 0o170000
+                  if p.is_absolute() or ".." in p.parts or "\\\\" in name:
+                      raise SystemExit(f"NO-GO: unsafe archive path: {name!r}")
+                  if mode == 0o120000:
+                      raise SystemExit(f"NO-GO: symlink entry: {name!r}")
+                  if name in seen:
+                      raise SystemExit(f"NO-GO: duplicate entry: {name!r}")
+                  seen.add(name)
+                  if info.flag_bits & 0x1:
+                      raise SystemExit(f"NO-GO: encrypted entry: {name!r}")
+                  total += info.file_size
+                  if total > 5_000_000:
+                      raise SystemExit("NO-GO: expanded archive exceeds 5 MB")
+                  if info.file_size and info.compress_size == 0:
+                      raise SystemExit(f"NO-GO: suspicious zero compressed size: {name!r}")
+                  if info.compress_size and info.file_size / info.compress_size > 100:
+                      raise SystemExit(f"NO-GO: suspicious compression ratio: {name!r}")
+                  if not info.is_dir():
+                      data = zf.read(info)
+                      if len(data) != info.file_size:
+                          raise SystemExit(f"NO-GO: size mismatch: {name!r}")
+                      payloads.append((name, data))
+                  print(f"ENTRY {info.file_size:8d} bytes  {name}")
+
+          print(f"EXPANDED_BYTES={total}")
+          print("ZIP_INTEGRITY=PASS (all entries read successfully)")
+          print("PATH_AND_LINK_CHECK=PASS")
+
+          with tempfile.TemporaryDirectory(prefix="claude-toolkit-audit-") as td:
+              root = pathlib.Path(td)
+              for name, data in payloads:
+                  suffix = pathlib.PurePosixPath(name).suffix.lower()
+                  if suffix not in (".py", ".js", ".mjs", ".cjs"):
+                      continue
+                  target = root / (hashlib.sha256(name.encode()).hexdigest() + suffix)
+                  target.write_bytes(data)
+                  if suffix == ".py":
+                      try:
+                          compile(data.decode("utf-8"), name, "exec")
+                          print(f"PYTHON_SYNTAX=PASS {name}")
+                      except Exception as exc:
+                          print(f"PYTHON_SYNTAX=FAIL {name}: {exc}")
+                          raise
+                  else:
+                      result = subprocess.run(
+                          ["node", "--check", str(target)],
+                          text=True, capture_output=True
+                      )
+                      if result.returncode:
+                          print(f"JAVASCRIPT_SYNTAX=FAIL {name}")
+                          print(result.stdout)
+                          print(result.stderr)
+                          raise SystemExit(result.returncode)
+                      print(f"JAVASCRIPT_SYNTAX=PASS {name}")
+
+          print("----- BEGIN PACKAGE TEXT CONTENTS (NO EXECUTION) -----")
+          for name, data in payloads:
+              if len(data) > 0 and pathlib.PurePosixPath(name).suffix.lower() in (
+                  ".md", ".txt", ".json", ".py", ".js", ".mjs", ".cjs",
+                  ".html", ".css", ".yml", ".yaml"
+              ):
+                  print(f"\\n===== FILE: {name} ({len(data)} bytes) =====")
+                  try:
+                      print(data.decode("utf-8"))
+                  except UnicodeDecodeError:
+                      print("[NON-UTF8 CONTENT OMITTED]")
+          print("----- END PACKAGE TEXT CONTENTS -----")
+          print("AUDIT_SCOPE=static inspection only; package code was not executed")
+          PY
