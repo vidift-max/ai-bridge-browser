@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 class SQLiteMessengerStore:
     """Small stdlib-only durable store for the experimental Messenger backend."""
@@ -52,6 +52,19 @@ class SQLiteMessengerStore:
                     ON messages(conversation_id, sequence);
             """)
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','1')")
+            self._connection.commit()
+
+        if version < 2:
+            self._connection.executescript("""
+                CREATE TABLE IF NOT EXISTS tool_permissions (
+                    principal_ai_id TEXT NOT NULL,
+                    tool_id TEXT NOT NULL,
+                    granted_by TEXT NOT NULL,
+                    granted_at TEXT NOT NULL,
+                    PRIMARY KEY(principal_ai_id, tool_id)
+                );
+            """)
+            self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','2')")
             self._connection.commit()
 
     def close(self):
