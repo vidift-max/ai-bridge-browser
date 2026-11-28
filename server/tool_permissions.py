@@ -4,6 +4,7 @@ This module does not authenticate callers and does not persist grants. Callers
 must pass an AI identity obtained from the authenticated request context.
 """
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Dict, Iterable, Mapping, FrozenSet
 
 
@@ -25,8 +26,9 @@ class ToolPermission:
 class ToolPermissionRegistry:
     """Explicit per-principal tool grants; absent grants always deny."""
 
-    def __init__(self, grants: Mapping[str, Iterable[str]] = None):
+    def __init__(self, grants: Mapping[str, Iterable[str]] = None, store=None):
         self._grants: Dict[str, FrozenSet[str]] = {}
+        self._store = store
         for principal, tool_ids in (grants or {}).items():
             if (not isinstance(principal, str) or not principal
                     or principal.strip() != principal):
@@ -42,6 +44,61 @@ class ToolPermissionRegistry:
             if not normalized.issubset(SUPPORTED_TOOL_IDS):
                 raise ValueError("unsupported_tool_permission")
             self._grants[principal] = normalized
+        if self._store is not None:
+            for row in self._store.load_tool_permissions():
+                self._validate_principal(row["principal_ai_id"])
+                if row["tool_id"] not in SUPPORTED_TOOL_IDS:
+                    raise ValueError("unsupported_tool_permission")
+                self._grants.setdefault(row["principal_ai_id"], frozenset())
+                self._grants[row["principal_ai_id"]] = (
+                    self._grants[row["principal_ai_id"]] | frozenset({row["tool_id"]})
+                )
+
+    @staticmethod
+    def _validate_principal(principal_ai_id):
+        if (not isinstance(principal_ai_id, str) or not principal_ai_id
+                or principal_ai_id.strip() != principal_ai_id or len(principal_ai_id) > 200):
+            raise ValueError("invalid_tool_permission_principal")
+
+    def grant(self, principal_ai_id: str, tool_id: str, granted_by: str):
+        self._validate_principal(principal_ai_id)
+        if not isinstance(tool_id, str) or tool_id not in SUPPORTED_TOOL_IDS:
+            raise ValueError("unsupported_tool_permission")
+        self._validate_principal(granted_by)
+        granted_at = datetime.now(timezone.utc).isoformat()
+        if self._store is not None:
+            self._store.grant_tool_permission(principal_ai_id, tool_id, granted_by, granted_at)
+        self._grants[principal_ai_id] = self._grants.get(principal_ai_id, frozenset()) | frozenset({tool_id})
+        return {"principalAiId": principal_ai_id, "toolId": tool_id,
+                "grantedBy": granted_by, "grantedAt": granted_at}
+
+    def revoke(self, principal_ai_id: str, tool_id: str):
+        self._validate_principal(principal_ai_id)
+        if not isinstance(tool_id, str) or tool_id not in SUPPORTED_TOOL_IDS:
+            raise ValueError("unsupported_tool_permission")
+        removed = tool_id in self._grants.get(principal_ai_id, frozenset())
+        if self._store is not None:
+            removed = self._store.revoke_tool_permission(principal_ai_id, tool_id)
+        current = self._grants.get(principal_ai_id, frozenset()) - frozenset({tool_id})
+        if current:
+            self._grants[principal_ai_id] = current
+        else:
+            self._grants.pop(principal_ai_id, None)
+        return removed
+
+    def list_grants(self):
+        if self._store is not None:
+            return [
+                {"principalAiId": row["principal_ai_id"], "toolId": row["tool_id"],
+                 "grantedBy": row["granted_by"], "grantedAt": row["granted_at"]}
+                for row in self._store.load_tool_permissions()
+            ]
+        return [
+            {"principalAiId": principal, "toolId": tool_id,
+             "grantedBy": "in-memory", "grantedAt": None}
+            for principal, tool_ids in sorted(self._grants.items())
+            for tool_id in sorted(tool_ids)
+        ]
 
     def can_use(self, principal_ai_id: str, tool_id: str) -> bool:
         if (not isinstance(principal_ai_id, str) or not principal_ai_id
