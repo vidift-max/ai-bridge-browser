@@ -2,7 +2,7 @@ name: Messenger Backend Test
 
 on:
   push:
-    branches: [v2-saas-alpha, 'fix/**', 'feat/tool-hub-cleanroom-agent-adapters']
+    branches: [v2-saas-alpha, 'fix/**', 'feat/tool-hub-cleanroom-agent-adapters', 'feat/agent-tool-dispatch-integration']
     paths:
       - 'server/**'
       - 'registry/tool-hub/**'
