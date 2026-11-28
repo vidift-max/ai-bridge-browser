@@ -31,11 +31,10 @@ or a tool-specific input/output schema exists.
 - `registry/tool-hub/tool-invocation.schema.json`: generic invocation
   envelope; it is not a substitute for a tool-specific input schema.
 - `registry/tool-hub/tool-result.schema.json`: stable result/error envelope.
-- `server/tool_permissions.py`: deny-by-default, per-principal
-  `TOOL_USE` authorization primitive.
+- `server/tool_permissions.py`: deny-by-default, per-principal `TOOL_USE` grants with durable SQLite-backed grant/revoke/list operations.
+- `server/tool_admin_auth.py`: separate administrator bearer authentication; requires `TOOL_HUB_ADMIN_TOKEN` with at least 32 characters.
 - `server/tool_hub.py`: strict catalog loader, authenticated-principal discovery filtering, and fail-closed invocation gate; it deliberately has no executor.
-- `server/test_tool_hub.py` and `server/test_tool_hub_http.py`: service and
-  HTTP boundary regression tests.
+- `server/test_tool_hub.py`, `server/test_tool_hub_http.py`, `server/test_tool_permission_store.py`, and `server/test_tool_admin_auth.py`: service, HTTP, persistence, and administrator-auth regression tests.
 
 ## Required request identity and authorization
 
@@ -52,10 +51,7 @@ or a tool-specific input/output schema exists.
 6. Recheck authorization and enabled status at invocation time; discovery
    visibility is not an authorization token.
 
-The current permission registry is in-memory only, has no durable grant store
-or administrator workflow, and defaults to no grants. The HTTP layer derives
-the AI identity from the authenticated bearer principal; request-body identity
-claims are not accepted for Tool Hub authorization.
+AI tool grants are stored in the Messenger SQLite database (schema v2) and survive process/store recreation. Grants remain deny-by-default. Grant management uses a separate administrator bearer token configured through `TOOL_HUB_ADMIN_TOKEN` (minimum 32 characters); it is never the AI bearer token. If the variable is absent or weak, administrative routes fail closed with 503. The HTTP layer derives the AI identity from the authenticated AI bearer principal; request-body identity claims are not accepted for Tool Hub authorization.
 
 ## HTTP surface (implemented deny-only boundary)
 
@@ -64,13 +60,17 @@ claims are not accepted for Tool Hub authorization.
   `TOOL_USE` grant and `enabled: true` plus status `READY`. Current response
   is empty because all five catalog records are blocked and no grants are
   provisioned by default.
+- `GET /v1/admin/tool-permissions`: administrator-only listing of durable grants.
+- `POST /v1/admin/tool-permissions`: administrator-only grant creation/update using a principal AI ID and tool ID.
+- `DELETE /v1/admin/tool-permissions/{principalAiId}/{toolId}`: administrator-only revocation.
+  Admin routes use a separate `TOOL_HUB_ADMIN_TOKEN`, constant-time bearer comparison, rate limiting, and audit events. No default admin token is created or committed.
 - `POST /v1/tools/{toolId}/invoke`: route and authorization gate implemented.
   Missing grants return 403; unknown IDs return 404; blocked/disabled tools
   return 409. If a tool were marked READY, the current service still returns
   501 because no executor/adapter exists. The endpoint does not parse or run
   a tool payload and cannot execute any tool.
 
-Both routes are covered by HTTP tests and use the existing in-memory per-principal sliding-window limiter (60 requests/minute by default). This is not durable authorization, per-tool production quotas, a deployed endpoint, or proof of live AI clients.
+AI discovery/invocation and admin routes use the existing in-memory sliding-window limiter (60 requests/minute by default). Permission data is durable, but the limiter is not. This is not per-tool production quotas, a deployed endpoint, or proof of live AI clients.
 
 ## Bounds and execution requirements
 
@@ -102,16 +102,18 @@ not returned to callers.
 Implemented in this branch:
 - catalog and generic JSON Schema files;
 - explicit disabled records for the five tool IDs;
-- a deny-by-default in-memory `TOOL_USE` permission primitive and unit tests;
+- durable SQLite-backed `TOOL_USE` grants with administrator grant/list/revoke routes;
+- separate fail-closed administrator bearer authentication and audit events;
+- schema v2 migration with read-only recovery compatibility;
+- authenticated capability discovery and deny-only invocation;
+- regression tests for authorization, admin auth, persistence, and HTTP routes;
 - this contract document.
 
 Not implemented:
 - source-license approval or source provenance decision;
-- tool-specific schemas and adapters;
-- durable permission grants, administrator grant/revoke flow, and production per-tool rate limits (current limiter is in-memory and per principal);
-- durable permission grants, administrator grant/revoke flow, or per-tool
-  production rate limits;
-- tool-specific schemas, adapters/executors, sandboxing, output sanitization, and Android UI wiring.
+- tool-specific schemas and adapters/executors;
+- production-grade admin identity provider/rotation workflow and per-tool quotas;
+- sandboxing, output sanitization, and Android UI wiring.
 
 Until license approval, tool-specific schemas, reviewed adapters, and explicit
 grants are implemented, the five tools remain unavailable. No invocation can
