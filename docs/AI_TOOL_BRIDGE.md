@@ -38,6 +38,17 @@ The HTTP layer never trusts caller-supplied AI identity. It obtains the principa
 - Errors use stable codes such as `INVALID_REQUEST`, `INVALID_FORMAT`, `OUT_OF_RANGE`, `UNKNOWN_UNIT`, `INVALID_QUIZ`, `INVALID_ANSWERS`, `INVALID_SPEC`, `INVALID_SIZE`, `INVALID_URL`, and `OUTPUT_TOO_LARGE`.
 - No request payload, token, password, or credential is written to audit metadata.
 
+## AI-01 / AI-02 provisioning plan
+
+After deployment and confirmation that the configured bearer principals really map to logical AI-01 and AI-02, an owner-controlled administrator must create these exact grants:
+
+| Principal | Tool IDs |
+|---|---|
+| AI-01 | duration_timer, recipe_scaler, quiz_engine, svg_chart, link_card |
+| AI-02 | duration_timer, recipe_scaler, quiz_engine, svg_chart, link_card |
+
+This is ten independent grants via `POST /v1/admin/tool-permissions`, each with `{"principalAiId":"AI-01","toolId":"duration_timer"}` (substitute the row's principal and tool). Verify with `GET /v1/admin/tool-permissions`, then test `GET /v1/tools/capabilities` using each agent's own bearer credential. Never give the administrator token to an agent. Do not provision until `MESSENGER_AI_ID_A` and `MESSENGER_AI_ID_B` have been checked against the intended AI-01/AI-02 mapping; the server accepts configured IDs such as AI-GPT6 or AI-CLAUDE, so labels must not be assumed.
+
 ## Remaining integration boundaries
 
 - Tool adapters and API are implemented in this branch, but CI must pass before claiming verified readiness.
