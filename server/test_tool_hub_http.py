@@ -195,6 +195,15 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertTrue(MessengerHandler.tool_hub.permissions.can_use("AI-A", "duration_timer"))
         self.assertFalse(MessengerHandler.tool_hub.permissions.can_use("AI-B", "duration_timer"))
+        # A grant cannot override the independently blocked catalog state.
+        status, capabilities = self.request("GET", "/v1/tools/capabilities", "token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual(capabilities["tools"], [])
+        status, invocation = self.request(
+            "POST", "/v1/tools/duration_timer/invoke", "token-a"
+        )
+        self.assertEqual(status, 409)
+        self.assertEqual(invocation["error"], "tool_unavailable")
 
 if __name__ == "__main__":
     unittest.main()
