@@ -1,0 +1,19 @@
+2026-11-28T06:19:05Z
+--- JS: saída em overflow
+svg 1e308 contém Infinity/NaN: true
+<text x="42" y="248" text-anchor="end" fill="#555">Infinity</text>
+<text x="42" y="172" text-anchor="end" fill="#555">Infinity</text>
+<text x="42" y="96" text-anchor="end" fill="#555">Infinity</text>
+svg 1.23e29 linhas com e+: <text x="42" y="248" text-anchor="end" fill="#555">5.0000000000000005e+28</text> || <text x="42" y="172" text-anchor="end" fill="#555">1.0000000000000001e+29</text>
+scale amount 1e308 -> Infinity | JSON: {"name":"A","amount":null,"unit":"g"}
+--- Python: int() e limite de dígitos
+'9'*5000+':00' CRASH ValueError Exceeds the limit (4300 digits) for integer string conversion: value has 5000 digits; use 
+'9'*5000+':00:00' CRASH ValueError Exceeds the limit (4300 digits) for integer string conversion: value has 5000 digits; use 
+js 9*5000:00 -> OUT_OF_RANGE
+--- CLI Python: NaN/Infinity em JSON (json.load aceita)
+nan_label: exit=1 | ultima linha stderr: ValueError: cannot convert float NaN to integer
+big: exit=1 | ultima linha stderr: OverflowError: cannot convert float infinity to integer
+--- app.js/html: pontos de injeção e CSP
+app.js:134:      $('cOut').innerHTML = hub.svgChart.renderChart(parseJson($('cJson').value));
+index_standalone.html:823:      $('cOut').innerHTML = hub.svgChart.renderChart(parseJson($('cJson').value));
+Content-Security-Policy" content="connect-src 'none'; form-action 'none'; base-uri 'none'"

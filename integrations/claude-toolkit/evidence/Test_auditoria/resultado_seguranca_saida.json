@@ -1,0 +1,2767 @@
+[
+ {
+  "id": 201,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "baseline"
+ },
+ {
+  "id": 201,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "baseline"
+ },
+ {
+  "id": 202,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "baseline linha"
+ },
+ {
+  "id": 202,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "baseline linha"
+ },
+ {
+  "id": 203,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <script>alert(1)</script>"
+ },
+ {
+  "id": 203,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <script>alert(1)</script>"
+ },
+ {
+  "id": 204,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \"/><script>alert(1)</script>"
+ },
+ {
+  "id": 204,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \"/><script>alert(1)</script>"
+ },
+ {
+  "id": 205,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: </text><script>x</script><text"
+ },
+ {
+  "id": 205,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: </text><script>x</script><text"
+ },
+ {
+  "id": 206,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: ]]>"
+ },
+ {
+  "id": 206,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: ]]>"
+ },
+ {
+  "id": 207,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <!ENTITY x SYSTEM 'file:///etc"
+ },
+ {
+  "id": 207,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <!ENTITY x SYSTEM 'file:///etc"
+ },
+ {
+  "id": 208,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: &xxe;"
+ },
+ {
+  "id": 208,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: &xxe;"
+ },
+ {
+  "id": 209,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <?xml version='1.0'?>"
+ },
+ {
+  "id": 209,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <?xml version='1.0'?>"
+ },
+ {
+  "id": 210,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: javascript:alert(1)"
+ },
+ {
+  "id": 210,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: javascript:alert(1)"
+ },
+ {
+  "id": 211,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <svg onload=alert(1)>"
+ },
+ {
+  "id": 211,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <svg onload=alert(1)>"
+ },
+ {
+  "id": 212,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <foreignObject><iframe src=//e"
+ },
+ {
+  "id": 212,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <foreignObject><iframe src=//e"
+ },
+ {
+  "id": 213,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <a xlink:href=\"javascript:aler"
+ },
+ {
+  "id": 213,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <a xlink:href=\"javascript:aler"
+ },
+ {
+  "id": 214,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <image href=\"http://evil/x.png"
+ },
+ {
+  "id": 214,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <image href=\"http://evil/x.png"
+ },
+ {
+  "id": 215,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <style>*{background:url(http:/"
+ },
+ {
+  "id": 215,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: <style>*{background:url(http:/"
+ },
+ {
+  "id": 216,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: ' onmouseover='alert(1)"
+ },
+ {
+  "id": 216,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: ' onmouseover='alert(1)"
+ },
+ {
+  "id": 217,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\x00\\x01\\x02\\x1f"
+ },
+ {
+  "id": 217,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\x00\\x01\\x02\\x1f"
+ },
+ {
+  "id": 218,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: a\\u2028b\\u2029c"
+ },
+ {
+  "id": 218,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: a\\u2028b\\u2029c"
+ },
+ {
+  "id": 219,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: a\\x85b"
+ },
+ {
+  "id": 219,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: a\\x85b"
+ },
+ {
+  "id": 220,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: a\\ufeffb"
+ },
+ {
+  "id": 220,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: a\\ufeffb"
+ },
+ {
+  "id": 221,
+  "lang": "py",
+  "kind": "svg",
+  "result": "NOT_WELLFORMED_XML: not well-formed (invalid token): line 2, column 8",
+  "note": "hostil: a\\ufffe\\uffffb"
+ },
+ {
+  "id": 221,
+  "lang": "js",
+  "kind": "svg",
+  "result": "NOT_WELLFORMED_XML: not well-formed (invalid token): line 2, column 8",
+  "note": "hostil: a\\ufffe\\uffffb"
+ },
+ {
+  "id": 222,
+  "lang": "py",
+  "kind": "svg",
+  "result": "NOT_WELLFORMED_XML: 'utf-8' codec can't encode character '\\ud800' in position 14",
+  "note": "hostil: a\\ud800b"
+ },
+ {
+  "id": 222,
+  "lang": "js",
+  "kind": "svg",
+  "result": "NOT_WELLFORMED_XML: 'utf-8' codec can't encode character '\\ud800' in position 14",
+  "note": "hostil: a\\ud800b"
+ },
+ {
+  "id": 223,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\u202eRTL"
+ },
+ {
+  "id": 223,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\u202eRTL"
+ },
+ {
+  "id": 224,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600"
+ },
+ {
+  "id": 224,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600\\U0001f600"
+ },
+ {
+  "id": 225,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+ },
+ {
+  "id": 225,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+ },
+ {
+  "id": 226,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\x7f\\x80\\x9f"
+ },
+ {
+  "id": 226,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\x7f\\x80\\x9f"
+ },
+ {
+  "id": 227,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: &#x3C;script&#x3E;"
+ },
+ {
+  "id": 227,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: &#x3C;script&#x3E;"
+ },
+ {
+  "id": 228,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: %3Cscript%3E"
+ },
+ {
+  "id": 228,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: %3Cscript%3E"
+ },
+ {
+  "id": 229,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: ${7*7}{{7*7}}"
+ },
+ {
+  "id": 229,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: ${7*7}{{7*7}}"
+ },
+ {
+  "id": 230,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\\\u003cscript\\\\u003e"
+ },
+ {
+  "id": 230,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil: \\\\u003cscript\\\\u003e"
+ },
+ {
+  "id": 231,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 231,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 232,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 232,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 233,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 233,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 234,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 234,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 235,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 235,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 236,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 236,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "hostil linha"
+ },
+ {
+  "id": 254,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1,\"a\"]"
+ },
+ {
+  "id": 254,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1,\"a\"]"
+ },
+ {
+  "id": 255,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[3.14159,2]"
+ },
+ {
+  "id": 255,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[3.14159,2]"
+ },
+ {
+  "id": 256,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1e21,2]"
+ },
+ {
+  "id": 256,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1e21,2]"
+ },
+ {
+  "id": 257,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1e-7,2]"
+ },
+ {
+  "id": 257,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1e-7,2]"
+ },
+ {
+  "id": 258,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[123456789012,2]"
+ },
+ {
+  "id": 258,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[123456789012,2]"
+ },
+ {
+  "id": 259,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[-5,2]"
+ },
+ {
+  "id": 259,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[-5,2]"
+ },
+ {
+  "id": 260,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[0.30000000000000004,2]"
+ },
+ {
+  "id": 260,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[0.30000000000000004,2]"
+ },
+ {
+  "id": 261,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1.005,2.675]"
+ },
+ {
+  "id": 261,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1.005,2.675]"
+ },
+ {
+  "id": 262,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[5e-324,2]"
+ },
+ {
+  "id": 262,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[5e-324,2]"
+ },
+ {
+  "id": 263,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1e309,2]"
+ },
+ {
+  "id": 264,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[0.1,2]"
+ },
+ {
+  "id": 264,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[0.1,2]"
+ },
+ {
+  "id": 265,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[100.0,2]"
+ },
+ {
+  "id": 265,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[100.0,2]"
+ },
+ {
+  "id": 266,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1e5,2]"
+ },
+ {
+  "id": 266,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1e5,2]"
+ },
+ {
+  "id": 267,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1.5e300,2]"
+ },
+ {
+  "id": 267,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "labels=[1.5e300,2]"
+ },
+ {
+  "id": 268,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "50 labels (limite)"
+ },
+ {
+  "id": 268,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "50 labels (limite)"
+ },
+ {
+  "id": 270,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "6 series (limite)"
+ },
+ {
+  "id": 270,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "6 series (limite)"
+ },
+ {
+  "id": 293,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=-0.0"
+ },
+ {
+  "id": 293,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=-0.0"
+ },
+ {
+  "id": 294,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=-0.0"
+ },
+ {
+  "id": 294,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=-0.0"
+ },
+ {
+  "id": 295,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=0"
+ },
+ {
+  "id": 295,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=0"
+ },
+ {
+  "id": 296,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=0"
+ },
+ {
+  "id": 296,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=0"
+ },
+ {
+  "id": 297,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=1e308"
+ },
+ {
+  "id": 298,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=1e308"
+ },
+ {
+  "id": 299,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=1.7976931348623157e308"
+ },
+ {
+  "id": 300,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=1.7976931348623157e308"
+ },
+ {
+  "id": 305,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=5e-324"
+ },
+ {
+  "id": 305,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=5e-324"
+ },
+ {
+  "id": 306,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=5e-324"
+ },
+ {
+  "id": 306,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=5e-324"
+ },
+ {
+  "id": 307,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=1e-320"
+ },
+ {
+  "id": 307,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=1e-320"
+ },
+ {
+  "id": 308,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=1e-320"
+ },
+ {
+  "id": 308,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=1e-320"
+ },
+ {
+  "id": 309,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=1e21"
+ },
+ {
+  "id": 309,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=1e21"
+ },
+ {
+  "id": 310,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=1e21"
+ },
+ {
+  "id": 310,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=1e21"
+ },
+ {
+  "id": 313,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=123456789012345678901234567890"
+ },
+ {
+  "id": 313,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=123456789012345678901234567890"
+ },
+ {
+  "id": 314,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=123456789012345678901234567890"
+ },
+ {
+  "id": 314,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=123456789012345678901234567890"
+ },
+ {
+  "id": 315,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=0.1"
+ },
+ {
+  "id": 315,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=0.1"
+ },
+ {
+  "id": 316,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=0.1"
+ },
+ {
+  "id": 316,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=0.1"
+ },
+ {
+  "id": 317,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=1e15"
+ },
+ {
+  "id": 317,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=1e15"
+ },
+ {
+  "id": 318,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=1e15"
+ },
+ {
+  "id": 318,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=1e15"
+ },
+ {
+  "id": 319,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=2.5e-7"
+ },
+ {
+  "id": 319,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "valor=2.5e-7"
+ },
+ {
+  "id": 320,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=2.5e-7"
+ },
+ {
+  "id": 320,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "linha valor=2.5e-7"
+ },
+ {
+  "id": 321,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "tudo zero"
+ },
+ {
+  "id": 321,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "tudo zero"
+ },
+ {
+  "id": 324,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "width=640.0"
+ },
+ {
+  "id": 325,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=640.0"
+ },
+ {
+  "id": 329,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=199"
+ },
+ {
+  "id": 329,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=199"
+ },
+ {
+  "id": 330,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "width=200"
+ },
+ {
+  "id": 330,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "width=200"
+ },
+ {
+  "id": 331,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=200"
+ },
+ {
+  "id": 331,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=200"
+ },
+ {
+  "id": 332,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "width=2000"
+ },
+ {
+  "id": 332,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "width=2000"
+ },
+ {
+  "id": 333,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=2000"
+ },
+ {
+  "id": 333,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=2000"
+ },
+ {
+  "id": 342,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "width=1e3"
+ },
+ {
+  "id": 343,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=1e3"
+ },
+ {
+  "id": 352,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "width=2000.0"
+ },
+ {
+  "id": 353,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=2000.0"
+ },
+ {
+  "id": 354,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "width=200.0"
+ },
+ {
+  "id": 355,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "height=200.0"
+ },
+ {
+  "id": 356,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "campos extras/desconhecidos"
+ },
+ {
+  "id": 356,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "campos extras/desconhecidos"
+ },
+ {
+  "id": 357,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "title/name n\u00e3o-string"
+ },
+ {
+  "id": 357,
+  "lang": "js",
+  "kind": "svg",
+  "result": "OK",
+  "note": "title/name n\u00e3o-string"
+ },
+ {
+  "id": 358,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "truncamento: 119 'a' + emoji + bcd"
+ },
+ {
+  "id": 358,
+  "lang": "js",
+  "kind": "svg",
+  "result": "NOT_WELLFORMED_XML: 'utf-8' codec can't encode character '\\ud83d' in position 26",
+  "note": "truncamento: 119 'a' + emoji + bcd"
+ },
+ {
+  "id": 359,
+  "lang": "py",
+  "kind": "svg",
+  "result": "OK",
+  "note": "truncamento emoji em title/label/name"
+ },
+ {
+  "id": 359,
+  "lang": "js",
+  "kind": "svg",
+  "result": "NOT_WELLFORMED_XML: 'utf-8' codec can't encode character '\\ud83d' in position 26",
+  "note": "truncamento emoji em title/label/name"
+ },
+ {
+  "id": 360,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 360,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 361,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://Example.COM:443/a",
+  "url": "https://example.com/a"
+ },
+ {
+  "id": 361,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://Example.COM:443/a",
+  "url": "https://example.com/a"
+ },
+ {
+  "id": 362,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:80",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 362,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:80",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 363,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:8080/x",
+  "url": "http://example.com:8080/x"
+ },
+ {
+  "id": 363,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:8080/x",
+  "url": "http://example.com:8080/x"
+ },
+ {
+  "id": 364,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::1]:8080/x",
+  "url": "http://[::1]:8080/x"
+ },
+ {
+  "id": 364,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::1]:8080/x",
+  "url": "http://[::1]:8080/x"
+ },
+ {
+  "id": 365,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::1]/",
+  "url": "http://[::1]/"
+ },
+ {
+  "id": 365,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::1]/",
+  "url": "http://[::1]/"
+ },
+ {
+  "id": 366,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::1]:80/",
+  "url": "http://[::1]/"
+ },
+ {
+  "id": 366,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::1]:80/",
+  "url": "http://[::1]/"
+ },
+ {
+  "id": 367,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://[::1]:443",
+  "url": "https://[::1]/"
+ },
+ {
+  "id": 367,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://[::1]:443",
+  "url": "https://[::1]/"
+ },
+ {
+  "id": 368,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[0:0:0:0:0:0:0:1]/",
+  "url": "http://[0:0:0:0:0:0:0:1]/"
+ },
+ {
+  "id": 368,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[0:0:0:0:0:0:0:1]/",
+  "url": "http://[::1]/"
+ },
+ {
+  "id": 369,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::FFFF:1.2.3.4]/",
+  "url": "http://[::ffff:1.2.3.4]/"
+ },
+ {
+  "id": 369,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::FFFF:1.2.3.4]/",
+  "url": "http://[::ffff:102:304]/"
+ },
+ {
+  "id": 370,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[2001:DB8::1]:9/p?q=1#f",
+  "url": "http://[2001:db8::1]:9/p?q=1#f"
+ },
+ {
+  "id": 370,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[2001:DB8::1]:9/p?q=1#f",
+  "url": "http://[2001:db8::1]:9/p?q=1#f"
+ },
+ {
+  "id": 371,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[fe80::1%25eth0]/",
+  "url": "http://[fe80::1%25eth0]/"
+ },
+ {
+  "id": 377,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://127.0.0.1:3000/",
+  "url": "http://127.0.0.1:3000/"
+ },
+ {
+  "id": 377,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://127.0.0.1:3000/",
+  "url": "http://127.0.0.1:3000/"
+ },
+ {
+  "id": 378,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://127.1/",
+  "url": "http://127.1/"
+ },
+ {
+  "id": 378,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://127.1/",
+  "url": "http://127.0.0.1/"
+ },
+ {
+  "id": 379,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://0x7f.1/",
+  "url": "http://0x7f.1/"
+ },
+ {
+  "id": 379,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://0x7f.1/",
+  "url": "http://127.0.0.1/"
+ },
+ {
+  "id": 380,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://2130706433/",
+  "url": "http://2130706433/"
+ },
+ {
+  "id": 380,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://2130706433/",
+  "url": "http://127.0.0.1/"
+ },
+ {
+  "id": 381,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://0177.0.0.1/",
+  "url": "http://0177.0.0.1/"
+ },
+ {
+  "id": 381,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://0177.0.0.1/",
+  "url": "http://127.0.0.1/"
+ },
+ {
+  "id": 382,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://192.168.0.1/",
+  "url": "http://192.168.0.1/"
+ },
+ {
+  "id": 382,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://192.168.0.1/",
+  "url": "http://192.168.0.1/"
+ },
+ {
+  "id": 383,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://169.254.169.254/latest/meta-data/",
+  "url": "http://169.254.169.254/latest/meta-data/"
+ },
+ {
+  "id": 383,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://169.254.169.254/latest/meta-data/",
+  "url": "http://169.254.169.254/latest/meta-data/"
+ },
+ {
+  "id": 384,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://256.256.256.256/",
+  "url": "http://256.256.256.256/"
+ },
+ {
+  "id": 385,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://1.2.3/",
+  "url": "http://1.2.3/"
+ },
+ {
+  "id": 385,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://1.2.3/",
+  "url": "http://1.2.0.3/"
+ },
+ {
+  "id": 386,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://1.2.3.4.5/",
+  "url": "http://1.2.3.4.5/"
+ },
+ {
+  "id": 387,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://localhost/",
+  "url": "http://localhost/"
+ },
+ {
+  "id": 387,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://localhost/",
+  "url": "http://localhost/"
+ },
+ {
+  "id": 388,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://LOCALHOST:8080",
+  "url": "http://localhost:8080/"
+ },
+ {
+  "id": 388,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://LOCALHOST:8080",
+  "url": "http://localhost:8080/"
+ },
+ {
+  "id": 389,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com./",
+  "url": "http://example.com./"
+ },
+ {
+  "id": 389,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com./",
+  "url": "http://example.com./"
+ },
+ {
+  "id": 390,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://-bad-.com/",
+  "url": "http://-bad-.com/"
+ },
+ {
+  "id": 390,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://-bad-.com/",
+  "url": "http://-bad-.com/"
+ },
+ {
+  "id": 391,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://a_b.com/",
+  "url": "http://a_b.com/"
+ },
+ {
+  "id": 391,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://a_b.com/",
+  "url": "http://a_b.com/"
+ },
+ {
+  "id": 392,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://exa%6Dple.com/",
+  "url": "http://exa%6Dple.com/"
+ },
+ {
+  "id": 392,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://exa%6Dple.com/",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 393,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://b\\xfccher.de/",
+  "url": "http://b\u00fccher.de/"
+ },
+ {
+  "id": 393,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://b\\xfccher.de/",
+  "url": "http://xn--bcher-kva.de/"
+ },
+ {
+  "id": 394,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://xn--bcher-kva.de/",
+  "url": "http://xn--bcher-kva.de/"
+ },
+ {
+  "id": 394,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://xn--bcher-kva.de/",
+  "url": "http://xn--bcher-kva.de/"
+ },
+ {
+  "id": 395,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://\\u4f8b\\u3048.jp/",
+  "url": "http://\u4f8b\u3048.jp/"
+ },
+ {
+  "id": 395,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://\\u4f8b\\u3048.jp/",
+  "url": "http://xn--r8jz45g.jp/"
+ },
+ {
+  "id": 396,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://EXAMPLE.com/\\xc4",
+  "url": "http://example.com/\u00c4"
+ },
+ {
+  "id": 396,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://EXAMPLE.com/\\xc4",
+  "url": "http://example.com/%C3%84"
+ },
+ {
+  "id": 397,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/\\xe9?\\xe9#\\xe9",
+  "url": "http://example.com/\u00e9?\u00e9#\u00e9"
+ },
+ {
+  "id": 397,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/\\xe9?\\xe9#\\xe9",
+  "url": "http://example.com/%C3%A9?%C3%A9#%C3%A9"
+ },
+ {
+  "id": 398,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/a/../b",
+  "url": "http://example.com/a/../b"
+ },
+ {
+  "id": 398,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/a/../b",
+  "url": "http://example.com/b"
+ },
+ {
+  "id": 399,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/./a//b",
+  "url": "http://example.com/./a//b"
+ },
+ {
+  "id": 399,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/./a//b",
+  "url": "http://example.com/a//b"
+ },
+ {
+  "id": 400,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/%2e%2e/x",
+  "url": "http://example.com/%2e%2e/x"
+ },
+ {
+  "id": 400,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/%2e%2e/x",
+  "url": "http://example.com/x"
+ },
+ {
+  "id": 401,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/a%2Fb",
+  "url": "http://example.com/a%2Fb"
+ },
+ {
+  "id": 401,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/a%2Fb",
+  "url": "http://example.com/a%2Fb"
+ },
+ {
+  "id": 402,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com?q=1",
+  "url": "http://example.com/?q=1"
+ },
+ {
+  "id": 402,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com?q=1",
+  "url": "http://example.com/?q=1"
+ },
+ {
+  "id": 403,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com#f",
+  "url": "http://example.com/#f"
+ },
+ {
+  "id": 403,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com#f",
+  "url": "http://example.com/#f"
+ },
+ {
+  "id": 404,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/?",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 404,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/?",
+  "url": "http://example.com/?"
+ },
+ {
+  "id": 405,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/#",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 405,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/#",
+  "url": "http://example.com/#"
+ },
+ {
+  "id": 406,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/path?",
+  "url": "http://example.com/path"
+ },
+ {
+  "id": 406,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/path?",
+  "url": "http://example.com/path?"
+ },
+ {
+  "id": 407,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/p?a=\"<>'",
+  "url": "http://example.com/p?a=\"<>'"
+ },
+ {
+  "id": 407,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/p?a=\"<>'",
+  "url": "http://example.com/p?a=%22%3C%3E%27"
+ },
+ {
+  "id": 408,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/\"<>`{}|^",
+  "url": "http://example.com/\"<>`{}|^"
+ },
+ {
+  "id": 408,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com/\"<>`{}|^",
+  "url": "http://example.com/%22%3C%3E%60%7B%7D|^"
+ },
+ {
+  "id": 409,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 409,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 410,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:/",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 410,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:/",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 411,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:0/",
+  "url": "http://example.com:0/"
+ },
+ {
+  "id": 411,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:0/",
+  "url": "http://example.com:0/"
+ },
+ {
+  "id": 412,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:65535/",
+  "url": "http://example.com:65535/"
+ },
+ {
+  "id": 412,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:65535/",
+  "url": "http://example.com:65535/"
+ },
+ {
+  "id": 417,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:080/",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 417,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://example.com:080/",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 419,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=HTTP://EXAMPLE.COM",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 419,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=HTTP://EXAMPLE.COM",
+  "url": "http://example.com/"
+ },
+ {
+  "id": 420,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=hTtPs://example.com",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 420,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=hTtPs://example.com",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 428,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://.",
+  "url": "http://./"
+ },
+ {
+  "id": 428,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://.",
+  "url": "http://./"
+ },
+ {
+  "id": 429,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://..",
+  "url": "http://../"
+ },
+ {
+  "id": 429,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://..",
+  "url": "http://../"
+ },
+ {
+  "id": 435,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://@x.com",
+  "url": "http://x.com/"
+ },
+ {
+  "id": 435,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://@x.com",
+  "url": "http://x.com/"
+ },
+ {
+  "id": 437,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://evil.com\\\\@good.com",
+  "url": "http://evil.com/@good.com"
+ },
+ {
+  "id": 438,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://evil.com\\\\x",
+  "url": "http://evil.com\\x/"
+ },
+ {
+  "id": 438,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://evil.com\\\\x",
+  "url": "http://evil.com/x"
+ },
+ {
+  "id": 439,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://evil.com\\\\",
+  "url": "http://evil.com\\/"
+ },
+ {
+  "id": 439,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://evil.com\\\\",
+  "url": "http://evil.com/"
+ },
+ {
+  "id": 441,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://evil.com/\\\\x",
+  "url": "http://evil.com/\\x"
+ },
+ {
+  "id": 441,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://evil.com/\\\\x",
+  "url": "http://evil.com//x"
+ },
+ {
+  "id": 456,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=  https://example.com  ",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 456,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=  https://example.com  ",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 457,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\\xa0x",
+  "url": "https://example.com/\u00a0x"
+ },
+ {
+  "id": 457,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\\xa0x",
+  "url": "https://example.com/%C2%A0x"
+ },
+ {
+  "id": 458,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\\u3000x",
+  "url": "https://example.com/\u3000x"
+ },
+ {
+  "id": 458,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\\u3000x",
+  "url": "https://example.com/%E3%80%80x"
+ },
+ {
+  "id": 459,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://exam\\xa0ple.com",
+  "url": "https://exam\u00a0ple.com/"
+ },
+ {
+  "id": 460,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://exam\\u200bple.com",
+  "url": "https://exam\u200bple.com/"
+ },
+ {
+  "id": 460,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://exam\\u200bple.com",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 461,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\\u202e",
+  "url": "https://example.com/\u202e"
+ },
+ {
+  "id": 461,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\\u202e",
+  "url": "https://example.com/%E2%80%AE"
+ },
+ {
+  "id": 462,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://\\uff25\\uff38\\uff21\\uff2d\\uff30\\uff2c\\uff25.com",
+  "url": "https://\uff45\uff58\uff41\uff4d\uff50\uff4c\uff45.com/"
+ },
+ {
+  "id": 462,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://\\uff25\\uff38\\uff21\\uff2d\\uff30\\uff2c\\uff25.com",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 463,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com\\u3002",
+  "url": "https://example.com\u3002/"
+ },
+ {
+  "id": 463,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com\\u3002",
+  "url": "https://example.com./"
+ },
+ {
+  "id": 464,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com\\uff0e",
+  "url": "https://example.com\uff0e/"
+ },
+ {
+  "id": 464,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com\\uff0e",
+  "url": "https://example.com./"
+ },
+ {
+  "id": 465,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "url": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+ },
+ {
+  "id": 465,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "url": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+ },
+ {
+  "id": 466,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "url": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+ },
+ {
+  "id": 466,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "url": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+ },
+ {
+  "id": 469,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "url": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+ },
+ {
+  "id": 469,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "url": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
+ },
+ {
+  "id": 470,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "url": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com/"
+ },
+ {
+  "id": 470,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "url": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com/"
+ },
+ {
+  "id": 471,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/%",
+  "url": "https://example.com/%"
+ },
+ {
+  "id": 471,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/%",
+  "url": "https://example.com/%"
+ },
+ {
+  "id": 472,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/%zz",
+  "url": "https://example.com/%zz"
+ },
+ {
+  "id": 472,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/%zz",
+  "url": "https://example.com/%zz"
+ },
+ {
+  "id": 473,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/%00",
+  "url": "https://example.com/%00"
+ },
+ {
+  "id": 473,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/%00",
+  "url": "https://example.com/%00"
+ },
+ {
+  "id": 475,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\\ud800",
+  "url": "https://example.com/\ud800"
+ },
+ {
+  "id": 475,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\\ud800",
+  "url": "https://example.com/%EF%BF%BD"
+ },
+ {
+  "id": 476,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/<script>alert(1)</script>",
+  "url": "https://example.com/<script>alert(1)</script>"
+ },
+ {
+  "id": 476,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/<script>alert(1)</script>",
+  "url": "https://example.com/%3Cscript%3Ealert(1)%3C/script%3E"
+ },
+ {
+  "id": 477,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\"><script>alert(1)</script>",
+  "url": "https://example.com/\"><script>alert(1)</script>"
+ },
+ {
+  "id": 477,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/\"><script>alert(1)</script>",
+  "url": "https://example.com/%22%3E%3Cscript%3Ealert(1)%3C/script%3E"
+ },
+ {
+  "id": 478,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/?a=1&b=2&amp;c=3",
+  "url": "https://example.com/?a=1&b=2&amp;c=3"
+ },
+ {
+  "id": 478,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/?a=1&b=2&amp;c=3",
+  "url": "https://example.com/?a=1&b=2&amp;c=3"
+ },
+ {
+  "id": 479,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/'onmouseover='alert(1)",
+  "url": "https://example.com/'onmouseover='alert(1)"
+ },
+ {
+  "id": 479,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=https://example.com/'onmouseover='alert(1)",
+  "url": "https://example.com/'onmouseover='alert(1)"
+ },
+ {
+  "id": 482,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://1e3.com/",
+  "url": "http://1e3.com/"
+ },
+ {
+  "id": 482,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://1e3.com/",
+  "url": "http://1e3.com/"
+ },
+ {
+  "id": 484,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::1]:/",
+  "url": "http://[::1]/"
+ },
+ {
+  "id": 484,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[::1]:/",
+  "url": "http://[::1]/"
+ },
+ {
+  "id": 485,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "url=http://[v1.fe]/",
+  "url": "http://v1.fe/"
+ },
+ {
+  "id": 497,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "entrada=[{\"url\":\"https://example.com\"}]",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 497,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "entrada=[{\"url\":\"https://example.com\"}]",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 499,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=null",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 499,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=null",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 500,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=5",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 500,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=5",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 501,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=[]",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 501,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=[]",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 502,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description={}",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 502,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description={}",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 503,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 503,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 504,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"  \"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 504,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"  \"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 505,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"x\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 505,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"x\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 506,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"<script>alert(1)</script>\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 506,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"<script>alert(1)</script>\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 507,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"\\u0000a\\u001fb\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 507,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"\\u0000a\\u001fb\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 508,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"ttttttttttttttttttttttttttttttttttttttt",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 508,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"ttttttttttttttttttttttttttttttttttttttt",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 509,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 509,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 510,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"ttttttttttttttttttttttttttttttttttttttt",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 510,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"ttttttttttttttttttttttttttttttttttttttt",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 511,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"a\\u0085b\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 511,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"a\\u0085b\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 512,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"a\\ufeffb\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 512,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"a\\ufeffb\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 513,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"\\u2028\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 513,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "title/description=\"\\u2028\"",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 514,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "descri\u00e7\u00e3o 301",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 514,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "descri\u00e7\u00e3o 301",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 515,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "descri\u00e7\u00e3o emoji no corte",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 515,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "descri\u00e7\u00e3o emoji no corte",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 516,
+  "lang": "py",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "campos extras",
+  "url": "https://example.com/"
+ },
+ {
+  "id": 516,
+  "lang": "js",
+  "kind": "link_html",
+  "result": "OK",
+  "note": "campos extras",
+  "url": "https://example.com/"
+ }
+]

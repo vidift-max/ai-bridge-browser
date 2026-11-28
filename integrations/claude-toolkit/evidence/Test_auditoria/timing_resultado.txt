@@ -1,0 +1,10 @@
+python parse_duration('1'*2000+'x') 0.130s -> ToolError:INVALID_FORMAT
+python parse_duration('1'*4000+'x') 0.480s -> ToolError:INVALID_FORMAT
+python parse_duration('1'*8000+'x') 2.100s -> ToolError:INVALID_FORMAT
+python parse_duration('1'*16000+'x') 8.235s -> ToolError:INVALID_FORMAT
+python parse_duration('1'*32000+'x') 31.900s -> ToolError:INVALID_FORMAT
+javascript parseDuration('1'*2000+'x') 0.013s -> INVALID_FORMAT
+javascript parseDuration('1'*4000+'x') 0.039s -> INVALID_FORMAT
+javascript parseDuration('1'*8000+'x') 0.180s -> INVALID_FORMAT
+javascript parseDuration('1'*16000+'x') 0.654s -> INVALID_FORMAT
+javascript parseDuration('1'*32000+'x') 2.551s -> INVALID_FORMAT
