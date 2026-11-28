@@ -30,7 +30,7 @@ class ToolHubService:
         with path.open("r", encoding="utf-8") as handle:
             document = json.load(handle, object_pairs_hook=self._reject_duplicate_keys)
         self._catalog = self._validate_catalog(document)
-        self._validate_schema_files(self._catalog)
+        self._schemas = self._load_schema_files(self._catalog)
         self._permissions = permissions if permissions is not None else ToolPermissionRegistry()
 
     @staticmethod
@@ -94,11 +94,13 @@ class ToolHubService:
         return (not candidate.is_absolute() and ".." not in candidate.parts
                 and value.endswith(".schema.json"))
 
-    def _validate_schema_files(self, catalog):
+    def _load_schema_files(self, catalog):
         schema_root = (self._root / "registry" / "tool-hub" / "schemas").resolve()
-        for item in catalog.values():
+        loaded = {}
+        for tool_id, item in catalog.items():
             if item["status"] != "READY":
                 continue
+            loaded[tool_id] = {}
             for key in ("inputSchemaRef", "outputSchemaRef"):
                 candidate = (self._root / item[key]).resolve()
                 if not candidate.is_relative_to(schema_root) or not candidate.is_file():
@@ -107,6 +109,8 @@ class ToolHubService:
                     schema = json.load(handle, object_pairs_hook=self._reject_duplicate_keys)
                 if not isinstance(schema, dict) or schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
                     raise ValueError("invalid_tool_schema")
+                loaded[tool_id]["inputSchema" if key == "inputSchemaRef" else "outputSchema"] = schema
+        return loaded
 
     @property
     def permissions(self):
@@ -119,7 +123,9 @@ class ToolHubService:
             item = self._catalog.get(tool_id)
             if item and item["enabled"] is True and item["status"] == "READY":
                 visible.append({"toolId": tool_id, "version": item["version"],
-                                "description": item.get("description", "")})
+                                "description": item.get("description", ""),
+                                "inputSchema": self._schemas[tool_id]["inputSchema"],
+                                "outputSchema": self._schemas[tool_id]["outputSchema"]})
         return {"tools": visible}
 
     def invoke(self, principal_ai_id, tool_id, request):
