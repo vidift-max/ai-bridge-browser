@@ -32,9 +32,18 @@ class ToolHubService:
             Path(__file__).resolve().parents[1] / "registry" / "tool-hub" / "catalog.json"
         )
         with path.open("r", encoding="utf-8") as handle:
-            document = json.load(handle)
+            document = json.load(handle, object_pairs_hook=self._reject_duplicate_keys)
         self._catalog = self._validate_catalog(document)
         self._permissions = permissions if permissions is not None else ToolPermissionRegistry()
+
+    @staticmethod
+    def _reject_duplicate_keys(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate_tool_catalog_key")
+            result[key] = value
+        return result
 
     @classmethod
     def _validate_catalog(cls, document):
