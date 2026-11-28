@@ -84,6 +84,11 @@ class ToolHubHttpTest(unittest.TestCase):
         status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
         self.assertEqual(status, 409)
         self.assertEqual(payload["error"], "tool_unavailable")
+        self.assertTrue(any(
+            event.event_type == "TOOL_INVOCATION_ATTEMPTED"
+            and event.ai_id == "AI-A"
+            for event in self.auth.audit_log.events()
+        ))
 
     def test_unknown_tool_is_not_found(self):
         status, payload = self.request("POST", "/v1/tools/unknown_tool/invoke", "token-a")
