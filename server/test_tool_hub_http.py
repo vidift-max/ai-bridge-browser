@@ -90,6 +90,7 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(payload["error"], "forbidden")
 
     def test_invocation_of_blocked_tool_is_conflict_even_with_grant(self):
+        MessengerHandler.tool_hub.permissions.grant("AI-A", "duration_timer", "test-fixture")
         status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
         self.assertEqual(status, 409)
         self.assertEqual(payload["error"], "tool_unavailable")
@@ -105,6 +106,7 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(payload["error"], "tool_not_found")
 
     def test_ready_tool_still_cannot_execute_without_adapter(self):
+        MessengerHandler.tool_hub.permissions.grant("AI-A", "duration_timer", "test-fixture")
         service = MessengerHandler.tool_hub
         service._catalog["duration_timer"].update({"status": "READY", "enabled": True})
         status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
@@ -122,6 +124,7 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(payload["error"], "rate_limit_exceeded")
 
     def test_invocation_attempts_are_rate_limited_per_principal(self):
+        MessengerHandler.tool_hub.permissions.grant("AI-A", "duration_timer", "test-fixture")
         MessengerHandler.rate_limiter = SlidingWindowRateLimiter(max_events=1, window_seconds=60)
         first_status, _ = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
         second_status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
