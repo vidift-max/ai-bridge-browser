@@ -33,8 +33,7 @@ or a tool-specific input/output schema exists.
 - `registry/tool-hub/tool-result.schema.json`: stable result/error envelope.
 - `server/tool_permissions.py`: deny-by-default, per-principal
   `TOOL_USE` authorization primitive.
-- `server/tool_hub.py`: authenticated-principal discovery filtering and
-  fail-closed invocation gate; it deliberately has no executor.
+- `server/tool_hub.py`: strict catalog loader, authenticated-principal discovery filtering, and fail-closed invocation gate; it deliberately has no executor.
 - `server/test_tool_hub.py` and `server/test_tool_hub_http.py`: service and
   HTTP boundary regression tests.
 
@@ -71,8 +70,7 @@ claims are not accepted for Tool Hub authorization.
   501 because no executor/adapter exists. The endpoint does not parse or run
   a tool payload and cannot execute any tool.
 
-Both routes are covered by HTTP tests. This is not durable authorization,
-production rate limiting, a deployed endpoint, or proof of live AI clients.
+Both routes are covered by HTTP tests and use the existing in-memory per-principal sliding-window limiter (60 requests/minute by default). This is not durable authorization, per-tool production quotas, a deployed endpoint, or proof of live AI clients.
 
 ## Bounds and execution requirements
 
@@ -110,7 +108,7 @@ Implemented in this branch:
 Not implemented:
 - source-license approval or source provenance decision;
 - tool-specific schemas and adapters;
-- durable permission grants, administrator grant/revoke flow, and production per-tool rate limits;
+- durable permission grants, administrator grant/revoke flow, and production per-tool rate limits (current limiter is in-memory and per principal);
 - durable permission grants, administrator grant/revoke flow, or per-tool
   production rate limits;
 - tool-specific schemas, adapters/executors, sandboxing, output sanitization, and Android UI wiring.
