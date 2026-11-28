@@ -67,6 +67,32 @@ class SQLiteMessengerStore:
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','2')")
             self._connection.commit()
 
+
+    def grant_tool_permission(self, principal_ai_id: str, tool_id: str,
+                              granted_by: str, granted_at: str):
+        self._connection.execute(
+            """INSERT INTO tool_permissions(principal_ai_id,tool_id,granted_by,granted_at)
+               VALUES(?,?,?,?)
+               ON CONFLICT(principal_ai_id,tool_id)
+               DO UPDATE SET granted_by=excluded.granted_by, granted_at=excluded.granted_at""",
+            (principal_ai_id, tool_id, granted_by, granted_at),
+        )
+        self._connection.commit()
+
+    def revoke_tool_permission(self, principal_ai_id: str, tool_id: str) -> bool:
+        cursor = self._connection.execute(
+            "DELETE FROM tool_permissions WHERE principal_ai_id=? AND tool_id=?",
+            (principal_ai_id, tool_id),
+        )
+        self._connection.commit()
+        return cursor.rowcount > 0
+
+    def load_tool_permissions(self):
+        return self._connection.execute(
+            """SELECT principal_ai_id,tool_id,granted_by,granted_at
+               FROM tool_permissions ORDER BY principal_ai_id,tool_id"""
+        ).fetchall()
+
     def close(self):
         self._connection.close()
 
