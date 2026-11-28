@@ -3,7 +3,6 @@ package com.vidiftmax.aibridgebrowser;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.os.Bundle;
-import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -330,16 +329,24 @@ public final class MainActivity extends Activity {
 
         String tabId = restoredTabId == null ? UUID.randomUUID().toString() : restoredTabId;
         String profileId = restoredProfileId == null ? "profile-" + UUID.randomUUID() : restoredProfileId;
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+            Toast.makeText(this,
+                    "Aba bloqueada: este Android System WebView não oferece perfis isolados. Atualize o WebView para proteger as contas AI-01 e AI-02.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
         WebView webView = new WebView(this);
-        boolean sessionIsolationSupported = false;
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
-            try {
-                // Must be the first WebView operation, before settings, clients, or navigation.
-                WebViewCompat.setProfile(webView, profileId);
-                sessionIsolationSupported = true;
-            } catch (RuntimeException profileError) {
-                sessionIsolationSupported = false;
-            }
+        final boolean sessionIsolationSupported;
+        try {
+            // Must be the first WebView operation, before settings, clients, or navigation.
+            WebViewCompat.setProfile(webView, profileId);
+            sessionIsolationSupported = true;
+        } catch (RuntimeException profileError) {
+            webView.destroy();
+            Toast.makeText(this,
+                    "Aba bloqueada: não foi possível criar um perfil isolado. Nenhuma sessão foi aberta.",
+                    Toast.LENGTH_LONG).show();
+            return;
         }
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -495,18 +502,11 @@ public final class MainActivity extends Activity {
     }
 
     private boolean isAllowedWebUrl(String value) {
-        Uri uri = Uri.parse(value);
-        String scheme = uri.getScheme();
-        return scheme != null &&
-                ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) &&
-                uri.getHost() != null && uri.getUserInfo() == null;
+        return BrowserNavigationPolicy.isAllowedWebUrl(value);
     }
 
     private String normalizeUrl(String value) {
-        String candidate = value == null ? "" : value.trim();
-        if (candidate.isEmpty()) return HOME_URL;
-        if (!candidate.contains("://")) candidate = "https://" + candidate;
-        return isAllowedWebUrl(candidate) ? candidate : HOME_URL;
+        return BrowserNavigationPolicy.normalizeUrl(value, HOME_URL);
     }
 
     private String hostLabel(String value) {
