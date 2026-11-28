@@ -51,7 +51,7 @@ or a tool-specific input/output schema exists.
 6. Recheck authorization and enabled status at invocation time; discovery
    visibility is not an authorization token.
 
-AI tool grants are stored in the Messenger SQLite database (schema v2) and survive process/store recreation. Grants remain deny-by-default. Grant management uses a separate administrator bearer token configured through `TOOL_HUB_ADMIN_TOKEN` (minimum 32 characters); it is never the AI bearer token. If the variable is absent or weak, administrative routes fail closed with 503. The HTTP layer derives the AI identity from the authenticated AI bearer principal; request-body identity claims are not accepted for Tool Hub authorization.
+AI tool grants and append-only grant/revoke audit events are stored in the Messenger SQLite database (schema v3) and survive process/store recreation. Grants remain deny-by-default. Grant management uses a separate administrator bearer token configured through `TOOL_HUB_ADMIN_TOKEN` (minimum 32 characters); it is never the AI bearer token. If the variable is absent or weak, administrative routes fail closed with 503. The HTTP layer derives the AI identity from the authenticated AI bearer principal; request-body identity claims are not accepted for Tool Hub authorization.
 
 ## HTTP surface (implemented deny-only boundary)
 
@@ -61,6 +61,7 @@ AI tool grants are stored in the Messenger SQLite database (schema v2) and survi
   is empty because all five catalog records are blocked and no grants are
   provisioned by default.
 - `GET /v1/admin/tool-permissions`: administrator-only listing of durable grants.
+- `GET /v1/admin/tool-permissions/audit`: administrator-only read of durable grant/revoke audit history.
 - `POST /v1/admin/tool-permissions`: administrator-only grant creation/update using a principal AI ID and tool ID.
 - `DELETE /v1/admin/tool-permissions/{principalAiId}/{toolId}`: administrator-only revocation.
   Admin routes use a separate `TOOL_HUB_ADMIN_TOKEN`, constant-time bearer comparison, rate limiting, and audit events. No default admin token is created or committed.
@@ -103,8 +104,8 @@ Implemented in this branch:
 - catalog and generic JSON Schema files;
 - explicit disabled records for the five tool IDs;
 - durable SQLite-backed `TOOL_USE` grants with administrator grant/list/revoke routes;
-- separate fail-closed administrator bearer authentication and audit events;
-- schema v2 migration with read-only recovery compatibility;
+- separate fail-closed administrator bearer authentication and append-only durable grant/revoke audit history;
+- schema v2/v3 migrations with read-only recovery compatibility;
 - authenticated capability discovery and deny-only invocation;
 - regression tests for authorization, admin auth, persistence, and HTTP routes;
 - this contract document.
