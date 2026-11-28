@@ -1,56 +1,56 @@
 {
   "catalogVersion": 1,
-  "status": "BLOCKED",
+  "status": "READY",
   "tools": [
     {
       "toolId": "duration_timer",
-      "version": "0.0.0",
-      "status": "BLOCKED_LICENSE_REVIEW",
-      "enabled": false,
+      "version": "1.0.0",
+      "status": "READY",
+      "enabled": true,
       "requiredPermission": "TOOL_USE",
-      "inputSchemaRef": null,
-      "outputSchemaRef": null,
-      "description": "Timer and duration calculations; API contract pending source-license and interface review."
+      "inputSchemaRef": "registry/tool-hub/schemas/duration_timer.input.schema.json",
+      "outputSchemaRef": "registry/tool-hub/schemas/duration_timer.output.schema.json",
+      "description": "Timer and duration calculations; bounded local-only implementation."
     },
     {
       "toolId": "recipe_scaler",
-      "version": "0.0.0",
-      "status": "BLOCKED_LICENSE_REVIEW",
-      "enabled": false,
+      "version": "1.0.0",
+      "status": "READY",
+      "enabled": true,
       "requiredPermission": "TOOL_USE",
-      "inputSchemaRef": null,
-      "outputSchemaRef": null,
-      "description": "Recipe quantity scaling; API contract pending source-license and interface review."
+      "inputSchemaRef": "registry/tool-hub/schemas/recipe_scaler.input.schema.json",
+      "outputSchemaRef": "registry/tool-hub/schemas/recipe_scaler.output.schema.json",
+      "description": "Scale ingredient quantities while preserving declared units."
     },
     {
       "toolId": "quiz_engine",
-      "version": "0.0.0",
-      "status": "BLOCKED_LICENSE_REVIEW",
-      "enabled": false,
+      "version": "1.0.0",
+      "status": "READY",
+      "enabled": true,
       "requiredPermission": "TOOL_USE",
-      "inputSchemaRef": null,
-      "outputSchemaRef": null,
-      "description": "Quiz construction and scoring; API contract pending source-license and interface review."
+      "inputSchemaRef": "registry/tool-hub/schemas/quiz_engine.input.schema.json",
+      "outputSchemaRef": "registry/tool-hub/schemas/quiz_engine.output.schema.json",
+      "description": "Build quizzes and score submitted answers."
     },
     {
       "toolId": "svg_chart",
-      "version": "0.0.0",
-      "status": "BLOCKED_LICENSE_REVIEW",
-      "enabled": false,
+      "version": "1.0.0",
+      "status": "READY",
+      "enabled": true,
       "requiredPermission": "TOOL_USE",
-      "inputSchemaRef": null,
-      "outputSchemaRef": null,
-      "description": "SVG chart generation; API contract pending source-license and interface review."
+      "inputSchemaRef": "registry/tool-hub/schemas/svg_chart.input.schema.json",
+      "outputSchemaRef": "registry/tool-hub/schemas/svg_chart.output.schema.json",
+      "description": "Generate escaped, well-formed local SVG charts."
     },
     {
       "toolId": "link_card",
-      "version": "0.0.0",
-      "status": "BLOCKED_LICENSE_REVIEW",
-      "enabled": false,
+      "version": "1.0.0",
+      "status": "READY",
+      "enabled": true,
       "requiredPermission": "TOOL_USE",
-      "inputSchemaRef": null,
-      "outputSchemaRef": null,
-      "description": "Link preview card generation; API contract pending source-license and interface review."
+      "inputSchemaRef": "registry/tool-hub/schemas/link_card.input.schema.json",
+      "outputSchemaRef": "registry/tool-hub/schemas/link_card.output.schema.json",
+      "description": "Validate and normalize HTTP(S) link-card metadata; no fetching."
     }
   ]
 }
