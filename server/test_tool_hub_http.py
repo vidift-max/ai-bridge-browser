@@ -36,12 +36,16 @@ class ToolHubHttpTest(unittest.TestCase):
         self.backend.close()
         MessengerHandler.tool_hub = None
 
-    def request(self, method, path, token=None):
+    def request(self, method, path, token=None, body=None):
         connection = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
         headers = {}
         if token is not None:
             headers["Authorization"] = "Bearer " + token
-        connection.request(method, path, headers=headers)
+        encoded_body = None
+        if body is not None:
+            encoded_body = json.dumps(body)
+            headers["Content-Type"] = "application/json"
+        connection.request(method, path, body=encoded_body, headers=headers)
         response = connection.getresponse()
         payload = json.loads(response.read().decode("utf-8"))
         connection.close()
@@ -65,6 +69,14 @@ class ToolHubHttpTest(unittest.TestCase):
 
     def test_invocation_without_grant_is_forbidden(self):
         status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-b")
+        self.assertEqual(status, 403)
+        self.assertEqual(payload["error"], "forbidden")
+
+    def test_body_cannot_spoof_principal_or_inherit_another_ai_grant(self):
+        status, payload = self.request(
+            "POST", "/v1/tools/duration_timer/invoke", "token-b",
+            body={"aiId": "AI-A", "principalAiId": "AI-A", "toolId": "duration_timer"}
+        )
         self.assertEqual(status, 403)
         self.assertEqual(payload["error"], "forbidden")
 
