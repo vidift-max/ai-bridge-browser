@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-bridge-browser.local/schemas/tool-catalog.schema.json",
+  "title": "AI Bridge Browser Tool Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "catalogVersion",
+    "status",
+    "tools"
+  ],
+  "properties": {
+    "catalogVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "READY",
+        "PARTIALLY_BLOCKED",
+        "BLOCKED"
+      ]
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/tool"
+      },
+      "maxItems": 5
+    }
+  },
+  "$defs": {
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "toolId",
+        "version",
+        "status",
+        "enabled",
+        "requiredPermission",
+        "inputSchemaRef",
+        "outputSchemaRef"
+      ],
+      "properties": {
+        "toolId": {
+          "type": "string",
+          "enum": [
+            "duration_timer",
+            "recipe_scaler",
+            "quiz_engine",
+            "svg_chart",
+            "link_card"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "BLOCKED_LICENSE_REVIEW",
+            "BLOCKED_API_REVIEW",
+            "READY"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "requiredPermission": {
+          "type": "string",
+          "const": "TOOL_USE"
+        },
+        "inputSchemaRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outputSchemaRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 240
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "READY"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "enabled": {
+                "const": true
+              },
+              "inputSchemaRef": {
+                "type": "string"
+              },
+              "outputSchemaRef": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "BLOCKED_LICENSE_REVIEW",
+                  "BLOCKED_API_REVIEW"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "enabled": {
+                "const": false
+              },
+              "inputSchemaRef": {
+                "type": "null"
+              },
+              "outputSchemaRef": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

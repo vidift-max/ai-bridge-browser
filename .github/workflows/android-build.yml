@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "v2-saas-alpha" ]
+    branches: [ "v2-saas-alpha", "fix/**" ]
   pull_request:
     branches: [ "v2-saas-alpha" ]
   workflow_dispatch:
@@ -27,3 +27,5 @@ jobs:
           gradle-version: "9.6.0"
       - name: Build debug APK
         run: gradle :app:assembleDebug
+      - name: Run Android unit tests
+        run: gradle :app:testDebugUnitTest

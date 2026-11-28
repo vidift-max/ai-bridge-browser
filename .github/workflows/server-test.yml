@@ -2,9 +2,13 @@ name: Messenger Backend Test
 
 on:
   push:
-    branches: [v2-saas-alpha]
+    branches: [v2-saas-alpha, 'fix/**']
     paths:
       - 'server/**'
+      - 'registry/tool-hub/**'
+      - 'docs/AI_TOOL_BRIDGE.md'
+      - 'docs/AI_BRIDGE_AUTHORIZATION_MODEL.md'
+      - 'integrations/README.md'
       - 'render.yaml'
       - '.github/workflows/server-test.yml'
       - 'docs/AI_MESSENGER_MISSION_06_**'
@@ -12,6 +16,8 @@ on:
     branches: [v2-saas-alpha]
     paths:
       - 'server/**'
+      - 'registry/tool-hub/**'
+      - 'docs/AI_TOOL_BRIDGE.md'
       - '.github/workflows/server-test.yml'
 
 jobs:
