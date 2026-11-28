@@ -77,7 +77,11 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(payload["tools"], [])
 
     def test_invocation_without_grant_is_forbidden(self):
-        status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-b")
+        status, payload = self.request(
+            "POST", "/v1/tools/duration_timer/invoke", "token-b",
+            {"requestId": "123e4567-e89b-42d3-a456-426614174000",
+             "toolVersion": "1.0.0", "input": {"duration": "1m"}}
+        )
         self.assertEqual(status, 403)
         self.assertEqual(payload["error"], "forbidden")
 
@@ -106,7 +110,11 @@ class ToolHubHttpTest(unittest.TestCase):
         ))
 
     def test_unknown_tool_is_not_found(self):
-        status, payload = self.request("POST", "/v1/tools/unknown_tool/invoke", "token-a")
+        status, payload = self.request(
+            "POST", "/v1/tools/unknown_tool/invoke", "token-a",
+            {"requestId": "123e4567-e89b-42d3-a456-426614174000",
+             "toolVersion": "1.0.0", "input": {}}
+        )
         self.assertEqual(status, 404)
         self.assertEqual(payload["error"], "tool_not_found")
 
