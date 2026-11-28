@@ -101,6 +101,10 @@ class ToolHubService:
         candidate = Path(value)
         return not candidate.is_absolute() and ".." not in candidate.parts and value.endswith(".schema.json")
 
+    @property
+    def permissions(self):
+        return self._permissions
+
     def discover(self, principal_ai_id):
         allowed = self._permissions.permitted_tool_ids(principal_ai_id)
         visible = []
