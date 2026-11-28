@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "v2-saas-alpha", "feat/mission-295-m241-ai-first-contact-integration", "feat/mission-311-agent-coordination-core" ]
   pull_request:
-    branches: [ "v2-saas-alpha" ]
+    branches: [ "v2-saas-alpha", "feat/mission-295-m241-ai-first-contact-integration" ]
   workflow_dispatch:
 
 permissions:
