@@ -33,6 +33,10 @@ or a tool-specific input/output schema exists.
 - `registry/tool-hub/tool-result.schema.json`: stable result/error envelope.
 - `server/tool_permissions.py`: deny-by-default, per-principal
   `TOOL_USE` authorization primitive.
+- `server/tool_hub.py`: authenticated-principal discovery filtering and
+  fail-closed invocation gate; it deliberately has no executor.
+- `server/test_tool_hub.py` and `server/test_tool_hub_http.py`: service and
+  HTTP boundary regression tests.
 
 ## Required request identity and authorization
 
@@ -49,19 +53,26 @@ or a tool-specific input/output schema exists.
 6. Recheck authorization and enabled status at invocation time; discovery
    visibility is not an authorization token.
 
-The current permission registry is an in-memory primitive only. It is not
-wired to an HTTP route, durable grant store, or administrator workflow. No
-principal currently receives an implicit grant.
+The current permission registry is in-memory only, has no durable grant store
+or administrator workflow, and defaults to no grants. The HTTP layer derives
+the AI identity from the authenticated bearer principal; request-body identity
+claims are not accepted for Tool Hub authorization.
 
-## Proposed HTTP surface (not implemented)
+## HTTP surface (implemented deny-only boundary)
 
-- `GET /v1/tools/capabilities`: authenticated discovery, filtered by the
-  caller's `TOOL_USE` grant and enabled catalog state.
-- `POST /v1/tools/{toolId}/invoke`: authenticated invocation after all
-  authorization and schema checks.
+- `GET /v1/tools/capabilities`: implemented; authenticates the bearer token,
+  derives the principal server-side, and returns only tools with an explicit
+  `TOOL_USE` grant and `enabled: true` plus status `READY`. Current response
+  is empty because all five catalog records are blocked and no grants are
+  provisioned by default.
+- `POST /v1/tools/{toolId}/invoke`: route and authorization gate implemented.
+  Missing grants return 403; unknown IDs return 404; blocked/disabled tools
+  return 409. If a tool were marked READY, the current service still returns
+  501 because no executor/adapter exists. The endpoint does not parse or run
+  a tool payload and cannot execute any tool.
 
-These routes are contract targets only. They must not be described as live
-until implemented and covered by HTTP integration tests.
+Both routes are covered by HTTP tests. This is not durable authorization,
+production rate limiting, a deployed endpoint, or proof of live AI clients.
 
 ## Bounds and execution requirements
 
@@ -99,10 +110,11 @@ Implemented in this branch:
 Not implemented:
 - source-license approval or source provenance decision;
 - tool-specific schemas and adapters;
-- HTTP capability-discovery or invocation routes;
+- durable permission grants, administrator grant/revoke flow, and production per-tool rate limits;
 - durable permission grants, administrator grant/revoke flow, or per-tool
   production rate limits;
-- sandboxing, output sanitization, integration tests, or Android UI wiring.
+- tool-specific schemas, adapters/executors, sandboxing, output sanitization, and Android UI wiring.
 
-Until those items are addressed, the five tools remain unavailable and all
-invocation attempts must be rejected.
+Until license approval, tool-specific schemas, reviewed adapters, and explicit
+grants are implemented, the five tools remain unavailable. No invocation can
+reach executable code in the current implementation.
