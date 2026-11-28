@@ -142,5 +142,14 @@ class ToolHubServiceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_tool_description"):
             ToolHubService(self.path, self.permissions)
 
+
+    def test_catalog_rejects_duplicate_json_object_keys(self):
+        self.path.write_text(
+            '{"catalogVersion":1,"catalogVersion":1,"status":"BLOCKED","tools":[]}',
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate_tool_catalog_key"):
+            ToolHubService(self.path, self.permissions)
+
 if __name__ == "__main__":
     unittest.main()
