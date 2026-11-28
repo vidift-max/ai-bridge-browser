@@ -27,7 +27,7 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     version_row = connection.execute(
         "SELECT value FROM schema_meta WHERE key='version'"
     ).fetchone()
-    if not version_row or version_row[0] != "1":
+    if not version_row or version_row[0] not in ("1", "2"):
         return False, "RESTORE_SCHEMA_UNSUPPORTED"
     required_columns = {
         "schema_meta": {"key", "value"},
@@ -42,6 +42,12 @@ def _verify_messenger_schema_connection(connection) -> tuple[bool, str]:
     for table, expected in required_columns.items():
         rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
         if not expected.issubset({row[1] for row in rows}):
+            return False, "RESTORE_SCHEMA_UNSUPPORTED"
+    if version_row[0] == "2":
+        permission_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(tool_permissions)")
+        }
+        if not {"principal_ai_id", "tool_id", "granted_by", "granted_at"}.issubset(permission_columns):
             return False, "RESTORE_SCHEMA_UNSUPPORTED"
     index_row = connection.execute(
         "SELECT sql FROM sqlite_master WHERE type='index' "
