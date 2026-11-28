@@ -66,7 +66,7 @@ class DurableToolPermissionStoreTest(unittest.TestCase):
 
 
 
-    def test_schema_v2_is_accepted_by_read_only_recovery_validation(self):
+    def test_schema_v3_is_accepted_by_read_only_recovery_validation(self):
         self.assertEqual(verify_messenger_schema(self.path), (True, "RESTORE_SCHEMA_COMPATIBLE"))
 
 
