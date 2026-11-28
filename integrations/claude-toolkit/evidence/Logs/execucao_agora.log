@@ -1,0 +1,25 @@
+== data/hora UTC: 2026-11-28T06:19:21Z
+== python: Python 3.12.3 | node: v22.23.5
+
+== [1] suíte do pacote: python3 05_Testes/executar_todos.py --relatorio RELATORIO_EXECUCAO_AGORA.md
+RESUMO
+  [APROVADA] Testes JavaScript (node --test) — 27 aprovados, 0 falhas, de 27
+  [APROVADA] Testes Python (unittest) — 30 executados, todos aprovados
+  [APROVADA] Paridade JS x Python — 28 de 28 casos idênticos
+  [APROVADA] Simulação de navegador (DOM falso) — 5 verificações OK
+exit code: 0
+
+== [2] sintaxe Python: python3 -m py_compile (todos os .py)
+     20 OK
+
+== [3] sintaxe JS: node --check (todos os .js)
+     15 OK
+
+== [4] imports Python
+import OK 0.1.0 ['ToolError', 'VERSION', 'duration_timer', 'recipe_scaler', 'quiz_engine', 'svg_chart', 'link_card']
+== [5] imports Node
+require OK core,durationTimer,recipeScaler,quizEngine,svgChart,linkCard 0.1.0
+
+== [6] verificação do MANIFESTO.json do próprio pacote (sha256 + bytes de cada arquivo listado)
+listados: 54 | arquivos no pacote: 56 | divergentes/ausentes: 0
+não listados no MANIFESTO.json: ['MANIFESTO.json', 'MANIFESTO.md']
