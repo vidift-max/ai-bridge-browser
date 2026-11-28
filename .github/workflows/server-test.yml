@@ -16,6 +16,8 @@ on:
     branches: [v2-saas-alpha]
     paths:
       - 'server/**'
+      - 'registry/tool-hub/**'
+      - 'docs/AI_TOOL_BRIDGE.md'
       - '.github/workflows/server-test.yml'
 
 jobs:
