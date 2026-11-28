@@ -10,6 +10,7 @@ from server.messenger_backend import MessengerBackend
 from server.sqlite_store import SQLiteMessengerStore
 from server.tool_permissions import ToolPermissionRegistry
 from server.tool_hub import ToolHubService
+from server.rate_limit import SlidingWindowRateLimiter
 
 
 class ToolHubHttpTest(unittest.TestCase):
@@ -22,6 +23,7 @@ class ToolHubHttpTest(unittest.TestCase):
         )
         MessengerHandler.backend = self.backend
         MessengerHandler.authenticator = self.auth
+        MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
         MessengerHandler.tool_hub = ToolHubService(
             permissions=ToolPermissionRegistry({"AI-A": {"duration_timer"}})
         )
@@ -35,6 +37,7 @@ class ToolHubHttpTest(unittest.TestCase):
         self.thread.join(timeout=2)
         self.backend.close()
         MessengerHandler.tool_hub = None
+        MessengerHandler.rate_limiter = SlidingWindowRateLimiter()
 
     def request(self, method, path, token=None, body=None):
         connection = HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
@@ -102,6 +105,23 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(status, 501)
         self.assertEqual(payload["error"], "tool_adapter_not_implemented")
 
+
+
+    def test_capability_discovery_is_rate_limited_per_principal(self):
+        MessengerHandler.rate_limiter = SlidingWindowRateLimiter(max_events=1, window_seconds=60)
+        first_status, _ = self.request("GET", "/v1/tools/capabilities", "token-a")
+        second_status, payload = self.request("GET", "/v1/tools/capabilities", "token-a")
+        self.assertEqual(first_status, 200)
+        self.assertEqual(second_status, 429)
+        self.assertEqual(payload["error"], "rate_limit_exceeded")
+
+    def test_invocation_attempts_are_rate_limited_per_principal(self):
+        MessengerHandler.rate_limiter = SlidingWindowRateLimiter(max_events=1, window_seconds=60)
+        first_status, _ = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
+        second_status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
+        self.assertEqual(first_status, 409)
+        self.assertEqual(second_status, 429)
+        self.assertEqual(payload["error"], "rate_limit_exceeded")
 
 if __name__ == "__main__":
     unittest.main()
