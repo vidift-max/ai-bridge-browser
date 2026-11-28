@@ -3,63 +3,60 @@ package com.vidiftmax.aibridgebrowser;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import java.util.ArrayList;
+import java.util.List;
 
-/** Versioned JSON codec for saving the logical roster in Android private app storage. */
+/** Strict, versioned JSON codec for local logical-agent roster snapshots. */
 final class AgentRosterCodec {
-    private static final int SCHEMA_VERSION = 1;
-
+    static final int SCHEMA_VERSION = 1;
     private AgentRosterCodec() { }
 
-    static String encode(AgentRoster roster) throws JSONException {
+    static String encode(AgentRoster roster) {
         if (roster == null) throw new IllegalArgumentException("roster_required");
-        JSONObject root = new JSONObject();
-        root.put("schemaVersion", SCHEMA_VERSION);
-        JSONArray items = new JSONArray();
-        for (AgentRoster.Agent agent : roster.all()) {
-            JSONObject item = new JSONObject();
-            item.put("aiId", agent.aiId);
-            item.put("displayName", agent.displayName);
-            item.put("specialty", agent.specialty);
-            item.put("status", agent.status.name());
-            items.put(item);
+        try {
+            JSONArray agents = new JSONArray();
+            for (AgentRoster.Agent agent : roster.all()) {
+                JSONObject item = new JSONObject();
+                item.put("aiId", agent.aiId);
+                item.put("displayName", agent.displayName);
+                item.put("specialty", agent.specialty);
+                item.put("status", agent.status.name());
+                agents.put(item);
+            }
+            JSONObject root = new JSONObject();
+            root.put("schemaVersion", SCHEMA_VERSION);
+            root.put("agents", agents);
+            return root.toString();
+        } catch (JSONException error) {
+            throw new IllegalArgumentException("roster_encode_failed", error);
         }
-        root.put("agents", items);
-        return root.toString();
     }
 
-    static AgentRoster decode(String encoded) throws JSONException {
-        if (encoded == null || encoded.trim().isEmpty()) {
-            throw new IllegalArgumentException("roster_json_required");
-        }
-        JSONObject root = new JSONObject(encoded);
-        if (root.optInt("schemaVersion", -1) != SCHEMA_VERSION) {
-            throw new IllegalArgumentException("unsupported_roster_schema");
-        }
-        JSONArray items = root.optJSONArray("agents");
-        if (items == null || items.length() > AgentRosterPolicy.MAX_LOGICAL_AGENTS) {
-            throw new IllegalArgumentException("invalid_roster_items");
-        }
-        AgentRoster roster = new AgentRoster();
-        for (int i = 0; i < items.length(); i++) {
-            JSONObject item = items.optJSONObject(i);
-            if (item == null) throw new IllegalArgumentException("invalid_agent_record");
-            String aiId = item.optString("aiId", "");
-            String name = item.optString("displayName", "");
-            String specialty = item.optString("specialty", "");
-            String rawStatus = item.optString("status", AgentRoster.Status.OFFLINE.name());
-            if (!roster.register(aiId, name, specialty)) {
-                throw new IllegalArgumentException("invalid_or_duplicate_agent");
+    static AgentRoster decode(String encoded) {
+        if (encoded == null || encoded.trim().isEmpty()) throw new IllegalArgumentException("roster_snapshot_required");
+        try {
+            JSONObject root = new JSONObject(encoded);
+            if (root.optInt("schemaVersion", -1) != SCHEMA_VERSION)
+                throw new IllegalArgumentException("unsupported_roster_schema");
+            JSONArray items = root.getJSONArray("agents");
+            if (items.length() > AgentRosterPolicy.MAX_LOGICAL_AGENTS)
+                throw new IllegalArgumentException("roster_capacity_exceeded");
+            List<AgentRoster.Agent> restored = new ArrayList<>();
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject item = items.getJSONObject(i);
+                String aiId = item.getString("aiId");
+                String name = item.getString("displayName");
+                String specialty = item.getString("specialty");
+                AgentRoster.Status status;
+                try { status = AgentRoster.Status.valueOf(item.getString("status")); }
+                catch (RuntimeException invalid) { throw new IllegalArgumentException("invalid_agent_status", invalid); }
+                restored.add(new AgentRoster.Agent(aiId, name, specialty, status));
             }
-            AgentRoster.Status status;
-            try {
-                status = AgentRoster.Status.valueOf(rawStatus);
-            } catch (RuntimeException invalidStatus) {
-                throw new IllegalArgumentException("invalid_agent_status");
-            }
-            if (!roster.setStatus(aiId, status)) {
-                throw new IllegalArgumentException("agent_restore_failed");
-            }
+            AgentRoster roster = new AgentRoster();
+            roster.replaceAll(restored);
+            return roster;
+        } catch (JSONException error) {
+            throw new IllegalArgumentException("invalid_roster_snapshot", error);
         }
-        return roster;
     }
 }
