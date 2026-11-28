@@ -80,6 +80,12 @@ class SQLiteMessengerStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_tool_permission_audit_subject
                     ON tool_permission_audit(principal_ai_id, tool_id, audit_id);
+                CREATE TRIGGER IF NOT EXISTS trg_tool_permission_audit_no_update
+                    BEFORE UPDATE ON tool_permission_audit
+                    BEGIN SELECT RAISE(ABORT, 'tool_permission_audit_immutable'); END;
+                CREATE TRIGGER IF NOT EXISTS trg_tool_permission_audit_no_delete
+                    BEFORE DELETE ON tool_permission_audit
+                    BEGIN SELECT RAISE(ABORT, 'tool_permission_audit_immutable'); END;
             """)
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','3')")
             self._connection.commit()
