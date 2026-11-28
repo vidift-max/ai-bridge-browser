@@ -84,5 +84,25 @@ class DurableToolPermissionStoreTest(unittest.TestCase):
         restarted = ToolPermissionRegistry(store=self.store)
         self.assertEqual(len(restarted.list_audit_events()), 2)
 
+
+    def test_schema_v2_database_migrates_to_v3_without_losing_existing_grants(self):
+        registry = ToolPermissionRegistry(store=self.store)
+        registry.grant("AI-01", "duration_timer", "tool-hub-admin")
+        self.store.close()
+        import sqlite3
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("DROP TABLE tool_permission_audit")
+            connection.execute("UPDATE schema_meta SET value='2' WHERE key='version'")
+        self.store = SQLiteMessengerStore(self.path)
+        migrated = ToolPermissionRegistry(store=self.store)
+        self.assertTrue(migrated.can_use("AI-01", "duration_timer"))
+        self.assertEqual(
+            self.store._connection.execute(
+                "SELECT value FROM schema_meta WHERE key='version'"
+            ).fetchone()["value"],
+            "3",
+        )
+        self.assertEqual(migrated.list_audit_events(), [])
+
 if __name__ == "__main__":
     unittest.main()
