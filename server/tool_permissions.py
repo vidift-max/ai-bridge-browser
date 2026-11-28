@@ -1,7 +1,7 @@
-"""Fail-closed, in-memory TOOL_USE authorization primitives.
+"""Fail-closed TOOL_USE authorization with optional durable SQLite storage.
 
-This module does not authenticate callers and does not persist grants. Callers
-must pass an AI identity obtained from the authenticated request context.
+This module does not authenticate callers. Callers must pass an AI identity
+obtained from the authenticated request context. Missing grants always deny.
 """
 from dataclasses import dataclass
 from datetime import datetime, timezone
