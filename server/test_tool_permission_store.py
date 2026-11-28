@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from server.sqlite_store import SQLiteMessengerStore
+from server.recovery import verify_messenger_schema
 from server.tool_permissions import ToolPermissionRegistry
 
 
@@ -63,6 +64,10 @@ class DurableToolPermissionStoreTest(unittest.TestCase):
         self.store = SQLiteMessengerStore(self.path)
         self.assertEqual(self.store.load_conversations()["room"], {"AI-01", "AI-02"})
 
+
+
+    def test_schema_v2_is_accepted_by_read_only_recovery_validation(self):
+        self.assertEqual(verify_messenger_schema(self.path), (True, "RESTORE_SCHEMA_COMPATIBLE"))
 
 if __name__ == "__main__":
     unittest.main()
