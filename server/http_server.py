@@ -81,6 +81,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 identity = self._principal()
                 principal = identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
                 if self.tool_hub is None:
                     self._json(503, {"error": "tool_hub_unavailable"})
                     return
@@ -90,6 +91,8 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(200, {"principalAiId": principal.ai_id,
                                  "correlationId": identity.correlation_id,
                                  **result})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc) == "authentication_required" else 403,
                            self._permission_error(exc))
@@ -152,11 +155,14 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 identity = self._principal()
                 principal = identity.principal
                 self.backend.assert_authenticated_principal(self._auth(), principal)
+                self.rate_limiter.allow(principal.ai_id)
                 if self.tool_hub is None:
                     self._json(503, {"error": "tool_hub_unavailable"})
                     return
                 self._audit(identity, "TOOL_INVOCATION_ATTEMPTED", parts[3])
                 self.tool_hub.invoke(principal.ai_id, parts[3])
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
             except PermissionError as exc:
                 self._json(401 if str(exc) == "authentication_required" else 403,
                            self._permission_error(exc))
