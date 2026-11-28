@@ -53,6 +53,6 @@ This is ten independent grants via `POST /v1/admin/tool-permissions`, each with 
 
 - Tool adapters and API are implemented in this branch, but CI must pass before claiming verified readiness.
 - No default grants have been created for AI-01 or AI-02. Each of the ten grants (five tools × two agents) must be provisioned through the administrator API in the deployed database.
-- Android UI/capability display and the actual AI agent runtime's discovery/invocation client are not wired by this change.
+- Android `MessengerHttpClient` exposes authenticated capability discovery and invocation methods using the configured agent credential. The autonomous agent decision/orchestration loop and Android UI for selecting/observing tools are not yet wired.
 - The API is not deployed and no live AI client/device invocation is claimed.
 - No merge or deployment is included.
