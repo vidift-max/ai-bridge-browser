@@ -77,6 +77,23 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         parsed = urlsplit(self.path)
         parts=parsed.path.split("/")
+        if parsed.path == "/v1/admin/tool-permissions/audit":
+            try:
+                admin_id = authenticate_tool_admin(self.headers)
+                self.rate_limiter.allow("admin:" + admin_id)
+                if self.tool_hub is None:
+                    self._json(503, {"error": "tool_hub_unavailable"})
+                    return
+                events = self.tool_hub.permissions.list_audit_events()
+                self._json(200, {"events": events})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                message = str(exc)
+                status = 503 if message == "tool_admin_not_configured" else (
+                    401 if message == "authentication_required" else 403)
+                self._json(status, {"error": message})
+            return
         if parsed.path == "/v1/admin/tool-permissions":
             try:
                 admin_id = authenticate_tool_admin(self.headers)
@@ -285,7 +302,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
                     self._json(503, {"error": "tool_hub_unavailable"})
                     return
                 principal_ai_id, tool_id = parts[4], parts[5]
-                removed = self.tool_hub.permissions.revoke(principal_ai_id, tool_id)
+                removed = self.tool_hub.permissions.revoke(principal_ai_id, tool_id, admin_id)
                 self.authenticator.audit_log.record(
                     "TOOL_PERMISSION_REVOKED", tool_id, ai_id=admin_id,
                     metadata={"principal_ai_id": principal_ai_id,
