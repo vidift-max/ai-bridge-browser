@@ -196,31 +196,6 @@ class MessengerHandler(BaseHTTPRequestHandler):
             except (KeyError, TypeError, ValueError, json.JSONDecodeError):
                 self._json(400, {"error": "invalid_tool_permission"})
             return
-        if len(parts) == 6 and parts[1:4] == ["v1", "admin", "tool-permissions"]:
-            try:
-                admin_id = authenticate_tool_admin(self.headers)
-                self.rate_limiter.allow("admin:" + admin_id)
-                if self.tool_hub is None:
-                    self._json(503, {"error": "tool_hub_unavailable"})
-                    return
-                principal_ai_id, tool_id = parts[4], parts[5]
-                removed = self.tool_hub.permissions.revoke(principal_ai_id, tool_id)
-                self.authenticator.audit_log.record(
-                    "TOOL_PERMISSION_REVOKED", tool_id, ai_id=admin_id,
-                    metadata={"principal_ai_id": principal_ai_id,
-                              "grant_existed": str(removed).lower()})
-                self._json(200, {"revoked": removed, "principalAiId": principal_ai_id,
-                                "toolId": tool_id})
-            except RateLimitExceeded:
-                self._json(429, {"error": "rate_limit_exceeded"})
-            except PermissionError as exc:
-                message = str(exc)
-                status = 503 if message == "tool_admin_not_configured" else (
-                    401 if message == "authentication_required" else 403)
-                self._json(status, {"error": message})
-            except ValueError:
-                self._json(400, {"error": "invalid_tool_permission"})
-            return
         if len(parts) == 5 and parts[1:3] == ["v1", "tools"] and parts[4] == "invoke":
             try:
                 identity = self._principal()
@@ -298,6 +273,36 @@ class MessengerHandler(BaseHTTPRequestHandler):
                 self._json(401 if str(exc)=="authentication_required" else 403,self._permission_error(exc))
             return
         self._json(404,{"error":"not_found"})
+
+    def do_DELETE(self):
+        parsed = urlsplit(self.path)
+        parts = parsed.path.split("/")
+        if len(parts) == 6 and parts[1:4] == ["v1", "admin", "tool-permissions"]:
+            try:
+                admin_id = authenticate_tool_admin(self.headers)
+                self.rate_limiter.allow("admin:" + admin_id)
+                if self.tool_hub is None:
+                    self._json(503, {"error": "tool_hub_unavailable"})
+                    return
+                principal_ai_id, tool_id = parts[4], parts[5]
+                removed = self.tool_hub.permissions.revoke(principal_ai_id, tool_id)
+                self.authenticator.audit_log.record(
+                    "TOOL_PERMISSION_REVOKED", tool_id, ai_id=admin_id,
+                    metadata={"principal_ai_id": principal_ai_id,
+                              "grant_existed": str(removed).lower()})
+                self._json(200, {"revoked": removed, "principalAiId": principal_ai_id,
+                                "toolId": tool_id})
+            except RateLimitExceeded:
+                self._json(429, {"error": "rate_limit_exceeded"})
+            except PermissionError as exc:
+                message = str(exc)
+                status = 503 if message == "tool_admin_not_configured" else (
+                    401 if message == "authentication_required" else 403)
+                self._json(status, {"error": message})
+            except ValueError:
+                self._json(400, {"error": "invalid_tool_permission"})
+            return
+        self._json(404, {"error": "not_found"})
 
     def log_message(self,*_args): return
 
