@@ -30,6 +30,7 @@ class ToolHubService:
         with path.open("r", encoding="utf-8") as handle:
             document = json.load(handle, object_pairs_hook=self._reject_duplicate_keys)
         self._catalog = self._validate_catalog(document)
+        self._validate_schema_files(self._catalog)
         self._permissions = permissions if permissions is not None else ToolPermissionRegistry()
 
     @staticmethod
@@ -92,6 +93,20 @@ class ToolHubService:
         candidate = Path(value)
         return (not candidate.is_absolute() and ".." not in candidate.parts
                 and value.endswith(".schema.json"))
+
+    def _validate_schema_files(self, catalog):
+        schema_root = (self._root / "registry" / "tool-hub" / "schemas").resolve()
+        for item in catalog.values():
+            if item["status"] != "READY":
+                continue
+            for key in ("inputSchemaRef", "outputSchemaRef"):
+                candidate = (self._root / item[key]).resolve()
+                if not candidate.is_relative_to(schema_root) or not candidate.is_file():
+                    raise ValueError("tool_schema_file_missing")
+                with candidate.open("r", encoding="utf-8") as handle:
+                    schema = json.load(handle, object_pairs_hook=self._reject_duplicate_keys)
+                if not isinstance(schema, dict) or schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+                    raise ValueError("invalid_tool_schema")
 
     @property
     def permissions(self):
