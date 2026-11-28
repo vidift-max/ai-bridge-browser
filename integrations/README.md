@@ -30,12 +30,16 @@ The neutral catalog and generic request/result contracts are under
 All five catalog entries are disabled. The original package's license and
 rights holder are not established. Until the user confirms the license/usage
 rights, no original package source may be copied, adapted, bundled, or
-executed. Tool-specific input/output schemas, adapters, HTTP discovery and
-invocation routes, durable permission grants, and integration tests are not
-implemented.
+executed. Tool-specific input/output schemas, reviewed adapters/executors, durable
+permission grants, administrator grant/revoke flow, production per-tool rate
+limits, sandboxing, and Android UI wiring are not implemented.
 
-The server contains only a deny-by-default, in-memory `TOOL_USE` policy
-primitive with unit tests. It is not yet wired to authenticated HTTP requests.
+The server now has authenticated HTTP capability discovery and an invocation
+route that is deliberately deny-only. Discovery filters by the authenticated
+AI principal's explicit in-memory `TOOL_USE` grants and READY catalog state;
+currently it returns no tools. Invocation returns 403 without a grant, 409
+for any currently blocked tool, and would return 501 for a hypothetical READY
+tool because no executor exists. No request can execute Tool Hub code.
 Messenger access and room membership never grant tool access.
 
 No tool can be invoked in this state.
