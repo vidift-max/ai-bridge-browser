@@ -11,6 +11,7 @@ class ToolHubServiceTest(unittest.TestCase):
     def setUp(self):
         self.catalog = {
             "catalogVersion": 1,
+            "status": "BLOCKED",
             "tools": [
                 {"toolId": tool_id, "version": "0.0.0",
                  "status": "BLOCKED_LICENSE_REVIEW", "enabled": False,
