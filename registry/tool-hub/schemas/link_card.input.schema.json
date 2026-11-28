@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-bridge-browser.local/schemas/link_card.input.schema.json",
+  "title": "link_card input contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "url"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 300
+    }
+  }
+}

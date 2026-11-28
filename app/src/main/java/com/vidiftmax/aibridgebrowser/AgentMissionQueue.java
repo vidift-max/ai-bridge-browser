@@ -4,10 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Small in-process FIFO scheduler for logical-agent missions.
- * It does not automate provider UIs or imply that an AI model is connected.
- */
+/** In-process FIFO mission scheduler; only AI-01/AI-02 may claim provider sessions today. */
 final class AgentMissionQueue {
     enum State { QUEUED, RUNNING, COMPLETED, CANCELLED }
 
@@ -25,26 +22,25 @@ final class AgentMissionQueue {
         }
     }
 
+    private static final int MAX_INSTRUCTION_LENGTH = 5000;
     private final List<Mission> missions = new ArrayList<>();
 
-    synchronized List<Mission> all() {
-        return Collections.unmodifiableList(new ArrayList<>(missions));
-    }
-
     synchronized boolean enqueue(String missionId, String aiId, String instruction) {
-        if (blank(missionId) || !AgentRosterPolicy.isValidId(aiId) || blank(instruction)
+        if (blank(missionId) || missionId.length() > 200 || !AgentRosterPolicy.isValidId(aiId)
+                || blank(instruction) || instruction.length() > MAX_INSTRUCTION_LENGTH
                 || find(missionId) != null) return false;
         missions.add(new Mission(missionId.trim(), aiId, instruction.trim()));
         return true;
     }
 
     synchronized Mission claimNext() {
-        if (activeCount() >= AgentRosterPolicy.MAX_CONCURRENT_PROVIDER_SESSIONS) return null;
+        if (!AgentRosterPolicy.canOpenProviderSession(activeCount())) return null;
         for (Mission mission : missions) {
-            if (mission.state == State.QUEUED) {
-                mission.state = State.RUNNING;
-                return mission;
-            }
+            if (mission.state != State.QUEUED
+                    || !AgentRosterPolicy.isProviderSessionAllowedForCurrentMission(mission.aiId)
+                    || hasRunningMissionFor(mission.aiId)) continue;
+            mission.state = State.RUNNING;
+            return mission;
         }
         return null;
     }
@@ -69,13 +65,21 @@ final class AgentMissionQueue {
         return count;
     }
 
+    synchronized List<Mission> all() {
+        return Collections.unmodifiableList(new ArrayList<>(missions));
+    }
+
+    private boolean hasRunningMissionFor(String aiId) {
+        for (Mission mission : missions)
+            if (mission.aiId.equals(aiId) && mission.state == State.RUNNING) return true;
+        return false;
+    }
+
     private Mission find(String missionId) {
         if (missionId == null) return null;
         for (Mission mission : missions) if (mission.missionId.equals(missionId)) return mission;
         return null;
     }
 
-    private static boolean blank(String value) {
-        return value == null || value.trim().isEmpty();
-    }
+    private static boolean blank(String value) { return value == null || value.trim().isEmpty(); }
 }

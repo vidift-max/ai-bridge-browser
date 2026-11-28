@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-bridge-browser.local/schemas/svg_chart.output.schema.json",
+  "title": "svg_chart output contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mimeType",
+    "svg"
+  ],
+  "properties": {
+    "mimeType": {
+      "const": "image/svg+xml"
+    },
+    "svg": {
+      "type": "string",
+      "maxLength": 32000
+    }
+  }
+}

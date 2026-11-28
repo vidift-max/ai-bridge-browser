@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-bridge-browser.local/schemas/duration_timer.input.schema.json",
+  "title": "duration_timer input contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "duration"
+  ],
+  "properties": {
+    "duration": {
+      "oneOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 604800
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[0-9dhms .\\t]+$"
+        }
+      ]
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "format",
+        "seconds"
+      ]
+    }
+  }
+}

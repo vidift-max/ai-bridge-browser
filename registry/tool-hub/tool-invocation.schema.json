@@ -4,16 +4,25 @@
   "title": "AI Tool Bridge Invocation",
   "type": "object",
   "additionalProperties": false,
-  "required": ["requestId", "toolId", "toolVersion", "input"],
+  "required": [
+    "requestId",
+    "toolVersion",
+    "input"
+  ],
   "properties": {
-    "requestId": { "type": "string", "format": "uuid", "maxLength": 36 },
-    "toolId": { "type": "string", "enum": ["duration_timer", "recipe_scaler", "quiz_engine", "svg_chart", "link_card"] },
-    "toolVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "requestId": {
+      "type": "string",
+      "format": "uuid",
+      "maxLength": 36
+    },
+    "toolVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$"
+    },
     "input": {
       "type": "object",
       "maxProperties": 64,
-      "description": "Tool-specific payload. A tool-specific schema must be published and validated before invocation can be enabled."
-    },
-    "deadlineMs": { "type": "integer", "minimum": 1, "maximum": 30000 }
+      "description": "Validated by the versioned tool-specific input schema and adapter."
+    }
   }
 }

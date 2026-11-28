@@ -2,7 +2,7 @@ name: Messenger Backend Test
 
 on:
   push:
-    branches: [v2-saas-alpha, 'fix/**']
+    branches: [v2-saas-alpha, 'fix/**', 'feat/tool-hub-cleanroom-agent-adapters', 'feat/agent-tool-dispatch-integration']
     paths:
       - 'server/**'
       - 'registry/tool-hub/**'
@@ -13,7 +13,7 @@ on:
       - '.github/workflows/server-test.yml'
       - 'docs/AI_MESSENGER_MISSION_06_**'
   pull_request:
-    branches: [v2-saas-alpha]
+    branches: [v2-saas-alpha, 'fix/browser-session-isolation-https-policy']
     paths:
       - 'server/**'
       - 'registry/tool-hub/**'
