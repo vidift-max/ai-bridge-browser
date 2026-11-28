@@ -5,6 +5,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 import org.json.JSONArray;
+import org.json.JSONObject;
 import java.util.Set;
 
 public class MessengerRemoteConfigTest {
@@ -36,6 +37,24 @@ public class MessengerRemoteConfigTest {
         JSONArray recipients = new JSONArray().put("AI-CLAUDE");
         assertThrows(IllegalArgumentException.class, () -> client.sendMessage("room-1", recipients, " "));
     }
+    @Test public void toolInvocationEnvelopeHasRequestIdAndNoCallerSuppliedIdentity() throws Exception {
+        JSONObject input = new JSONObject().put("duration", "3m");
+        JSONObject request = MessengerHttpClient.buildToolInvocationRequest("1.0.0", input);
+        assertTrue(request.getString("requestId").matches(
+                "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}"));
+        assertEquals("1.0.0", request.getString("toolVersion"));
+        assertEquals(input.toString(), request.getJSONObject("input").toString());
+        assertTrue(!request.has("aiId"));
+        assertTrue(!request.has("principalAiId"));
+    }
+
+    @Test public void toolInvocationRejectsUnknownToolsAndInvalidVersionsBeforeNetwork() throws Exception {
+        MessengerHttpClient client = new MessengerHttpClient("https://messenger.example", "AI-GPT6", "test-token");
+        JSONObject input = new JSONObject().put("duration", "3m");
+        assertThrows(IllegalArgumentException.class, () -> client.invokeTool("shell_exec", "1.0.0", input));
+        assertThrows(IllegalArgumentException.class, () -> client.invokeTool("duration_timer", "1.0", input));
+    }
+
     @Test public void acceptsMinimalValidAiId() {
         assertEquals("AI-1", MessengerRemoteConfig.validateAiId("AI-1"));
     }

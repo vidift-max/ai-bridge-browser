@@ -27,15 +27,16 @@ class ToolHubCatalogContractTests(unittest.TestCase):
         )
         self.assertEqual(len(catalog["tools"]), 5)
 
-    def test_every_tool_is_disabled_until_license_and_api_review(self):
+    def test_every_clean_room_tool_is_ready_with_versioned_schemas(self):
         catalog = self._read_json("catalog.json")
-        self.assertEqual(catalog["status"], "BLOCKED")
+        self.assertEqual(catalog["status"], "READY")
         for tool in catalog["tools"]:
-            self.assertFalse(tool["enabled"])
-            self.assertEqual(tool["status"], "BLOCKED_LICENSE_REVIEW")
+            self.assertTrue(tool["enabled"])
+            self.assertEqual(tool["status"], "READY")
+            self.assertEqual(tool["version"], "1.0.0")
             self.assertEqual(tool["requiredPermission"], "TOOL_USE")
-            self.assertIsNone(tool["inputSchemaRef"])
-            self.assertIsNone(tool["outputSchemaRef"])
+            self.assertTrue((REPOSITORY_ROOT / tool["inputSchemaRef"]).is_file())
+            self.assertTrue((REPOSITORY_ROOT / tool["outputSchemaRef"]).is_file())
 
     def test_all_published_contract_documents_are_valid_json(self):
         for filename in (
@@ -55,10 +56,10 @@ class ToolHubCatalogContractTests(unittest.TestCase):
         )
         self.assertEqual(len(schema["$defs"]["tool"]["allOf"]), 2)
 
-    def test_invocation_envelope_has_bounded_deadline_and_strict_fields(self):
+    def test_invocation_envelope_has_versioned_input_and_strict_fields(self):
         schema = self._read_json("tool-invocation.schema.json")
         self.assertFalse(schema["additionalProperties"])
-        self.assertEqual(schema["properties"]["deadlineMs"]["maximum"], 30000)
+        self.assertEqual(set(schema["required"]), {"requestId", "toolVersion", "input"})
         self.assertEqual(schema["properties"]["input"]["maxProperties"], 64)
 
     def test_result_contract_has_stable_statuses_and_error_codes(self):

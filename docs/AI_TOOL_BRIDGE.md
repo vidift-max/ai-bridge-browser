@@ -1,121 +1,58 @@
-# AI Tool Bridge — Contract v1 (pre-integration)
+# AI Tool Bridge — Contract v1.1 (clean-room adapters)
 
 ## Status
+Five independent local-only adapters are implemented and marked READY in the catalog. They are **not automatically granted to any AI principal**. Discovery and invocation require a separate durable `TOOL_USE` grant for the authenticated AI identity. No grants are provisioned by default.
 
-This document defines the neutral boundary for a future AI Tool Hub adapter.
-It does **not** mean that any tool is installed, executable, authenticated for
-tool use, or available to an AI account.
+The archived `AI_Tool_Hub_Pacote_Independente.zip` remains preserved as historical evidence only. Its SHA-256 is `f5415aabd795da2f30fcbbaca1cfb40cfb0f68a8235e5e4f36d2806f09253cee`. Its license and authorship remain unclear. The new adapters in `server/tool_adapters.py` were authored independently for this repository and do not import, copy, adapt, bundle, or execute files from that ZIP. The old package is not a runtime dependency.
 
-The five catalog entries are deliberately disabled with
-`BLOCKED_LICENSE_REVIEW`. The original package's license and rights holder
-have not been established. No source code from that package may be copied,
-adapted, bundled, or executed by this bridge until that review is resolved
-and the user authorizes use.
+## Tools and limits
 
-## Supported catalog identifiers
+| Tool | Capability | Runtime limits |
+|---|---|---|
+| `duration_timer` | Parse/format durations or return seconds | 64-character input; maximum 7 days; linear token parser |
+| `recipe_scaler` | Scale ingredient quantities | 1–100 ingredients; 100-character names; finite amounts ≤ 1,000,000; servings ≤ 10,000; units preserved (no guessed conversions) |
+| `quiz_engine` | Build quiz payload or score answers | 1–100 questions; 2–10 options/question; bounded text; no HTML rendering |
+| `svg_chart` | Produce bar/line SVG | 1–50 labels; 1–6 series; 200–2000 × 150–2000; values 0–1,000,000; XML text escaped; output ≤ 32 KiB |
+| `link_card` | Validate and normalize link metadata | URL ≤ 2048; HTTP(S) only; no credentials; local/private/reserved IPs and legacy IPv4 spellings rejected; **no title fetch or network request** |
 
-- `duration_timer`
-- `recipe_scaler`
-- `quiz_engine`
-- `svg_chart`
-- `link_card`
+The implementation is local and synchronous. It does not access network, filesystem, shell, browser DOM, external processes, or credentials. The link-card adapter returns structured metadata, not executable HTML. The SVG renderer emits a fixed element/attribute set and escapes all user-provided text.
 
-These identifiers are stable names only. They are not proof that an adapter
-or a tool-specific input/output schema exists.
+## API
 
-## Contract files
-
-- `registry/tool-hub/catalog.json`: current five-tool catalog and explicit
-  disabled state.
-- `registry/tool-hub/catalog.schema.json`: catalog shape.
-- `registry/tool-hub/tool-invocation.schema.json`: generic invocation
-  envelope; it is not a substitute for a tool-specific input schema.
-- `registry/tool-hub/tool-result.schema.json`: stable result/error envelope.
-- `server/tool_permissions.py`: deny-by-default, per-principal `TOOL_USE` grants with durable SQLite-backed grant/revoke/list operations.
-- `server/tool_admin_auth.py`: separate administrator bearer authentication; requires `TOOL_HUB_ADMIN_TOKEN` with at least 32 characters.
-- `server/tool_hub.py`: strict catalog loader, authenticated-principal discovery filtering, and fail-closed invocation gate; it deliberately has no executor.
-- `server/test_tool_hub.py`, `server/test_tool_hub_http.py`, `server/test_tool_permission_store.py`, and `server/test_tool_admin_auth.py`: service, HTTP, persistence, and administrator-auth regression tests.
-
-## Required request identity and authorization
-
-1. Authenticate the bearer credential at the server boundary.
-2. Derive the caller AI identity from the authenticated principal. Never trust
-   a caller-supplied `aiId`, `senderAiId`, or role in the request body.
-3. Require a separate explicit `TOOL_USE` grant for that exact principal.
-   Messenger membership, `CONNECT`, `JOIN_ROOM`, and `SEND_MESSAGE` do not
-   imply `TOOL_USE`.
-4. Require that the requested tool is present in the catalog and has
-   `enabled: true` and status `READY`.
-5. Validate the complete request against the generic envelope and the
-   selected tool's versioned input schema before execution.
-6. Recheck authorization and enabled status at invocation time; discovery
-   visibility is not an authorization token.
-
-AI tool grants and append-only grant/revoke audit events are stored in the Messenger SQLite database (schema v3) and survive process/store recreation. Grants remain deny-by-default. Grant management uses a separate administrator bearer token configured through `TOOL_HUB_ADMIN_TOKEN` (minimum 32 characters); it is never the AI bearer token. If the variable is absent or weak, administrative routes fail closed with 503. The HTTP layer derives the AI identity from the authenticated AI bearer principal; request-body identity claims are not accepted for Tool Hub authorization.
-
-## HTTP surface (implemented deny-only boundary)
-
-- `GET /v1/tools/capabilities`: implemented; authenticates the bearer token,
-  derives the principal server-side, and returns only tools with an explicit
-  `TOOL_USE` grant and `enabled: true` plus status `READY`. Current response
-  is empty because all five catalog records are blocked and no grants are
-  provisioned by default.
-- `GET /v1/admin/tool-permissions`: administrator-only listing of durable grants.
-- `GET /v1/admin/tool-permissions/audit`: administrator-only read of durable grant/revoke audit history.
-- `POST /v1/admin/tool-permissions`: administrator-only grant creation/update using a principal AI ID and tool ID.
+- `GET /v1/tools/capabilities`: authenticated AI identity derived from bearer principal; only explicitly granted READY tools are returned, including their versioned input/output JSON Schemas.
+- `POST /v1/tools/{toolId}/invoke`: authenticated, authorized invocation. JSON body:
+  `{"requestId":"<UUID>","toolVersion":"1.0.0","input":{...}}`.
+- `POST /v1/admin/tool-permissions`: administrator-only grant; body `{"principalAiId":"AI-01","toolId":"duration_timer"}`.
 - `DELETE /v1/admin/tool-permissions/{principalAiId}/{toolId}`: administrator-only revocation.
-  Admin routes use a separate `TOOL_HUB_ADMIN_TOKEN`, constant-time bearer comparison, rate limiting, and audit events. No default admin token is created or committed.
-- `POST /v1/tools/{toolId}/invoke`: route and authorization gate implemented.
-  Missing grants return 403; unknown IDs return 404; blocked/disabled tools
-  return 409. If a tool were marked READY, the current service still returns
-  501 because no executor/adapter exists. The endpoint does not parse or run
-  a tool payload and cannot execute any tool.
+- `GET /v1/admin/tool-permissions` and `/audit`: administrator-only grant/audit inspection.
 
-AI discovery/invocation and admin routes use the existing in-memory sliding-window limiter (60 requests/minute by default). Permission data is durable, but the limiter is not. This is not per-tool production quotas, a deployed endpoint, or proof of live AI clients.
+The HTTP layer never trusts caller-supplied AI identity. It obtains the principal from the authenticated bearer token. Messenger room membership does not grant `TOOL_USE`. Grants are durable in SQLite and audit events are append-only. The administrator bearer is separate from AI credentials and configured via `TOOL_HUB_ADMIN_TOKEN`; it must not be committed or shared with agents.
 
-## Bounds and execution requirements
+## Validation and error behavior
 
-- Request body maximum: 32 KiB, enforced before JSON parsing.
-- Invocation deadline: 1–30,000 ms; server-side deadline is authoritative.
-- Tool-specific limits must be explicit in each tool schema and adapter.
-- Rate limiting must be per authenticated principal and per tool; a client
-  cannot select or reset its own quota.
-- Reject unknown fields, invalid types, oversized arrays/strings, and
-  unsupported versions. Do not silently coerce or discard malformed values.
-- No network access, filesystem access, shell execution, or DOM automation
-  unless a separately reviewed capability explicitly grants it.
-- Treat tool output as untrusted data. Render text with safe text APIs; never
-  inject tool output as HTML. SVG output requires XML parsing, element and
-  attribute allowlists, size limits, and rejection of active/external content.
-- Never include bearer tokens, session tokens, passwords, or raw credentials
-  in logs, errors, correlation metadata, or tool inputs.
+- Request body maximum: 10,000 bytes, checked before JSON parsing.
+- Sliding-window limit: 60 requests/minute per authenticated principal and tool (in-memory limiter; resets on process restart).
+- Tool version must exactly match the catalog version.
+- Unknown fields and invalid values are rejected by strict adapter input validators.
+- Result JSON is finite and bounded to 32 KiB.
+- Errors use stable codes such as `INVALID_REQUEST`, `INVALID_FORMAT`, `OUT_OF_RANGE`, `UNKNOWN_UNIT`, `INVALID_QUIZ`, `INVALID_ANSWERS`, `INVALID_SPEC`, `INVALID_SIZE`, `INVALID_URL`, and `OUTPUT_TOO_LARGE`.
+- No request payload, token, password, or credential is written to audit metadata.
 
-## Result and error contract
+## AI-01 / AI-02 provisioning plan
 
-A result carries `requestId`, `toolId`, and one status:
-`SUCCEEDED`, `REJECTED`, `FAILED`, or `TIMED_OUT`. Failure responses use
-stable machine-readable error codes from
-`tool-result.schema.json`; internal exception messages and stack traces are
-not returned to callers.
+After deployment and confirmation that the configured bearer principals really map to logical AI-01 and AI-02, an owner-controlled administrator must create these exact grants:
 
-## Current implementation boundary
+| Principal | Tool IDs |
+|---|---|
+| AI-01 | duration_timer, recipe_scaler, quiz_engine, svg_chart, link_card |
+| AI-02 | duration_timer, recipe_scaler, quiz_engine, svg_chart, link_card |
 
-Implemented in this branch:
-- catalog and generic JSON Schema files;
-- explicit disabled records for the five tool IDs;
-- durable SQLite-backed `TOOL_USE` grants with administrator grant/list/revoke routes;
-- separate fail-closed administrator bearer authentication and append-only durable grant/revoke audit history;
-- schema v2/v3 migrations with read-only recovery compatibility;
-- authenticated capability discovery and deny-only invocation;
-- regression tests for authorization, admin auth, persistence, and HTTP routes;
-- this contract document.
+This is ten independent grants via `POST /v1/admin/tool-permissions`, each with `{"principalAiId":"AI-01","toolId":"duration_timer"}` (substitute the row's principal and tool). Verify with `GET /v1/admin/tool-permissions`, then test `GET /v1/tools/capabilities` using each agent's own bearer credential. Never give the administrator token to an agent. Do not provision until `MESSENGER_AI_ID_A` and `MESSENGER_AI_ID_B` have been checked against the intended AI-01/AI-02 mapping; the server accepts configured IDs such as AI-GPT6 or AI-CLAUDE, so labels must not be assumed.
 
-Not implemented:
-- source-license approval or source provenance decision;
-- tool-specific schemas and adapters/executors;
-- production-grade admin identity provider/rotation workflow and per-tool quotas;
-- sandboxing, output sanitization, and Android UI wiring.
+## Remaining integration boundaries
 
-Until license approval, tool-specific schemas, reviewed adapters, and explicit
-grants are implemented, the five tools remain unavailable. No invocation can
-reach executable code in the current implementation.
+- Tool adapters and API are implemented in this branch, but CI must pass before claiming verified readiness.
+- No default grants have been created for AI-01 or AI-02. Each of the ten grants (five tools × two agents) must be provisioned through the administrator API in the deployed database.
+- Android `MessengerHttpClient` exposes authenticated capability discovery and invocation methods using the configured agent credential. The autonomous agent decision/orchestration loop and Android UI for selecting/observing tools are not yet wired.
+- The API is not deployed and no live AI client/device invocation is claimed.
+- No merge or deployment is included.
