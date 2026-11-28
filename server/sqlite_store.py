@@ -67,32 +67,6 @@ class SQLiteMessengerStore:
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','2')")
             self._connection.commit()
 
-
-    def grant_tool_permission(self, principal_ai_id: str, tool_id: str,
-                              granted_by: str, granted_at: str):
-        self._connection.execute(
-            """INSERT INTO tool_permissions(principal_ai_id,tool_id,granted_by,granted_at)
-               VALUES(?,?,?,?)
-               ON CONFLICT(principal_ai_id,tool_id)
-               DO UPDATE SET granted_by=excluded.granted_by, granted_at=excluded.granted_at""",
-            (principal_ai_id, tool_id, granted_by, granted_at),
-        )
-        self._connection.commit()
-
-    def revoke_tool_permission(self, principal_ai_id: str, tool_id: str) -> bool:
-        cursor = self._connection.execute(
-            "DELETE FROM tool_permissions WHERE principal_ai_id=? AND tool_id=?",
-            (principal_ai_id, tool_id),
-        )
-        self._connection.commit()
-        return cursor.rowcount > 0
-
-    def load_tool_permissions(self):
-        return self._connection.execute(
-            """SELECT principal_ai_id,tool_id,granted_by,granted_at
-               FROM tool_permissions ORDER BY principal_ai_id,tool_id"""
-        ).fetchall()
-
         if version < 3:
             self._connection.executescript("""
                 CREATE TABLE IF NOT EXISTS tool_permission_audit (
@@ -109,6 +83,63 @@ class SQLiteMessengerStore:
             """)
             self._connection.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version','3')")
             self._connection.commit()
+
+
+
+    def grant_tool_permission(self, principal_ai_id: str, tool_id: str,
+                              granted_by: str, granted_at: str):
+        self._connection.execute("BEGIN")
+        try:
+            self._connection.execute(
+                """INSERT INTO tool_permissions(principal_ai_id,tool_id,granted_by,granted_at)
+                   VALUES(?,?,?,?)
+                   ON CONFLICT(principal_ai_id,tool_id)
+                   DO UPDATE SET granted_by=excluded.granted_by, granted_at=excluded.granted_at""",
+                (principal_ai_id, tool_id, granted_by, granted_at),
+            )
+            self._connection.execute(
+                """INSERT INTO tool_permission_audit
+                   (action,principal_ai_id,tool_id,actor_id,occurred_at,grant_existed)
+                   VALUES('GRANT',?,?,?,?,1)""",
+                (principal_ai_id, tool_id, granted_by, granted_at),
+            )
+            self._connection.commit()
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def revoke_tool_permission(self, principal_ai_id: str, tool_id: str,
+                                revoked_by: str, revoked_at: str) -> bool:
+        self._connection.execute("BEGIN")
+        try:
+            cursor = self._connection.execute(
+                "DELETE FROM tool_permissions WHERE principal_ai_id=? AND tool_id=?",
+                (principal_ai_id, tool_id),
+            )
+            existed = cursor.rowcount > 0
+            self._connection.execute(
+                """INSERT INTO tool_permission_audit
+                   (action,principal_ai_id,tool_id,actor_id,occurred_at,grant_existed)
+                   VALUES('REVOKE',?,?,?,?,?)""",
+                (principal_ai_id, tool_id, revoked_by, revoked_at, int(existed)),
+            )
+            self._connection.commit()
+            return existed
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def load_tool_permission_audit(self):
+        return self._connection.execute(
+            """SELECT audit_id,action,principal_ai_id,tool_id,actor_id,occurred_at,grant_existed
+               FROM tool_permission_audit ORDER BY audit_id"""
+        ).fetchall()
+
+    def load_tool_permissions(self):
+        return self._connection.execute(
+            """SELECT principal_ai_id,tool_id,granted_by,granted_at
+               FROM tool_permissions ORDER BY principal_ai_id,tool_id"""
+        ).fetchall()
 
     def close(self):
         self._connection.close()
