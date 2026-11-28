@@ -38,7 +38,10 @@ class ToolHubServiceTest(unittest.TestCase):
         self.assertEqual(self.service.discover("AI-A"), {"tools": []})
 
     def test_discovery_filters_by_exact_principal_grant(self):
-        self.catalog["tools"][0].update({"status": "READY", "enabled": True})
+        self.catalog["tools"][0].update({"status": "READY", "enabled": True,
+                                         "inputSchemaRef": "schemas/duration_timer.input.schema.json",
+                                         "outputSchemaRef": "schemas/duration_timer.output.schema.json"})
+        self.catalog["status"] = "PARTIALLY_BLOCKED"
         self.write_catalog()
         service = ToolHubService(self.path, self.permissions)
         self.assertEqual([x["toolId"] for x in service.discover("AI-A")], ["duration_timer"])
@@ -75,6 +78,46 @@ class ToolHubServiceTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ToolHubService(self.path, self.permissions)
 
+
+
+    def test_catalog_rejects_enabled_blocked_tool(self):
+        self.catalog["tools"][0]["enabled"] = True
+        self.write_catalog()
+        with self.assertRaisesRegex(ValueError, "blocked_tool_must_not_be_enabled"):
+            ToolHubService(self.path, self.permissions)
+
+    def test_catalog_rejects_ready_tool_without_schema_references(self):
+        self.catalog["tools"][0].update({"status": "READY", "enabled": True})
+        self.catalog["status"] = "PARTIALLY_BLOCKED"
+        self.write_catalog()
+        with self.assertRaisesRegex(ValueError, "ready_tool_requires_schemas"):
+            ToolHubService(self.path, self.permissions)
+
+    def test_catalog_rejects_schema_path_traversal(self):
+        self.catalog["tools"][0].update({
+            "status": "READY", "enabled": True,
+            "inputSchemaRef": "../outside.schema.json",
+            "outputSchemaRef": "schemas/output.schema.json",
+        })
+        self.catalog["status"] = "PARTIALLY_BLOCKED"
+        self.write_catalog()
+        with self.assertRaisesRegex(ValueError, "ready_tool_requires_schemas"):
+            ToolHubService(self.path, self.permissions)
+
+    def test_catalog_rejects_inconsistent_top_level_status(self):
+        self.catalog["status"] = "READY"
+        self.write_catalog()
+        with self.assertRaisesRegex(ValueError, "catalog_status_mismatch"):
+            ToolHubService(self.path, self.permissions)
+
+    def test_catalog_rejects_non_object_document_and_invalid_version(self):
+        self.path.write_text("[]", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "invalid_tool_catalog"):
+            ToolHubService(self.path, self.permissions)
+        self.catalog["catalogVersion"] = 2
+        self.write_catalog()
+        with self.assertRaisesRegex(ValueError, "unsupported_tool_catalog_version"):
+            ToolHubService(self.path, self.permissions)
 
 if __name__ == "__main__":
     unittest.main()
