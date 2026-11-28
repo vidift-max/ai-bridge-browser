@@ -1,0 +1,5 @@
+solicitação 
+cd /home/claude/AI_Tool_Hub_Package && node --test 05_Testes/js/*.test.js 2>&1 | grep -E "^(not ok|# (tests|pass|fail))|^    not ok|error:|expected|actual" | head -40
+
+respostas
+{"returncode":0,"stdout":"# tests 26\n# pass 26\n# fail 0\n","stderr":""}

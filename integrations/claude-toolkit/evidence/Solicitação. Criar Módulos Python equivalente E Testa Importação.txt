@@ -1,0 +1,540 @@
+cd /home/claude/AI_Tool_Hub_Package/01_Ferramentas_Exportaveis/python/ai_tool_hub
+cat > errors.py <<'EOF'
+"""Erros e utilitários comuns do AI Tool Hub (implementação original e independente)."""
+import html
+import math
+import re
+
+VERSION = "0.1.0"
+
+
+class ToolError(Exception):
+    """Erro com código estável (ex.: INVALID_FORMAT) para tratamento programático."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def escape_xml(value):
+    return html.escape(str(value), quote=True).replace("&#x27;", "&#39;")
+
+
+def clean_text(value):
+    text = re.sub(r"[\x00-\x1f\x7f]", " ", str(value))
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def is_number(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def round_half_up(value, digits):
+    """Mesmo arredondamento de Math.round do JavaScript (para valores >= 0)."""
+    p = 10 ** digits
+    return math.floor(value * p + 0.5) / p
+EOF
+
+cat > duration_timer.py <<'EOF'
+"""Ferramenta 1 — duration_timer: interpreta/formata durações e controla um cronômetro regressivo.
+
+Não emite som nem notificação; apenas calcula estado e tempo restante.
+"""
+import re
+import time
+
+from .errors import ToolError, is_number
+
+MAX_SECONDS = 7 * 24 * 3600
+_UNIT_SECONDS = {"d": 86400, "h": 3600, "m": 60, "s": 1}
+
+
+def _check_range(total):
+    if total < 0 or total > MAX_SECONDS:
+        raise ToolError("OUT_OF_RANGE", f"A duração deve estar entre 0 e {MAX_SECONDS} segundos (7 dias).")
+    return round(total * 1000) / 1000
+
+
+def parse_duration(value):
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if not is_number(value) or value < 0:
+            raise ToolError("INVALID_FORMAT", "Número de segundos inválido.")
+        return _check_range(value)
+    if not isinstance(value, str):
+        raise ToolError("INVALID_FORMAT", "A duração deve ser texto ou número.")
+    text = value.strip().lower()
+    if text == "":
+        raise ToolError("EMPTY_INPUT", "Informe uma duração.")
+    m = re.fullmatch(r"(\d+):([0-5]?\d)(?::([0-5]?\d))?", text)
+    if m:
+        if m.group(3) is not None:
+            total = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
+        else:
+            total = int(m.group(1)) * 60 + int(m.group(2))
+        return _check_range(total)
+    if re.fullmatch(r"\d+(\.\d+)?", text):
+        return _check_range(float(text))
+    seen = set()
+    total = 0.0
+    consumed = 0
+    for tok in re.finditer(r"(\d+(?:\.\d+)?)\s*([dhms])", text):
+        if text[consumed:tok.start()].strip() != "":
+            raise ToolError("INVALID_FORMAT", f'Formato de duração não reconhecido: "{value}".')
+        if tok.group(2) in seen:
+            raise ToolError("INVALID_FORMAT", f'Unidade repetida: "{tok.group(2)}".')
+        seen.add(tok.group(2))
+        total += float(tok.group(1)) * _UNIT_SECONDS[tok.group(2)]
+        consumed = tok.end()
+    if consumed == 0 or text[consumed:].strip() != "":
+        raise ToolError("INVALID_FORMAT", f'Formato de duração não reconhecido: "{value}".')
+    return _check_range(total)
+
+
+def format_duration(seconds, style="clock"):
+    if not is_number(seconds) or seconds < 0:
+        raise ToolError("INVALID_FORMAT", "Segundos inválidos.")
+    s = int(seconds)
+    h, rem = divmod(s, 3600)
+    minutes, sec = divmod(rem, 60)
+    if style == "clock":
+        return f"{h:02d}:{minutes:02d}:{sec:02d}"
+    if style == "words":
+        d, hh = divmod(h, 24)
+        parts = []
+        if d:
+            parts.append(f"{d}d")
+        if hh:
+            parts.append(f"{hh}h")
+        if minutes:
+            parts.append(f"{minutes}m")
+        if sec or not parts:
+            parts.append(f"{sec}s")
+        return " ".join(parts)
+    raise ToolError("INVALID_FORMAT", f'Estilo desconhecido: "{style}" (use "clock" ou "words").')
+
+
+class Timer:
+    """Máquina de estados: idle -> running <-> paused -> finished. O relógio é injetável (segundos)."""
+
+    def __init__(self, total_seconds, clock=None):
+        if not is_number(total_seconds) or total_seconds <= 0:
+            raise ToolError("OUT_OF_RANGE", "O cronômetro exige duração maior que zero.")
+        _check_range(total_seconds)
+        self._total = total_seconds
+        self._clock = clock or time.monotonic
+        self._remaining = float(total_seconds)
+        self._started_at = None
+        self._status = "idle"
+
+    def _refresh(self):
+        if self._status == "running":
+            left = self._remaining - (self._clock() - self._started_at)
+            if left <= 0:
+                self._remaining = 0.0
+                self._started_at = None
+                self._status = "finished"
+
+    def _need(self, expected, action):
+        self._refresh()
+        if self._status not in expected:
+            raise ToolError("INVALID_STATE", f'Não é possível "{action}" no estado "{self._status}".')
+
+    def start(self):
+        self._need(("idle",), "start")
+        self._started_at = self._clock()
+        self._status = "running"
+
+    def pause(self):
+        self._need(("running",), "pause")
+        self._remaining -= self._clock() - self._started_at
+        self._started_at = None
+        self._status = "paused"
+
+    def resume(self):
+        self._need(("paused",), "resume")
+        self._started_at = self._clock()
+        self._status = "running"
+
+    def reset(self):
+        self._remaining = float(self._total)
+        self._started_at = None
+        self._status = "idle"
+
+    def remaining(self):
+        self._refresh()
+        if self._status == "running":
+            return max(0.0, self._remaining - (self._clock() - self._started_at))
+        return self._remaining
+
+    def state(self):
+        self._refresh()
+        return self._status
+EOF
+
+cat > recipe_scaler.py <<'EOF'
+"""Ferramenta 2 — recipe_scaler: escala receitas e converte unidades (volume US e massa).
+
+Não aplica densidade: não converte volume <-> massa.
+"""
+from .errors import ToolError, is_number, round_half_up
+
+_UNITS = {
+    "ml": ("volume", 1.0),
+    "l": ("volume", 1000.0),
+    "tsp": ("volume", 4.92892159375),
+    "tbsp": ("volume", 14.78676478125),
+    "fl_oz": ("volume", 29.5735295625),
+    "cup": ("volume", 236.5882365),
+    "g": ("mass", 1.0),
+    "kg": ("mass", 1000.0),
+    "oz": ("mass", 28.349523125),
+    "lb": ("mass", 453.59237),
+}
+_ALIASES = {
+    "milliliter": "ml", "liter": "l", "teaspoon": "tsp", "tablespoon": "tbsp", "fl oz": "fl_oz",
+    "cups": "cup", "gram": "g", "kilogram": "kg", "ounce": "oz", "pound": "lb",
+}
+
+
+def normalize_unit(unit):
+    if not isinstance(unit, str):
+        raise ToolError("UNKNOWN_UNIT", "A unidade deve ser texto.")
+    u = unit.strip().lower()
+    u = _ALIASES.get(u, u)
+    if u not in _UNITS:
+        raise ToolError("UNKNOWN_UNIT", f'Unidade desconhecida: "{unit}".')
+    return u
+
+
+def _check_amount(amount):
+    if not is_number(amount) or amount < 0:
+        raise ToolError("INVALID_AMOUNT", "A quantidade deve ser um número finito maior ou igual a zero.")
+
+
+def convert(amount, from_unit, to_unit):
+    _check_amount(amount)
+    a = normalize_unit(from_unit)
+    b = normalize_unit(to_unit)
+    if _UNITS[a][0] != _UNITS[b][0]:
+        raise ToolError("INCOMPATIBLE_UNITS",
+                        f"Não é possível converter {_UNITS[a][0]} em {_UNITS[b][0]} sem densidade.")
+    return round_half_up(amount * _UNITS[a][1] / _UNITS[b][1], 6)
+
+
+def scale_recipe(recipe, target_servings):
+    if not isinstance(recipe, dict):
+        raise ToolError("INVALID_RECIPE", "A receita deve ser um objeto.")
+    base = recipe.get("base_servings")
+    if not is_number(base) or base <= 0:
+        raise ToolError("INVALID_RECIPE", "base_servings deve ser um número positivo.")
+    ingredients = recipe.get("ingredients")
+    if not isinstance(ingredients, list) or len(ingredients) == 0:
+        raise ToolError("INVALID_RECIPE", "ingredients deve ser uma lista não vazia.")
+    if not is_number(target_servings) or target_servings <= 0:
+        raise ToolError("INVALID_SERVINGS", "A quantidade de porções deve ser um número positivo.")
+    factor = target_servings / base
+    out = []
+    for i, ing in enumerate(ingredients):
+        name = ing.get("name") if isinstance(ing, dict) else None
+        if not isinstance(name, str) or name.strip() == "":
+            raise ToolError("INVALID_RECIPE", f"Ingrediente {i} sem nome válido.")
+        _check_amount(ing.get("amount"))
+        unit = ing.get("unit")
+        unit = None if unit is None else normalize_unit(unit)
+        out.append({"name": name.strip(), "amount": round_half_up(ing["amount"] * factor, 4), "unit": unit})
+    title = recipe.get("title")
+    return {
+        "title": title if isinstance(title, str) else "",
+        "base_servings": target_servings,
+        "scale_factor": round_half_up(factor, 6),
+        "ingredients": out,
+    }
+
+
+def format_amount(value):
+    if not is_number(value):
+        raise ToolError("INVALID_AMOUNT", "Valor inválido.")
+    s = f"{value:.2f}"
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return "0" if s == "-0" else s
+EOF
+
+cat > quiz_engine.py <<'EOF'
+"""Ferramenta 3 — quiz_engine: valida quizzes de múltipla escolha e corrige respostas (local, determinístico).
+
+Não embaralha opções e não gera perguntas (isso exigiria um modelo de IA).
+"""
+from .errors import ToolError
+
+
+def _is_str(v):
+    return isinstance(v, str) and v.strip() != ""
+
+
+def validate_quiz(quiz):
+    errors = []
+    if not isinstance(quiz, dict):
+        return {"valid": False, "errors": ["O quiz deve ser um objeto."]}
+    if not _is_str(quiz.get("title")):
+        errors.append("title deve ser um texto não vazio.")
+    questions = quiz.get("questions")
+    if not isinstance(questions, list) or len(questions) == 0:
+        errors.append("questions deve ser uma lista não vazia.")
+        return {"valid": False, "errors": errors}
+    q_ids = set()
+    for i, q in enumerate(questions):
+        tag = f"Pergunta {i + 1}: "
+        if not isinstance(q, dict):
+            errors.append(tag + "deve ser um objeto.")
+            continue
+        qid = q.get("id")
+        if not _is_str(qid):
+            errors.append(tag + "id ausente ou vazio.")
+        elif qid in q_ids:
+            errors.append(tag + f'id duplicado "{qid}".')
+        else:
+            q_ids.add(qid)
+        if not _is_str(q.get("prompt")):
+            errors.append(tag + "prompt ausente ou vazio.")
+        options = q.get("options")
+        if not isinstance(options, list) or len(options) < 2:
+            errors.append(tag + "options deve ter ao menos 2 itens.")
+            continue
+        o_ids = set()
+        for j, o in enumerate(options):
+            if not isinstance(o, dict) or not _is_str(o.get("id")) or not _is_str(o.get("text")):
+                errors.append(tag + f"opção {j + 1} precisa de id e text não vazios.")
+            elif o["id"] in o_ids:
+                errors.append(tag + f'id de opção duplicado "{o["id"]}".')
+            else:
+                o_ids.add(o["id"])
+        if not _is_str(q.get("correct_option_id")) or q["correct_option_id"] not in o_ids:
+            errors.append(tag + "correct_option_id deve corresponder a uma das opções.")
+    return {"valid": len(errors) == 0, "errors": errors}
+
+
+def grade(quiz, answers):
+    check = validate_quiz(quiz)
+    if not check["valid"]:
+        raise ToolError("INVALID_QUIZ", "Quiz inválido: " + " | ".join(check["errors"]))
+    if not isinstance(answers, dict):
+        raise ToolError("INVALID_ANSWERS", "answers deve ser um objeto {idDaPergunta: idDaOpção}.")
+    known = set()
+    correct = 0
+    results = []
+    for q in quiz["questions"]:
+        known.add(q["id"])
+        selected = answers.get(q["id"])
+        answered = selected is not None
+        valid = answered and any(o["id"] == selected for o in q["options"])
+        ok = bool(valid and selected == q["correct_option_id"])
+        correct += 1 if ok else 0
+        explanation = q.get("explanation")
+        results.append({
+            "id": q["id"],
+            "answered": answered,
+            "selected": selected,
+            "selected_valid": bool(valid),
+            "is_correct": ok,
+            "correct_option_id": q["correct_option_id"],
+            "explanation": explanation if isinstance(explanation, str) else "",
+        })
+    total = len(quiz["questions"])
+    return {
+        "title": quiz["title"],
+        "total": total,
+        "correct": correct,
+        "score_percent": int((correct / total) * 1000 + 0.5) / 10,
+        "results": results,
+        "unknown_answer_ids": [k for k in answers if k not in known],
+    }
+EOF
+
+cat > svg_chart.py <<'EOF'
+"""Ferramenta 4 — svg_chart: gera gráficos de barras/linhas como texto SVG (sem bibliotecas, sem rede).
+
+Todo texto vindo do usuário é escapado. Valores devem ser >= 0.
+"""
+import math
+
+from .errors import ToolError, clean_text, escape_xml, is_number
+
+PALETTE = ["#1f6f8b", "#e07a1f", "#3a9d5d", "#8e44ad", "#c0392b", "#7f8c8d"]
+
+
+def _fmt(n):
+    s = f"{math.floor(n * 100 + 0.5) / 100:.2f}"
+    return s.rstrip("0").rstrip(".")
+
+
+def nice_max(v):
+    if v <= 0:
+        return 1
+    exp = math.floor(math.log10(v))
+    base = 10 ** exp
+    f = v / base
+    nf = 1 if f <= 1 else 2 if f <= 2 else 5 if f <= 5 else 10
+    return nf * base
+
+
+def _validate(spec):
+    if not isinstance(spec, dict):
+        raise ToolError("INVALID_SPEC", "A especificação deve ser um objeto.")
+    if spec.get("type") not in ("bar", "line"):
+        raise ToolError("INVALID_SPEC", 'type deve ser "bar" ou "line".')
+    labels = spec.get("labels")
+    if not isinstance(labels, list) or not 1 <= len(labels) <= 50:
+        raise ToolError("INVALID_SPEC", "labels deve ter entre 1 e 50 itens.")
+    for lab in labels:
+        if isinstance(lab, bool) or not isinstance(lab, (str, int, float)):
+            raise ToolError("INVALID_SPEC", "Cada label deve ser texto ou número.")
+    series = spec.get("series")
+    if not isinstance(series, list) or not 1 <= len(series) <= len(PALETTE):
+        raise ToolError("INVALID_SPEC", f"series deve ter entre 1 e {len(PALETTE)} itens.")
+    for i, s in enumerate(series):
+        if not isinstance(s, dict) or not isinstance(s.get("values"), list):
+            raise ToolError("INVALID_SPEC", f"A série {i + 1} precisa de values (lista).")
+        if len(s["values"]) != len(labels):
+            raise ToolError("LENGTH_MISMATCH",
+                            f"A série {i + 1} tem {len(s['values'])} valores, mas há {len(labels)} labels.")
+        for v in s["values"]:
+            if not is_number(v):
+                raise ToolError("INVALID_VALUE", "Os valores devem ser números finitos.")
+            if v < 0:
+                raise ToolError("NEGATIVE_VALUE", "Valores negativos não são suportados.")
+    w = spec.get("width", 640)
+    h = spec.get("height", 360)
+    ok = all(isinstance(x, int) and not isinstance(x, bool) for x in (w, h))
+    if not ok or not (200 <= w <= 2000 and 150 <= h <= 2000):
+        raise ToolError("INVALID_SIZE", "width (200–2000) e height (150–2000) devem ser inteiros.")
+    return w, h
+
+
+def render_chart(spec):
+    W, H = _validate(spec)
+    title = clean_text(spec["title"])[:120] if isinstance(spec.get("title"), str) else ""
+    series = spec["series"]
+    labels = spec["labels"]
+    multi = len(series) > 1
+    ml, mr, mt = 48, 16, (40 if title else 16)
+    mb = 40 + (24 if multi else 0)
+    pw, ph = W - ml - mr, H - mt - mb
+    max_val = max(max(s["values"]) for s in series)
+    y_max = nice_max(max_val)
+    n = len(labels)
+    group = pw / n
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
+           f'role="img" font-family="sans-serif" font-size="12">',
+           f"<title>{escape_xml(title or 'Gráfico')}</title>",
+           f'<rect width="{W}" height="{H}" fill="#ffffff"/>']
+    if title:
+        out.append(f'<text x="{_fmt(W / 2)}" y="24" text-anchor="middle" font-size="16" '
+                   f'font-weight="bold" fill="#222">{escape_xml(title)}</text>')
+    for t in range(5):
+        val = (y_max / 4) * t
+        y = mt + ph - (val / y_max) * ph
+        out.append(f'<line x1="{ml}" y1="{_fmt(y)}" x2="{W - mr}" y2="{_fmt(y)}" stroke="#dddddd"/>')
+        out.append(f'<text x="{ml - 6}" y="{_fmt(y + 4)}" text-anchor="end" fill="#555">{escape_xml(_fmt(val))}</text>')
+    for i, lab in enumerate(labels):
+        lab_text = clean_text(lab if isinstance(lab, str) else _fmt(lab) if isinstance(lab, float) else lab)[:20]
+        out.append(f'<text x="{_fmt(ml + group * i + group / 2)}" y="{mt + ph + 18}" '
+                   f'text-anchor="middle" fill="#333">{escape_xml(lab_text)}</text>')
+    ns = len(series)
+    if spec["type"] == "bar":
+        bw = (group * 0.8) / ns
+        for si, s in enumerate(series):
+            for i, v in enumerate(s["values"]):
+                bh = (v / y_max) * ph
+                x = ml + group * i + group * 0.1 + bw * si
+                out.append(f'<rect x="{_fmt(x)}" y="{_fmt(mt + ph - bh)}" width="{_fmt(bw)}" '
+                           f'height="{_fmt(bh)}" fill="{PALETTE[si]}"/>')
+    else:
+        for si, s in enumerate(series):
+            pts = [(_fmt(ml + group * i + group / 2), _fmt(mt + ph - (v / y_max) * ph))
+                   for i, v in enumerate(s["values"])]
+            out.append('<polyline points="' + " ".join(f"{x},{y}" for x, y in pts) +
+                       f'" fill="none" stroke="{PALETTE[si]}" stroke-width="2"/>')
+            for x, y in pts:
+                out.append(f'<circle cx="{x}" cy="{y}" r="3" fill="{PALETTE[si]}"/>')
+    if multi:
+        for si, s in enumerate(series):
+            lx = ml + si * 110
+            name = s.get("name")
+            name = clean_text(name)[:14] if isinstance(name, str) and name.strip() else f"Série {si + 1}"
+            out.append(f'<rect x="{lx}" y="{H - 18}" width="10" height="10" fill="{PALETTE[si]}"/>')
+            out.append(f'<text x="{lx + 14}" y="{H - 9}" fill="#333">{escape_xml(name)}</text>')
+    out.append("</svg>")
+    return "\n".join(out)
+EOF
+
+cat > link_card.py <<'EOF'
+"""Ferramenta 5 — link_card: valida URL http(s) e monta cartão de link seguro (HTML escapado).
+
+NÃO acessa a internet: não busca título, imagem ou descrição da página.
+"""
+import re
+from urllib.parse import urlsplit, urlunsplit
+
+from .errors import ToolError, clean_text, escape_xml
+
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def build_link_card(data):
+    if not isinstance(data, dict) or not isinstance(data.get("url"), str) or data["url"].strip() == "":
+        raise ToolError("EMPTY_INPUT", 'Informe a URL em {"url": "..."}.')
+    raw = data["url"].strip()
+    if len(raw) > 2048:
+        raise ToolError("INVALID_URL", "URL maior que 2048 caracteres.")
+    if re.search(r"[\x00-\x20\x7f]", raw):
+        raise ToolError("INVALID_URL", "A URL não pode conter espaços ou caracteres de controle.")
+    sch = re.match(r"^([a-z][a-z0-9+.\-]*):", raw, re.IGNORECASE)
+    if not sch:
+        raise ToolError("INVALID_URL", "URL sem esquema (use http:// ou https://).")
+    scheme = sch.group(1).lower()
+    if scheme not in ("http", "https"):
+        raise ToolError("UNSUPPORTED_SCHEME", f'Esquema não permitido: "{scheme}". Apenas http e https.')
+    if not re.match(r"^https?://[^/?#]", raw, re.IGNORECASE):
+        raise ToolError("INVALID_URL", "URL sem host.")
+    try:
+        parts = urlsplit(raw)
+        port = parts.port
+        host = parts.hostname
+    except ValueError:
+        raise ToolError("INVALID_URL", "URL inválida.")
+    if not host:
+        raise ToolError("INVALID_URL", "URL sem host.")
+    if parts.username or parts.password:
+        raise ToolError("CREDENTIALS_IN_URL", "URLs com usuário ou senha embutidos são recusadas.")
+    shown_host = f"[{host}]" if ":" in host else host
+    netloc = shown_host if port is None or port == _DEFAULT_PORTS[scheme] else f"{shown_host}:{port}"
+    url = urlunsplit((scheme, netloc, parts.path or "/", parts.query, parts.fragment))
+    title = clean_text(data["title"])[:120] if isinstance(data.get("title"), str) else ""
+    desc = clean_text(data["description"])[:300] if isinstance(data.get("description"), str) else ""
+    if not title:
+        title = shown_host.strip("[]") if False else host
+    html = (f'<a class="link-card" href="{escape_xml(url)}" rel="noopener noreferrer nofollow" target="_blank">'
+            f"<strong>{escape_xml(title)}</strong><span>{escape_xml(host)}</span>"
+            + (f"<p>{escape_xml(desc)}</p>" if desc else "") + "</a>")
+    return {"url": url, "host": host, "title": title, "description": desc, "html": html}
+EOF
+sed -i 's/        title = shown_host.strip("\[\]") if False else host/        title = host/' link_card.py
+cat > __init__.py <<'EOF'
+"""AI Tool Hub — pacote independente (original). Sem dependências externas."""
+from .errors import ToolError, VERSION
+from . import duration_timer, recipe_scaler, quiz_engine, svg_chart, link_card
+
+__all__ = ["ToolError", "VERSION", "duration_timer", "recipe_scaler", "quiz_engine", "svg_chart", "link_card"]
+EOF
+cd .. && python3 -c "
+from ai_tool_hub import *
+print(duration_timer.parse_duration('1h30m'), recipe_scaler.convert(1,'cup','ml'),
+
+
+resposta
+{"returncode":0,"stdout":"5400.0 236.588237 https://example.com/a?b=1#c\n","stderr":""}
+
+
+
+ link_card.build_link_card({'url':'HTTPS://Example.COM/a?b=1#c'})['url'])"
