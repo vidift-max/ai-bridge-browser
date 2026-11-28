@@ -89,11 +89,16 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertEqual(payload["error"], "forbidden")
 
-    def test_invocation_of_blocked_tool_is_conflict_even_with_grant(self):
+    def test_authorized_agent_can_invoke_duration_timer(self):
         MessengerHandler.tool_hub.permissions.grant("AI-A", "duration_timer", "test-fixture")
-        status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
-        self.assertEqual(status, 409)
-        self.assertEqual(payload["error"], "tool_unavailable")
+        status, payload = self.request(
+            "POST", "/v1/tools/duration_timer/invoke", "token-a",
+            {"requestId": "123e4567-e89b-42d3-a456-426614174000",
+             "toolVersion": "1.0.0", "input": {"duration": "90s"}}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["status"], "SUCCEEDED")
+        self.assertEqual(payload["result"]["seconds"], 90)
         self.assertTrue(any(
             event.event_type == "TOOL_INVOCATION_ATTEMPTED"
             and event.ai_id == "AI-A"
@@ -105,13 +110,15 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertEqual(payload["error"], "tool_not_found")
 
-    def test_ready_tool_still_cannot_execute_without_adapter(self):
+    def test_ready_tool_adapter_returns_validation_error_for_bad_input(self):
         MessengerHandler.tool_hub.permissions.grant("AI-A", "duration_timer", "test-fixture")
-        service = MessengerHandler.tool_hub
-        service._catalog["duration_timer"].update({"status": "READY", "enabled": True})
-        status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
-        self.assertEqual(status, 501)
-        self.assertEqual(payload["error"], "tool_adapter_not_implemented")
+        status, payload = self.request(
+            "POST", "/v1/tools/duration_timer/invoke", "token-a",
+            {"requestId": "123e4567-e89b-42d3-a456-426614174000",
+             "toolVersion": "1.0.0", "input": {"duration": "not-a-duration"}}
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "INVALID_FORMAT")
 
 
 
@@ -126,9 +133,11 @@ class ToolHubHttpTest(unittest.TestCase):
     def test_invocation_attempts_are_rate_limited_per_principal(self):
         MessengerHandler.tool_hub.permissions.grant("AI-A", "duration_timer", "test-fixture")
         MessengerHandler.rate_limiter = SlidingWindowRateLimiter(max_events=1, window_seconds=60)
-        first_status, _ = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
-        second_status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a")
-        self.assertEqual(first_status, 409)
+        body = {"requestId": "123e4567-e89b-42d3-a456-426614174000",
+                "toolVersion": "1.0.0", "input": {"duration": "1m"}}
+        first_status, _ = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a", body)
+        second_status, payload = self.request("POST", "/v1/tools/duration_timer/invoke", "token-a", body)
+        self.assertEqual(first_status, 200)
         self.assertEqual(second_status, 429)
         self.assertEqual(payload["error"], "rate_limit_exceeded")
 
@@ -198,15 +207,16 @@ class ToolHubHttpTest(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertTrue(MessengerHandler.tool_hub.permissions.can_use("AI-A", "duration_timer"))
         self.assertFalse(MessengerHandler.tool_hub.permissions.can_use("AI-B", "duration_timer"))
-        # A grant cannot override the independently blocked catalog state.
         status, capabilities = self.request("GET", "/v1/tools/capabilities", "token-a")
         self.assertEqual(status, 200)
-        self.assertEqual(capabilities["tools"], [])
+        self.assertEqual([tool["toolId"] for tool in capabilities["tools"]], ["duration_timer"])
         status, invocation = self.request(
-            "POST", "/v1/tools/duration_timer/invoke", "token-a"
+            "POST", "/v1/tools/duration_timer/invoke", "token-a",
+            {"requestId": "123e4567-e89b-42d3-a456-426614174000",
+             "toolVersion": "1.0.0", "input": {"duration": "2m"}}
         )
-        self.assertEqual(status, 409)
-        self.assertEqual(invocation["error"], "tool_unavailable")
+        self.assertEqual(status, 200)
+        self.assertEqual(invocation["result"]["seconds"], 120)
 
 if __name__ == "__main__":
     unittest.main()
