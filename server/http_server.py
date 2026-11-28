@@ -8,6 +8,7 @@ from server.sqlite_store import SQLiteMessengerStore
 from server.identity_registry import IdentityRegistry
 from server.rate_limit import SlidingWindowRateLimiter, RateLimitExceeded
 from server.request_context import authenticate_request, bearer_token
+from server.tool_hub import ToolHubService, ToolUnavailable, ToolNotImplemented
 
 class MessengerHandler(BaseHTTPRequestHandler):
     backend=None
@@ -15,6 +16,7 @@ class MessengerHandler(BaseHTTPRequestHandler):
     rate_limiter=SlidingWindowRateLimiter()
     operational=None
     identity_registry=None
+    tool_hub=None
 
     def _auth(self):
         return bearer_token(self.headers)
@@ -74,6 +76,24 @@ class MessengerHandler(BaseHTTPRequestHandler):
             return
         parsed = urlsplit(self.path)
         parts=parsed.path.split("/")
+        if parsed.path == "/v1/tools/capabilities":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                if self.tool_hub is None:
+                    self._json(503, {"error": "tool_hub_unavailable"})
+                    return
+                result = self.tool_hub.discover(principal.ai_id)
+                self._audit(identity, "TOOL_CAPABILITIES_READ", "tool-hub",
+                            visible_count=str(len(result["tools"])))
+                self._json(200, {"principalAiId": principal.ai_id,
+                                 "correlationId": identity.correlation_id,
+                                 **result})
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            return
         if parsed.path == "/v1/me/phone":
             try:
                 identity=self._principal()
@@ -125,6 +145,27 @@ class MessengerHandler(BaseHTTPRequestHandler):
         self._json(404,{"error":"not_found"})
 
     def do_POST(self):
+        parsed = urlsplit(self.path)
+        parts = parsed.path.split("/")
+        if len(parts) == 5 and parts[1:3] == ["v1", "tools"] and parts[4] == "invoke":
+            try:
+                identity = self._principal()
+                principal = identity.principal
+                self.backend.assert_authenticated_principal(self._auth(), principal)
+                if self.tool_hub is None:
+                    self._json(503, {"error": "tool_hub_unavailable"})
+                    return
+                self.tool_hub.invoke(principal.ai_id, parts[3])
+            except PermissionError as exc:
+                self._json(401 if str(exc) == "authentication_required" else 403,
+                           self._permission_error(exc))
+            except LookupError:
+                self._json(404, {"error": "tool_not_found"})
+            except ToolUnavailable:
+                self._json(409, {"error": "tool_unavailable"})
+            except ToolNotImplemented:
+                self._json(501, {"error": "tool_adapter_not_implemented"})
+            return
         if self.path=="/v1/conversations":
             try:
                 identity=self._principal()
@@ -189,6 +230,7 @@ def serve(host="127.0.0.1",port=8080):
     backend=MessengerBackend(tokens,{"default":set(tokens.values())},store,authenticator=authenticator)
     MessengerHandler.backend=backend
     MessengerHandler.authenticator=authenticator
+    MessengerHandler.tool_hub=ToolHubService()
     identity_registry=IdentityRegistry(RuntimeConfig.storage_path())
     MessengerHandler.identity_registry=identity_registry
     from server.operational_runtime import OperationalRuntime
