@@ -3,6 +3,7 @@ package com.vidiftmax.aibridgebrowser;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.os.Bundle;
+import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
