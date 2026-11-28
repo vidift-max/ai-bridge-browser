@@ -49,9 +49,9 @@ class ToolHubService:
     def _validate_catalog(cls, document):
         if not isinstance(document, dict):
             raise ValueError("invalid_tool_catalog")
-        if document.get("catalogVersion") != 1:
+        if type(document.get("catalogVersion")) is not int or document.get("catalogVersion") != 1:
             raise ValueError("unsupported_tool_catalog_version")
-        if document.get("status") not in cls._CATALOG_STATUSES:
+        if not isinstance(document.get("status"), str) or document.get("status") not in cls._CATALOG_STATUSES:
             raise ValueError("invalid_tool_catalog_status")
         tools = document.get("tools")
         if not isinstance(tools, list) or len(tools) != len(SUPPORTED_TOOL_IDS):
@@ -67,7 +67,7 @@ class ToolHubService:
                 raise ValueError("invalid_tool_version")
             status = item.get("status")
             enabled = item.get("enabled")
-            if status not in cls._STATUSES or not isinstance(enabled, bool):
+            if not isinstance(status, str) or status not in cls._STATUSES or not isinstance(enabled, bool):
                 raise ValueError("invalid_tool_state")
             if item.get("requiredPermission") != "TOOL_USE":
                 raise ValueError("invalid_tool_permission_contract")
