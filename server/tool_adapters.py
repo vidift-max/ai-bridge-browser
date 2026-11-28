@@ -156,7 +156,7 @@ def quiz_engine(payload):
     for question in normalized:
         answer = answers.get(question["id"])
         valid_ids = {option["id"] for option in question["options"]}
-        if answer is not None and answer not in valid_ids:
+        if answer is not None and (not isinstance(answer, str) or answer not in valid_ids):
             raise ToolInputError("INVALID_ANSWERS")
         correct = answer == question["correctOptionId"]
         correct_count += int(correct)
@@ -246,10 +246,14 @@ def link_card(payload):
                 raise ToolInputError("INVALID_URL")
             canonical_host = address.compressed
         except ValueError:
-            if host == "localhost" or host.endswith(".localhost") or "." not in host:
+            labels = host.split(".")
+            if host == "localhost" or host.endswith(".localhost") or len(labels) < 2:
+                raise ToolInputError("INVALID_URL")
+            # Reject legacy WHATWG IPv4 spellings (127.1, 0x7f.1, integer hosts).
+            if all(re.fullmatch(r"(?:[0-9]+|0x[0-9a-f]+)", label) for label in labels):
                 raise ToolInputError("INVALID_URL")
             if any(not label or len(label) > 63 or label.startswith("-") or label.endswith("-")
-                   or not re.fullmatch(r"[a-z0-9-]+", label) for label in host.split(".")):
+                   or not re.fullmatch(r"[a-z0-9-]+", label) for label in labels):
                 raise ToolInputError("INVALID_URL")
             canonical_host = host
         port = parts.port
