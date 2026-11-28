@@ -50,15 +50,15 @@ class ToolHubServiceTest(unittest.TestCase):
 
     def test_invocation_denies_without_tool_use(self):
         with self.assertRaises(PermissionError):
-            self.service.invoke("AI-C", "duration_timer")
+            self.service.invoke("AI-C", "duration_timer", {})
 
     def test_invocation_rejects_unknown_tool(self):
         with self.assertRaises(LookupError):
-            self.service.invoke("AI-A", "unknown_tool")
+            self.service.invoke("AI-A", "unknown_tool", {})
 
     def test_invocation_rejects_blocked_tool_even_with_grant(self):
         with self.assertRaises(ToolUnavailable):
-            self.service.invoke("AI-A", "duration_timer")
+            self.service.invoke("AI-A", "duration_timer", {})
 
     def test_ready_tool_executes_clean_room_adapter_after_authorization(self):
         self.catalog["tools"][0].update({
