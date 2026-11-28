@@ -1,0 +1,104 @@
+cd /home/claude/AI_Tool_Hub_Package/05_Testes
+cat > paridade_js_python.py <<'EOF'
+#!/usr/bin/env python3
+"""Teste de paridade: as versões JavaScript e Python devem dar a mesma resposta (ou o mesmo código de erro).
+
+Requer Node.js e Python instalados. Se o Node.js não existir, o teste é pulado (código de saída 0, aviso).
+Uso: python3 05_Testes/paridade_js_python.py
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(BASE, "01_Ferramentas_Exportaveis", "python"))
+from ai_tool_hub import duration_timer, link_card, quiz_engine, recipe_scaler, svg_chart, ToolError  # noqa: E402
+
+QUIZ = {"title": "T", "questions": [
+    {"id": "q1", "prompt": "p", "options": [{"id": "a", "text": "x"}, {"id": "b", "text": "y"}], "correct_option_id": "a"},
+    {"id": "q2", "prompt": "p", "options": [{"id": "a", "text": "x"}, {"id": "b", "text": "y"}], "correct_option_id": "b",
+     "explanation": "ok"}]}
+RECIPE = {"title": "R", "base_servings": 3, "ingredients": [
+    {"name": "A", "amount": 1.5, "unit": "cup"}, {"name": "B", "amount": 2, "unit": None}, {"name": "C", "amount": 7, "unit": "g"}]}
+
+CASES = [
+    ("durationTimer", "parseDuration", ["1h30m"]), ("durationTimer", "parseDuration", ["2:05"]),
+    ("durationTimer", "parseDuration", ["1.5h"]), ("durationTimer", "parseDuration", ["x"]),
+    ("durationTimer", "parseDuration", ["9d"]), ("durationTimer", "parseDuration", [""]),
+    ("durationTimer", "formatDuration", [3723, "words"]), ("durationTimer", "formatDuration", [3723.9]),
+    ("recipeScaler", "convert", [3, "tbsp", "ml"]), ("recipeScaler", "convert", [2.5, "lb", "kg"]),
+    ("recipeScaler", "convert", [1, "cup", "g"]), ("recipeScaler", "scaleRecipe", [RECIPE, 5]),
+    ("recipeScaler", "scaleRecipe", [RECIPE, 1]), ("recipeScaler", "scaleRecipe", [RECIPE, -1]),
+    ("recipeScaler", "formatAmount", [2.345]), ("recipeScaler", "formatAmount", [12]),
+    ("quizEngine", "validateQuiz", [QUIZ]), ("quizEngine", "grade", [QUIZ, {"q1": "a", "q2": "a", "zz": "a"}]),
+    ("quizEngine", "grade", [QUIZ, {}]), ("quizEngine", "grade", [{"title": "x"}, {}]),
+    ("svgChart", "renderChart", [{"type": "bar", "title": "T & <x>", "labels": ["a", "b", "c"],
+                                  "series": [{"name": "S1", "values": [3, 7.5, 12]}, {"name": "S2", "values": [1, 2, 3]}]}]),
+    ("svgChart", "renderChart", [{"type": "line", "labels": ["Q1", "Q2"], "series": [{"values": [0, 0.25]}],
+                                  "width": 400, "height": 200}]),
+    ("svgChart", "renderChart", [{"type": "bar", "labels": ["a"], "series": [{"values": [-1]}]}]),
+    ("linkCard", "buildLinkCard", [{"url": "https://Example.com:443/a b"}]),
+    ("linkCard", "buildLinkCard", [{"url": "https://Example.com/path?q=1#h", "title": " Olá  mundo ", "description": "d & e"}]),
+    ("linkCard", "buildLinkCard", [{"url": "http://[::1]:8080/x"}]),
+    ("linkCard", "buildLinkCard", [{"url": "ftp://x.com"}]),
+    ("linkCard", "buildLinkCard", [{"url": "https://u:p@x.com"}]),
+]
+
+PY = {"durationTimer": duration_timer, "recipeScaler": recipe_scaler, "quizEngine": quiz_engine,
+      "svgChart": svg_chart, "linkCard": link_card}
+SNAKE = {"parseDuration": "parse_duration", "formatDuration": "format_duration", "scaleRecipe": "scale_recipe",
+         "formatAmount": "format_amount", "validateQuiz": "validate_quiz", "renderChart": "render_chart",
+         "buildLinkCard": "build_link_card", "convert": "convert", "grade": "grade"}
+
+JS_RUNNER = r"""
+const hub = require(process.argv[1] + '/01_Ferramentas_Exportaveis/js/index.js');
+const cases = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const out = cases.map(([tool, fn, args]) => {
+  try { return { ok: hub[tool][fn](...args) }; }
+  catch (e) { return { error: e.code || String(e) }; }
+});
+process.stdout.write(JSON.stringify(out));
+"""
+
+
+def run_python():
+    out = []
+    for tool, fn, args in CASES:
+        try:
+            out.append({"ok": getattr(PY[tool], SNAKE[fn])(*json.loads(json.dumps(args)))})
+        except ToolError as e:
+            out.append({"error": e.code})
+    return json.loads(json.dumps(out))
+
+
+def main():
+    if not shutil.which("node"):
+        print("AVISO: Node.js não encontrado; teste de paridade pulado.")
+        return 0
+    js = json.loads(subprocess.run(["node", "-e", JS_RUNNER, BASE], input=json.dumps(CASES), text=True,
+                                   capture_output=True, check=True).stdout)
+    py = run_python()
+    bad = 0
+    for (tool, fn, args), a, b in zip(CASES, js, py):
+        if a != b:
+            bad += 1
+            print(f"DIVERGÊNCIA em {tool}.{fn}({json.dumps(args)[:80]}...)\n  JS: {json.dumps(a)[:300]}\n  PY: {json.dumps(b)[:300]}")
+    print(f"Paridade JS x Python: {len(CASES) - bad}/{len(CASES)} casos idênticos.")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+EOF
+cd .. && python3 05_Testes/paridade_js_python.py
+
+
+
+
+respostas
+DIVERGÊNCIA em linkCard.buildLinkCard([{"url": "http://[::1]:8080/x"}]...)
+  JS: {"ok": {"url": "http://[::1]:8080/x", "host": "[::1]", "title": "[::1]", "description": "", "html": "<a class=\"link-card\" href=\"http://[::1]:8080/x\" rel=\"noopener noreferrer nofollow\" target=\"_blank\"><strong>[::1]</strong><span>[::1]</span></a>"}}
+  PY: {"ok": {"url": "http://[::1]:8080/x", "host": "::1", "title": "::1", "description": "", "html": "<a class=\"link-card\" href=\"http://[::1]:8080/x\" rel=\"noopener noreferrer nofollow\" target=\"_blank\"><strong>::1</strong><span>::1</span></a>"}}
+Paridade JS x Python: 27/28 casos idênticos.

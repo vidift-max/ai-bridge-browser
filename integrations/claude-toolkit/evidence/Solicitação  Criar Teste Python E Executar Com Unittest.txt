@@ -1,0 +1,300 @@
+cd /home/claude/AI_Tool_Hub_Package/05_Testes/python
+cat > _helpers.py <<'EOF'
+import os
+import sys
+import unittest
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "01_Ferramentas_Exportaveis", "python"))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+from ai_tool_hub import ToolError  # noqa: E402
+
+
+class Base(unittest.TestCase):
+    def assertCode(self, code, fn, *args, **kwargs):
+        with self.assertRaises(ToolError) as ctx:
+            fn(*args, **kwargs)
+        self.assertEqual(ctx.exception.code, code)
+EOF
+cat > test_duration_timer.py <<'EOF'
+from _helpers import Base
+from ai_tool_hub import duration_timer as dt
+
+
+class TestParse(Base):
+    def test_formatos_validos(self):
+        for text, expected in [("90", 90), ("5m", 300), ("1h30m", 5400), ("2m 30s", 150), ("1:30", 90),
+                               ("1:02:03", 3723), ("1d", 86400), (45, 45), ("  10S ", 10)]:
+            self.assertEqual(dt.parse_duration(text), expected, text)
+
+    def test_erros(self):
+        self.assertCode("EMPTY_INPUT", dt.parse_duration, "")
+        for bad in ["abc", "5m5m", "5x", "1:75"]:
+            self.assertCode("INVALID_FORMAT", dt.parse_duration, bad)
+        for bad in [-1, float("nan"), None, True]:
+            self.assertCode("INVALID_FORMAT", dt.parse_duration, bad)
+        self.assertCode("OUT_OF_RANGE", dt.parse_duration, "8d")
+
+
+class TestFormat(Base):
+    def test_format(self):
+        self.assertEqual(dt.format_duration(3723), "01:02:03")
+        self.assertEqual(dt.format_duration(0), "00:00:00")
+        self.assertEqual(dt.format_duration(3723, "words"), "1h 2m 3s")
+        self.assertEqual(dt.format_duration(0, "words"), "0s")
+        self.assertEqual(dt.format_duration(90061, "words"), "1d 1h 1m 1s")
+        self.assertCode("INVALID_FORMAT", dt.format_duration, -5)
+        self.assertCode("INVALID_FORMAT", dt.format_duration, 5, "xx")
+
+
+class TestTimer(Base):
+    def test_ciclo_completo(self):
+        t = [1000.0]
+        timer = dt.Timer(10, clock=lambda: t[0])
+        self.assertEqual(timer.state(), "idle")
+        self.assertEqual(timer.remaining(), 10)
+        timer.start()
+        t[0] += 4
+        self.assertEqual(timer.remaining(), 6)
+        timer.pause()
+        t[0] += 50
+        self.assertEqual(timer.state(), "paused")
+        self.assertEqual(timer.remaining(), 6)
+        timer.resume()
+        t[0] += 6
+        self.assertEqual(timer.remaining(), 0)
+        self.assertEqual(timer.state(), "finished")
+        timer.reset()
+        self.assertEqual(timer.state(), "idle")
+        self.assertEqual(timer.remaining(), 10)
+
+    def test_estados_invalidos(self):
+        timer = dt.Timer(5, clock=lambda: 0.0)
+        self.assertCode("INVALID_STATE", timer.pause)
+        self.assertCode("INVALID_STATE", timer.resume)
+        timer.start()
+        self.assertCode("INVALID_STATE", timer.start)
+        self.assertCode("OUT_OF_RANGE", dt.Timer, 0)
+        self.assertCode("OUT_OF_RANGE", dt.Timer, "5")
+EOF
+cat > test_recipe_scaler.py <<'EOF'
+import copy
+
+from _helpers import Base
+from ai_tool_hub import recipe_scaler as rs
+
+
+def recipe():
+    return {"title": "Panqueca", "base_servings": 4, "ingredients": [
+        {"name": "Farinha", "amount": 2, "unit": "cup"},
+        {"name": "Ovos", "amount": 2, "unit": None},
+        {"name": "Leite", "amount": 500, "unit": "ml"}]}
+
+
+class TestConvert(Base):
+    def test_validas(self):
+        self.assertEqual(rs.convert(1, "cup", "ml"), 236.588237)
+        self.assertEqual(rs.convert(1, "tbsp", "tsp"), 3)
+        self.assertEqual(rs.convert(1, "kg", "g"), 1000)
+        self.assertEqual(rs.convert(1, "lb", "oz"), 16)
+        self.assertEqual(rs.convert(1, "Teaspoon", "TSP"), 1)
+        self.assertEqual(rs.convert(0, "g", "oz"), 0)
+
+    def test_erros(self):
+        self.assertCode("INCOMPATIBLE_UNITS", rs.convert, 1, "cup", "g")
+        self.assertCode("UNKNOWN_UNIT", rs.convert, 1, "xyz", "g")
+        self.assertCode("UNKNOWN_UNIT", rs.convert, 1, 5, "g")
+        self.assertCode("INVALID_AMOUNT", rs.convert, -1, "g", "kg")
+        self.assertCode("INVALID_AMOUNT", rs.convert, "1", "g", "kg")
+        self.assertCode("UNKNOWN_UNIT", rs.convert, 1, "__proto__", "g")
+
+
+class TestScale(Base):
+    def test_dobra_sem_alterar_entrada(self):
+        r = recipe()
+        out = rs.scale_recipe(r, 8)
+        self.assertEqual(out["scale_factor"], 2)
+        self.assertEqual(out["base_servings"], 8)
+        self.assertEqual([i["amount"] for i in out["ingredients"]], [4, 4, 1000])
+        self.assertIsNone(out["ingredients"][1]["unit"])
+        self.assertEqual(r, recipe())
+
+    def test_fracao(self):
+        out = rs.scale_recipe(recipe(), 1)
+        self.assertEqual(out["scale_factor"], 0.25)
+        self.assertEqual(out["ingredients"][0]["amount"], 0.5)
+
+    def test_erros(self):
+        self.assertCode("INVALID_RECIPE", rs.scale_recipe, None, 2)
+        self.assertCode("INVALID_RECIPE", rs.scale_recipe, {"base_servings": 0, "ingredients": [{"name": "a", "amount": 1}]}, 2)
+        self.assertCode("INVALID_RECIPE", rs.scale_recipe, {"base_servings": 2, "ingredients": []}, 2)
+        self.assertCode("INVALID_SERVINGS", rs.scale_recipe, recipe(), 0)
+        self.assertCode("INVALID_RECIPE", rs.scale_recipe, {"base_servings": 2, "ingredients": [{"name": "", "amount": 1}]}, 2)
+        self.assertCode("INVALID_AMOUNT", rs.scale_recipe, {"base_servings": 2, "ingredients": [{"name": "x", "amount": -1}]}, 2)
+        self.assertCode("UNKNOWN_UNIT", rs.scale_recipe, {"base_servings": 2, "ingredients": [{"name": "x", "amount": 1, "unit": "zzz"}]}, 2)
+
+    def test_format_amount(self):
+        self.assertEqual(rs.format_amount(1.5), "1.5")
+        self.assertEqual(rs.format_amount(100), "100")
+        self.assertEqual(rs.format_amount(0), "0")
+        self.assertEqual(rs.format_amount(0.333333), "0.33")
+        self.assertCode("INVALID_AMOUNT", rs.format_amount, float("nan"))
+EOF
+cat > test_quiz_engine.py <<'EOF'
+from _helpers import Base
+from ai_tool_hub import quiz_engine as qe
+
+
+def quiz():
+    return {"title": "Capitais", "questions": [
+        {"id": "q1", "prompt": "Capital da França?", "options": [{"id": "a", "text": "Paris"}, {"id": "b", "text": "Roma"}],
+         "correct_option_id": "a", "explanation": "Paris."},
+        {"id": "q2", "prompt": "Capital da Itália?", "options": [{"id": "a", "text": "Paris"}, {"id": "b", "text": "Roma"}],
+         "correct_option_id": "b"}]}
+
+
+class TestValidate(Base):
+    def test_valido(self):
+        self.assertEqual(qe.validate_quiz(quiz()), {"valid": True, "errors": []})
+
+    def test_problemas(self):
+        self.assertFalse(qe.validate_quiz(None)["valid"])
+        self.assertFalse(qe.validate_quiz({"title": "x", "questions": []})["valid"])
+        dup = quiz(); dup["questions"][1]["id"] = "q1"
+        self.assertIn("duplicado", " ".join(qe.validate_quiz(dup)["errors"]))
+        bad = quiz(); bad["questions"][0]["correct_option_id"] = "z"
+        self.assertIn("correct_option_id", " ".join(qe.validate_quiz(bad)["errors"]))
+        few = quiz(); few["questions"][0]["options"] = [{"id": "a", "text": "x"}]
+        self.assertIn("ao menos 2", " ".join(qe.validate_quiz(few)["errors"]))
+        nt = quiz(); nt["title"] = " "
+        self.assertIn("title", " ".join(qe.validate_quiz(nt)["errors"]))
+
+
+class TestGrade(Base):
+    def test_acertos_erros_nao_respondidas(self):
+        r = qe.grade(quiz(), {"q1": "a", "q2": "a"})
+        self.assertEqual((r["correct"], r["total"], r["score_percent"]), (1, 2, 50))
+        self.assertTrue(r["results"][0]["is_correct"])
+        self.assertEqual(r["results"][0]["explanation"], "Paris.")
+        self.assertFalse(r["results"][1]["is_correct"])
+        none = qe.grade(quiz(), {})
+        self.assertEqual(none["correct"], 0)
+        self.assertFalse(none["results"][0]["answered"])
+
+    def test_opcao_invalida_e_ids_desconhecidos(self):
+        r = qe.grade(quiz(), {"q1": "zzz", "extra": "a"})
+        self.assertFalse(r["results"][0]["selected_valid"])
+        self.assertFalse(r["results"][0]["is_correct"])
+        self.assertEqual(r["unknown_answer_ids"], ["extra"])
+
+    def test_erros_e_arredondamento(self):
+        self.assertCode("INVALID_QUIZ", qe.grade, {"title": "x"}, {})
+        self.assertCode("INVALID_ANSWERS", qe.grade, quiz(), [])
+        self.assertCode("INVALID_ANSWERS", qe.grade, quiz(), None)
+        q3 = quiz()
+        q3["questions"].append({"id": "q3", "prompt": "p", "options": [{"id": "a", "text": "x"}, {"id": "b", "text": "y"}],
+                                "correct_option_id": "a"})
+        self.assertEqual(qe.grade(q3, {"q1": "a"})["score_percent"], 33.3)
+EOF
+cat > test_svg_chart.py <<'EOF'
+import re
+
+from _helpers import Base
+from ai_tool_hub import svg_chart as sc
+
+
+def count(s, pattern):
+    return len(re.findall(pattern, s))
+
+
+class TestChart(Base):
+    def test_nice_max(self):
+        self.assertEqual(sc.nice_max(0), 1)
+        self.assertEqual(sc.nice_max(7), 10)
+        self.assertEqual(sc.nice_max(120), 200)
+        self.assertEqual(sc.nice_max(0.3), 0.5)
+        self.assertEqual(sc.nice_max(50), 50)
+
+    def test_barras(self):
+        svg = sc.render_chart({"type": "bar", "title": "Vendas", "labels": ["Jan", "Fev", "Mar"],
+                               "series": [{"name": "A", "values": [10, 20, 30]}]})
+        self.assertTrue(svg.startswith('<svg xmlns="http://www.w3.org/2000/svg"'))
+        self.assertTrue(svg.endswith("</svg>"))
+        self.assertEqual(count(svg, r"<rect x="), 3)
+        self.assertIn("<title>Vendas</title>", svg)
+        self.assertEqual(count(svg, r"<line "), 5)
+
+    def test_linhas_duas_series(self):
+        svg = sc.render_chart({"type": "line", "labels": ["a", "b"],
+                               "series": [{"name": "X", "values": [1, 2]}, {"name": "Y", "values": [2, 1]}]})
+        self.assertEqual(count(svg, r"<polyline "), 2)
+        self.assertEqual(count(svg, r"<circle "), 4)
+        self.assertIn(">X</text>", svg)
+
+    def test_escapa_texto(self):
+        svg = sc.render_chart({"type": "bar", "title": "<script>alert(1)</script>", "labels": ["<b>"],
+                               "series": [{"values": [1]}]})
+        self.assertNotIn("<script>", svg)
+        self.assertNotIn("<b>", svg)
+        self.assertIn("&lt;script&gt;", svg)
+
+    def test_zeros(self):
+        svg = sc.render_chart({"type": "bar", "labels": ["a"], "series": [{"values": [0]}]})
+        self.assertIn("<svg", svg)
+        self.assertNotIn("nan", svg.lower())
+
+    def test_erros(self):
+        ok = {"type": "bar", "labels": ["a", "b"], "series": [{"values": [1, 2]}]}
+        self.assertCode("INVALID_SPEC", sc.render_chart, None)
+        self.assertCode("INVALID_SPEC", sc.render_chart, {**ok, "type": "pie"})
+        self.assertCode("INVALID_SPEC", sc.render_chart, {**ok, "labels": []})
+        self.assertCode("INVALID_SPEC", sc.render_chart, {**ok, "series": []})
+        self.assertCode("LENGTH_MISMATCH", sc.render_chart, {**ok, "series": [{"values": [1]}]})
+        self.assertCode("NEGATIVE_VALUE", sc.render_chart, {**ok, "series": [{"values": [1, -2]}]})
+        self.assertCode("INVALID_VALUE", sc.render_chart, {**ok, "series": [{"values": [1, "x"]}]})
+        self.assertCode("INVALID_SIZE", sc.render_chart, {**ok, "width": 50})
+        self.assertCode("INVALID_SPEC", sc.render_chart, {**ok, "series": [{"values": [1, 2]}] * 7})
+EOF
+cat > test_link_card.py <<'EOF'
+from _helpers import Base
+from ai_tool_hub import link_card as lc
+
+
+class TestLinkCard(Base):
+    def test_normaliza(self):
+        r = lc.build_link_card({"url": "HTTPS://Example.COM/a?b=1#c"})
+        self.assertEqual(r["url"], "https://example.com/a?b=1#c")
+        self.assertEqual(r["host"], "example.com")
+        self.assertEqual(r["title"], "example.com")
+        self.assertEqual(lc.build_link_card({"url": "https://example.com"})["url"], "https://example.com/")
+        self.assertEqual(lc.build_link_card({"url": "https://example.com:443/x"})["url"], "https://example.com/x")
+        self.assertEqual(lc.build_link_card({"url": "http://example.com:8080/x"})["url"], "http://example.com:8080/x")
+
+    def test_html_escapado(self):
+        r = lc.build_link_card({"url": "https://example.com", "title": "<img src=x onerror=alert(1)>",
+                                "description": 'a & b "c"'})
+        self.assertNotIn("<img", r["html"])
+        self.assertIn('rel="noopener noreferrer nofollow"', r["html"])
+        self.assertIn("a &amp; b &quot;c&quot;", r["html"])
+
+    def test_esquemas_perigosos(self):
+        for url in ["javascript:alert(1)", "data:text/html,<b>x</b>", "file:///etc/passwd", "JaVaScRiPt:alert(1)"]:
+            self.assertCode("UNSUPPORTED_SCHEME", lc.build_link_card, {"url": url})
+
+    def test_outros_erros(self):
+        self.assertCode("EMPTY_INPUT", lc.build_link_card, None)
+        self.assertCode("EMPTY_INPUT", lc.build_link_card, {"url": "  "})
+        self.assertCode("INVALID_URL", lc.build_link_card, {"url": "example.com"})
+        self.assertCode("INVALID_URL", lc.build_link_card, {"url": "https://exa mple.com"})
+        self.assertCode("INVALID_URL", lc.build_link_card, {"url": "https:///x"})
+        self.assertCode("CREDENTIALS_IN_URL", lc.build_link_card, {"url": "https://user:pw@example.com/"})
+        self.assertCode("INVALID_URL", lc.build_link_card, {"url": "https://example.com/" + "a" * 2100})
+EOF
+cd /home/claude/AI_Tool_Hub_Package/05_Testes/python && python3 -m unittest discover -v 2>&1 | tail -45
+
+
+
+
+respostas
+{"returncode":0,"stdout":"test_format (test_duration_timer.TestFormat.test_format) ... ok\ntest_erros (test_duration_timer.TestParse.test_erros) ... ok\ntest_formatos_validos (test_duration_timer.TestParse.test_formatos_validos) ... ok\ntest_ciclo_completo (test_duration_timer.TestTimer.test_ciclo_completo) ... ok\ntest_estados_invalidos (test_duration_timer.TestTimer.test_estados_invalidos) ... ok\ntest_esquemas_perigosos (test_link_card.TestLinkCard.test_esquemas_perigosos) ... ok\ntest_html_escapado (test_link_card.TestLinkCard.test_html_escapado) ... ok\ntest_normaliza (test_link_card.TestLinkCard.test_normaliza) ... ok\ntest_outros_erros (test_link_card.TestLinkCard.test_outros_erros) ... ok\ntest_acertos_erros_nao_respondidas (test_quiz_engine.TestGrade.test_acertos_erros_nao_respondidas) ... ok\ntest_erros_e_arredondamento (test_quiz_engine.TestGrade.test_erros_e_arredondamento) ... ok\ntest_opcao_invalida_e_ids_desconhecidos (test_quiz_engine.TestGrade.test_opcao_invalida_e_ids_desconhecidos) ... ok\ntest_problemas (test_quiz_engine.TestValidate.test_problemas) ... ok\ntest_valido (test_quiz_engine.TestValidate.test_valido) ... ok\ntest_erros (test_recipe_scaler.TestConvert.test_erros) ... ok\ntest_validas (test_recipe_scaler.TestConvert.test_validas) ... ok\ntest_dobra_sem_alterar_entrada (test_recipe_scaler.TestScale.test_dobra_sem_alterar_entrada) ... ok\ntest_erros (test_recipe_scaler.TestScale.test_erros) ... ok\ntest_format_amount (test_recipe_scaler.TestScale.test_format_amount) ... ok\ntest_fracao (test_recipe_scaler.TestScale.test_fracao) ... ok\ntest_barras (test_svg_chart.TestChart.test_barras) ... ok\ntest_erros (test_svg_chart.TestChart.test_erros) ... ok\ntest_escapa_texto (test_svg_chart.TestChart.test_escapa_texto) ... ok\ntest_linhas_duas_series (test_svg_chart.TestChart.test_linhas_duas_series) ... ok\ntest_nice_max (test_svg_chart.TestChart.test_nice_max) ... ok\ntest_zeros (test_svg_chart.TestChart.test_zeros) ... ok\n\n----------------------------------------------------------------------\nRan 26 tests in 0.002s\n\nOK\n","stderr":""}
